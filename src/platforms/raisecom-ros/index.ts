@@ -210,6 +210,7 @@ export class RaisecomRos extends Platform {
         // Only LAGs and VLAN interfaces are built here.
         for (const { name, kind } of interfaces) {
             if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
+            else if (kind === "pseudowire") found.push(`interfaces.pseudowire.${name}, a pseudowire, not built yet`);
             else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
         }
 
@@ -219,6 +220,7 @@ export class RaisecomRos extends Platform {
             if (routing?.[field]) found.push(`routing.${field}`);
         }
         if (routing?.mpls) found.push("routing.mpls, not built yet");
+        for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
 
         const ospf = routing?.ospf;
         if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");

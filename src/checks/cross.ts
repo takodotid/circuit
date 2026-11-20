@@ -37,6 +37,7 @@ export class CrossChecks {
             ...CrossChecks.sessions(devices, owners),
             ...CrossChecks.vrrp(holders),
             ...CrossChecks.tunnels(devices, owners),
+            ...CrossChecks.pseudowires(devices),
         ];
     }
 
@@ -317,6 +318,36 @@ export class CrossChecks {
         }
 
         return findings;
+    }
+
+    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` (RFC 8077). */
+    private static pseudowires(devices: readonly Device[]): Finding[] {
+        const byLsrId = new Map(
+            devices.flatMap((device) => {
+                const lsrId = device.routing?.mpls?.ldp?.lsr_id;
+                return lsrId ? [[lsrId, device] as const] : [];
+            })
+        );
+
+        return devices.flatMap((device) => {
+            const own = device.routing?.mpls?.ldp?.lsr_id;
+            return Object.entries(device.interfaces?.pseudowire ?? {}).flatMap(([name, pseudowire]): Finding[] => {
+                const far = pseudowire && own ? byLsrId.get(pseudowire.peer) : undefined;
+                if (!pseudowire || !far || far === device) return [];
+
+                const back = Object.values(far.interfaces?.pseudowire ?? {}).some(
+                    (other) => other?.peer === own && other?.pw_id === pseudowire.pw_id
+                );
+                if (back) return [];
+                return [
+                    {
+                        level: "error",
+                        device: device.name,
+                        message: `interfaces.pseudowire.${name}: ${pseudowire.peer} is ${far.name}'s LSR ID, and ${far.name} has no pseudowire to ${own} with pw_id ${pseudowire.pw_id}. Write one there, or fix peer and pw_id here`,
+                    },
+                ];
+            });
+        });
     }
 
     /** A GRE, VXLAN, or IPsec tunnel to another of our devices has a tunnel back there, with the endpoints mirrored. VXLAN's has the same VNI and port, and IPsec's the same algorithms. */

@@ -56,7 +56,7 @@ Your AS in two regions, each a member AS of a BGP confederation with its own iBG
 
 ## An MPLS core
 
-Two provider edge routers, one in each point of presence. IS-IS carries their loopbacks, and LDP gives each loopback a label, so traffic between them crosses the core by label.
+Two provider edge routers, one in each point of presence. IS-IS carries their loopbacks, and LDP gives each loopback a label, so traffic between them crosses the core by label. A bank has an office at each router, in its VRF `bank`. The two VRFs share a route target, and iBGP between the loopbacks carries their routes as VPN routes (L3VPN, RFC 4364). A clinic's two sites share one Ethernet segment: each site's port is in the VLAN `clinic` with a pseudowire to the other router (VPWS).
 
 ::: code-group
 

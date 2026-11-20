@@ -213,7 +213,7 @@ export class FortiOsRouting {
 
     /** The families a session carries: its own, or the family of its address. */
     static familiesOfNeighbor(device: Device, neighbor: Neighbor): Family[] {
-        return [...(FortiOsRouting.neighborSettings(device, neighbor).address_families ?? [Address.family(neighbor.address)])];
+        return Derive.unicastFamilies(FortiOsRouting.neighborSettings(device, neighbor), neighbor.address);
     }
 
     /** The prefixes a set lists, from a list or a map of named prefixes; undefined for a set a registry fills. */

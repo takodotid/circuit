@@ -10,9 +10,11 @@ import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 import { IpsecChecks } from "./ipsec";
 import { IsisChecks } from "./isis";
+import { L3vpnChecks } from "./l3vpn";
 import { RateLimitChecks } from "./rate-limit";
 import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
+import { PseudowireChecks } from "./pseudowire";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
@@ -108,6 +110,8 @@ export class DeviceChecks {
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
         MplsChecks.check(device, report);
+        L3vpnChecks.check(device, report);
+        PseudowireChecks.check(device, report);
         NatChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
@@ -767,7 +771,7 @@ export class DeviceChecks {
         const sessions = Object.values(bgp?.neighbors ?? {}).map((neighbor) => {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
             const settings = { ...group, ...neighbor };
-            return { ...settings, families: settings.address_families ?? [Address.family(neighbor.address)] };
+            return { ...settings, families: Derive.unicastFamilies(settings, neighbor.address) };
         });
 
         for (const { prefix } of bgp?.aggregates ?? []) {

@@ -448,7 +448,19 @@ export class Project {
 
     /** Every name a device refers to is one it declares. The editor checks the same, and this catches what reaches the device as a plain `string`. */
     private static checkNames(name: string, d: Json): void {
-        const kinds = ["ethernet", "lag", "vlan_interface", "bridge", "loopback", "gre", "vxlan", "ipsec", "wireguard", "eoip"];
+        const kinds = [
+            "ethernet",
+            "lag",
+            "vlan_interface",
+            "bridge",
+            "loopback",
+            "gre",
+            "vxlan",
+            "ipsec",
+            "wireguard",
+            "eoip",
+            "pseudowire",
+        ];
 
         // An interface's name is one interface: a rule or a route that uses it would otherwise not say which.
         const groupsOf = new Map<string, string[]>();

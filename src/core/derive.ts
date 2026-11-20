@@ -7,6 +7,7 @@ import type {
     AdvertisedPrefix,
     AsNumbers,
     AsRange,
+    BgpFamily,
     Device,
     Dhcpv6Server,
     Family,
@@ -110,6 +111,7 @@ export class Derive {
         "ipsec",
         "wireguard",
         "eoip",
+        "pseudowire",
     ];
 
     /** Fields a platform renders only once they are tested on one of its devices. */
@@ -119,8 +121,8 @@ export class Derive {
         ["bound_to", "port-binding"],
     ] as const;
 
-    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge doesn't route. */
-    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge"];
+    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge or a pseudowire doesn't route. */
+    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge", "pseudowire"];
 
     /** Bits per second in each unit a `Rate` takes. */
     static readonly RATE_UNITS = { k: 1e3, M: 1e6, G: 1e9 } as const;
@@ -297,6 +299,37 @@ export class Derive {
         return numbers;
     }
 
+    /** The `ipv4` and `ipv6` routes a BGP session carries: the families it states, or its address's when it states none. A VPN family is left out. */
+    static unicastFamilies(settings: Pick<NeighborSettings, "address_families">, address: string): Family[] {
+        const families = settings.address_families ?? [Address.family(address)];
+        return families.filter((family): family is Family => family === "ipv4" || family === "ipv6");
+    }
+
+    /** The VPN families a BGP session carries, `vpnv4` and `vpnv6`. */
+    static vpnFamilies(settings: Pick<NeighborSettings, "address_families">): BgpFamily[] {
+        return (settings.address_families ?? []).filter((family) => family === "vpnv4" || family === "vpnv6");
+    }
+
+    /** Where the device writes an L3VPN: each VRF's route distinguisher and route targets, and each neighbor or group that carries a VPN family. */
+    static l3vpn(device: Device): string[] {
+        const found: string[] = [];
+        for (const [name, vrf] of Object.entries(device.routing?.vrfs ?? {})) {
+            if (vrf?.route_distinguisher !== undefined) found.push(`routing.vrfs.${name}.route_distinguisher`);
+            if (vrf?.route_targets) found.push(`routing.vrfs.${name}.route_targets`);
+        }
+
+        const bgp = device.routing?.bgp;
+        const sessions = [
+            ...Object.entries(bgp?.neighbor_groups ?? {}).map(([name, settings]) => ({ where: `neighbor_groups.${name}`, settings })),
+            ...Object.entries(bgp?.neighbors ?? {}).map(([name, settings]) => ({ where: `neighbors.${name}`, settings })),
+        ];
+        for (const { where, settings } of sessions) {
+            const families = Derive.vpnFamilies(settings ?? {});
+            if (families.length) found.push(`routing.bgp.${where}.address_families ${families.join(" and ")}`);
+        }
+        return found;
+    }
+
     /** A neighbor's prefix limit in its long form, or none. */
     static prefixLimit(settings: NeighborSettings): PrefixLimit | undefined {
         const max = settings.max_prefixes;
@@ -326,7 +359,7 @@ export class Derive {
         return Object.entries(bgp?.neighbors ?? {}).flatMap(([neighbor, written]) => {
             const group = written.neighbor_group ? bgp?.neighbor_groups?.[written.neighbor_group] : undefined;
             const settings = { ...group, ...written };
-            const families = settings.address_families ?? [Address.family(written.address)];
+            const families = Derive.unicastFamilies(settings, written.address);
             const policy = settings.export_policy;
 
             const defaults = settings.send_default_route ? families.map((family) => presets.default_routes[family]) : [];
