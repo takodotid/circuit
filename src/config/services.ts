@@ -29,7 +29,7 @@ export type DhcpServer<I extends string> = {
     reservations?: readonly Reservation[];
 };
 
-/** Prefixes a DHCPv6 server delegates to routers that ask, such as a customer's router (IA_PD, RFC 8415). */
+/** Prefixes a DHCPv6 server delegates to routers that ask, such as a customer's router (IA_PD, RFC 9915). */
 export type PrefixDelegation = {
     /** The prefix they come from, such as `2001:db8:100:8000::/49`. */
     pool: Prefix;
@@ -37,7 +37,7 @@ export type PrefixDelegation = {
     prefix_length: number;
 };
 
-/** A DHCPv6 server on one interface (RFC 8415). Without `pool` and `prefix_delegation`, it gives hosts only its other settings, such as DNS servers (stateless DHCPv6). */
+/** A DHCPv6 server on one interface (RFC 9915). Without `pool` and `prefix_delegation`, it gives hosts only its other settings, such as DNS servers (stateless DHCPv6). */
 export type Dhcpv6Server<I extends string> = {
     /** The port or interface it answers on. */
     interface: I;
@@ -91,6 +91,8 @@ export type PppoeServer<I extends string, F extends string = string> = {
     acct_interim_interval?: number;
     /** Let the RADIUS servers end a session or change it, such as its rate, on UDP port 3799 (RFC 5176). Off when absent. */
     dynamic_authorization?: true;
+    /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. No IPv6 prefix when absent. */
+    prefix_delegation?: PrefixDelegation;
 };
 
 /** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs. */

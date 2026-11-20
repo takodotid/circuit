@@ -76,6 +76,15 @@ export class RouterOsExport {
         "wins-server",
     ];
 
+    /** A DHCPv6 client's properties that `export verbose` prints as `!name` while they are not set (CHR, 7.24.6). */
+    private static readonly DHCPV6_CLIENT_UNSET = ["custom-iana-id", "custom-iapd-id", "pool-prefix-length"];
+
+    /** A PPP profile's IPv6 pools, which `export verbose` leaves out while they are not set. `unset` refuses them, and an empty value clears them (CHR, 7.24.6). */
+    private static readonly PPP_PROFILE_POOLS = ["dhcpv6-pd-pool", "remote-ipv6-prefix-pool"];
+
+    /** The bits of an IPv6 address after a /64, its interface ID (RFC 4291). */
+    private static readonly INTERFACE_ID_BITS = 64n;
+
     /**
      * Values the platform holds when nothing was set, per menu, and under `*` for every menu. A property at its default is dropped from both sides of a comparison. A property the config does not state is reset to it, and one without a default here is a problem in the plan.
      */
@@ -214,7 +223,9 @@ export class RouterOsExport {
             "use-ipv6": "yes",
             "use-mpls": "default",
             "use-upnp": "default",
-            ...Object.fromEntries(RouterOsExport.PPP_PROFILE_UNSET.map((property) => [property, ""])),
+            ...Object.fromEntries(
+                [...RouterOsExport.PPP_PROFILE_UNSET, ...RouterOsExport.PPP_PROFILE_POOLS].map((property) => [property, ""])
+            ),
         },
         "/ppp aaa": {
             accounting: "yes",
@@ -240,6 +251,38 @@ export class RouterOsExport {
         },
         // As a CCR2216 on 7.24.6 printed a server set back to them.
         "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
+        // As a CHR on 7.24.6 printed a client made with its interface, `request=prefix`, and `pool-name`, with `export verbose`, and the distance `print detail` showed once it added a default route.
+        "/ipv6 dhcp-client": {
+            "accept-prefix-without-address": "yes",
+            "add-default-route": "no",
+            "allow-reconfigure": "no",
+            "check-gateway": "none",
+            "default-route-distance": "1",
+            "default-route-tables": "default",
+            "dhcp-options": "",
+            disabled: "no",
+            "prefix-address-lists": "",
+            "prefix-hint": "::/0",
+            "use-peer-dns": "yes",
+            "validate-server-duid": "yes",
+            ...Object.fromEntries(RouterOsExport.DHCPV6_CLIENT_UNSET.map((property) => [property, ""])),
+        },
+        // As a CHR on 7.24.6 printed a client made with its interface, name, user, and password, with `export verbose`, and a distance set back to 1. A client is added disabled.
+        "/interface pppoe-client": {
+            "ac-name": "",
+            "add-default-route": "no",
+            "default-route-distance": "1",
+            allow: "pap,chap,mschap1,mschap2",
+            "dial-on-demand": "no",
+            disabled: "yes",
+            "keepalive-timeout": "10",
+            "max-mru": "auto",
+            "max-mtu": "auto",
+            mrru: "disabled",
+            profile: "default",
+            "service-name": "",
+            "use-peer-dns": "no",
+        },
         // As an RB5009 on 7.24.6 printed a client made with nothing but its interface.
         "/ip dhcp-client": {
             "add-default-route": "yes",
@@ -370,6 +413,7 @@ export class RouterOsExport {
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
         "/ppp profile": RouterOsExport.PPP_PROFILE_UNSET,
+        "/ipv6 dhcp-client": RouterOsExport.DHCPV6_CLIENT_UNSET,
     };
 
     /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */
@@ -423,6 +467,7 @@ export class RouterOsExport {
         "/ip upnp interfaces": ["interface"],
         // One client per interface.
         "/ip dhcp-client": ["interface"],
+        "/ipv6 dhcp-client": ["interface"],
         "/ipv6 nd": ["interface"],
         "/ipv6 nd prefix": ["prefix", "interface"],
     };
@@ -626,6 +671,7 @@ export class RouterOsExport {
         if (!isAddress) return raw;
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
+        if (onInterface && command.attrs["from-pool"]) return RouterOsExport.interfaceId(raw);
         return raw
             .split(",")
             .map((item) => RouterOsExport.address(item, onInterface))
@@ -643,6 +689,14 @@ export class RouterOsExport {
         if (value.includes(":") && !value.includes("/")) return `${value}/128`;
 
         return value;
+    }
+
+    /** An address from a pool by its interface ID, its last 64 bits. The device prints it as written while the pool is missing. Once the pool gives it a /64, it prints the part after the pool's prefix: `::1/64` is then `::1`, or `0:0:0:1::1` in the pool's second /64 (TRAPS.md). */
+    private static interfaceId(raw: string): string {
+        const [host = ""] = raw.split("/");
+        const value = Address.toNumber(host);
+        if (value === null || Address.family(host) !== "ipv6") return raw;
+        return Address.fromNumber(value & ((1n << RouterOsExport.INTERFACE_ID_BITS) - 1n), "ipv6");
     }
 
     /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and the interface after a `%`, as in `fe80::1%ether1`, as it is. An interface alone stays as it is. */
@@ -695,6 +749,10 @@ export class RouterOsExport {
         // A BFD configuration covers interfaces, or the addresses of multihop sessions, never both. A selector on a property that is not set matches nothing, so only the one that is set identifies it.
         const addresses = command.attrs.addresses;
         if (command.menu === "/routing bfd configuration" && addresses !== undefined) return { addresses };
+
+        // An address from a pool is known by its pool and its interface. Which /64 of the pool it holds can change, and with it what the device prints (TRAPS.md).
+        const pool = command.attrs["from-pool"];
+        if (command.menu === "/ipv6 address" && pool) return { "from-pool": pool, interface: command.attrs.interface ?? "" };
 
         const normalized = RouterOsExport.normal(command);
         const properties = RouterOsExport.IDENTITY[command.menu] ?? ["name"];

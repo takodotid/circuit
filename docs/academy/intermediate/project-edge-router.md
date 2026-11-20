@@ -15,7 +15,7 @@ In this project, you build Circuit's [edge router example](/guide/examples#an-ed
 - `sites/pop-1/edge-01.ts`, with the router
 - `lib/checks.ts`, with a check of your own
 
-The example also has a second router, `sites/pop-2/edge-02.ts`, on Junos at AMS-IX, and a broadband gateway, `sites/pop-1/bng-01.ts`. This project doesn't need them.
+The example also has a second router, `sites/pop-2/edge-02.ts`, on Junos at AMS-IX, a broadband gateway, `sites/pop-1/bng-01.ts`, and an office router that logs in to it, `sites/office-1/cpe-01.ts`. This project doesn't need them.
 
 ::: info The names in this example
 The transit is Hurricane Electric, AS6939. The exchange is DE-CIX Frankfurt, whose route servers are AS6695. Replace the addresses, AS numbers, and port names with the ones your providers give you.

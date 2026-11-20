@@ -1,8 +1,10 @@
+import { Derive } from "../../core/derive";
+import { Secrets } from "../../core/secrets";
 import type { Device, PppoeServer, RadiusServer } from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
-/** PPPoE servers for subscribers, added to one device's render. Each server's address pool and PPP profile are named after it. */
+/** PPPoE servers for subscribers and PPPoE clients toward a provider, added to one device's render. Each server's address pools and PPP profile are named after it, and so is the pool of each client's delegated prefix. */
 export class RouterOsPppoe {
     /** PPP profiles every RouterOS has, which a server's profile can't be named. */
     private static readonly BUILT_IN_PROFILES = ["default", "default-encryption"];
@@ -10,15 +12,42 @@ export class RouterOsPppoe {
     /** The RADIUS servers' service for PPP logins. */
     private static readonly SERVICE = "ppp";
 
+    /** A server's pool of delegated prefixes is named after the server, with this after it, as a DHCPv6 server's is. */
+    private static readonly PD_POOL_SUFFIX = "-pd";
+
+    /** Each client's session, added disabled unless told otherwise (CHR, 7.24.6). It takes no DNS servers from the provider and adds no default route: a static route through it does. */
+    static clients(render: RouterOsRender, device: Device): void {
+        for (const [name, client] of RouterOsSyntax.entries(device.interfaces?.pppoe_client))
+            render.add("/interface pppoe-client", "add", {
+                comment: client.description,
+                disabled: "no",
+                interface: render.name(client.interface),
+                "max-mru": client.mtu,
+                "max-mtu": client.mtu,
+                name,
+                password: Secrets.marker(client.password),
+                "service-name": client.service_name,
+                user: client.user,
+            });
+    }
+
     static render(render: RouterOsRender, device: Device): void {
+        RouterOsPppoe.delegation(render, device);
+
         const servers = RouterOsSyntax.entries(device.services?.pppoe_server);
         const [first] = servers;
         if (!first) return;
 
         for (const [name, server] of servers) {
             const [low, high] = server.pool;
+            const delegation = server.prefix_delegation;
+            const pdPool = `${name}${RouterOsPppoe.PD_POOL_SUFFIX}`;
             render.add("/ip pool", "add", { name, ranges: `${low}-${high}` });
+            if (delegation)
+                render.add("/ipv6 pool", "add", { name: pdPool, prefix: delegation.pool, "prefix-length": delegation.prefix_length });
+            // A subscriber that asks for a prefix gets one from a DHCPv6 server that each session runs (CHR, 7.24.6).
             render.add("/ppp profile", "add", {
+                "dhcpv6-pd-pool": delegation && pdPool,
                 "dns-server": server.dns?.join(","),
                 "local-address": server.local_address,
                 name,
@@ -47,8 +76,8 @@ export class RouterOsPppoe {
     }
 
     static unsupported(device: Device): string[] {
+        const found = RouterOsPppoe.poolNames(device);
         const servers = RouterOsSyntax.entries(device.services?.pppoe_server);
-        const found: string[] = [];
         const [first] = servers;
         if (!first) return found;
 
@@ -66,15 +95,55 @@ export class RouterOsPppoe {
             );
 
         for (const [name] of servers) {
-            if (device.services?.dhcp_server?.[name])
-                found.push(
-                    `services.pppoe_server.${name}, named as services.dhcp_server.${name}: RouterOS names the address pool of each after it. Give each its own name`
-                );
+            for (const group of ["dhcp_server", "dhcpv6_server"] as const)
+                if (device.services?.[group]?.[name])
+                    found.push(
+                        `services.pppoe_server.${name}, named as services.${group}.${name}: RouterOS names the address pool of each after it. Give each its own name`
+                    );
             if (RouterOsPppoe.BUILT_IN_PROFILES.includes(name))
                 found.push(`services.pppoe_server.${name}, the name of a PPP profile RouterOS has itself: give it another name`);
         }
 
         return found;
+    }
+
+    /** A client that asks for a prefix runs a DHCPv6 client on its session, which keeps the prefix in a pool named after the session. Each interface it goes to takes a /64 of the pool, the pool's own length. Its address there is the last 64 bits as written, as the device prints them back (CHR, 7.24.6). It announces the /64 when it has `ipv6_ra`. */
+    private static delegation(render: RouterOsRender, device: Device): void {
+        for (const [name, client] of RouterOsSyntax.entries(device.interfaces?.pppoe_client)) {
+            const delegation = client.prefix_delegation;
+            if (!delegation) continue;
+
+            render.add("/ipv6 dhcp-client", "add", { interface: name, "pool-name": name, request: "prefix", "use-peer-dns": "no" });
+            for (const [lan, address] of RouterOsSyntax.entries(delegation.interfaces)) {
+                const ra = Derive.routerAdvertisement(Derive.settings(device, lan) ?? {});
+                render.add("/ipv6 address", "add", {
+                    address,
+                    advertise: RouterOsSyntax.yesNo(ra && !ra.prefixes),
+                    "from-pool": name,
+                    interface: render.name(lan),
+                });
+            }
+        }
+    }
+
+    /** A client's pool of delegated prefixes takes the client's name, so no other IPv6 pool may have it. */
+    private static poolNames(device: Device): string[] {
+        const taken = new Map<string, string>();
+        for (const [name, server] of RouterOsSyntax.entries(device.services?.dhcpv6_server)) {
+            if (server.pool) taken.set(name, `services.dhcpv6_server.${name}`);
+            if (server.prefix_delegation) taken.set(`${name}${RouterOsPppoe.PD_POOL_SUFFIX}`, `services.dhcpv6_server.${name}`);
+        }
+        for (const [name, server] of RouterOsSyntax.entries(device.services?.pppoe_server))
+            if (server.prefix_delegation) taken.set(`${name}${RouterOsPppoe.PD_POOL_SUFFIX}`, `services.pppoe_server.${name}`);
+
+        return RouterOsSyntax.entries(device.interfaces?.pppoe_client).flatMap(([name, client]) => {
+            const other = client.prefix_delegation && taken.get(name);
+            return other
+                ? [
+                      `interfaces.pppoe_client.${name}, the name of an IPv6 pool of ${other}: RouterOS keeps the delegated prefix in a pool named after the client. Give it another name`,
+                  ]
+                : [];
+        });
     }
 
     /** What all PPPoE servers of a router share, in one form for comparing. */

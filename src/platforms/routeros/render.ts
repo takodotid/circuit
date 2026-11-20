@@ -217,6 +217,7 @@ export class RouterOsRender {
         this.vlanInterfaces();
         this.tunnels();
         this.wireguard();
+        RouterOsPppoe.clients(this, this.device);
         this.vrrp();
         this.pseudowires();
         this.bridgePorts();

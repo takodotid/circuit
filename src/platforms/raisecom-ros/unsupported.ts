@@ -87,6 +87,8 @@ export class RaisecomRosUnsupported {
         for (const { name, kind } of interfaces) {
             if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
             else if (kind === "pseudowire") found.push(`interfaces.pseudowire.${name}, a pseudowire, not built yet`);
+            else if (kind === "pppoe_client")
+                found.push(`interfaces.pppoe_client.${name}, a PPPoE client: Raisecom ROS only adds PPPoE+ tags to what it switches`);
             else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
         }
 
