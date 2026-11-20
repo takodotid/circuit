@@ -4,6 +4,7 @@ import { Checks } from "../checks";
 import { Address } from "../core/address";
 import { AddressSpace } from "../core/address-space";
 import { Cabling } from "../core/cabling";
+import { NatLookup } from "../core/nat-lookup";
 import { Registries } from "../core/registries";
 import { Secrets } from "../core/secrets";
 import type { Device, Finding } from "../model";
@@ -148,6 +149,26 @@ export class ProjectCommands {
 
         const report = AddressSpace.report(this.devices, owned, prefix);
         process.stdout.write(format === "json" ? `${JSON.stringify(report, null, 2)}\n` : AddressSpace.text(report, length));
+    }
+
+    /** Which subscriber an address and port of a NAT pool belong to, or where a subscriber leaves. From the config, never from a device. */
+    natLookup(address: string, port: number | undefined, format: "text" | "json"): void {
+        if (!Address.isValid(address) || Address.family(address) !== "ipv4")
+            Ui.fail(`${address} is not an IPv4 address. Write one such as 198.51.100.7.`);
+
+        const found = NatLookup.find(this.devices, address, port);
+        if (!found.answers.length) {
+            if (found.notes.length) Ui.fail(found.notes.join("\n"));
+
+            const where = found.pools.length
+                ? `The pools are:\n${found.pools.map((pool) => `  ${pool}`).join("\n")}`
+                : "No device has a firewall.nat.source rule with to_pool.";
+            Ui.fail(`${address} is in no NAT pool and in no subscribers' prefix (if.src). ${where}`);
+        }
+
+        process.stdout.write(
+            format === "json" ? `${JSON.stringify(found.answers, null, 2)}\n` : NatLookup.text(found.answers, address, port)
+        );
     }
 
     /** Without a name, the only network with a scheme, or one a person picks. */

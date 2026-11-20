@@ -31,17 +31,18 @@ Run `circuit` alone for a menu, or run a command straight away, such as `circuit
 
 ## Utilities
 
-| Command                             | Does                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------ |
-| `exec [device] [command...]`        | Runs read-only commands on the device. Also `execute`.                         |
-| `bgp [device]`                      | Shows each BGP neighbor next to its live session.                              |
-| `access-console [device] [line...]` | Opens the device's serial console, already logged in.                          |
-| `communities [network]`             | Prints what each BGP community means, for a looking glass.                     |
-| `addresses [prefix]`                | Shows what address space is used, and what is free.                            |
-| `sync [target]`                     | Updates NetBox, LibreNMS, PeeringDB, or Prometheus to match the project.       |
-| `studio`                            | Opens Circuit Studio in your browser. For its options, see [Studio](/studio/). |
-| `rename [device] [new-name]`        | Renames a device everywhere in the project.                                    |
-| `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.                          |
+| Command                             | Does                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `exec [device] [command...]`        | Runs read-only commands on the device. Also `execute`.                                 |
+| `bgp [device]`                      | Shows each BGP neighbor next to its live session.                                      |
+| `access-console [device] [line...]` | Opens the device's serial console, already logged in.                                  |
+| `communities [network]`             | Prints what each BGP community means, for a looking glass.                             |
+| `addresses [prefix]`                | Shows what address space is used, and what is free.                                    |
+| `nat lookup <address> [port]`       | Finds the subscriber behind a NAT pool address and port, or where a subscriber leaves. |
+| `sync [target]`                     | Updates NetBox, LibreNMS, PeeringDB, or Prometheus to match the project.               |
+| `studio`                            | Opens Circuit Studio in your browser. For its options, see [Studio](/studio/).         |
+| `rename [device] [new-name]`        | Renames a device everywhere in the project.                                            |
+| `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.                                  |
 
 ### `exec`
 
@@ -146,6 +147,25 @@ Your space is each prefix in `circuit({ prefixes })` and in a device's `originat
 ```
 
 It reads only the project, so it doesn't know addresses a device gave out, such as DHCP leases.
+
+### `nat lookup`
+
+```sh
+circuit nat lookup 198.51.100.7 40000   # who was behind this address and port
+circuit nat lookup 100.64.0.243         # where this subscriber leaves
+circuit nat lookup 198.51.100.7         # every subscriber that shares this pool address
+circuit nat lookup 198.51.100.7 --format json
+```
+
+For an abuse report, give the public address and port. Each device with a source NAT `to_pool` that holds the address answers, and one that doesn't is left out:
+
+```
+edge-01: 198.51.100.7:40000 is 100.64.0.243 (to_pool 198.51.100.0/27, ports 39328-41343)
+```
+
+A subscriber's address (in `if.src`) gives its pool address and its block of ports. A pool address without a port lists its subscribers, 64 at most in text, and all of them in JSON. A port below 1024 or past the last block is in no block, and Circuit says so. An address in no pool lists the pools there are. The command exits 1 when it finds nothing.
+
+It reads only the project and never contacts a device. So it answers for a past day only if the config was the same then. Check out the commit of that day first, found with `git log --until=<date>`, and run it there. See [Shared addresses](/guide/rules#shared-addresses).
 
 ### `sync`
 
