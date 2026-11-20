@@ -30,15 +30,18 @@ const sent = (platform: string, desired: string, current: string) =>
         .plan(desired, current, options)
         .steps.flatMap((step) => step.send);
 
-const messages = (device: Device) => Checks.run([device], undefined).map((finding) => finding.message);
+const messages = (device: Device) => Checks.run([device], undefined, { experimental: true }).map((finding) => finding.message);
 
-test("Junos translates on the trunk's unit, with the VLAN still a member, and plans nothing against how the switch printed it", () => {
+test("Junos translates on the trunk's unit, with the VLAN still a member, experimentally, and plans nothing against how the switch printed it", () => {
     const junos = Platforms.get("junos");
     const device = translating("junos", "QFX5100-48S-6Q", "10g-21");
     const desired = junos.render(device);
 
-    expect(messages(device)).toEqual([]);
+    expect(messages(device)).toEqual([
+        "interfaces.ethernet.10g-21.vlan_translation is not tested on a real device yet. Sent because of --experimental: try it on a lab device first.",
+    ]);
     expect(junos.unsupported(device)).toEqual([]);
+    expect(junos.experimental!(device)).toEqual(["interfaces.ethernet.10g-21.vlan_translation"]);
     const printed = `set interfaces xe-0/0/20 unit 0 family ethernet-switching interface-mode trunk
 set interfaces xe-0/0/20 unit 0 family ethernet-switching vlan members bank
 set interfaces xe-0/0/20 unit 0 family ethernet-switching vlan members servers

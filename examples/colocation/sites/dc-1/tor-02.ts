@@ -27,8 +27,6 @@ export default as64500.device({
             // A tenant's own switch: whatever VLANs it sends reach its racks in hall 2, inside VLAN hall-2.
             "10g-4": { description: "Switch of a tenant in halls 1 and 2", qinq_vlan: "hall-2", stp: { guard: "root" } },
             "10g-47": { description: "Core switch of hall 2", trunk_vlans: ["hall-2"] },
-            // Hall 2's switches have VLAN numbers of their own, where management is VLAN 20. This port tags mgmt as 20, so neither side renumbers.
-            "10g-46": { description: "Management switch of hall 2", trunk_vlans: ["mgmt"], vlan_translation: [{ from: 20, to: "mgmt" }] },
             // #region rate-limit
             // The tenant buys 200 Mbit/s each way. The switch's policer drops what arrives above it, and needs a burst.
             "10g-5": {
