@@ -525,36 +525,8 @@ export class FortiOsRouting {
         if (!field) return [];
 
         const { before, after } = FortiOsRouting.AS_ANCHORS[field];
-        const numbers = Derive.asRanges(match[field]!).flatMap(({ min, max }) => FortiOsRouting.numberPatterns(min, max));
+        const numbers = Derive.asRanges(match[field]!).flatMap(({ min, max }) => Derive.numberPatterns(min, max));
         return numbers.map((number) => `${before}${number}${after}`);
-    }
-
-    /**
-     * Patterns that together match the numbers from `min` to `max`, with no repetition count, as the NLNOG BGP Filter Guide writes them. 65552 to 131071 is `6555[2-9]`, `655[6-9][0-9]`, and on to `13107[0-1]`.
-     */
-    static numberPatterns(min: number, max: number): string[] {
-        const patterns: string[] = [];
-
-        for (let low = min; low <= max;) {
-            // One length of number at a time, so no pattern needs a leading zero.
-            const length = String(low).length;
-            const high = Math.min(max, 10 ** length - 1);
-
-            // The most trailing digits that can be any digit, then how far the digit before them goes.
-            let any = 0;
-            while (any < length - 1 && low % 10 ** (any + 1) === 0 && low + 10 ** (any + 1) - 1 <= high) any++;
-            const block = 10 ** any;
-            const first = Math.floor(low / block) % 10;
-            let last = first;
-            while (last < 9 && low + (last - first + 2) * block - 1 <= high) last++;
-
-            const above = Math.floor(low / (block * 10));
-            const digit = first === last ? `${first}` : `[${first}-${last}]`;
-            patterns.push(`${above || ""}${digit}${"[0-9]".repeat(any)}`);
-            low += (last - first + 1) * block;
-        }
-
-        return patterns;
     }
 
     /** A path of `min` ASes or more, and `max` or fewer when given: one AS, then one more after each space. `^[0-9]+( [0-9]+){50}` is 51 or more, and `^$` the empty path. */
