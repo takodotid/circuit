@@ -219,7 +219,7 @@ test("FortiOS refuses a burst and a rate of no whole kbit/s", () => {
     ]);
 });
 
-test("VRP polices a port through a CAR profile, only with --experimental, and Raisecom ROS refuses it", () => {
+test("VRP polices a port through a CAR profile, only with --experimental", () => {
     const vrp = device("vrp", "CE6855-48S6Q-HI", {
         ethernet: { "10g-3": { access_vlan: "hosts", rate_limit: { input: { cir: "200M", bc: 250_000 }, output: "1.5G" } } },
         vlan_interface: { hosts: { vlan: "hosts", addresses: ["198.51.100.1/30"], rate_limit: { input: "200M" } } },
@@ -234,13 +234,25 @@ test("VRP polices a port through a CAR profile, only with --experimental, and Ra
     expect(text).toContain(
         "interface 10GE1/0/3\n port default vlan 10\n qos car inbound rate-limit-10g-3\n qos lr cir 1500000 outbound\n#"
     );
+});
 
+test("Raisecom ROS limits a port and a LAG in kbit/s, with the switch's own burst unless one is written, as a RAX721 with ROS 6.5.2 printed them", () => {
     const raisecom = device("raisecom-ros", "RAX721-C-6C48", {
-        ethernet: { "1g-1": { access_vlan: "hosts", rate_limit: { input: "200M" } } },
+        ethernet: { "10g-1": { access_vlan: "hosts", rate_limit: { input: "200M", output: { cir: "200M", bc: 250_000 } } } },
+        lag: { uplink: { trunk_vlans: ["hosts"], rate_limit: { input: "1G" } } },
+        vlan_interface: { hosts: { vlan: "hosts", addresses: ["198.51.100.1/30"], rate_limit: { input: "200M" } } },
     });
+
     expect(rateLimits(Platforms.get("raisecom-ros").unsupported(raisecom))).toEqual([
-        "interfaces.ethernet.1g-1.rate_limit, which the platform does not build",
+        "interfaces.vlan_interface.hosts.rate_limit, the platform limits ports and LAGs",
     ]);
+    const text = Platforms.get("raisecom-ros").render(raisecom);
+    expect(text).toContain(
+        "interface tengigabitethernet 1/3/1\nswitchport access vlan 10\nrate-limit ingress cir 200000\nrate-limit egress cir 200000 cbs 250\n!"
+    );
+    expect(text).toContain(
+        "interface port-channel 1\nswitchport trunk allowed vlan 10\nswitchport mode trunk\nrate-limit ingress cir 1000000\n!"
+    );
 });
 
 test("validate stops a rate limit that limits nothing, a rate or burst out of range, one on a LAG member, and one beside shaping", () => {

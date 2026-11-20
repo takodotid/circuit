@@ -65,7 +65,6 @@
         "interfaces.ethernet.*.native_vlan",
         "interfaces.ethernet.*.stp.cost",
         "interfaces.ethernet.*.stp.priority",
-        "interfaces.ethernet.*.storm_control.broadcast.pps",
         "interfaces.ethernet.*.storm_control.multicast.pps",
         "interfaces.ethernet.*.storm_control.unknown_unicast.pps",
         "interfaces.ethernet.*.bound_to",
@@ -101,7 +100,6 @@
         "interfaces.eoip",
         "switching.stp.mode",
         "switching.stp.priority",
-        "switching.lldp.interfaces",
         "switching.acls.*[].if.family",
         "switching.acls.*[].if.src_port.min",
         "switching.acls.*[].if.src_port.max",
@@ -196,11 +194,7 @@
         },
         "raisecom-ros": {
             "silent": [],
-            "untried": [
-                "interfaces.ethernet.*.storm_control.multicast.percent",
-                "interfaces.ethernet.*.storm_control.unknown_unicast.percent",
-                "routing.static_routes[].blackhole"
-            ]
+            "untried": ["routing.static_routes[].blackhole"]
         },
         "junos": {
             "silent": [],
