@@ -70,7 +70,7 @@ Secrets in the output show as `<redacted>`. In Git Bash on Windows, set `MSYS_NO
 
 ### `bgp`
 
-On RouterOS. On Junos and FortiOS it is 🧪: add `--experimental`, and compare what it shows with the device.
+Works on RouterOS. On Junos and FortiOS it is 🧪: add `--experimental`, and compare what it shows with the device.
 
 ```sh
 circuit bgp edge-01
