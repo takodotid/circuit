@@ -17,6 +17,14 @@ export default as64500.device({
         users: { operator: { role: "admin", password: secret("BNG_01_PASSWORD") } },
     },
     management: { allow: ["10.0.0.0/24"], ssh: { vrf: "management" } },
+    // The router pings each RADIUS server and its way out, and keeps the results: `/tool netwatch print` shows which answer.
+    monitoring: {
+        probes: {
+            "radius-1": { target: "10.0.0.11", interval: 10, source_address: "10.0.0.2", vrf: "management" },
+            "radius-2": { target: "10.0.0.12", interval: 10, source_address: "10.0.0.2", vrf: "management" },
+            "edge-01": { target: "198.51.100.1", interval: 10 },
+        },
+    },
 
     interfaces: {
         ethernet: {

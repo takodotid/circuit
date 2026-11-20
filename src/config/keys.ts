@@ -290,6 +290,7 @@ export const DEVICE = {
             idle_timeout: 0,
         },
         transceivers: 0,
+        probes: { "*": { target: 0, interval: 0, source_address: 0, vrf: 0 } },
     },
     interfaces: {
         ethernet: {

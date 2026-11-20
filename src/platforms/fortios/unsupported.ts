@@ -669,6 +669,7 @@ export class FortiOsUnsupported {
         if (flow?.protocol === "sflow" && (flow.sampling === undefined || flow.sampling < 10 || flow.sampling > 99999)) {
             found.push("monitoring.flow_export.sampling, required and from 10 to 99999: the platform samples");
         }
+        found.push(...FortiOsMonitoring.probeGaps(device));
 
         return found;
     }

@@ -92,7 +92,7 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     system?: System<N["user"], N["certificate"], NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>>;
     /** How people and tools log in, such as SSH, HTTPS, the API, the native protocol, and the console. */
     management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>, NoInfer<N["vrf"]>>;
-    /** What the device reports to collectors: SNMP, syslog, flow export, and optics. */
+    /** What the device reports to collectors: SNMP, syslog, flow export, and optics. And the ICMP probes it runs. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["vrf"]>>;
     /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip, pseudowire, pppoe_client. */
     interfaces?: Interfaces<

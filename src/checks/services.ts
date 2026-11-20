@@ -115,6 +115,28 @@ export class ServicesChecks {
             if (flow?.protocol === "sflow")
                 report(`${where}: sFlow sends packet samples, not flows. Remove it, or export netflow-v9 or ipfix`);
         }
+
+        ServicesChecks.probes(device, report, ip);
+    }
+
+    /** Each probe pings one address, from an address of the same family, every whole number of seconds. */
+    private static probes(device: Device, report: Report, ip: Checker): void {
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const where = `monitoring.probes.${name}`;
+            ip(`${where}.target`, probe.target);
+            if (probe.source_address !== undefined) ip(`${where}.source_address`, probe.source_address);
+            if (!Number.isInteger(probe.interval) || probe.interval < 1)
+                report(`${where}.interval ${probe.interval}: write a whole number of seconds, from 1`);
+
+            const source = probe.source_address;
+            if (
+                source &&
+                Address.isValid(source) &&
+                Address.isValid(probe.target) &&
+                Address.family(source) !== Address.family(probe.target)
+            )
+                report(`${where}.source_address ${source} and target ${probe.target} differ in family`);
+        }
     }
 
     /** One server per interface, giving something: addresses in a network of its interface, prefixes from a pool, or DNS servers. */

@@ -312,6 +312,9 @@ export class RaisecomRosUnsupported {
         found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
         found.push(...Derive.unbuilt(device, ["rate-limit"]));
         found.push(...Derive.unbuiltMonitoring(device));
+        // Raisecom's RAX721 guide (P200R003) lists SLA operations over Y.1731 only.
+        for (const name of Object.keys(device.monitoring?.probes ?? {}))
+            found.push(`monitoring.probes.${name}, the platform documents no ICMP probe: its SLA operations measure Ethernet (Y.1731)`);
 
         return found;
     }

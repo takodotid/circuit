@@ -515,6 +515,7 @@ export class Project {
             need("VRF", s.vrf, `monitoring.syslog[${n}].vrf`);
         });
         need("VRF", d.monitoring?.snmp?.vrf, "monitoring.snmp.vrf");
+        for (const [p, probe] of Object.entries<Json>(d.monitoring?.probes ?? {})) need("VRF", probe?.vrf, `monitoring.probes.${p}.vrf`);
         for (const [s, service] of Object.entries<Json>(d.management ?? {})) need("VRF", service?.vrf, `management.${s}.vrf`);
         for (const group of ["dns", "ntp"]) need("VRF", d.system?.[group]?.vrf, `system.${group}.vrf`);
         (d.system?.aaa?.radius ?? []).forEach((s: Json, n: number) => need("VRF", s.vrf, `system.aaa.radius[${n}].vrf`));

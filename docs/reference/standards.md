@@ -156,6 +156,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Syslog severities and UDP port 514 | RFC 5424 (the eight severities), RFC 5426 (UDP). The message format is each platform's own. | `monitoring.syslog`, `system.logging`          |
 | Syslog over TLS, port 6514         | RFC 5425                                                                                    | syslog `transport_security`                    |
 | Flow timeouts                      | RFC 6728 (`activeTimeout`, `idleTimeout`)                                                   | `flow_export` `active_timeout`, `idle_timeout` |
+| ICMP probes                        | RFC 4560 (DISMAN-PING-MIB's ping test). Echo: RFC 792, RFC 4443                             | `monitoring.probes`                            |
 | sFlow                              | Not a standard: sFlow version 5 (sflow.org)                                                 | `flow_export` `sflow`                          |
 | NetFlow v9                         | Practice: RFC 3954 (Informational)                                                          | `flow_export` `netflow-v9`                     |
 | IPFIX                              | STD 77 (RFC 7011)                                                                           | `flow_export` `ipfix`                          |

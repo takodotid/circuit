@@ -932,6 +932,7 @@ export class RouterOsRender {
             this.add("/system routerboard settings", "set", { "enter-setup-on": "delete-key" });
 
         RouterOsMonitoring.flowExport(this, this.device);
+        RouterOsMonitoring.probes(this, this.device);
     }
 
     /** Local logging uses the platform's built-in disk action, number 1. Each syslog collector gets an action of its own. */

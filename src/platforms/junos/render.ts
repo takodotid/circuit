@@ -154,6 +154,7 @@ export class JunosRender {
         render.rateLimits();
         JunosBgp.render(render.out, device);
         JunosMonitoring.sflow(render.out, device, render.names);
+        JunosMonitoring.probes(render.out, device);
 
         return render.out.text();
     }
