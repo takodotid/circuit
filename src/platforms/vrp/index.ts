@@ -14,6 +14,7 @@ import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import { VrpAaa } from "./aaa";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -48,7 +49,6 @@ export class Vrp extends Platform {
         "authentication-scheme default",
         "authorization-scheme default",
         "accounting-scheme default",
-        "domain default",
         "Info:",
         // Derived from the switch's MAC once SNMP is on.
         "snmp-agent local-engineid",
@@ -56,7 +56,7 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|stub|nssa|default-cost)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
@@ -65,7 +65,8 @@ export class Vrp extends Platform {
         block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$)/,
         indented: true,
         terminator: "#",
-        ignore: (line) => Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
+        // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
+        ignore: (line) => line === "domain default" || Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
         undo: Vrp.undo,
         leave: "quit",
         // The console refuses to drop its password while password login is still on.
@@ -74,9 +75,9 @@ export class Vrp extends Platform {
         order: Vrp.order,
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, users, and BFD. Then come device-wide lines, LAGs, ports, VLAN interfaces, OSPF, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, LAGs, ports, VLAN interfaces, OSPF, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
-        /^(ip vpn-instance|vlan |acl number|aaa|bfd)/,
+        /^(ip vpn-instance|vlan |acl number|radius server group|hwtacacs server template|aaa|bfd)/,
         /^$/,
         /^interface Eth-Trunk/,
         /^interface (?!Vlanif)/,
@@ -260,7 +261,7 @@ export class Vrp extends Platform {
         }
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
-        if (device.system?.aaa) found.push("system.aaa, which only RouterOS, Junos, and FortiOS build for now");
+        found.push(...VrpAaa.unsupported(device));
 
         const management = device.management ?? {};
 
@@ -450,6 +451,7 @@ export class Vrp extends Platform {
         Vrp.replaceRules(groups, current);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
+        VrpAaa.order(groups, desired, current, Vrp.DIALECT);
         const keys = Vrp.keySteps(groups, desired, current);
         if (keys.problems.length) return { steps: [], problems: keys.problems };
 
@@ -475,12 +477,16 @@ export class Vrp extends Platform {
 
         if (firstRemovals.length) {
             // `undo vlan batch` removes a VLAN's own settings with it, so only the interfaces and the list are sent.
-            const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map(Vrp.undo);
+            const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map((line) => Vrp.undo(line));
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
 
         if (lastRemovals.length) {
-            planned.push({ title: "ACLs no longer used", show: lastRemovals.map((line) => `- ${line}`), send: lastRemovals.map(Vrp.undo) });
+            planned.push({
+                title: "ACLs no longer used",
+                show: lastRemovals.map((line) => `- ${line}`),
+                send: lastRemovals.map((line) => Vrp.undo(line)),
+            });
         }
 
         return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
@@ -593,9 +599,13 @@ export class Vrp extends Platform {
         };
     }
 
-    private static undo(line: string): string {
+    private static undo(line: string, path: readonly string[] = []): string {
         // A negated line is undone by stating it.
         if (line.startsWith("undo ")) return line.slice("undo ".length);
+        // A domain lets go of a scheme, a server group, or its level by the keyword alone: `undo radius server group`.
+        if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
+        const server = VrpAaa.undo(line);
+        if (server) return server;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
         if (assigned) return `undo ${assigned[1]}`;
@@ -618,7 +628,9 @@ export class Vrp extends Platform {
 
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
     private static canon(line: string): string {
-        return line.replace(/((?:password|community read|-mode \S+(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>");
+        return line
+            .replace(/((?:password|community read|-mode \S+(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>")
+            .replace(/(shared-key(?:-| )cipher) \S+/g, "$1 <secret>");
     }
 
     private static order(path: string[]): number {
