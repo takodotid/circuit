@@ -73,7 +73,7 @@ describe.skipIf(!chr)("a CHR with an export larger than SSH carries", () => {
         text = replaced(text, 'host: "10.0.0.1"', `host: "${host}", port: ${port}`);
         text = replaced(text, /\n\s*\/\/ #region edge-acl[\s\S]*?\/\/ #endregion edge-acl/, "");
         text = replaced(text, /, ingress_acl: "edge"/g, "");
-        text = replaced(text, '"1g-1"', '"virtual-1"');
+        text = replaced(text, /"1g-1"/g, '"virtual-1"');
         text = replaced(text, /"25g-(\d+)"/g, (_, n: string) => `"virtual-${Number(n) + 1}"`);
 
         example = text;
