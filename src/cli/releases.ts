@@ -147,7 +147,7 @@ export class Releases {
     }
 
     /**
-     * Before every command but `uninstall`, the manager updates itself to the newest release of its major version. Then it runs the command again as that version. A project's own version changes only with `circuit update`. Run from the sources, or started by a manager, it only checks.
+     * Before every command but `uninstall`, the manager updates itself to the newest release of its major version. Then it runs the command again as that version. A project's own version changes only with `circuit update`. Run from the sources, installed by a package manager, or started by a manager, it only checks.
      */
     static async check(argv: readonly string[]): Promise<void> {
         const [{ latest, offline }, advisories] = await Ui.wait("Checking for a newer Circuit", () =>
@@ -168,8 +168,9 @@ export class Releases {
         if (!target || Releases.compare(VERSION, target) >= 0 || Releases.affecting(advisories.advisories, target).length) return;
 
         const binary = Installation.binary();
-        if (!binary || process.env[Releases.UPDATED]) {
-            Ui.warn(`Circuit ${target} is out, and this is ${VERSION}.`);
+        const packaged = Installation.packaged();
+        if (!binary || packaged || process.env[Releases.UPDATED]) {
+            Ui.warn(`Circuit ${target} is out, and this is ${VERSION}.${packaged ? ` Update it with: ${packaged.update}` : ""}`);
             return;
         }
 
@@ -333,6 +334,8 @@ export class Releases {
     static async updateApp(confirmed: boolean): Promise<string | undefined> {
         const binary =
             Installation.binary() ?? Ui.fail("This Circuit runs from its sources. Update it where it came from, such as with git pull.");
+        const packaged = Installation.packaged();
+        if (packaged) Ui.fail(`A package manager installed this Circuit. Update it with: ${packaged.update}`);
         const target = await Releases.pick(VERSION, confirmed, "The app");
         if (!target) return undefined;
 
