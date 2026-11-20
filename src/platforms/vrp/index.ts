@@ -17,6 +17,7 @@ import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } fr
 import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
+import { VrpDhcp } from "./dhcp";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -64,7 +65,7 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$|route-policy |bgp )/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -233,10 +234,9 @@ export class Vrp extends Platform {
                 found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
         }
 
-        found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device));
+        found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
 
         const refusedGroups = [
-            ["services.dhcp_server", device.services?.dhcp_server],
             ["services.dhcpv6_server", device.services?.dhcpv6_server],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
@@ -374,6 +374,8 @@ export class Vrp extends Platform {
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
+        for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
         found.push(...VrpBgp.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
@@ -417,10 +419,11 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** An ACL rule's description is a setting of its own beside the rule. */
+    /** An ACL rule's description is a setting of its own beside the rule. A pool's lists take more than one value, so a line that changes is undone whole. */
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
+        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind) /.test(line)) return line;
 
         return LineDiff.head(line);
     }
@@ -472,6 +475,7 @@ export class Vrp extends Platform {
 
         Vrp.removeLoghosts(groups, desired, current);
         Vrp.replaceRules(groups, desired, current);
+        VrpDhcp.rebuild(groups, desired, current, Vrp.DIALECT);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
@@ -650,6 +654,8 @@ export class Vrp extends Platform {
         if (description) return `undo ${description[0]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
+        const pool = Vrp.undoInPool(line, path);
+        if (pool) return pool;
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `undo ${keyword[1]}`;
@@ -663,6 +669,16 @@ export class Vrp extends Platform {
         if (line.startsWith("storm control ")) return `undo ${line.replace(/ (min-rate|max-rate).*$/, "")}`;
 
         return `undo ${line}`;
+    }
+
+    /** A pool's network, lease, and VRF are undone by their keyword, and a static binding by its address. */
+    private static undoInPool(line: string, path: readonly string[]): string | undefined {
+        if (!path[0]?.startsWith("ip pool ")) return undefined;
+
+        const keyword = /^(network|lease|vpn-instance) /.exec(line);
+        if (keyword) return `undo ${keyword[1]}`;
+        const binding = /^(static-bind ip-address \S+) /.exec(line);
+        return binding ? `undo ${binding[1]}` : undefined;
     }
 
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
