@@ -194,6 +194,14 @@ class Cli {
             .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
             .action(async (prefix, flags) => (await ProjectCommands.open()).addresses(prefix, flags.length, flags.format));
 
+        const nat = program.command("nat").description("what the project's NAT does");
+        nat.command("lookup")
+            .description("find the subscriber behind a pool address and port, or where a subscriber leaves, from the config alone")
+            .argument("<address>", "a pool address (to_pool), or a subscriber's address (if.src)")
+            .argument("[port]", "with a pool address: the port, from 1 to 65535", Cli.port)
+            .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
+            .action(async (address, port, flags) => (await ProjectCommands.open()).natLookup(address, port, flags.format));
+
         program
             .command("sync")
             .description("update NetBox, LibreNMS, PeeringDB, or Prometheus to match the project")
