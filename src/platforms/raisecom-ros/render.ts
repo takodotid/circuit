@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Ethertype, Port, Prefix, Severity, SnmpUser, Switched, Vrrp } from "../../model";
+import type { Device, Ethertype, Limit, Port, Prefix, RateLimit, Severity, SnmpUser, Switched, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 
@@ -27,6 +27,20 @@ export class RaisecomRosRender {
     /** The most MAC addresses port security takes on a port, and its default. */
     static readonly MAC_LIMIT_MAX = 1024;
 
+    /** A rate limit's rate is in kbit/s and its burst in kB of 1000 bytes. The switch's own burst for 10000 kbit/s is 1250 kB, one second at the rate. */
+    static readonly BITS_PER_KBIT = 1000;
+    static readonly BYTES_PER_KB = 1000;
+
+    /** The rate a port's limit takes at most, in kbit/s, and the burst, in kB. A rate above the port's speed is refused by the switch. */
+    static readonly RATE_KBPS_MAX = 100_000_000;
+    static readonly BURST_KB = { min: 1, max: 4096 };
+
+    /** A storm-control threshold in packets per second. */
+    static readonly STORM_PPS = { min: 1, max: 262_143 };
+
+    /** A port's speed in kbit/s, by the unit in its key `<speed>-<position>`. */
+    private static readonly PORT_SPEED_KBPS: Record<string, number> = { m: 1000, g: 1_000_000 };
+
     /** A kind of frame as a MAC access-list rule matches it, in the form the device prints. It takes a type as hex without `0x`, and names IPv4 and ARP. */
     private static readonly ETHERTYPES: Record<Ethertype, string> = { ipv4: "ip", arp: "arp", ipv6: "86dd ffff" };
 
@@ -40,6 +54,36 @@ export class RaisecomRosRender {
 
     /** The SNMPv3 access group every user belongs to, read-only on the whole tree. */
     private static readonly SNMP_GROUP = "circuit";
+
+    /** A port's speed in kbit/s, from its key: `10g-12` is 10000000. Undefined for a key without one. */
+    static portKbps(name: string): number | undefined {
+        const speed = /^(\d+)([mg])-/.exec(name);
+        return speed ? Number(speed[1]) * RaisecomRosRender.PORT_SPEED_KBPS[speed[2]!]! : undefined;
+    }
+
+    /** Whether any port has BPDU guard, one setting for the whole switch here. */
+    static bpduGuard(device: Device): boolean {
+        return Derive.ports(device).some(([, port]) => typeof port.stp === "object" && port.stp.bpdu_guard);
+    }
+
+    /** Whether a port or LAG switches any VLAN. */
+    static switches(settings: Switched): boolean {
+        return Boolean(settings.access_vlan || settings.trunk_vlans || settings.qinq_vlan);
+    }
+
+    /** Whether LLDP runs on a port: its own setting, else the device's. A LAG member runs it when its LAG is listed. */
+    private static lldpRuns(device: Device, name: string, port: Port): boolean {
+        if (port.lldp !== undefined) return port.lldp;
+
+        const lldp = device.switching?.lldp;
+        if (!lldp || lldp === true) return Boolean(lldp);
+        return lldp.interfaces.includes(name) || (port.in_lag !== undefined && lldp.interfaces.includes(port.in_lag));
+    }
+
+    /** LLDP is on for the switch once it runs on any port. Each port runs it then, unless told not to. */
+    private static lldpOn(device: Device): boolean {
+        return Boolean(device.switching?.lldp) || Derive.ports(device).some(([, port]) => port.lldp === true);
+    }
 
     /** `99,200-201,999`, the platform's compression of a VLAN list. */
     static vlanList(ids: number[]): string {
@@ -74,7 +118,9 @@ export class RaisecomRosRender {
             lines.push(`interface port-channel ${lagNumbers.get(name)}`);
             if (lag.description) lines.push(`description ${lag.description}`);
             if (lag.mode === "static") lines.push("mode manual");
-            lines.push(...RaisecomRosRender.switching(lag, vlanId), "!");
+            lines.push(...RaisecomRosRender.switching(lag, vlanId), ...RaisecomRosRender.rateLimit(lag.rate_limit));
+            if (lag.dhcp_trusted) lines.push("ip dhcp snooping trust");
+            lines.push("!");
         }
 
         if (allow.length) lines.push(...RaisecomRosRender.accessList(RaisecomRosRender.MANAGEMENT_ACL, "management", allow));
@@ -112,9 +158,11 @@ export class RaisecomRosRender {
 
         ports.forEach((port, index) => {
             const settings = device.interfaces?.ethernet?.[port];
+            const lldpOff =
+                settings !== undefined && RaisecomRosRender.lldpOn(device) && !RaisecomRosRender.lldpRuns(device, port, settings);
             lines.push(
                 `interface ${Catalog.spell(device.platform, device.model, port)}`,
-                ...RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers),
+                ...RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers, lldpOff),
                 ...(settings?.ethertypes ? [`filter ingress access-list ${RaisecomRosRender.ethertypeAcl(index)}`] : []),
                 "!"
             );
@@ -167,11 +215,15 @@ export class RaisecomRosRender {
         if (device.monitoring?.transceivers) lines.push("transceiver ddm enable");
         // LLDP and spanning tree are off by default and turned on by the config.
         const switching = device.switching;
-        if (switching?.lldp) lines.push("lldp enable");
+        if (RaisecomRosRender.lldpOn(device)) lines.push("lldp enable");
         if (switching?.stp) {
             lines.push("spanning-tree enable");
             if (switching.stp.priority !== undefined) lines.push(`spanning-tree priority ${switching.stp.priority}`);
+            // One setting guards every edge port.
+            if (RaisecomRosRender.bpduGuard(device)) lines.push("spanning-tree bpduguard enable");
         }
+        // Each switched port snoops once the switch does, unless it is trusted.
+        if (switching?.dhcp_snooping) lines.push("ip dhcp snooping");
 
         // The factory communities survive a reset, and one of them can write, so they are always removed.
         lines.push("no snmp-server community public", "no snmp-server community private");
@@ -253,6 +305,8 @@ export class RaisecomRosRender {
     private static switching(settings: Switched, vlanId: (name: string) => number): string[] {
         const lines: string[] = [];
         if (settings.access_vlan) lines.push(`switchport access vlan ${vlanId(settings.access_vlan)}`);
+        // QinQ is an access port that pushes its VLAN's tag on every frame, tagged or not. The outer tag is 0x8100, the default.
+        if (settings.qinq_vlan) lines.push(`switchport access vlan ${vlanId(settings.qinq_vlan)}`, "dot1q-tunnel");
 
         if (settings.trunk_vlans) {
             if (settings.native_vlan) lines.push(`switchport trunk native vlan ${vlanId(settings.native_vlan)}`);
@@ -275,20 +329,35 @@ export class RaisecomRosRender {
         return lines;
     }
 
-    /** A port the config does not declare is shut down. A LAG member holds its membership and description; the LAG holds the rest. */
-    private static physicalPort(settings: Port | undefined, vlanId: (name: string) => number, lagNumbers: Map<string, number>): string[] {
+    /** A port the config does not declare is shut down. A LAG member holds its membership, description, and LLDP; the LAG holds the rest. */
+    private static physicalPort(
+        settings: Port | undefined,
+        vlanId: (name: string) => number,
+        lagNumbers: Map<string, number>,
+        lldpOff: boolean
+    ): string[] {
         if (!settings) return ["shutdown"];
 
         const lines: string[] = [];
         if (settings.description) lines.push(`description ${settings.description}`);
-        if (settings.in_lag) return [...lines, `port-channel ${lagNumbers.get(settings.in_lag)}`];
+        // LLDP runs on each port once it runs on the switch, and is turned off where the config doesn't want it.
+        const lldp = settings.lldp === false || lldpOff ? ["lldp disable"] : [];
+        if (settings.in_lag) return [...lines, `port-channel ${lagNumbers.get(settings.in_lag)}`, ...lldp];
 
-        lines.push(...RaisecomRosRender.switching(settings, vlanId));
+        lines.push(...RaisecomRosRender.switching(settings, vlanId), ...lldp, ...RaisecomRosRender.portStp(settings.stp));
 
-        if (settings.lldp === false) lines.push("lldp disable");
-        if (settings.stp === false) lines.push("spanning-tree disable");
-        const broadcast = settings.storm_control?.broadcast;
-        if (broadcast && "pps" in broadcast) lines.push("storm-control mode pps", `storm-control broadcast pps ${broadcast.pps}`);
+        // Every threshold takes the one mode, and kbps, the default, prints nothing.
+        const storm = settings.storm_control;
+        const thresholds = [
+            ["broadcast", storm?.broadcast],
+            ["dlf", storm?.unknown_unicast],
+        ] as const;
+        const pps = thresholds.flatMap(([kind, threshold]) =>
+            threshold && "pps" in threshold ? [`storm-control ${kind} pps ${threshold.pps}`] : []
+        );
+        if (pps.length) lines.push("storm-control mode pps", ...pps);
+
+        lines.push(...RaisecomRosRender.rateLimit(settings.rate_limit));
 
         // Port security drops frames from any source past the limit, its default `protect` action. The default limit prints nothing.
         if (settings.mac_limit !== undefined) {
@@ -297,7 +366,37 @@ export class RaisecomRosRender {
                 lines.push(`switchport port-security maximum ${settings.mac_limit}`);
         }
 
+        if (settings.dhcp_trusted) lines.push("ip dhcp snooping trust");
+
         return lines;
+    }
+
+    /** A port's spanning tree. The switch finds edge ports itself unless told, `auto`, its default. A port's priority is the common instance's, 0, as the switch prints it. */
+    private static portStp(stp: Switched["stp"]): string[] {
+        if (stp === false) return ["spanning-tree disable"];
+        if (typeof stp !== "object") return [];
+
+        const lines: string[] = [];
+        if (stp.edge !== undefined) lines.push(`spanning-tree edged-port force-${stp.edge}`);
+        if (stp.priority !== undefined) lines.push(`spanning-tree instance 0 priority ${stp.priority}`);
+        if (stp.guard === "root") lines.push("spanning-tree rootguard enable");
+        return lines;
+    }
+
+    /** What arrives and what leaves, the rate in kbit/s. A burst the same as the switch's own, one second at the rate up to the most it takes, prints nothing. */
+    private static rateLimit(rateLimit: RateLimit | undefined): string[] {
+        const line = (direction: string, limit: Limit) => {
+            const { rate, burst } = Derive.limit(limit);
+            const kbps = Derive.bitsPerSecond(rate) / RaisecomRosRender.BITS_PER_KBIT;
+            const own = Math.min(kbps / Derive.BITS_PER_BYTE, RaisecomRosRender.BURST_KB.max);
+            const kilobytes = burst === undefined ? own : burst / RaisecomRosRender.BYTES_PER_KB;
+            return `rate-limit ${direction} cir ${kbps}${kilobytes === own ? "" : ` cbs ${kilobytes}`}`;
+        };
+
+        return [
+            ...(rateLimit?.input ? [line("ingress", rateLimit.input)] : []),
+            ...(rateLimit?.output ? [line("egress", rateLimit.output)] : []),
+        ];
     }
 
     /** The BFD session for each next hop a static route watches, numbered from 1 in the order the routes come, with the VLAN its interface is on. A next hop on no VLAN interface's network has none. */
