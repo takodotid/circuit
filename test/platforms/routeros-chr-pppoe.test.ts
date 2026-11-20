@@ -239,7 +239,8 @@ describe.skipIf(!ready)("a CHR serving PPPoE, checked by RADIUS", () => {
         "cpe-01 logs in through RADIUS, gets an address from the pool and a prefix from the delegated pool, and its use is reported every minute",
         async () => {
             expect(eventually(() => sessionAddress() !== undefined)).toBe(true);
-            expect(eventually(() => hostsAddress() !== undefined)).toBe(true);
+            let hosts: string | undefined;
+            expect(eventually(() => (hosts = hostsAddress()) !== undefined)).toBe(true);
             circuit("exec", "edge-01", "/ppp active print detail", "/radius monitor 0 once", "/ipv6 dhcp-server binding print detail");
             circuit(
                 "exec",
@@ -250,8 +251,7 @@ describe.skipIf(!ready)("a CHR serving PPPoE, checked by RADIUS", () => {
             );
 
             // The /64 is in a prefix from edge-01's pool, and each router reaches the other's address through the session.
-            const hosts = hostsAddress()!;
-            expect(Address.contains(DELEGATED, hosts)).toBe(true);
+            expect(Address.contains(DELEGATED, hosts!)).toBe(true);
             expect(circuit("exec", "cpe-01", "/ping 100.64.0.1 count=3").output).toContain("received=3");
             expect(circuit("exec", "edge-01", `/ping ${hosts} src-address=${EDGE_IPV6} count=3`).output).toContain("received=3");
 

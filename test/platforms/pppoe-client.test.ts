@@ -107,7 +107,7 @@ test("RouterOS delegates a PPPoE server's prefixes from a pool its profile names
     expect(at("/ipv6 pool add name=olt-1-pd")).toBeLessThan(at("/ppp profile add"));
 
     const stray = `${desired}/ppp profile\nset *0 dhcpv6-pd-pool=olt-1-pd remote-ipv6-prefix-pool=olt-1-pd\n`;
-    expect(sent(desired, stray)).toEqual(["/ppp profile unset *0 dhcpv6-pd-pool", "/ppp profile unset *0 remote-ipv6-prefix-pool"]);
+    expect(sent(desired, stray)).toEqual(['/ppp profile set *0 dhcpv6-pd-pool="" remote-ipv6-prefix-pool=""']);
 });
 
 test("RouterOS refuses a client named as an IPv6 pool it writes", () => {

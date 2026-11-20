@@ -79,7 +79,7 @@ export class RouterOsExport {
     /** A DHCPv6 client's properties that `export verbose` prints as `!name` while they are not set (CHR, 7.24.6). */
     private static readonly DHCPV6_CLIENT_UNSET = ["custom-iana-id", "custom-iapd-id", "pool-prefix-length"];
 
-    /** A PPP profile's pool of delegated prefixes, which `export verbose` leaves out while it is not set (CHR, 7.24.6). */
+    /** A PPP profile's IPv6 pools, which `export verbose` leaves out while they are not set. `unset` refuses them, and an empty value clears them (CHR, 7.24.6). */
     private static readonly PPP_PROFILE_POOLS = ["dhcpv6-pd-pool", "remote-ipv6-prefix-pool"];
 
     /** The bits of an IPv6 address after a /64, its interface ID (RFC 4291). */
@@ -258,10 +258,11 @@ export class RouterOsExport {
             "validate-server-duid": "yes",
             ...Object.fromEntries(RouterOsExport.DHCPV6_CLIENT_UNSET.map((property) => [property, ""])),
         },
-        // As a CHR on 7.24.6 printed a client made with its interface, name, user, and password, with `export verbose`. A client is added disabled.
+        // As a CHR on 7.24.6 printed a client made with its interface, name, user, and password, with `export verbose`, and a distance set back to 1. A client is added disabled.
         "/interface pppoe-client": {
             "ac-name": "",
             "add-default-route": "no",
+            "default-route-distance": "1",
             allow: "pap,chap,mschap1,mschap2",
             "dial-on-demand": "no",
             disabled: "yes",
@@ -398,7 +399,7 @@ export class RouterOsExport {
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
-        "/ppp profile": [...RouterOsExport.PPP_PROFILE_UNSET, ...RouterOsExport.PPP_PROFILE_POOLS],
+        "/ppp profile": RouterOsExport.PPP_PROFILE_UNSET,
         "/ipv6 dhcp-client": RouterOsExport.DHCPV6_CLIENT_UNSET,
     };
 
