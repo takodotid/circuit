@@ -104,6 +104,19 @@ test("a pseudowire runs over MPLS to another PE's LSR ID, with a PW ID of its ow
     );
 });
 
+test("RouterOS wants each VLAN interface beside a pseudowire at an MTU of 1496 or less, as it lowers them to that", () => {
+    const vlanInterface = (mtu?: number): Device => ({
+        ...pe01,
+        interfaces: { ...pe01.interfaces, vlan_interface: { "vlan-clinic": { vlan: "clinic", mtu, addresses: ["203.0.113.1/26"] } } },
+    });
+
+    expect(routeros.unsupported(vlanInterface(1496))).toEqual([]);
+    expect(routeros.unsupported(vlanInterface())).toEqual([
+        "interfaces.vlan_interface.vlan-clinic.mtu left out, 1500 beside a pseudowire: RouterOS lowers it to 1496 once the pseudowire runs, and refuses more. Write mtu: 1496 or less",
+    ]);
+    expect(routeros.unsupported(withPseudowires(vlanInterface(1500), {}))).toEqual([]);
+});
+
 test("Junos, FortiOS, VRP, and Raisecom ROS refuse a pseudowire, each saying why", () => {
     const reasons: Record<string, string> = {
         junos: "a pseudowire, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",

@@ -23,6 +23,9 @@ const WAIT_MS = 90_000;
 
 const POLL_MS = 3000;
 
+/** The MTU of a VLAN interface on a bridge where a pseudowire runs, which RouterOS lowers it to (TRAPS.md). */
+const VLAN_MTU = 1496;
+
 /** The VPWS's VLAN and PW ID, and the VPLS's. */
 const VPWS = { id: 201, pw: 201 };
 const VPLS = { id: 202, pw: 202 };
@@ -110,12 +113,12 @@ function writeRouter(router: Router, vpws: boolean, vpls: boolean): void {
     if (vpws && router.vpws) {
         const far = router === FIRST_PE ? SECOND_PE : FIRST_PE;
         vlans.push(`vpws: { id: ${VPWS.id} }`);
-        vlanInterfaces.push(`"vlan-vpws": { vlan: "vpws", addresses: ["${router.vpws}/26"] }`);
+        vlanInterfaces.push(`"vlan-vpws": { vlan: "vpws", mtu: ${VLAN_MTU}, addresses: ["${router.vpws}/26"] }`);
         pseudowires.push(`"pw-vpws": { peer: "${far.loopback}", pw_id: ${VPWS.pw}, access_vlan: "vpws" }`);
     }
     if (vpls && router.vpls) {
         vlans.push(`vpls: { id: ${VPLS.id} }`);
-        vlanInterfaces.push(`"vlan-vpls": { vlan: "vpls", addresses: ["${router.vpls}/26"] }`);
+        vlanInterfaces.push(`"vlan-vpls": { vlan: "vpls", mtu: ${VLAN_MTU}, addresses: ["${router.vpls}/26"] }`);
         for (const far of ROUTERS.filter((other) => other !== router))
             pseudowires.push(`"pw-vpls-${far.name}": { peer: "${far.loopback}", pw_id: ${VPLS.pw}, access_vlan: "vpls" }`);
     }
