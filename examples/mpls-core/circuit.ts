@@ -1,4 +1,4 @@
-// The network, AS64500: two points of presence joined by an MPLS core. IS-IS carries the routers' loopbacks, and LDP gives each loopback a label.
+// The network, AS64500: two points of presence joined by an MPLS core. IS-IS carries the routers' loopbacks, and LDP gives each loopback a label. Over the core, iBGP carries a bank's VPN routes between its offices, and a pseudowire joins a clinic's two sites.
 
 export const as64500 = circuit({
     asn: 64500,

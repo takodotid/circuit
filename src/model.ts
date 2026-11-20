@@ -6,6 +6,7 @@ export type {
     AdvertisedPrefix,
     AsNumbers,
     AsRange,
+    BgpFamily,
     BoundHost,
     Certificate,
     Ethertype,
@@ -65,12 +66,16 @@ export type Ipsec = C.Ipsec & Partial<Record<Exclude<keyof C.Base<string>, keyof
 export type WireGuard = C.WireGuard<string, string>;
 export type Eoip = C.Eoip<string, string>;
 export type Bridge = C.Bridge<string, string>;
+/** The settings of ports and other interfaces a pseudowire has none of are never there, so code reads them from any port or interface alike. */
+export type Pseudowire = C.Pseudowire<string> &
+    Partial<Record<Exclude<keyof C.Base<string> | keyof C.Switched<string>, keyof C.Pseudowire<string>>, never>>;
 
 /** Any interface that is not a port: what `interfaces` holds besides `ethernet`. */
-export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip;
+export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip | Pseudowire;
 
 /** The kinds of interface `interfaces` groups by, besides `ethernet`. */
-export type InterfaceKind = "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "bridge" | "eoip";
+export type InterfaceKind =
+    "lag" | "vlan_interface" | "loopback" | "gre" | "vxlan" | "ipsec" | "wireguard" | "bridge" | "eoip" | "pseudowire";
 
 export type Switched = C.Switched<string>;
 export type Routed = C.Routed<string>;

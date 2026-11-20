@@ -93,6 +93,8 @@ A note in a cell means "works, with this limit".
 | IS-IS overload bit           | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌         | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌         | ❌                       | 🧪                    | ❌               |
+| L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌         | ❌                       | ❌                    | ❌               |
+| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌         | ❌                       | ❌                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
@@ -128,22 +130,22 @@ A note in a cell means "works, with this limit".
 
 ### Management and monitoring
 
-| Feature                           | RouterOS                        | VRP                  | Raisecom ROS      | Junos                  | FortiOS                           |
-| --------------------------------- | ------------------------------- | -------------------- | ----------------- | ---------------------- | --------------------------------- |
-| Users                             | ✅                              | ✅                   | `admin` role only | ✅                     | ✅                                |
-| SSH keys                          | ✅                              | one RSA key per user | ❌                | ✅                     | ✅                                |
-| Logins through servers            | RADIUS, no command accounting   | ❌                   | ❌                | ✅                     | ✅ up to 3 servers, no accounting |
-| SNMP v2c and v3                   | ✅ v3 SHA1 only                 | ✅                   | ✅ v3 SHA1 only   | ✅                     | ✅ v3 SHA1 only                   |
-| SNMP traps                        | one community or user, port 162 | ❌                   | ❌                | ✅                     | ✅                                |
-| Syslog                            | ✅                              | ✅                   | ✅                | ✅                     | ✅ up to 4                        |
-| Syslog over TLS                   | ❌                              | ❌                   | ❌                | ❌                     | 🧪                                |
-| Flow export                       | NetFlow 9, IPFIX                | sFlow                | ❌                | sFlow                  | sFlow, NetFlow 9                  |
-| Flow timeouts                     | ✅                              | ❌                   | ❌                | ❌                     | 🧪                                |
-| Web, API, certificates            | ✅                              | ❌                   | ❌                | web, API               | ✅                                |
-| Management in a VRF               | ✅ not FTP                      | ❌                   | ❌                | ❌                     | ❌                                |
-| SNMP in a VRF                     | ✅                              | ❌                   | ❌                | ❌                     | ❌                                |
-| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ❌                   | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
-| Management VDOM                   | ❌                              | ❌                   | ❌                | ❌                     | ✅                                |
+| Feature                           | RouterOS                        | VRP                             | Raisecom ROS      | Junos                  | FortiOS                           |
+| --------------------------------- | ------------------------------- | ------------------------------- | ----------------- | ---------------------- | --------------------------------- |
+| Users                             | ✅                              | ✅                              | `admin` role only | ✅                     | ✅                                |
+| SSH keys                          | ✅                              | one RSA key per user            | ❌                | ✅                     | ✅                                |
+| Logins through servers            | RADIUS, no command accounting   | no command accounting on RADIUS | ❌                | ✅                     | ✅ up to 3 servers, no accounting |
+| SNMP v2c and v3                   | ✅ v3 SHA1 only                 | ✅                              | ✅ v3 SHA1 only   | ✅                     | ✅ v3 SHA1 only                   |
+| SNMP traps                        | one community or user, port 162 | ❌                              | ❌                | ✅                     | ✅                                |
+| Syslog                            | ✅                              | ✅                              | ✅                | ✅                     | ✅ up to 4                        |
+| Syslog over TLS                   | ❌                              | ❌                              | ❌                | ❌                     | 🧪                                |
+| Flow export                       | NetFlow 9, IPFIX                | sFlow                           | ❌                | sFlow                  | sFlow, NetFlow 9                  |
+| Flow timeouts                     | ✅                              | ❌                              | ❌                | ❌                     | 🧪                                |
+| Web, API, certificates            | ✅                              | ❌                              | ❌                | web, API               | ✅                                |
+| Management in a VRF               | ✅ not FTP                      | ❌                              | ❌                | ❌                     | ❌                                |
+| SNMP in a VRF                     | ✅                              | ❌                              | ❌                | ❌                     | ❌                                |
+| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ❌                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
+| Management VDOM                   | ❌                              | ❌                              | ❌                | ❌                     | ✅                                |
 
 ### Circuit's own tools
 

@@ -53,6 +53,9 @@ export type PrefixLimit =
           restart_after?: never;
       };
 
+/** What a BGP session carries: `ipv4` or `ipv6` routes, or the routes of VRFs with route targets, `vpnv4` (RFC 4364) or `vpnv6` (RFC 4659). */
+export type BgpFamily = Family | "vpnv4" | "vpnv6";
+
 /** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `F` its VRFs, `Net` what the network writes. */
 export type NeighborSettings<P extends string, T extends string, F extends string = string, Net extends NetworkFacts = AnyFacts> = {
     /** The neighbor's AS. If it is our own AS, the session is internal (iBGP). */
@@ -83,8 +86,10 @@ export type NeighborSettings<P extends string, T extends string, F extends strin
     hold_time?: number;
     /** Seconds between keepalive messages. */
     keepalive?: number;
-    /** The address families the session carries. The family of the neighbor's address when absent. */
-    address_families?: readonly Family[];
+    /**
+     * The address families the session carries. The family of the neighbor's address when absent. `vpnv4` and `vpnv6` carry the routes of each VRF with `route_targets` to another PE, and bring back the far VRFs' routes. Write them on an iBGP session from this router's LSR ID, `local_address`, to the far PE's, with `routing.mpls`: the routes' traffic crosses the core by label. Route targets pick the VPN routes a VRF takes, so `import_policy` and `export_policy` apply to `ipv4` and `ipv6` routes only.
+     */
+    address_families?: readonly BgpFamily[];
     /** Wait for the neighbor to connect instead of connecting to it. */
     passive?: boolean;
     /** Detect a dead link in under a second with BFD. */
@@ -287,10 +292,32 @@ export type RoutingTable = {
     description?: string;
 };
 
+/**
+ * A route distinguisher (RFC 4364, section 4.2): an AS number and a number, `64500:101`, or an IPv4 address and a number, `192.0.2.1:101`. With an AS up to 65535, the number goes up to 4294967295; with a larger AS or an address, up to 65535.
+ */
+export type RouteDistinguisher = `${number}:${number}` | `${IPv4}:${number}`;
+
+/** A route target, an extended community (RFC 4360, RFC 5668), written as a route distinguisher is: `64500:101`, or `192.0.2.1:101`. */
+export type RouteTarget = `${number}:${number}` | `${IPv4}:${number}`;
+
+/** Which VPN routes a VRF takes, and what its own carry. */
+export type VrfRouteTargets = {
+    /** The VRF takes each VPN route that carries any of these. */
+    import?: readonly RouteTarget[];
+    /** The VRF's own routes carry these. */
+    export?: readonly RouteTarget[];
+};
+
 /** A separate routing table, with the interfaces that route in it. */
 export type Vrf = {
     /** What the VRF is for. */
     description?: string;
+    /** Keeps the VRF's routes apart from another VRF's with the same prefix among VPN routes, such as `64500:101`. Each VRF of the device has its own. Needed with `route_targets`. */
+    route_distinguisher?: RouteDistinguisher;
+    /**
+     * Makes the VRF part of an L3VPN (RFC 4364), such as `{ import: ["64500:101"], export: ["64500:101"] }`. Every route the VRF holds, connected, static, or learned from its OSPF or BGP, goes to the BGP neighbors that carry `vpnv4` or `vpnv6` with the `export` targets. The VRF takes the VPN routes that carry an `import` target. Needs `route_distinguisher`.
+     */
+    route_targets?: VrfRouteTargets;
 };
 
 /** Routes one table takes from another, through a policy. `F` is the device's VRFs, `P` its policies. */

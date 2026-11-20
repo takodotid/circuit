@@ -332,6 +332,7 @@ export const DEVICE = {
             },
         },
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
+        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0 } },
     },
     switching: {
         vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
@@ -378,7 +379,7 @@ export const DEVICE = {
     routing: {
         router_id: 0,
         tables: { "*": { description: 0 } },
-        vrfs: { "*": { description: 0 } },
+        vrfs: { "*": { description: 0, route_distinguisher: 0, route_targets: { import: 0, export: 0 } } },
         vrf_imports: [{ from: 0, to: 0, policy: 0 }],
         policy_routing: [ROUTING_RULE],
         static_routes: [STATIC_ROUTE],

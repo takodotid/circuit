@@ -165,7 +165,7 @@ export class JunosBgp {
 
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
 
-            const families = settings.address_families ?? [Address.family(neighbor.address)];
+            const families = Derive.unicastFamilies(settings, neighbor.address);
             if (settings.send_default_route) {
                 this.out.set(group, "export", JunosBgp.DEFAULT_ROUTE);
                 const wanted = defaults.get(settings.vrf ?? "") ?? new Set<Family>();
