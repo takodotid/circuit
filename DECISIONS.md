@@ -87,6 +87,7 @@ These decisions are binding. A change to one is a new decision with the next num
 - **29.** Communities: `learned_from_group` and `do_not_announce_to_as`; a `_group` option needs `groups`, `learned_at_site` a site with a number; one `communities` block on a neighbor or neighbor group; an import honors no request unless the policy says so.
 - **39.** Requests about one AS (do not announce, prepend) are offered toward upstreams, exchanges, and peers, not between customers. Customers share one export policy; a special customer gets its own.
 - **50.** A customer's routes get no `learned_from_as` tag, so customers share one import policy.
+- **157.** On VRP, every BGP session sends communities, `peer <address> advertise-community`, as RouterOS, Junos, and FortiOS do without a setting. The switch sends none without it, so an export policy that sets a community would set it for nothing.
 
 ## A project's files
 

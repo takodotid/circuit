@@ -61,3 +61,15 @@ Seen on a CE6855 running V200R005.
     - A primary RADIUS server is undone by its kind alone, `undo radius server authentication`; with its address, `Incomplete command`. A secondary is undone by its address, port, source, and `secondary`, without its key. Servers print in the order they were added, so a change sends them all again. A change to a group in use was taken in a candidate but never committed.
     - Keys print as `shared-key-cipher %^%#...%^%#` and `shared-key cipher %^%#...%^%#`, which the read redacts. A TACACS+ server on port 49 prints without it.
     - With `authentication-mode local radius` or `local hwtacacs`, the switch's own user logs in with its password at once.
+- A question the switch asks takes the next line sent as its answer, whatever it is: a `peer ... timer` line took the `peer ...` line after it as no, and `commit trial` during a trial took the line after it as yes, which confirmed the running trial. Circuit answers each question itself (V200R005C00SPC800).
+- BGP and route-policies (V200R005C00SPC800, each committed with `commit trial`, the next plan empty, then removed):
+    - V200R005 has no large communities (`ip large-community-filter`, `if-match large-community-filter`, `apply large-community` are `Unrecognized command`), no `goto next-node`, no `route-policy <name> address-family mismatch-deny`, and no `apply ip-address next-hop blackhole` (`Wrong parameter`). `if-match as-path length` takes no length: `Too many parameters`.
+    - A peer created with one AS refuses another: `peer <address> as-number <new>` is `The peer already exists in AS <old>`. Circuit removes the peer with `undo peer`, which asks `[Y/N]` and takes every line of the peer, then writes it whole again.
+    - `peer ... timer`, `peer ... enable` in the IPv6 family, `undo peer`, and `undo bgp` ask `[Y/N]`.
+    - An IPv4 peer is enabled in `ipv4-family unicast` on its own and prints `peer <address> enable` there. An IPv6 peer is enabled by hand.
+    - IPv6 addresses print in capitals: `peer 2001:DB8::1`, `network 2001:DB8:: 32`. An IPv4 `network` prints its mask, `network 203.0.113.0 255.255.255.0`, even when sent with a length.
+    - A prefix list entry sent with `less-equal` alone prints its lower bound too, `203.0.113.0 24 greater-equal 24 less-equal 32`, unless the length is 0: `:: 0 less-equal 128`. An exact entry, `192.0.2.0 24`, prints as sent.
+    - A well-known community prints by its name: `permit 65535:65281` prints as `permit no-export`. `65535:666` prints as a number.
+    - `undo route-policy <name> node <number>` takes no `permit` or `deny`. Entering a node that exists answers `Info: This sequence is being overridden.` and keeps its lines.
+    - Several `if-match community-filter` lines stay in one node, each its own line.
+    - Without `peer ... advertise-community`, a peer is sent no communities (the CloudEngine command reference). Circuit writes it for every peer.
