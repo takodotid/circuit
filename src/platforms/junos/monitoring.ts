@@ -1,11 +1,18 @@
+import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device } from "../../model";
 import type { JunosNames } from "./names";
 import { JunosStatements } from "./statements";
 
-/** SNMP, its traps, and sFlow. */
+/** SNMP, its traps, sFlow, and probes. */
 export class JunosMonitoring {
+    /** The owner of every probe: RPM, as RFC 4560, keeps a test under an owner and its name. */
+    static readonly PROBE_OWNER = "circuit";
+
+    /** The longest test name the platform takes (21.4R3-S8.5). */
+    static readonly TEST_NAME_CHARS = 32;
+
     private static readonly SNMP_AUTH = { sha1: "authentication-sha", sha256: "authentication-sha256" } as const;
     private static readonly SNMP_PRIVACY = { aes128: "privacy-aes128", des: "privacy-des" } as const;
 
@@ -91,6 +98,21 @@ export class JunosMonitoring {
 
         for (const name of observed) {
             for (const port of names.members(name)) if (!port.startsWith("em")) out.set("protocols sflow interfaces", `${port}.0`);
+        }
+    }
+
+    /** RPM's ICMP tests. An IPv6 target is `icmp6-ping` to an `inet6-address`, its source under `inet6-options` (TRAPS.md). */
+    static probes(out: JunosStatements, device: Device): void {
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const test = `services rpm probe ${JunosMonitoring.PROBE_OWNER} test ${name}`;
+            const ipv6 = Address.family(probe.target) === "ipv6";
+
+            out.set(test, "probe-type", ipv6 ? "icmp6-ping" : "icmp-ping");
+            out.set(test, "target", ipv6 ? "inet6-address" : "address", Address.canonical(probe.target));
+            out.set(test, "test-interval", probe.interval);
+            if (probe.source_address)
+                out.set(test, ipv6 ? "inet6-options source-address" : "source-address", Address.canonical(probe.source_address));
+            if (probe.vrf) out.set(test, "routing-instance", probe.vrf);
         }
     }
 }

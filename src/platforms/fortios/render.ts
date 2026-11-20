@@ -83,6 +83,7 @@ export class FortiOsRender {
         ...["", "2", "3", "4"].flatMap((number) => [`log syslogd${number} setting`, `log syslogd${number} filter`]),
         "system sflow",
         "system netflow",
+        "system link-monitor",
         "system dhcp server",
         "system dhcp6 server",
         "router static",
@@ -330,6 +331,7 @@ export class FortiOsRender {
         FortiOsMonitoring.snmp(root, device);
         FortiOsMonitoring.logging(root, device);
         FortiOsMonitoring.flowExport(root, device);
+        FortiOsMonitoring.probes(section("system link-monitor"), device);
         FortiOsRender.dhcpServers(section("system dhcp server"), device);
         FortiOsRender.dhcpv6Servers(section("system dhcp6 server"), device);
         FortiOsRender.staticRoutes(section("router static"), section("router static6"), device, device.routing?.static_routes ?? []);

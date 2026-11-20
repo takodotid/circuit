@@ -310,6 +310,8 @@ export class RouterOsExport {
             "active-flow-timeout": "30m",
             "inactive-flow-timeout": "15s",
         },
+        // A probe added without a type is the older `simple` one (CHR, 7.24.6).
+        "/tool netwatch": { type: "simple", interval: "10s", "src-address": "" },
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
@@ -414,6 +416,8 @@ export class RouterOsExport {
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
         "/ppp profile": RouterOsExport.PPP_PROFILE_UNSET,
         "/ipv6 dhcp-client": RouterOsExport.DHCPV6_CLIENT_UNSET,
+        // An empty one prints `src-address=""` (CHR, 7.24.6).
+        "/tool netwatch": ["src-address"],
     };
 
     /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */

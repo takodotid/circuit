@@ -1,5 +1,6 @@
-// SNMP and flow export, rendered and refused.
+// SNMP, flow export, and probes, rendered and refused.
 
+import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import type { Device } from "../../model";
 import type { RouterOsRender, Value } from "./render";
@@ -92,6 +93,19 @@ export class RouterOsMonitoring {
 
         for (const collector of flow.collectors) {
             render.add("/ip traffic-flow target", "add", { "dst-address": collector.address, port: collector.port ?? 2055, version });
+        }
+    }
+
+    /** Netwatch's ICMP probes, each known by its name. A probe in a VRF names it after the target, `<target>@<vrf>`. */
+    static probes(render: RouterOsRender, device: Device): void {
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            render.add("/tool netwatch", "add", {
+                host: RouterOsSyntax.inVrf(Address.canonical(probe.target), probe.vrf),
+                interval: RouterOsSyntax.duration(probe.interval),
+                name,
+                "src-address": probe.source_address && Address.canonical(probe.source_address),
+                type: "icmp",
+            });
         }
     }
 

@@ -320,6 +320,11 @@ export class Vrp extends Platform {
 
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
         found.push(...Derive.unbuiltMonitoring(device));
+        // Huawei's NQA documentation for CloudEngine V200R005C10.
+        for (const name of Object.keys(monitoring.probes ?? {}))
+            found.push(
+                `monitoring.probes.${name}, not built for VRP: NQA asks before it changes a running test, and deletes none until it is stopped`
+            );
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));

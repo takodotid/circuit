@@ -116,6 +116,7 @@ export type DhcpRelay = C.DhcpRelay<string>;
 export type PppoeServer = C.PppoeServer<string, string>;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
+export type Probe = C.Probe;
 export type Ospf = C.Ospf<string>;
 export type OspfArea = C.OspfArea<string>;
 export type Isis = C.Isis<string>;

@@ -5,8 +5,16 @@ import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
 
-/** SNMP, its communities and traps, syslog, and NetFlow. */
+/** SNMP, its communities and traps, syslog, NetFlow, and probes. */
 export class FortiOsMonitoring {
+    /** How often a link monitor may probe, in seconds: the platform takes 500 to 3600000 milliseconds. */
+    static readonly PROBE_INTERVAL = { min: 1, max: 3600 } as const;
+
+    /** The longest link monitor name the platform takes (6.2.2). */
+    private static readonly PROBE_NAME_CHARS = 35;
+
+    private static readonly MS_PER_SECOND = 1000;
+
     /** The SNMP trap port (RFC 3417), the platform's default. */
     private static readonly TRAP_PORT = 162;
 
@@ -181,5 +189,38 @@ export class FortiOsMonitoring {
                 block.set("active-flow-timeout", flow.active_timeout / FortiOsMonitoring.SECONDS_PER_MINUTE);
             if (flow.idle_timeout && flow.idle_timeout !== inactive.default) block.set("inactive-flow-timeout", flow.idle_timeout);
         }
+    }
+
+    /**
+     * Each probe is a link monitor in the root VDOM that only pings. Without `srcintf` it follows the routing table, and the platform turns off what a failure would change, `update-cascade-interface` and `update-static-route` (TRAPS.md).
+     */
+    static probes(section: FortiOsNode, device: Device): void {
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const ipv6 = Address.family(probe.target) === "ipv6";
+            const entry = section.entry(name);
+            if (ipv6) entry.set("addr-mode", "ipv6");
+            entry.set("server", FortiOsTree.quote(Address.canonical(probe.target)));
+            if (ipv6) entry.set("protocol", "ping6");
+            if (probe.source_address) entry.set(ipv6 ? "source-ip6" : "source-ip", Address.canonical(probe.source_address));
+            entry.set("interval", probe.interval * FortiOsMonitoring.MS_PER_SECOND);
+            entry.set("update-cascade-interface", "disable");
+            entry.set("update-static-route", "disable");
+        }
+    }
+
+    static probeGaps(device: Device): string[] {
+        const found: string[] = [];
+        const { min, max } = FortiOsMonitoring.PROBE_INTERVAL;
+
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const where = `monitoring.probes.${name}`;
+            if (name.length > FortiOsMonitoring.PROBE_NAME_CHARS)
+                found.push(`${where}, the platform takes a link monitor name of ${FortiOsMonitoring.PROBE_NAME_CHARS} characters at most`);
+            if (probe.vrf) found.push(`${where}.vrf, the platform's link monitor has no VRF setting: it probes in the main table`);
+            if (probe.interval < min || probe.interval > max)
+                found.push(`${where}.interval ${probe.interval}, from ${min} to ${max} seconds`);
+        }
+
+        return found;
     }
 }

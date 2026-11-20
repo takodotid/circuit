@@ -16,6 +16,7 @@ import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, P
 import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
 import { JunosBgpSessions } from "./bgp-sessions";
+import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
@@ -123,6 +124,8 @@ export class Junos extends Platform {
             if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
         // A port's policer passed `commit check`. A LAG's was not tried.
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
+        // RPM's tests passed `commit check` only, in a candidate that was never committed.
+        for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
         return found;
     }
 
@@ -141,6 +144,11 @@ export class Junos extends Platform {
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
+        for (const name of Object.keys(device.monitoring?.probes ?? {}))
+            if (name.length > JunosMonitoring.TEST_NAME_CHARS)
+                found.push(
+                    `monitoring.probes.${name}, the platform takes a test name of ${JunosMonitoring.TEST_NAME_CHARS} characters at most`
+                );
         // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
         for (const where of Derive.l3vpn(device))
             found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);

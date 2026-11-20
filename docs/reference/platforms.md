@@ -155,6 +155,7 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 | Syslog over TLS                   | ❌                              | ❌                              | ❌                | ❌                     | 🧪                                |
 | Flow export                       | NetFlow 9, IPFIX                | sFlow                           | ❌                | sFlow                  | sFlow, NetFlow 9                  |
 | Flow timeouts                     | ✅                              | ❌                              | ❌                | ❌                     | 🧪                                |
+| ICMP probes                       | ✅                              | ❌                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌                              | ❌                | web, API               | ✅                                |
 | Management in a VRF               | ✅ not FTP                      | ❌                              | ❌                | ❌                     | ❌                                |
 | SNMP in a VRF                     | ✅                              | ❌                              | ❌                | ❌                     | ❌                                |

@@ -31,7 +31,7 @@ device
 ├─ connection            how Circuit itself logs in
 ├─ system                the box itself: banner, time, DNS it uses, users, logins through servers, certificates, logs kept on it, software, hardware
 ├─ management            how people and tools log in: ssh, https, api, native_protocol, console
-├─ monitoring            what the box reports to collectors: snmp, syslog, flow export, optics
+├─ monitoring            what the box reports to collectors: snmp, syslog, flow export, optics. And the probes it runs.
 ├─ interfaces            every port and interface, by kind:
 │                          ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip, pseudowire, pppoe_client
 ├─ switching             layer 2 shared by ports: vlans, stp, dhcp_snooping, arp_inspection, ra_guard, lldp, acls
