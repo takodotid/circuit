@@ -5,6 +5,7 @@ import type { Device, Lag, Limit, OspfArea, OspfAuthentication, Port, RateLimit,
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
+import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
@@ -128,6 +129,7 @@ export class VrpRender {
         this.managementAcl();
         this.snmpAcl();
         this.ethertypeAclBlocks();
+        this.lines.push(...VrpAcls.blocks(device));
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
@@ -501,6 +503,7 @@ export class VrpRender {
         if (settings.lldp === false) lines.push("lldp disable");
         if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
+        lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl));
 
         const flow = this.device.monitoring?.flow_export;
         const observed = flow?.protocol === "sflow" && (!flow.interfaces || flow.interfaces.includes(port));
