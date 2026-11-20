@@ -20,28 +20,29 @@ Run `circuit` alone for a menu, or run a command straight away, such as `circuit
 | `diff [device]`  | Reads the device and shows what would change. Sends nothing. Exits 1 if something would change. |
 | `apply [device]` | Shows the same plan, then sends it once you say yes. See [Make a change](/guide/apply).         |
 
-| Option                 | For                         | Does                                                                                                                         |
-| ---------------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `--confirm`            | `apply`                     | Sends without asking.                                                                                                        |
-| `--secrets`            | `apply`, `diff`             | Sends every secret again. Use it to change a password, because devices never show passwords.                                 |
-| `--rollback <minutes>` | `apply`                     | RouterOS, Junos, and FortiOS: how long before the device undoes the change if Circuit can't log back in. Default 10.         |
-| `--force`              | `apply`                     | Sends even when the [path check](/guide/apply#the-path-check) fails.                                                         |
-| `--console`            | `apply`, `diff`             | Goes through the serial console on a jump host instead of SSH.                                                               |
-| `--experimental`       | `validate`, `diff`, `apply` | Lets a field marked 🧪 in the [feature matrix](/reference/platforms#feature-matrix) through, as a warning. Test it yourself. |
+| Option                 | For                         | Does                                                                                                                                                                                                                              |
+| ---------------------- | --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--confirm`            | `apply`                     | Sends without asking.                                                                                                                                                                                                             |
+| `--secrets`            | `apply`, `diff`             | Sends every secret again. Use it to change a password, because devices never show passwords.                                                                                                                                      |
+| `--rollback <minutes>` | `apply`                     | RouterOS, Junos, and FortiOS: how long before the device undoes the change if Circuit can't log back in. Default 10.                                                                                                              |
+| `--force`              | `apply`                     | Sends even when the [path check](/guide/apply#the-path-check) fails.                                                                                                                                                              |
+| `--console`            | `apply`, `diff`             | Goes through the serial console on a jump host instead of SSH.                                                                                                                                                                    |
+| `--experimental`       | `validate`, `diff`, `apply` | Lets a field marked 🧪 in the [feature matrix](/reference/platforms#feature-matrix) through, as a warning. Test it yourself. With `apply`, also runs [the checks afterwards](/guide/apply#checking-afterwards) where they are 🧪. |
 
 ## Utilities
 
-| Command                             | Does                                                                           |
-| ----------------------------------- | ------------------------------------------------------------------------------ |
-| `exec [device] [command...]`        | Runs read-only commands on the device. Also `execute`.                         |
-| `bgp [device]`                      | Shows each BGP neighbor next to its live session.                              |
-| `access-console [device] [line...]` | Opens the device's serial console, already logged in.                          |
-| `communities [network]`             | Prints what each BGP community means, for a looking glass.                     |
-| `addresses [prefix]`                | Shows what address space is used, and what is free.                            |
-| `sync [target]`                     | Updates NetBox, LibreNMS, PeeringDB, or Prometheus to match the project.       |
-| `studio`                            | Opens Circuit Studio in your browser. For its options, see [Studio](/studio/). |
-| `rename [device] [new-name]`        | Renames a device everywhere in the project.                                    |
-| `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.                          |
+| Command                             | Does                                                                                   |
+| ----------------------------------- | -------------------------------------------------------------------------------------- |
+| `exec [device] [command...]`        | Runs read-only commands on the device. Also `execute`.                                 |
+| `bgp [device]`                      | Shows each BGP neighbor next to its live session.                                      |
+| `access-console [device] [line...]` | Opens the device's serial console, already logged in.                                  |
+| `communities [network]`             | Prints what each BGP community means, for a looking glass.                             |
+| `addresses [prefix]`                | Shows what address space is used, and what is free.                                    |
+| `nat lookup <address> [port]`       | Finds the subscriber behind a NAT pool address and port, or where a subscriber leaves. |
+| `sync [target]`                     | Updates NetBox, LibreNMS, PeeringDB, or Prometheus to match the project.               |
+| `studio`                            | Opens Circuit Studio in your browser. For its options, see [Studio](/studio/).         |
+| `rename [device] [new-name]`        | Renames a device everywhere in the project.                                            |
+| `fmt [file...]`                     | Tidies spacing and line breaks. Nothing else changes.                                  |
 
 ### `exec`
 
@@ -70,7 +71,7 @@ Secrets in the output show as `<redacted>`. In Git Bash on Windows, set `MSYS_NO
 
 ### `bgp`
 
-RouterOS only for now.
+Works on RouterOS. On Junos and FortiOS it is 🧪: add `--experimental`, and compare what it shows with the device.
 
 ```sh
 circuit bgp edge-01
@@ -88,13 +89,14 @@ circuit bgp edge-01 --log 10                       # plus 10 minutes of BGP log
 1/2 up
 ```
 
-| Option                | Does                                                                                                              |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `--neighbors <regex>` | Shows only the neighbors whose name matches this regular expression.                                              |
-| `--wait [count]`      | Reads again every 15 seconds until every neighbor shown is up, or `count` of them. Exits 1 if time runs out.      |
-| `--max <seconds>`     | How long `--wait` waits at most. Default 600.                                                                     |
-| `--log [minutes]`     | Also prints the device's BGP log of the last minutes. Default 5.                                                  |
-| `--clear-limit`       | Clears the sessions that closed on their prefix limit. If several closed at once, look for a leak upstream first. |
+| Option                | Does                                                                                                                             |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--neighbors <regex>` | Shows only the neighbors whose name matches this regular expression.                                                             |
+| `--wait [count]`      | Reads again every 15 seconds until every neighbor shown is up, or `count` of them. Exits 1 if time runs out.                     |
+| `--max <seconds>`     | How long `--wait` waits at most. Default 600.                                                                                    |
+| `--log [minutes]`     | Also prints the device's BGP log of the last minutes. Default 5. RouterOS only.                                                  |
+| `--clear-limit`       | Clears the sessions that closed on their prefix limit. If several closed at once, look for a leak upstream first. RouterOS only. |
+| `--experimental`      | Reads a platform where `circuit bgp` is 🧪 in the [feature matrix](/reference/platforms#feature-matrix).                         |
 
 ### `access-console`
 
@@ -145,7 +147,34 @@ Your space is each prefix in `circuit({ prefixes })` and in a device's `originat
   free: 198.51.100.0/29, 198.51.100.16/28, 198.51.100.32/27, 198.51.100.96/27, 198.51.100.128/25
 ```
 
+A NAT pool (`to_pool`) and the subscribers it serves (`if.src`) are in use, and so is a PPPoE server's `pool` and `local_address`. Each is listed with its device. A pool that is no prefix shows as a range:
+
+```
+198.51.100.0/27  NAT pool for 100.64.0.0/22 on edge-01
+100.64.0.2-100.64.63.254  PPPoE pool olt-1 on bng-01
+100.64.0.0/22  subscribers of NAT pool 198.51.100.0/27 on edge-01
+```
+
 It reads only the project, so it doesn't know addresses a device gave out, such as DHCP leases.
+
+### `nat lookup`
+
+```sh
+circuit nat lookup 198.51.100.7 40000   # who was behind this address and port
+circuit nat lookup 100.64.0.243         # where this subscriber leaves
+circuit nat lookup 198.51.100.7         # every subscriber that shares this pool address
+circuit nat lookup 198.51.100.7 --format json
+```
+
+For an abuse report, give the public address and port. Each device with a source NAT `to_pool` that holds the address answers, and one that doesn't is left out:
+
+```
+edge-01: 198.51.100.7:40000 is 100.64.0.243 (to_pool 198.51.100.0/27, ports 39328-41343)
+```
+
+A subscriber's address (in `if.src`) gives its pool address and its block of ports. A pool address without a port lists its subscribers, 64 at most in text, and all of them in JSON. A port below 1024 or past the last block is in no block, and Circuit says so. An address in no pool lists the pools there are. The command exits 1 when it finds nothing.
+
+It reads only the project and never contacts a device. So it answers for a past day only if the config was the same then. Check out the commit of that day first, found with `git log --until=<date>`, and run it there. See [Shared addresses](/guide/rules#shared-addresses).
 
 ### `sync`
 

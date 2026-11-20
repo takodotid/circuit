@@ -184,7 +184,8 @@ class Cli {
                 Cli.whole("minutes", ProjectCommands.BGP_LOG_MINUTES)
             )
             .option("--clear-limit", "clear the sessions shown that closed on their prefix limit")
-            .action(async (device, flags) => (await ProjectCommands.open()).bgp(device, flags));
+            .option("--experimental", "also read a platform whose BGP sessions are not yet tested on a real device")
+            .action(async (device, flags) => (await ProjectCommands.open({ experimental: flags.experimental })).bgp(device, flags));
 
         program
             .command("addresses")
@@ -193,6 +194,14 @@ class Cli {
             .option("--length <n>", "list the free prefixes of this length instead", Cli.whole("length", Cli.EXAMPLE.prefixLength))
             .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
             .action(async (prefix, flags) => (await ProjectCommands.open()).addresses(prefix, flags.length, flags.format));
+
+        const nat = program.command("nat").description("what the project's NAT does");
+        nat.command("lookup")
+            .description("find the subscriber behind a pool address and port, or where a subscriber leaves, from the config alone")
+            .argument("<address>", "a pool address (to_pool), or a subscriber's address (if.src)")
+            .argument("[port]", "with a pool address: the port, from 1 to 65535", Cli.port)
+            .addOption(new Option("--format <format>", "text, or json for a script").choices(["text", "json"] as const).default("text"))
+            .action(async (address, port, flags) => (await ProjectCommands.open()).natLookup(address, port, flags.format));
 
         program
             .command("sync")

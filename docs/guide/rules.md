@@ -45,3 +45,5 @@ In other lists the order doesn't matter, except in DNS and NTP `servers`, which 
 A source `snat` with `to_pool` and `port_set_size` shares a pool of public addresses among subscribers, as carrier-grade NAT does. Each subscriber always leaves as the same pool address, with the same block of ports, so the address and port in an abuse report name one subscriber (RFC 7422). `circuit validate` checks that the blocks fit, and says what to change when they don't. On RouterOS, each subscriber takes two firewall rules, so it warns about a pool of more subscribers than a /20, the largest tested.
 
 <<< @/../examples/edge-router/sites/pop-1/edge-01.ts#cgnat
+
+To find the subscriber behind an address and port, run `circuit nat lookup 198.51.100.7 40000`. It reads the project and asks no device, so it is right for a past report only if the config was the same on that day. Check out the commit of that day first, found with `git log --until=<date>`. Circuit does not log translations, so the config is the only record ([#227](https://github.com/takodotid/circuit/issues/227)).

@@ -55,7 +55,7 @@ export type BgpSession = {
     prefixes: string;
     /** How long it has been up, as the device prints it, or `no session`. */
     uptime: string;
-    /** Why it is down, when the device says: `limit exceeded`, `admin down`, `connecting`. */
+    /** Why it is down, when the device says: `limit exceeded`, `admin down`, `connecting`, or the BGP state it prints, such as `Active`. */
     reason?: string;
     /** It closed because the neighbor sent more prefixes than its limit, and stays closed until cleared. */
     limit?: BgpLimit;
@@ -79,6 +79,9 @@ export type OsSupport = {
     checked: boolean;
 };
 
+/** Circuit's own tools that read a device's state: `circuit bgp`, and the checks after an apply. */
+export type Tool = "bgp" | "health";
+
 /** The switch rules a render makes from a device's hardware ACLs, counted. */
 export type SwitchRules = {
     count: number;
@@ -94,6 +97,8 @@ export abstract class Platform {
     abstract readonly extension: string;
     /** How the serial console asks for a login and shows its prompt. Present when `--console` and `circuit access-console` work on the platform. */
     readonly console: ConsoleDialect | undefined = undefined;
+    /** Tools built from the vendor's documentation, not yet tested on a device. Each runs only with `--experimental`. */
+    readonly experimentalTools: readonly Tool[] = [];
     /** Fields this platform can't express. Validation fails on any of them, so nothing is skipped silently. */
     abstract unsupported(device: Device): string[];
     /** Fields this platform renders but hasn't tested on a device yet. Validation refuses them, unless `--experimental` makes each a warning. Absent on a platform with none. */
