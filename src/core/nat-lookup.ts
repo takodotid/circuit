@@ -1,6 +1,6 @@
-// What `circuit nat lookup` answers. It reads only the project, so it is right for a day in the past only if the config was the same then.
+// What `circuit nat lookup` answers. It reads only the project, so it is right for a day in the past only if the config was the same then. A dynamic pool's blocks are in the device's log, not the config, so for one it says where to look.
 
-import type { Device, PoolNatRule, PortRange, Prefix } from "../model";
+import type { DeterministicPoolNatRule, Device, PortRange, Prefix } from "../model";
 import { Address } from "./address";
 import { Derive } from "./derive";
 
@@ -31,20 +31,20 @@ export type NatFound = {
     pools: string[];
 };
 
-type Mapping = { device: string; rule: PoolNatRule; src: Prefix };
+type Mapping = { device: string; rule: DeterministicPoolNatRule; src: Prefix };
 
 export class NatLookup {
     /** How many subscribers of one pool address the text lists. */
     private static readonly LISTED = 64;
 
-    /** Pool rules `validate` accepts: IPv4 prefixes, a pool no larger than the subscribers, and blocks that fit. One for each distinct pool, since an interface set makes a rule per interface. */
+    /** Deterministic pool rules `validate` accepts: IPv4 prefixes, a pool no larger than the subscribers, and blocks that fit. One for each distinct pool, since an interface set makes a rule per interface. */
     private static mappings(devices: readonly Device[]): Mapping[] {
         const available = Derive.POOL_PORTS.max - Derive.POOL_PORTS.min + 1;
         const found = new Map<string, Mapping>();
 
         for (const device of devices) {
             for (const rule of device.firewall?.nat?.source ?? []) {
-                if (!("to_pool" in rule)) continue;
+                if (!("to_pool" in rule) || rule.port_allocation !== "deterministic") continue;
 
                 const src = [rule.if?.src].flat()[0];
                 if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool)) continue;
@@ -116,11 +116,33 @@ export class NatLookup {
         return `${lines.join("\n")}\n`;
     }
 
+    /** Dynamic pools that hold `address`: the config can't say who had it, only the device's log of its blocks can. */
+    private static dynamic(devices: readonly Device[], address: string): { notes: string[]; pools: string[] } {
+        const notes: string[] = [];
+        const pools: string[] = [];
+
+        for (const device of devices) {
+            for (const rule of device.firewall?.nat?.source ?? []) {
+                if (!("to_pool" in rule) || rule.port_allocation !== "dynamic" || !Address.isCidr(rule.to_pool)) continue;
+
+                const pool = `${device.name}: to_pool ${rule.to_pool}, dynamic`;
+                if (!pools.includes(pool)) pools.push(pool);
+                if (!Address.contains(rule.to_pool, address)) continue;
+
+                const note = `${device.name}: ${address} is in to_pool ${rule.to_pool}, which gives blocks of ports as subscribers need them, so the config can't say who had it. Find the address and port in the device's log of the blocks it gave, at the time of the report.`;
+                if (!notes.includes(note)) notes.push(note);
+            }
+        }
+
+        return { notes, pools };
+    }
+
     /** Where `address` is in the pools: as a subscriber, or as a pool address, with or without a port. */
     static find(devices: readonly Device[], address: string, port?: number): NatFound {
         const mappings = NatLookup.mappings(devices);
+        const dynamic = NatLookup.dynamic(devices, address);
         const answers: NatAnswer[] = [];
-        const notes: string[] = [];
+        const notes: string[] = [...dynamic.notes];
         const value = Address.toNumber(address) ?? 0n;
 
         for (const mapping of mappings) {
@@ -171,7 +193,10 @@ export class NatLookup {
             answers.push({ ...base, pool_address: address, subscriber: one.subscriber, ports: one.ports });
         }
 
-        const pools = [...new Set(mappings.map(({ device, rule, src }) => `${device}: to_pool ${rule.to_pool} for ${src}`))];
+        const pools = [
+            ...new Set(mappings.map(({ device, rule, src }) => `${device}: to_pool ${rule.to_pool} for ${src}`)),
+            ...dynamic.pools,
+        ];
         return { answers, notes, pools };
     }
 }

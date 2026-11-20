@@ -107,14 +107,31 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
           to_port?: number;
       }
     | {
-          /** `snat` to a pool shares IPv4 addresses among subscribers, as carrier-grade NAT does (RFC 7422). Source NAT only. */
+          /** `snat` to a pool shares IPv4 addresses among subscribers, as carrier-grade NAT does. Source NAT only. */
           then: "snat";
-          /**
-           * The IPv4 addresses the subscribers in `if.src`, one IPv4 prefix, leave as. Each pool address takes the same number of subscribers: a /22 of subscribers on a /27 pool is 32 on each. Each subscriber always leaves as the same pool address, with the same block of `port_set_size` TCP and UDP ports. The blocks go in address order. The first subscriber gets the first pool address from port 1024, and the next subscriber gets the next block, until that address is full. Other protocols, such as ICMP, leave as the same pool address.
-           */
+          /** The IPv4 addresses the subscribers in `if.src` leave as. Each subscriber leaves as one pool address, with blocks of TCP and UDP ports of its own. */
           to_pool: `${IPv4}/${number}`;
+          /**
+           * `deterministic`: each subscriber of `if.src`, one IPv4 prefix, always leaves as the same pool address with the same block of ports (RFC 7422). Each pool address takes the same number of subscribers: a /22 on a /27 is 32 on each. The blocks go in address order from port 1024. Other protocols, such as ICMP, leave as the same address. `circuit nat lookup` finds the subscriber.
+           */
+          port_allocation: "deterministic";
           /** The ports in each subscriber's block. The subscribers on one pool address times this must fit in the ports from 1024 to 65535: 32 subscribers take 2016 ports each at most. */
           port_set_size: number;
+          port_sets_per_subscriber?: never;
+      }
+    | {
+          /** `snat` to a pool shares IPv4 addresses among subscribers, as carrier-grade NAT does. Source NAT only. */
+          then: "snat";
+          /** The IPv4 addresses the subscribers in `if.src` leave as. Each subscriber leaves as one pool address, with blocks of TCP and UDP ports of its own. */
+          to_pool: `${IPv4}/${number}`;
+          /**
+           * `dynamic`: the device gives a subscriber a block of ports when it needs one, and takes it back once the block's last connection ends (RFC 8512's port range allocation). It logs each block it gives and takes back, with the subscriber, pool address, and ports. Only that log finds the subscriber behind an address and port, so send it to a `monitoring.syslog` collector.
+           */
+          port_allocation: "dynamic";
+          /** The ports in each block. */
+          port_set_size: number;
+          /** The most blocks one subscriber holds at once. Its port limit (RFC 6888, REQ-4) is this times `port_set_size`. */
+          port_sets_per_subscriber: number;
       }
 );
 

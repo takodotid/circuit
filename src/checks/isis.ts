@@ -26,6 +26,10 @@ export class IsisChecks {
             );
 
         if (!isis.address_families.length) report("routing.isis.address_families is empty: write ipv4, ipv6, or both");
+        if (isis.multi_topology && !isis.address_families.includes("ipv6"))
+            report(
+                "routing.isis.multi_topology is on, but IS-IS routes no IPv6 to put in a topology of its own. Add ipv6 to address_families, or remove multi_topology"
+            );
 
         for (const [level, settings] of Object.entries(isis.levels ?? {})) {
             const at = `routing.isis.levels.${level}`;

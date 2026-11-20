@@ -2,7 +2,7 @@ import { expect, test } from "bun:test";
 import { join } from "node:path";
 import { Derive } from "../../src/core/derive";
 import { NatLookup } from "../../src/core/nat-lookup";
-import type { Device, PoolNatRule } from "../../src/model";
+import type { DeterministicPoolNatRule, Device } from "../../src/model";
 import { Project } from "../../src/project";
 
 const example = await Project.read(join(import.meta.dir, "..", "..", "examples", "edge-router"));
@@ -10,7 +10,9 @@ const devices = example.networks.flatMap((network) => Object.values(network.devi
 const edge = devices.find((device) => device.name === "edge-01");
 if (!edge) throw new Error("the edge-router example has no edge-01");
 
-const rule = edge.firewall?.nat?.source?.find((each): each is PoolNatRule => "to_pool" in each);
+const rule = edge.firewall?.nat?.source?.find(
+    (each): each is DeterministicPoolNatRule => "to_pool" in each && each.port_allocation === "deterministic"
+);
 if (!rule) throw new Error("edge-01 has no CGNAT rule");
 
 const text = (address: string, port?: number) => {
@@ -86,4 +88,21 @@ test("a rule validate refuses is not answered from", () => {
     };
 
     expect(NatLookup.find([wide], "198.51.100.7", 40000).pools).toEqual([]);
+});
+
+test("an address of a dynamic pool points to the device's log of its blocks, as the config can't say who had it", () => {
+    const dynamic: Device = {
+        ...edge,
+        firewall: {
+            ...edge.firewall,
+            nat: { source: [{ ...rule, port_allocation: "dynamic", port_set_size: 512, port_sets_per_subscriber: 4 }] },
+        },
+    };
+
+    const found = NatLookup.find([dynamic], "198.51.100.7", 40000);
+    expect(found.answers).toEqual([]);
+    expect(found.notes).toEqual([
+        "edge-01: 198.51.100.7 is in to_pool 198.51.100.0/27, which gives blocks of ports as subscribers need them, so the config can't say who had it. Find the address and port in the device's log of the blocks it gave, at the time of the report.",
+    ]);
+    expect(NatLookup.find([dynamic], "203.0.113.9").pools).toEqual(["edge-01: to_pool 198.51.100.0/27, dynamic"]);
 });

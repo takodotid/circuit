@@ -249,6 +249,7 @@ export class FortiOsPlan {
         "router ospf": FortiOsPlan.OSPF_DEFAULTS,
         "router ospf6": FortiOsPlan.OSPF_DEFAULTS,
         "router isis": { "is-type": "level-1-2" },
+        "firewall ippool": { "block-size": "128", "num-blocks-per-user": "8" },
         "firewall policy": FortiOsPlan.DENY,
         "firewall policy6": FortiOsPlan.DENY,
         "firewall local-in-policy": FortiOsPlan.DENY,

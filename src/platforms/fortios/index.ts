@@ -14,6 +14,7 @@ import { BgpHealth } from "../bgp-health";
 import { FortiOsBgpSessions } from "./bgp-sessions";
 import { FortiOsCli } from "./cli";
 import type { Guard } from "./cli";
+import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
 import { FortiOsRender } from "./render";
@@ -88,7 +89,10 @@ export class FortiOs extends Platform {
     override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
 
     override checks(device: Device): Finding[] {
-        return FortiOsVdoms.problems(device).map((message) => ({ level: "error", device: device.name, message }));
+        return [
+            ...FortiOsVdoms.problems(device).map((message): Finding => ({ level: "error", device: device.name, message })),
+            ...FortiOsMonitoring.blockLogs(device),
+        ];
     }
 
     override unsupported(device: Device): string[] {
