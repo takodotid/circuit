@@ -608,6 +608,8 @@ export class FortiOsRouting {
         const noVrf = "FortiOS 6.2 runs BGP in the default VRF only";
         for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
+        // Neither `router isis` nor its interfaces have a setting for a topology (RFC 5120).
+        if (routing?.isis?.multi_topology) found.push("routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only");
         for (const [name, settings] of Object.entries(routing?.isis?.interfaces ?? {})) {
             const where = `routing.isis.interfaces.${name}`;
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
