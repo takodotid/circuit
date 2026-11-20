@@ -90,7 +90,7 @@ A note in a cell means "works, with this limit".
 | IS-IS authentication         | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | IS-IS overload bit           | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌         | ❌                       | ✅                    | ❌               |
-| MPLS with LDP                | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
+| MPLS with LDP                | ✅                      | ❌         | ❌                       | 🧪                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |

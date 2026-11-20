@@ -109,6 +109,8 @@ export class Junos extends Platform {
         for (const group of ["dhcp_server", "dhcpv6_server"] as const)
             for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
+        // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
+        if (device.routing?.mpls) found.push("routing.mpls");
         // A port's policer passed `commit check`. A LAG's was not tried.
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         return found;
