@@ -286,6 +286,10 @@ export class FortiOsUnsupported {
                 found.push(`${where}, a wireguard: the platform has no WireGuard`);
                 continue;
             }
+            if (kind === "pseudowire") {
+                found.push(`${where}, a pseudowire: FortiOS has no MPLS`);
+                continue;
+            }
 
             if (name.length > FortiOsUnsupported.NAME_LENGTH.interface)
                 found.push(`${where}, a name longer than ${FortiOsUnsupported.NAME_LENGTH.interface} characters`);

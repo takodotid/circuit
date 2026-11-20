@@ -103,6 +103,8 @@ export class RouterOsExport {
             "tag-stacking": "no",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
+        // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md).
+        "/interface vpls": { disabled: "yes" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
         "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
         "/interface ethernet switch port": {
@@ -344,8 +346,11 @@ export class RouterOsExport {
         "/interface ethernet": { speed: "auto-negotiation" },
     };
 
-    /** Properties the device makes up for itself when an entry is created, such as an EoIP tunnel's random MAC. The plan leaves them as they are when the render doesn't state them. */
-    static readonly GENERATED: Record<string, readonly string[]> = { "/interface eoip": ["mac-address"] };
+    /** Properties the device makes up for itself when an entry is created, such as an EoIP tunnel's or a VPLS interface's random MAC. The plan leaves them as they are when the render doesn't state them. */
+    static readonly GENERATED: Record<string, readonly string[]> = {
+        "/interface eoip": ["mac-address"],
+        "/interface vpls": ["mac-address"],
+    };
 
     /** Properties the device clears only with `unset`: empty, it refuses them or takes them as another value (TRAPS.md). */
     static readonly UNSET: Record<string, readonly string[]> = {

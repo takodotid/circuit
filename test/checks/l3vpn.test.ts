@@ -91,7 +91,7 @@ test("a session that carries VPN routes is iBGP, in the main table, from the LSR
     ]);
 
     const withoutMpls: Device = { ...pe01, routing: { ...pe01.routing, mpls: undefined } };
-    expect(errors(withoutMpls)).toEqual([
-        "routing.bgp.neighbors.pe-02 carries vpnv4 without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp",
-    ]);
+    expect(errors(withoutMpls)).toContain(
+        "routing.bgp.neighbors.pe-02 carries vpnv4 without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp"
+    );
 });

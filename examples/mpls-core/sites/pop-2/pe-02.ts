@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01, and LDP gives each loopback a label, so traffic between the two crosses the core by label. The bank's office 2 is on 25g-1, in the VRF bank, and iBGP carries the VRF's routes to pe-01 as VPN routes (RFC 4364).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01, and LDP labels each loopback, so traffic between the two crosses the core by label. iBGP carries the routes of the bank's VRF to pe-01 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS).
 
 import { as64500 } from "../../circuit";
 
@@ -19,9 +19,19 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.2.1/24"] },
             "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
+            "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
             "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.2/32"] } },
+        // The clinic's frames cross the core to pe-01 on this pseudowire, which has the same pw_id there.
+        pseudowire: {
+            "pw-clinic": { description: "Clinic, to site 1 at pe-01", peer: "10.255.0.1", pw_id: 201, access_vlan: "clinic" },
+        },
+    },
+
+    switching: {
+        // The clinic's port and its pseudowire, alone in one VLAN.
+        vlans: { clinic: { id: 201, description: "Clinic, sites 1 and 2" } },
     },
 
     routing: {

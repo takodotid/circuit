@@ -14,6 +14,7 @@ import { L3vpnChecks } from "./l3vpn";
 import { RateLimitChecks } from "./rate-limit";
 import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
+import { PseudowireChecks } from "./pseudowire";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
@@ -110,6 +111,7 @@ export class DeviceChecks {
         IsisChecks.check(device, report);
         MplsChecks.check(device, report);
         L3vpnChecks.check(device, report);
+        PseudowireChecks.check(device, report);
         NatChecks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);

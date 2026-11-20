@@ -92,6 +92,7 @@ A note in a cell means "works, with this limit".
 | BFD for IS-IS                | ❌                      | ❌         | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌         | ❌                       | 🧪                    | ❌               |
 | L3VPN over MPLS              | ✅ not with VRF imports | ❌         | ❌                       | ❌                    | ❌               |
+| Ethernet pseudowires, VPLS   | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |

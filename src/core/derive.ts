@@ -111,6 +111,7 @@ export class Derive {
         "ipsec",
         "wireguard",
         "eoip",
+        "pseudowire",
     ];
 
     /** Fields a platform renders only once they are tested on one of its devices. */
@@ -120,8 +121,8 @@ export class Derive {
         ["bound_to", "port-binding"],
     ] as const;
 
-    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge doesn't route. */
-    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge"];
+    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge or a pseudowire doesn't route. */
+    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge", "pseudowire"];
 
     /** Bits per second in each unit a `Rate` takes. */
     static readonly RATE_UNITS = { k: 1e3, M: 1e6, G: 1e9 } as const;

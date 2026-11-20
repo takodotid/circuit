@@ -250,6 +250,11 @@ export class RouterOs extends Platform {
         }
         // MikroTik's changelog adds it in 7.25, which no device here runs yet.
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
+        for (const [name, pseudowire] of RouterOsSyntax.entries(device.interfaces?.pseudowire))
+            if (device.switching?.vlans?.[pseudowire.access_vlan]?.private_vlan)
+                found.push(
+                    `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a private VLAN, not built for a pseudowire yet`
+                );
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
         for (const field of ["dhcp_snooping", "ra_guard"] as const)
