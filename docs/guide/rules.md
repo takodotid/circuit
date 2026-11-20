@@ -16,6 +16,7 @@ Every rule has the same shape: **if** this, **then** that. A rule with no `if` a
 | `{ call: "common-import" }`                                                | Route policy   | Runs another policy. If that policy accepts or rejects the route, it stops there.                                                                                         |
 | `{ communities: "import" }`                                                | Route policy   | Your [community scheme](/guide/communities)'s rules.                                                                                                                      |
 | `{ match: { src: "..." }, routing_table: "..." }`                          | Policy routing | Matching traffic uses that routing table.                                                                                                                                 |
+| `{ if: { dscp: "af11" }, then: { dscp: "cs1" } }`                          | Marking        | `then` is the DSCP, the PCP, or both, that a packet the device routes leaves with. See [Marking](#marking).                                                               |
 
 ## Rule order
 
@@ -25,6 +26,7 @@ In these lists, the first rule runs first:
 - `firewall.nat.source` and `firewall.nat.destination`
 - each route policy, and `routing.policy_routing`
 - each switch ACL
+- `qos.marking`
 
 Rules have no line numbers: the order of the list is the order on the device. You write each list in one place, and [`merge`](/guide/parts) brings in rules from other files.
 
@@ -32,13 +34,13 @@ In other lists the order doesn't matter, except in DNS and NTP `servers`, which 
 
 ## Shortcuts
 
-| Shortcut           | What it does                                                                                                                                                                                          |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A list in a match  | `src: ["a", "b"]` matches either one. Circuit writes one rule per value. Filter and NAT rules take lists in `src`, `dst`, `in_interface`, and `out_interface`; ACL rules in `vlan`, `src`, and `dst`. |
-| Interface sets     | `firewall.interface_sets.uplinks: ["25g-1", "25g-2"]`, then `in_interface_set: "uplinks"` in a rule. A part can add interfaces to a set.                                                              |
-| `bgpNeighbors()`   | An address set with every BGP neighbor of the device. It changes when you add a neighbor.                                                                                                             |
-| `management.allow` | A list of prefixes, or the name of an address set.                                                                                                                                                    |
-| `presets`          | Ready-made rules and values from public standards, such as `presets.bgp_sanity` (RFC 7454, plus RPKI invalid) and `presets.rfc1918`. Use one whole, or pick items.                                    |
+| Shortcut           | What it does                                                                                                                                                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A list in a match  | `src: ["a", "b"]` matches either one. Circuit writes one rule per value. Filter and NAT rules take lists in `src`, `dst`, `in_interface`, and `out_interface`; ACL rules in `vlan`, `src`, and `dst`; marking rules in these and `dscp`. |
+| Interface sets     | `firewall.interface_sets.uplinks: ["25g-1", "25g-2"]`, then `in_interface_set: "uplinks"` in a rule. A part can add interfaces to a set.                                                                                                 |
+| `bgpNeighbors()`   | An address set with every BGP neighbor of the device. It changes when you add a neighbor.                                                                                                                                                |
+| `management.allow` | A list of prefixes, or the name of an address set.                                                                                                                                                                                       |
+| `presets`          | Ready-made rules and values from public standards, such as `presets.bgp_sanity` (RFC 7454, plus RPKI invalid) and `presets.rfc1918`. Use one whole, or pick items.                                                                       |
 
 ## Shared addresses
 
@@ -55,3 +57,13 @@ To find the subscriber behind an address and port, run `circuit nat lookup 198.5
 <<< @/../examples/backbone/sites/south/core-02.ts#cgnat-dynamic
 
 RouterOS builds deterministic pools, and FortiOS dynamic ones: see [Platforms](/reference/platforms). NAT64 is not built yet ([#227](https://github.com/takodotid/circuit/issues/227)).
+
+## Marking
+
+`qos.marking` marks the packets a device routes with a DSCP (RFC 2474), so the routers after it can tell their classes apart, such as voice from backups. A rule matches as a firewall rule does, without the connection's state or TCP flags, and also by the DSCP a packet arrives with. The first rule that matches marks the packet. A packet that no rule matches keeps its DSCP.
+
+<<< @/../examples/edge-router/sites/pop-1/edge-01.ts#marking
+
+A DSCP is written by its name in the IANA DSCP registry, such as `ef` (RFC 3246), `af41` (RFC 2597), `cs6` (RFC 2474), or `le` (RFC 8622). RFC 4594 says which DSCP each kind of traffic takes. `pcp` writes a priority, 0 to 7, in the VLAN tag the packet leaves with (IEEE 802.1Q), for the switches on the way. A packet that leaves without a tag carries none.
+
+Marking leaves the device's queues as they are. Queues that serve each class in its turn are not built yet ([#215](https://github.com/takodotid/circuit/issues/215)).

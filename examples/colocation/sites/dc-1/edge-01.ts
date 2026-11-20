@@ -219,4 +219,15 @@ export default as64500.device({
             },
         },
     },
+
+    // Calls to the small tenants leave on the shared VLAN, tagged toward tor-02. With EF, and PCP 5 in the tag, a switch on the way can queue them first by either.
+    qos: {
+        marking: [
+            {
+                description: "Calls to the small tenants",
+                if: { out_interface: "shared", protocol: "udp", dst_port: { min: 16384, max: 32767 } },
+                then: { dscp: "ef", pcp: 5 },
+            },
+        ],
+    },
 });
