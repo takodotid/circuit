@@ -15,6 +15,7 @@ import type { Dialect, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
 import { VrpAaa } from "./aaa";
+import { VrpBgp } from "./bgp";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -62,7 +63,7 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$)/,
+        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$|route-policy |bgp )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -73,9 +74,10 @@ export class Vrp extends Platform {
         first: /^authentication-mode /,
         canon: Vrp.canon,
         order: Vrp.order,
+        head: (line) => VrpBgp.head(line) ?? LineDiff.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, LAGs, ports, VLAN interfaces, OSPF, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, such as prefix lists, LAGs, ports, VLAN interfaces, OSPF, route-policies, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
         /^(ip vpn-instance|vlan |acl number|radius server group|hwtacacs server template|aaa|bfd)/,
         /^$/,
@@ -83,6 +85,8 @@ export class Vrp extends Platform {
         /^interface (?!Vlanif)/,
         /^interface Vlanif/,
         /^ospf /,
+        /^route-policy /,
+        /^bgp /,
     ];
 
     /** The platform offers an ECDSA host key it then signs wrongly, so RSA is asked for. */
@@ -195,7 +199,6 @@ export class Vrp extends Platform {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description`);
         }
 
-        if (routing?.bgp) found.push("routing.bgp");
         if (routing?.isis) found.push("routing.isis");
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
@@ -209,7 +212,8 @@ export class Vrp extends Platform {
                 found.push(`${where}.algorithm ${authentication.algorithm}, the platform signs OSPF with md5 or hmac-sha-256`);
             if (authentication.key_id === 0) found.push(`${where}.key_id 0, the platform numbers keys from 1`);
         }
-        if (routing?.router_id && !routing.ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
+        if (routing?.router_id && !routing.ospf && !routing.bgp)
+            found.push("routing.router_id without routing.ospf or routing.bgp, only they use it here");
 
         const bfd = routing?.bfd;
         const interval = Vrp.BFD_INTERVAL_MS;
@@ -243,8 +247,6 @@ export class Vrp extends Platform {
             ["services.dhcp_server", device.services?.dhcp_server],
             ["services.dhcpv6_server", device.services?.dhcpv6_server],
             ["switching.acls", device.switching?.acls],
-            ["routing.policies", routing?.policies],
-            ["routing.prefix_sets", routing?.prefix_sets],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
         ] as const;
@@ -264,6 +266,7 @@ export class Vrp extends Platform {
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
         found.push(...VrpAaa.unsupported(device));
+        found.push(...VrpBgp.unsupported(device));
 
         const management = device.management ?? {};
 
@@ -375,13 +378,14 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. So is a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        found.push(...VrpBgp.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -471,6 +475,7 @@ export class Vrp extends Platform {
 
         // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
         const lastRemovals = top?.remove.filter((line) => /^acl number \d+$/.test(line)) ?? [];
+        const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
 
         if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
 
@@ -490,6 +495,14 @@ export class Vrp extends Platform {
                 title: "ACLs no longer used",
                 show: lastRemovals.map((line) => `- ${line}`),
                 send: lastRemovals.map((line) => Vrp.undo(line)),
+            });
+        }
+
+        if (unused.length) {
+            planned.push({
+                title: "Route policies and lists no longer used",
+                show: unused.map((line) => `- ${line}`),
+                send: unused.map((line) => Vrp.undo(line)),
             });
         }
 
@@ -610,6 +623,8 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
+        const bgp = VrpBgp.undo(line);
+        if (bgp) return bgp;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
         if (assigned) return `undo ${assigned[1]}`;

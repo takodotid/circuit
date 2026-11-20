@@ -72,7 +72,7 @@ Two provider edge routers, one in each point of presence. IS-IS carries their lo
 
 ## Colocation with tenants
 
-A router, two top-of-rack switches, and the meet-me room's switch. The router is managed in a VRF of its own, and reaches its time, name, and monitoring servers in another. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules, and a VRF that keeps its private network apart, with a BGP session over its private circuit. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a subnet on the second switch, in a private VLAN that keeps their servers apart, and its port guards keep each tenant from harming the others. A tenant's own VLANs reach its racks in another hall inside one VLAN, with QinQ, and the other hall's switch knows the management VLAN by its own number, with VLAN translation. Carriers hand off on the meet-me room's Raisecom switch: each port toward another network stays out of the spanning tree or its root, limits what it floods, and a tenant's transit is held to the rate the tenant pays for.
+A router, two top-of-rack switches, the meet-me room's switch, and the router of hall 2, a VRP switch the router reflects routes to, whose transit customer announces its own block over BGP. The router is managed in a VRF of its own, and reaches its time, name, and monitoring servers in another. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules, and a VRF that keeps its private network apart, with a BGP session over its private circuit. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a subnet on the second switch, in a private VLAN that keeps their servers apart, and its port guards keep each tenant from harming the others. A tenant's own VLANs reach its racks in another hall inside one VLAN, with QinQ, and the other hall's switch knows the management VLAN by its own number, with VLAN translation. Carriers hand off on the meet-me room's Raisecom switch: each port toward another network stays out of the spanning tree or its root, limits what it floods, and a tenant's transit is held to the rate the tenant pays for.
 
 ::: code-group
 
@@ -91,6 +91,8 @@ A router, two top-of-rack switches, and the meet-me room's switch. The router is
 <<< @/../examples/colocation/sites/dc-1/tor-02.ts
 
 <<< @/../examples/colocation/sites/dc-1/mmr-01.ts
+
+<<< @/../examples/colocation/sites/dc-1/hall-2.ts
 
 :::
 

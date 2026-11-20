@@ -78,41 +78,41 @@ A note in a cell means "works, with this limit".
 
 ### Routing
 
-| Feature                      | RouterOS                | VRP        | Raisecom ROS             | Junos                 | FortiOS          |
-| ---------------------------- | ----------------------- | ---------- | ------------------------ | --------------------- | ---------------- |
-| Static routes                | ✅                      | ✅         | IPv4 next hop            | ✅                    | ✅               |
-| Next hop with its interface  | ✅                      | ❌         | ❌                       | ❌                    | ✅               |
-| VRFs                         | ✅                      | ✅         | ❌                       | ✅                    | ✅               |
-| BGP in a VRF                 | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
-| Routes taken between VRFs    | ✅ not with main        | ❌         | ❌                       | 🧪                    | ❌               |
-| Policy routing, more tables  | ✅                      | ❌ not yet | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| OSPF                         | ✅                      | IPv4       | IPv4                     | ✅                    | ✅               |
-| OSPF in a VRF                | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
-| OSPF stub and NSSA areas     | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |
-| OSPF hello and dead timers   | ✅                      | 🧪         | ❌                       | ✅                    | ✅               |
-| OSPF authentication          | ✅                      | 🧪         | ❌                       | MD5                   | MD5              |
-| IS-IS                        | ✅ no passive metric    | ❌         | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS authentication         | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
-| IS-IS overload bit           | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
-| BFD for IS-IS                | ❌                      | ❌         | ❌                       | ✅                    | ❌               |
-| MPLS with LDP                | ✅                      | ❌         | ❌                       | 🧪                    | ❌               |
-| L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌         | ❌                       | ❌                    | ❌               |
-| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌         | ❌                       | ❌                    | ❌               |
-| BFD                          | ✅ not on static routes | ✅         | static routes, no timers | ✅                    | ✅               |
-| BGP                          | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
-| Route policies, prefix sets  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
-| BGP communities              | ✅                      | ❌         | ❌                       | ✅                    | ✅ no large ones |
-| AS path matches              | ✅                      | ❌         | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
-| RPKI                         | ✅                      | ❌         | ❌                       | ✅                    | ❌               |
-| BGP roles (RFC 9234)         | ✅                      | ❌         | ❌                       | ❌                    | ❌               |
-| GTSM (RFC 5082)              | ✅ eBGP                 | ❌         | ❌                       | ❌                    | ❌               |
-| Route reflection (RFC 4456)  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
-| Confederations (RFC 5065)    | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
-| Graceful restart (RFC 4724)  | ❌                      | ❌         | ❌                       | ✅ all or no sessions | ✅               |
-| Prefix limit that restarts   | ❌                      | ❌         | ❌                       | ✅ whole minutes      | ❌               |
-| Prefix limit that only warns | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
-| Default route to a neighbor  | ✅                      | ❌         | ❌                       | ✅                    | ✅               |
-| BGP aggregates               | ❌                      | ❌         | ❌                       | ✅                    | ✅               |
+| Feature                      | RouterOS                | VRP                        | Raisecom ROS             | Junos                 | FortiOS          |
+| ---------------------------- | ----------------------- | -------------------------- | ------------------------ | --------------------- | ---------------- |
+| Static routes                | ✅                      | ✅                         | IPv4 next hop            | ✅                    | ✅               |
+| Next hop with its interface  | ✅                      | ❌                         | ❌                       | ❌                    | ✅               |
+| VRFs                         | ✅                      | ✅                         | ❌                       | ✅                    | ✅               |
+| BGP in a VRF                 | ✅                      | ❌                         | ❌                       | ✅                    | ❌               |
+| Routes taken between VRFs    | ✅ not with main        | ❌                         | ❌                       | 🧪                    | ❌               |
+| Policy routing, more tables  | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF                         | ✅                      | IPv4                       | IPv4                     | ✅                    | ✅               |
+| OSPF in a VRF                | ✅                      | ❌                         | ❌                       | ✅                    | ❌               |
+| OSPF stub and NSSA areas     | ✅                      | 🧪                         | ❌                       | ✅                    | ✅               |
+| OSPF hello and dead timers   | ✅                      | 🧪                         | ❌                       | ✅                    | ✅               |
+| OSPF authentication          | ✅                      | 🧪                         | ❌                       | MD5                   | MD5              |
+| IS-IS                        | ✅ no passive metric    | ❌                         | ❌                       | ✅                    | ✅ no passive    |
+| IS-IS authentication         | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
+| IS-IS overload bit           | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
+| BFD for IS-IS                | ❌                      | ❌                         | ❌                       | ✅                    | ❌               |
+| MPLS with LDP                | ✅                      | ❌                         | ❌                       | 🧪                    | ❌               |
+| L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌                         | ❌                       | ❌                    | ❌               |
+| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌                         | ❌                       | ❌                    | ❌               |
+| BFD                          | ✅ not on static routes | ✅                         | static routes, no timers | ✅                    | ✅               |
+| BGP                          | ✅                      | ✅ one family per session  | ❌                       | ✅                    | ✅               |
+| Route policies, prefix sets  | ✅                      | ✅ each rule decides       | ❌                       | ✅                    | ✅               |
+| BGP communities              | ✅                      | ✅ standard, no `*`        | ❌                       | ✅                    | ✅ no large ones |
+| AS path matches              | ✅                      | ✅ one per rule, no length | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
+| RPKI                         | ✅                      | ❌                         | ❌                       | ✅                    | ❌               |
+| BGP roles (RFC 9234)         | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |
+| GTSM (RFC 5082)              | ✅ eBGP                 | ❌                         | ❌                       | ❌                    | ❌               |
+| Route reflection (RFC 4456)  | ✅                      | ✅                         | ❌                       | ✅                    | ✅               |
+| Confederations (RFC 5065)    | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
+| Graceful restart (RFC 4724)  | ❌                      | ❌                         | ❌                       | ✅ all or no sessions | ✅               |
+| Prefix limit that restarts   | ❌                      | ✅ whole minutes           | ❌                       | ✅ whole minutes      | ❌               |
+| Prefix limit that only warns | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
+| Default route to a neighbor  | ✅                      | ❌                         | ❌                       | ✅                    | ✅               |
+| BGP aggregates               | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
 
