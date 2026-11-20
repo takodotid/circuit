@@ -21,6 +21,7 @@ import type {
     ReadSession,
     SwitchRules,
 } from "../platform";
+import { BgpHealth } from "../bgp-health";
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
 import { RouterOsDhcp } from "./dhcp";
@@ -712,7 +713,7 @@ export class RouterOs extends Platform {
         const switchRules = plan.steps.some((step) => step.send.some((command) => command.startsWith(RouterOs.SWITCH_RULES)));
         const limits = options.bgp ?? BgpWait.AFTER_APPLY;
 
-        const establishedBefore = await this.establishedSessions(device, options);
+        const establishedBefore = await BgpHealth.established(this, device, options);
         const announcedBefore = establishedBefore.length ? await this.announcedNow(device, options) : [];
 
         return {
@@ -726,7 +727,7 @@ export class RouterOs extends Platform {
 
                 try {
                     const switchProblems = switchRules ? await RouterOs.invalidSwitchRules(session, device) : [];
-                    const bgpProblems = await this.bgpBack(device, session, establishedBefore, limits);
+                    const bgpProblems = await BgpHealth.back(this, device, session, establishedBefore, limits);
                     const announceProblems = await RouterOs.announcedBack(device, session, announcedBefore, limits);
                     return [...switchProblems, ...bgpProblems, ...announceProblems];
                 } finally {
@@ -769,50 +770,6 @@ export class RouterOs extends Platform {
         const described = (far ? Derive.ports(far) : []).filter(([, port]) => port.description === reported).map(([name]) => name);
 
         return described.length === 1 ? described[0]! : reported;
-    }
-
-    /** The names of the configured neighbors whose session is established now. None, without logging in, on a device without BGP neighbors. */
-    private async establishedSessions(device: Device, options: ReadOptions): Promise<string[]> {
-        if (!Object.keys(device.routing?.bgp?.neighbors ?? {}).length) return [];
-
-        const session = await this.session(device, options);
-
-        try {
-            const sessions = await this.bgpSessions(device, session);
-            return sessions.filter((bgp) => bgp.established).map((bgp) => bgp.neighbor);
-        } finally {
-            session.close();
-        }
-    }
-
-    /** Wait until every one of these neighbors is established again, and give a problem for each that is not when time runs out. */
-    private async bgpBack(device: Device, session: ReadSession, neighbors: readonly string[], limits: WaitLimits): Promise<string[]> {
-        if (!neighbors.length) return [];
-
-        console.log(`  BGP: ${neighbors.length} session(s) were established before; waiting up to ${limits.seconds} s for them`);
-
-        const read = async () => (await this.bgpSessions(device, session)).filter((bgp) => neighbors.includes(bgp.neighbor));
-        const after = await BgpWait.until(
-            read,
-            (sessions) => BgpWait.upCount(sessions) === neighbors.length,
-            limits,
-            (sessions) =>
-                console.log(
-                    `  BGP: ${BgpWait.upCount(sessions)}/${neighbors.length} established again, checking again in ${limits.every} s`
-                )
-        );
-
-        const down = after.filter((bgp) => !bgp.established);
-        if (!down.length) {
-            console.log(`  BGP: all ${neighbors.length} established again`);
-            return [];
-        }
-
-        return down.map((bgp) =>
-            bgp.limit
-                ? `BGP session ${bgp.neighbor} was established before the apply and closed on its limit${bgp.limit.max !== undefined ? ` of ${bgp.limit.max} prefixes` : ""}: the neighbor sends more than it may. Find out why, then: circuit bgp ${device.name} --neighbors '^${bgp.neighbor}$' --clear-limit`
-                : `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.reason ?? (bgp.uptime === "no session" ? "no session" : "not established")}). Look with: circuit bgp ${device.name} --log`
-        );
     }
 
     /** `announced`, over a session of its own. None, without logging in, when the config has no session announce a route the device makes. */

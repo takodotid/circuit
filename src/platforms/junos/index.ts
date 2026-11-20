@@ -12,8 +12,10 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { TestedFeature } from "../../core/derive";
 import { Platform } from "../platform";
-import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
+import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, Plan, ReadOptions, ReadSession, Tool } from "../platform";
+import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
+import { JunosBgpSessions } from "./bgp-sessions";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
@@ -99,6 +101,9 @@ export class Junos extends Platform {
     override readonly extension = ".conf";
 
     override readonly console = Junos.CONSOLE;
+
+    /** Read on a QFX5100 without BGP, where the device says `BGP is not running`. A session's fields come from Juniper's documentation. */
+    override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
 
     /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF, and a DHCP server on an interface in one, only passed `commit check`. */
     override experimental(device: Device): string[] {
@@ -583,6 +588,15 @@ export class Junos extends Platform {
 
         const client = await Junos.login(device);
         return { run: (command, timeout) => Ssh.exec(client, command, timeout), close: () => client.end() };
+    }
+
+    override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        return JunosBgpSessions.read(device, session);
+    }
+
+    /** Each BGP session established before the apply must be established again. */
+    override health(device: Device, _plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        return BgpHealth.check(this, device, options);
     }
 
     /** The device prints a password as a hash, an SNMP key as a reversible cipher, and a community and a trap group, named by their community, as themselves. None leave the read. */

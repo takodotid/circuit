@@ -9,7 +9,9 @@ import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Platform } from "../platform";
-import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
+import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, Plan, ReadOptions, ReadSession, Tool } from "../platform";
+import { BgpHealth } from "../bgp-health";
+import { FortiOsBgpSessions } from "./bgp-sessions";
 import { FortiOsCli } from "./cli";
 import type { Guard } from "./cli";
 import { FortiOsNames } from "./names";
@@ -47,7 +49,8 @@ export class FortiOs extends Platform {
     private static readonly READS =
         /^(?:(?:show|get)\s|diagnose (?:sys session (?:filter|list|stat|full-stat)|sys top|hardware deviceinfo nic|npu np6 (?:dce|synproxy-stats|port-list|sse-stats)|netlink aggregate|debug crashlog read|lldprx (?:neighbor|port) (?:summary|details))\b|execute (?:ping|ping6|traceroute|sensor list)\b)/;
 
-    private static readonly SESSION_FILTER = /^diagnose sys session filter\b/;
+    /** Commands whose effect holds only in the shell that ran them: a session filter, and entering a VDOM. */
+    private static readonly HELD_IN_SHELL = /^(?:diagnose sys session filter\b|config vdom$)/;
 
     /** A reload of the configuration takes about two minutes. */
     private static readonly RELOAD_ATTEMPTS = 20;
@@ -80,6 +83,9 @@ export class FortiOs extends Platform {
     override readonly extension = ".conf";
 
     override readonly console = FortiOs.CONSOLE;
+
+    /** Read on a FG-3700D without BGP, where the summaries print nothing. A session's line comes from Fortinet's documentation. */
+    override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
 
     override checks(device: Device): Finding[] {
         return FortiOsVdoms.problems(device).map((message) => ({ level: "error", device: device.name, message }));
@@ -180,7 +186,7 @@ export class FortiOs extends Platform {
         return FortiOs.READS.test(command);
     }
 
-    /** Over SSH, each command runs on its own until a session filter is set. The filter holds only in the shell that set it, so it and every command after it run in one shell. */
+    /** Over SSH, each command runs on its own until a session filter is set or a VDOM entered. Either holds only in the shell that ran it, so it and every command after it run in one shell. */
     override async session(device: Device, options: ReadOptions = {}): Promise<ReadSession> {
         if (options.console) {
             const opened = await FortiOs.openConsole(device);
@@ -196,7 +202,7 @@ export class FortiOs extends Platform {
 
         return {
             run: async (command, timeout) => {
-                if (!shell && !FortiOs.SESSION_FILTER.test(command)) return Ssh.exec(client, command, timeout);
+                if (!shell && !FortiOs.HELD_IN_SHELL.test(command)) return Ssh.exec(client, command, timeout);
 
                 if (!shell) {
                     const channel = await Ssh.shell(client, FortiOs.SHELL_TIMEOUT_MS);
@@ -211,6 +217,15 @@ export class FortiOs extends Platform {
                 client.end();
             },
         };
+    }
+
+    override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        return FortiOsBgpSessions.read(device, session);
+    }
+
+    /** Each BGP session established before the apply must be established again. */
+    override health(device: Device, _plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        return BgpHealth.check(this, device, options);
     }
 
     /**
