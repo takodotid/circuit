@@ -14,9 +14,6 @@ export class VrpAcls {
     /** The longest ACL name the switch takes. */
     private static readonly NAME_LENGTH = 32;
 
-    /** The longest rule description the switch takes. */
-    private static readonly DESCRIPTION_LENGTH = 127;
-
     /** The highest TCP or UDP port. */
     private static readonly LAST_PORT = 65535;
 
@@ -137,8 +134,6 @@ export class VrpAcls {
                 const at = `${where}[${index}]`;
                 if (rule.rate) found.push(`${at}.rate, a traffic filter only permits or denies`);
                 if (rule.if?.vlan) found.push(`${at}.if.vlan, an IP ACL on the switch matches no VLAN`);
-                if ((rule.description?.length ?? 0) > VrpAcls.DESCRIPTION_LENGTH)
-                    found.push(`${at}.description, ${VrpAcls.DESCRIPTION_LENGTH} characters at most`);
 
                 const protocol = rule.if?.protocol;
                 const ported = rule.if?.src_port !== undefined || rule.if?.dst_port !== undefined;
