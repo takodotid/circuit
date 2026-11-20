@@ -143,7 +143,13 @@ test("an address shares a network of its VRF, a peer address too, and is unknown
 });
 
 test("a pool gives each address the same number of subscribers, in address order, each with the next block of ports from 1024", () => {
-    const addresses = Derive.poolAddresses({ if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 });
+    const addresses = Derive.poolAddresses({
+        if: { src: "100.64.0.0/22" },
+        then: "snat",
+        to_pool: "198.51.100.0/27",
+        port_allocation: "deterministic",
+        port_set_size: 2016,
+    });
 
     expect(addresses).toHaveLength(32);
     expect(addresses.every(({ blocks }) => blocks.length === 32)).toBe(true);

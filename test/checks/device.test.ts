@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
-import type { Device, Ipsec } from "../../src/model";
+import type { Device, Ipsec, NatRule } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -368,7 +368,13 @@ test("logins through servers name one kind of server, at least one, each once, s
 });
 
 test("a pool's subscribers and blocks of ports fit, and two pools share no address unless they map alike", () => {
-    const cgnat = { if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 } as const;
+    const cgnat = {
+        if: { src: "100.64.0.0/22" },
+        then: "snat",
+        to_pool: "198.51.100.0/27",
+        port_allocation: "deterministic",
+        port_set_size: 2016,
+    } as const;
     const device: Device = {
         ...router,
         firewall: {
@@ -397,6 +403,52 @@ test("a pool's subscribers and blocks of ports fit, and two pools share no addre
         "firewall.nat.source, to_pool 198.51.100.128/27: if.src 100.64.12.1/22 has bits past its length: write 100.64.12.0/22",
         "firewall.nat.source, to_pool 198.51.100.160/27: write the subscribers' IPv4 prefix in if.src",
         "firewall.nat.source: to_pool 198.51.100.0/27 for 100.64.0.0/22 and to_pool 198.51.100.16/28 for 100.64.16.0/22 share addresses, so two subscribers would get the same ports. Give each its own pool addresses.",
+    ]);
+});
+
+test("a dynamic pool fits one subscriber's blocks on an address, and shares no address with another pool unless it is the same one", () => {
+    const pba = {
+        if: { src: "100.64.0.0/16" },
+        then: "snat",
+        to_pool: "198.51.100.0/27",
+        port_allocation: "dynamic",
+        port_set_size: 512,
+        port_sets_per_subscriber: 4,
+    } as const;
+    const deterministic = { ...pba, port_allocation: "deterministic", port_sets_per_subscriber: undefined } as const;
+    const device: Device = {
+        ...router,
+        firewall: {
+            nat: {
+                source: [
+                    pba,
+                    { ...pba, if: { src: "100.65.0.0/16" } },
+                    { ...pba, port_set_size: 256 },
+                    { ...pba, to_pool: "198.51.100.32/27", port_sets_per_subscriber: 200 },
+                    { ...pba, to_pool: "198.51.100.64/27", port_set_size: 0.5 },
+                    { ...pba, to_pool: "198.51.100.96/27", port_sets_per_subscriber: undefined } as unknown as NatRule,
+                    { ...pba, to_pool: "198.51.100.128/27", port_allocation: "random" } as unknown as NatRule,
+                    { ...deterministic, if: { src: "100.64.0.0/22" }, to_pool: "198.51.100.160/27", port_set_size: 2016 },
+                    {
+                        ...deterministic,
+                        if: { src: "100.64.4.0/22" },
+                        to_pool: "198.51.100.192/27",
+                        port_set_size: 2016,
+                        port_sets_per_subscriber: 4,
+                    } as unknown as NatRule,
+                ],
+            },
+        },
+    };
+    const found = messages(device).filter((message) => message.startsWith("firewall.nat"));
+
+    expect(found).toEqual([
+        "firewall.nat.source, to_pool 198.51.100.32/27: one subscriber's 200 blocks of 512 ports take 102400 ports, more than the 64512 from 1024 to 65535 on its pool address. Write port_sets_per_subscriber: 126 or less.",
+        "firewall.nat.source, to_pool 198.51.100.64/27: port_set_size 0.5 is not a whole number from 1 to 64512",
+        "firewall.nat.source, to_pool 198.51.100.96/27: write port_sets_per_subscriber, the most blocks one subscriber holds at once",
+        'firewall.nat.source, to_pool 198.51.100.128/27: write port_allocation: "deterministic" or "dynamic", how each subscriber gets its ports',
+        "firewall.nat.source, to_pool 198.51.100.192/27: a deterministic pool gives each subscriber one block. Remove port_sets_per_subscriber.",
+        "firewall.nat.source: to_pool 198.51.100.0/27, dynamic, 4 × 512 ports and to_pool 198.51.100.0/27, dynamic, 4 × 256 ports share addresses, so two subscribers would get the same ports. Write the same port_set_size and port_sets_per_subscriber in both, or give each its own pool addresses.",
     ]);
 });
 

@@ -152,6 +152,7 @@ describe.skipIf(!edgeChr || !cpeChr || !hostChr)("a CHR shares a pool among subs
                     if: { src: "${SUBSCRIBERS}", out_interface_set: "uplinks" },
                     then: "snat",
                     to_pool: "${POOL}",
+                    port_allocation: "deterministic",
                     port_set_size: ${PORT_SET_SIZE},
                 },
             ],
