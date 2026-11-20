@@ -143,6 +143,14 @@ export type StormControl = {
     unknown_unicast?: Threshold;
 };
 
+/** One VLAN that a port tags with another ID. `Vlan` is the device's VLAN names. */
+export type VlanTranslation<Vlan extends string> = {
+    /** The VLAN ID on this port's cable, 1 to 4094. */
+    from: number;
+    /** The VLAN it is switched in, from `trunk_vlans`. */
+    to: Vlan;
+};
+
 /** Layer 2 membership. A port or LAG with none of these is routed. `Vlan` is the device's VLAN names. */
 export type Switched<Vlan extends string> = {
     /** The one VLAN this port or LAG is in, untagged, from `switching.vlans`. */
@@ -155,6 +163,10 @@ export type Switched<Vlan extends string> = {
      * QinQ: every frame that arrives on this port or LAG, tagged or not, takes this VLAN's tag on top, and a frame that leaves loses it. So a customer's own VLANs cross your network inside one VLAN, from `switching.vlans`. A trunk carries it as any other VLAN, each frame 4 bytes longer. The outer tag is 0x8100, as on any trunk, not IEEE 802.1ad's 0x88a8. DHCP snooping, ARP inspection, and RA guard don't look inside it. Not with `access_vlan` or `trunk_vlans`.
      */
     qinq_vlan?: Vlan;
+    /**
+     * VLAN translation (IEEE 802.1Q's VID translation): a frame that arrives tagged `from` is switched in VLAN `to`, and a frame of `to` leaves tagged `from`. So a switch or a customer on the far end keeps its own VLAN IDs, such as `[{ from: 20, to: "mgmt" }]`. Each `to` is one of `trunk_vlans`, once. No `from` is the ID of a VLAN the port carries.
+     */
+    vlan_translation?: readonly VlanTranslation<Vlan>[];
     /** Overrides `switching.stp` for this port. With `false`, the port sends no BPDUs and ignores the ones it gets. */
     stp?: boolean | PortStp;
     /** Drop flooded traffic above these thresholds. */

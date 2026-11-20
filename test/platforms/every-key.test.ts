@@ -42,6 +42,8 @@ const WRITTEN_OUT: Record<string, string> = {
     "firewall.interface_sets": "each set's interfaces",
     "firewall.**.in_interface_set": "each set's interfaces",
     "firewall.**.out_interface_set": "each set's interfaces",
+    "qos.marking[].if.in_interface_set": "each set's interfaces",
+    "qos.marking[].if.out_interface_set": "each set's interfaces",
 };
 
 /** Keys `Project.read` takes out on some platforms. */
@@ -318,8 +320,13 @@ for (const platform of Platforms.all()) {
 
 test("each key a platform reads is written in some device, so it can be tried", () => {
     const noExample = KeyPaths.listed("examples");
+    // A key experimental on every platform that has it is in no example. Its tests try it on each platform instead.
     const unwritten = paths.filter(
-        (path) => !held.has(path) && !skipped(path) && !noExample.some((gap) => gap === path || KeyPaths.inside(path, gap))
+        (path) =>
+            !held.has(path) &&
+            !skipped(path) &&
+            !KeyPaths.experimentalEverywhere(path) &&
+            !noExample.some((gap) => gap === path || KeyPaths.inside(path, gap))
     );
 
     expect(unwritten.map((path) => `${path}: no device holds it. Write it in an example project in examples/.`)).toEqual([]);

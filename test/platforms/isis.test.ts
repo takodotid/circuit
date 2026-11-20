@@ -389,3 +389,50 @@ end
     const bfd = withIsis("platforms--example-firewall", { ...core({}, "10g-2"), interfaces: { "10g-2": { bfd: true } } });
     expect(fortios.unsupported(bfd)).toContain("routing.isis.interfaces.10g-2.bfd, FortiOS 6.2 has no BFD for IS-IS");
 });
+
+test("Junos routes IPv6 in a topology of its own with the interface's one metric, experimentally, and plans nothing against how the switch printed it", () => {
+    const junos = Platforms.get("junos");
+    const single: Isis = { ...core({ passive: true }, "10g-48"), address_families: ["ipv4", "ipv6"] };
+    const device = withIsis("platforms--example-aggregation-switch", { ...single, multi_topology: true });
+    const desired = junos.render(device);
+    expect(junos.experimental!(device)).toContain("routing.isis.multi_topology");
+
+    // As `show protocols isis | display set` printed them in the candidate of a `commit check` on a QFX5100. Nothing was committed.
+    const printed = `set protocols isis interface xe-0/0/47.0 level 2 metric 100
+set protocols isis interface xe-0/0/47.0 level 2 ipv6-unicast-metric 100
+set protocols isis interface xe-0/0/47.0 point-to-point
+set protocols isis interface lo0.0 passive
+set protocols isis level 1 disable
+set protocols isis level 2 wide-metrics-only
+set protocols isis topologies ipv6-unicast
+`;
+    const others = desired
+        .split("\n")
+        .filter((line) => !line.startsWith("set protocols isis "))
+        .join("\n");
+    expect(sent("junos", desired, `${others}\n${printed}`)).toEqual([]);
+
+    expect(sent("junos", junos.render(withIsis("platforms--example-aggregation-switch", single)), desired)).toEqual([
+        "delete protocols isis topologies",
+        "delete protocols isis interface xe-0/0/47.0 level 2 ipv6-unicast-metric",
+    ]);
+});
+
+test("RouterOS and FortiOS refuse multi-topology, VRP and Raisecom ROS refuse IS-IS, and IS-IS needs IPv6 for it", () => {
+    const isis: Isis = { ...core({}, "uplink"), address_families: ["ipv4", "ipv6"], multi_topology: true };
+    expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toContain(
+        "routing.isis.multi_topology, RouterOS 7.24 routes IPv6 in IPv4's topology only"
+    );
+    const fortios = withIsis("platforms--example-firewall", { ...isis, interfaces: { "10g-2": {} } });
+    expect(Platforms.get("fortios").unsupported(fortios)).toContain(
+        "routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only"
+    );
+    expect(Platforms.get("vrp").unsupported(withIsis("platforms--example-switch", isis))).toContain("routing.isis");
+    expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain("routing.isis");
+
+    const ipv4Only = withIsis("platforms--example-router", { ...core({}, "uplink"), multi_topology: true });
+    const findings = Checks.run([ipv4Only], undefined).filter((finding) => finding.message.startsWith("routing.isis"));
+    expect(findings.map((finding) => finding.message)).toEqual([
+        "routing.isis.multi_topology is on, but IS-IS routes no IPv6 to put in a topology of its own. Add ipv6 to address_families, or remove multi_topology",
+    ]);
+});

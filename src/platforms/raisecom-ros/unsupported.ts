@@ -236,6 +236,7 @@ export class RaisecomRosUnsupported {
             );
         for (const { where, settings } of Derive.switchedHolders(device)) {
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${RaisecomRosUnsupported.RA_GUARD}`);
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         }
 
         return found;

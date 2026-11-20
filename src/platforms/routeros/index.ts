@@ -280,6 +280,9 @@ export class RouterOs extends Platform {
         for (const field of ["dhcp_snooping", "ra_guard"] as const)
             for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
                 if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
+        // A switch rule changes a VLAN ID as a frame comes in only, and exactly between two ports only.
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, RouterOS changes a VLAN ID only as a frame comes in`);
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
@@ -435,6 +438,7 @@ export class RouterOs extends Platform {
 
         found.push(...RouterOs.unsupportedShapes(device));
         found.push(...RouterOsQueues.unsupported(device));
+        found.push(...RouterOsFirewall.markingGaps(device));
         found.push(
             ...Derive.unbuilt(device, [
                 "eoip",
@@ -451,6 +455,7 @@ export class RouterOs extends Platform {
                 "urpf",
                 "vrf-imports",
                 "rate-limit",
+                "marking",
             ])
         );
 
@@ -480,12 +485,13 @@ export class RouterOs extends Platform {
         const chains = (["input", "forward", "output"] as const).map(
             (chain) => [`firewall.filter.${chain}.rules`, firewall?.filter?.[chain]?.rules] as const
         );
-        const nat = [
+        const others = [
             ["firewall.nat.source", firewall?.nat?.source],
             ["firewall.nat.destination", firewall?.nat?.destination],
+            ["qos.marking", device.qos?.marking],
         ] as const;
 
-        for (const [where, rules] of [...chains, ...nat]) {
+        for (const [where, rules] of [...chains, ...others]) {
             (rules ?? []).forEach((rule, index) => {
                 for (const field of ["src", "dst", "in_interface", "out_interface"] as const) {
                     if (list(rule.if?.[field])) found.push(`${where}[${index}].if.${field}, a list: write one rule for each`);
