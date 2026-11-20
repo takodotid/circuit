@@ -11,6 +11,7 @@ import type {
     DeterministicPoolNatRule,
     Device,
     Dhcpv6Server,
+    Dscp,
     Family,
     FilterRule,
     Interface,
@@ -94,7 +95,8 @@ export type BuiltFeature =
     | "nat-state"
     | "urpf"
     | "vrf-imports"
-    | "rate-limit";
+    | "rate-limit"
+    | "marking";
 
 export class Derive {
     /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
@@ -129,6 +131,34 @@ export class Derive {
     static readonly RATE_UNITS = { k: 1e3, M: 1e6, G: 1e9 } as const;
 
     static readonly BITS_PER_BYTE = 8;
+
+    /** Each DSCP's value, from the IANA DSCP registry. */
+    static readonly DSCP: Readonly<Record<Dscp, number>> = {
+        cs0: 0,
+        cs1: 8,
+        cs2: 16,
+        cs3: 24,
+        cs4: 32,
+        cs5: 40,
+        cs6: 48,
+        cs7: 56,
+        af11: 10,
+        af12: 12,
+        af13: 14,
+        af21: 18,
+        af22: 20,
+        af23: 22,
+        af31: 26,
+        af32: 28,
+        af33: 30,
+        af41: 34,
+        af42: 36,
+        af43: 38,
+        ef: 46,
+        "voice-admit": 44,
+        le: 1,
+        nqb: 45,
+    };
 
     /** The ways into the device in `management`. */
     private static readonly MANAGEMENT_SERVICES = ["ssh", "telnet", "http", "https", "api", "api_tls", "ftp", "native_protocol"] as const;
@@ -582,6 +612,7 @@ export class Derive {
         if (device.routing?.vrf_imports && !has("vrf-imports")) found.push(`routing.vrf_imports, ${notBuilt}`);
 
         if (!has("rate-limit")) for (const { where } of Derive.rateLimited(device)) found.push(`${where}.rate_limit, ${notBuilt}`);
+        if (device.qos?.marking && !has("marking")) found.push(`qos.marking, ${notBuilt}`);
 
         return found;
     }
