@@ -11,7 +11,7 @@ const platform = Platforms.get("raisecom-ros");
 /** What 0.x called unsupported, by its 0.x text, and the same in v1, where more than a path changed. */
 const V1_PATHS: Record<string, string> = {
     "system.dns, logging.local, release_channel, banner and ntp.serve":
-        "system.dns, system.logging.local, system.release_channel, system.banner, services.dns_server and services.ntp_server",
+        "system.dns, system.logging.local, system.release_channel, system.banner and services.dns_server",
     "routing.ospf for IPv6": "routing.ospf.address_families ipv6, OSPF runs for IPv4 here",
 };
 
@@ -93,7 +93,7 @@ test("a v1 field 0.x did not have is refused unless it is Circuit's own, and pat
     expect(unsupported({ role: "core", switching: { ...device.switching, vlans: { native: { id: 999, untrusted: true } } } })).toEqual([]);
 
     expect(unsupported({ services: { dns_server: true } })).toEqual([
-        "system.dns, system.logging.local, system.release_channel, system.banner, services.dns_server and services.ntp_server",
+        "system.dns, system.logging.local, system.release_channel, system.banner and services.dns_server",
     ]);
 
     // Address sets alone build nothing, but `management.allow` may name one.

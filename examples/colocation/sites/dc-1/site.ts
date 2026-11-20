@@ -1,4 +1,4 @@
-// dc-1: the facts both devices write.
+// dc-1: the facts its devices write.
 
 export const dc_1 = literal({
     timezone: "Asia/Jakarta",
@@ -7,6 +7,7 @@ export const dc_1 = literal({
         router_on_switches: "10.0.99.1/24",
         tor_01: "10.0.99.2/24",
         tor_02: "10.0.99.3/24",
+        mmr_01: "10.0.99.4/24",
     },
     vlans: {
         mgmt: { id: 99, description: "Management of the switches" },

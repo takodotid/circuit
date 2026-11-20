@@ -107,7 +107,7 @@ export type Services<I extends string, F extends string = string> = {
     pppoe_server?: Record<string, PppoeServer<I, F>>;
     /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */
     dns_server?: true;
-    /** Answer time queries from others. Off when absent. */
+    /** Answer time queries from others. Off when absent. Raisecom ROS answers them whenever it takes time from `system.ntp`, and has no setting to stop it, so Circuit writes nothing for it there and warns when it is absent. */
     ntp_server?: true;
     /** Let hosts behind source NAT open their own ports. Off when absent. */
     upnp?: Upnp<I>;
