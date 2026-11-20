@@ -8,6 +8,7 @@ import type {
     AsNumbers,
     AsRange,
     BgpFamily,
+    DeterministicPoolNatRule,
     Device,
     Dhcpv6Server,
     Dscp,
@@ -20,7 +21,6 @@ import type {
     Limit,
     NatRule,
     NeighborSettings,
-    PoolNatRule,
     Port,
     PortRange,
     Prefix,
@@ -478,7 +478,7 @@ export class Derive {
     /**
      * Where each subscriber leaves, RFC 7422's sequential mapping. Each pool address takes the same number of subscribers, in address order. Each one's block of `port_set_size` ports follows the block before it, from port 1024. Nothing when `if.src` is not one prefix that `validate` takes.
      */
-    static poolAddresses(rule: PoolNatRule): PoolAddress[] {
+    static poolAddresses(rule: DeterministicPoolNatRule): PoolAddress[] {
         const src = [rule.if?.src].flat()[0];
         if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool)) return [];
 

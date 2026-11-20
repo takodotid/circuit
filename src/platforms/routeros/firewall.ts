@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, Ethertype, Family, FilterMatch, Finding, NatRule, PoolNatRule, Ports } from "../../model";
+import type { AclRule, DeterministicPoolNatRule, Device, Ethertype, Family, FilterMatch, Finding, NatRule, Ports } from "../../model";
 import { Derive } from "../../core/derive";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
@@ -37,7 +37,7 @@ export class RouterOsFirewall {
         const seen = new Set<string>();
 
         for (const rule of device.firewall?.nat?.source ?? []) {
-            if (!("to_pool" in rule)) continue;
+            if (!("to_pool" in rule) || rule.port_allocation !== "deterministic") continue;
 
             const src = [rule.if?.src].flat()[0];
             // NatChecks reports a pool without clean IPv4 prefixes.
@@ -274,7 +274,8 @@ export class RouterOsFirewall {
                 if (!this.families(rule.if).includes(family)) continue;
 
                 if ("to_pool" in rule) {
-                    if (Address.family(rule.to_pool) !== family) continue;
+                    // `unsupported()` refuses a dynamic pool.
+                    if (rule.port_allocation !== "deterministic" || Address.family(rule.to_pool) !== family) continue;
 
                     this.render.add(menu, "add", {
                         action: "jump",
@@ -313,7 +314,7 @@ export class RouterOsFirewall {
     /**
      * A NAT pool, as MikroTik's NAT page writes RFC 7422: the pool's chain jumps to a chain for each pool address, by the subscribers that leave as it. There, each subscriber's TCP and UDP go to its block of ports, and anything else to the address alone.
      */
-    private pool(menu: string, rule: PoolNatRule): void {
+    private pool(menu: string, rule: DeterministicPoolNatRule): void {
         const addresses = Derive.poolAddresses(rule);
 
         for (const { address, subscribers } of addresses) {

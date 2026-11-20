@@ -182,6 +182,7 @@ export default as64500.device({
                     if: { src: "100.64.0.0/22", out_interface_set: "uplinks" },
                     then: "snat",
                     to_pool: "198.51.100.0/27",
+                    port_allocation: "deterministic",
                     port_set_size: 2016,
                 },
             ],

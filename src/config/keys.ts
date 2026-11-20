@@ -67,7 +67,9 @@ export const NAT_RULE = {
     to_address: 0,
     to_port: 0,
     to_pool: 0,
+    port_allocation: 0,
     port_set_size: 0,
+    port_sets_per_subscriber: 0,
 } as const satisfies ShapeOf<NatRule<string, string, string>>;
 const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
 const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
