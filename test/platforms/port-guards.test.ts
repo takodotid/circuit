@@ -115,14 +115,27 @@ test("VRP sends them only with --experimental, guards every edge port or none, a
     );
 });
 
-test("Raisecom ROS and FortiOS refuse them", () => {
-    expect(Platforms.get("raisecom-ros").unsupported(guarded("raisecom-ros", "RAX721-C-6C48", "10g-1", "10g-2"))).toEqual(
-        expect.arrayContaining([
-            "switching.dhcp_snooping, which only RouterOS, Junos, and VRP build for now",
-            "switching.ra_guard, which only RouterOS and Junos build for now",
-            "interfaces.ethernet.10g-2.dhcp_trusted, which only RouterOS, Junos, and VRP build for now",
-        ])
-    );
+test("Raisecom ROS sets root guard on the port, BPDU guard and DHCP snooping only with --experimental, and refuses RA guard", () => {
+    const raisecom = Platforms.get("raisecom-ros");
+    const device = guarded("raisecom-ros", "RAX721-C-6C48", "10g-1", "10g-2");
+    const desired = raisecom.render(device);
+
+    expect(raisecom.unsupported(device)).toEqual([
+        "interfaces.ethernet.10g-2.stp, BPDU guard shuts down any port the switch finds to be an edge port: write edge: true or false",
+        "switching.ra_guard, which only RouterOS and Junos build for now",
+        "interfaces.ethernet.10g-2.ra_trusted, which only RouterOS and Junos build for now",
+    ]);
+    expect(raisecom.experimental?.(device)).toEqual([
+        "switching.dhcp_snooping",
+        "interfaces.ethernet.10g-1.stp.bpdu_guard",
+        "interfaces.ethernet.10g-2.dhcp_trusted",
+    ]);
+    expect(desired).toContain("interface tengigabitethernet 1/3/1\nswitchport access vlan 100\nspanning-tree edged-port force-true\n!");
+    expect(desired).toContain("spanning-tree rootguard enable\nip dhcp snooping trust\n!");
+    expect(desired).toContain("spanning-tree enable\nspanning-tree bpduguard enable\nip dhcp snooping\n");
+});
+
+test("FortiOS refuses them", () => {
     expect(Platforms.get("fortios").unsupported(guarded("fortios", "FG-3700D", "10g-1", "10g-2"))).toEqual(
         expect.arrayContaining(["switching.dhcp_snooping, ports are routed", "interfaces.ethernet.10g-2.ra_trusted, ports are routed"])
     );
