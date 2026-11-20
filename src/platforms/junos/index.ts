@@ -118,6 +118,9 @@ export class Junos extends Platform {
         if (device.routing?.mpls) found.push("routing.mpls");
         // IS-IS multi-topology passed `commit check` only, in a candidate that was never committed.
         if (device.routing?.isis?.multi_topology) found.push("routing.isis.multi_topology");
+        // VLAN translation passed `commit check` only, and a QFX5100 on 17.4 was seen not to translate with it (TRAPS.md).
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
         // A port's policer passed `commit check`. A LAG's was not tried.
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         return found;

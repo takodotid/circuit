@@ -183,6 +183,27 @@ test("one VLAN under two names across a cable is a warning", () => {
     ]);
 });
 
+test("a translated VLAN is compared by the ID it has on the cable", () => {
+    const [r1, r2] = routers();
+    const link = { device: "r1", port: "25g-1" };
+    const far = withInterfaces({ ...r2, switching: { vlans: { mgmt: { id: 10 }, hall: { id: 30 } } } }, "ethernet", {
+        "25g-1": { trunk_vlans: ["hall"], link },
+    });
+    const onLinks = (...devices: Device[]) => findings(...devices).filter((finding) => finding.includes(".link:"));
+
+    expect(onLinks(r1, far)).toContain(
+        "error r1: interfaces.ethernet.25g-1.link: interfaces.ethernet.25g-1 carries VLAN 10 tagged, and r2 interfaces.ethernet.25g-1 carries VLAN 30 tagged"
+    );
+
+    const translated = withInterfaces(r1, "ethernet", {
+        "25g-1": { trunk_vlans: ["mgmt"], vlan_translation: [{ from: 30, to: "mgmt" }], link: { device: "r2", port: "25g-1" } },
+    });
+    expect(onLinks(translated, far)).toEqual([
+        "warning r1: interfaces.ethernet.25g-1.link: VLAN 30 is mgmt here and hall on r2",
+        "warning r2: interfaces.ethernet.25g-1.link: VLAN 30 is hall here and mgmt on r1",
+    ]);
+});
+
 test("a BGP session to another device needs its session back, in the AS it expects, from the address it names", () => {
     const [r1, r2] = routers();
 

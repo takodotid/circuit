@@ -4,7 +4,7 @@ import { X509Certificate } from "node:crypto";
 import { utils } from "ssh2";
 import { Address } from "../core/address";
 import { Utils } from "../core/utils";
-import type { Device, Finding, Interface, Ipsec, Lag, NeighborSettings, Port, Routed, StaticRoute, Switched } from "../model";
+import type { Device, Finding, Interface, Ipsec, NeighborSettings, Routed, StaticRoute, Switched } from "../model";
 import { Catalog } from "../core/catalog";
 import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
@@ -18,6 +18,7 @@ import { PppoeClientChecks } from "./pppoe-client";
 import { PseudowireChecks } from "./pseudowire";
 import { QosChecks } from "./qos";
 import { ServicesChecks } from "./services";
+import { VlanTagChecks } from "./vlan-tag";
 
 type Report = (message: string) => void;
 
@@ -109,6 +110,7 @@ export class DeviceChecks {
         DeviceChecks.ports(device, report);
         DeviceChecks.interfaces(device, report, ip);
         RateLimitChecks.check(device, report);
+        VlanTagChecks.check(device, report);
         DeviceChecks.routing(device, report, cidr, ip);
         IsisChecks.check(device, report);
         MplsChecks.check(device, report);
@@ -361,24 +363,7 @@ export class DeviceChecks {
 
             DeviceChecks.frames(where, port, report);
             DeviceChecks.guards(where, port, device, report);
-            DeviceChecks.qinq(where, port, device, report);
         }
-    }
-
-    /** A QinQ port is in its one VLAN, outside any private VLAN, and looks into no frame, since each carries the customer's own tags. */
-    private static qinq(where: string, settings: Port | Lag, device: Device, report: Report): void {
-        const vlan = settings.qinq_vlan;
-        if (!vlan) return;
-
-        for (const field of ["access_vlan", "trunk_vlans"] as const)
-            if (settings[field]) report(`${where} has qinq_vlan and ${field}: write one of them`);
-        for (const field of ["dhcp_trusted", "ra_trusted", "ethertypes", "ingress_acl"] as const)
-            if ((settings as Port)[field] !== undefined)
-                report(`${where}.${field} is on a QinQ port, whose frames carry the customer's own tags`);
-
-        const vlans = Object.values(device.switching?.vlans ?? {});
-        if (device.switching?.vlans?.[vlan]?.private_vlan || vlans.some((other) => other?.private_vlan?.primary === vlan))
-            report(`${where}.qinq_vlan ${vlan} is in a private VLAN: give the QinQ port a VLAN of its own`);
     }
 
     /** BPDU guard is for a port that faces hosts, both guards need spanning tree, and a trusted port needs what it is trusted by. A LAG holds them for its members. */
@@ -494,7 +479,6 @@ export class DeviceChecks {
                 };
                 DeviceChecks.frames(where, settings as Switched, report);
                 DeviceChecks.guards(where, settings as Switched, device, report);
-                DeviceChecks.qinq(where, settings as Lag, device, report);
 
                 const ports = Derive.ports(device).filter(([, port]) => port.in_lag === name);
                 const tunnels = Object.entries(device.interfaces?.eoip ?? {}).filter(([, tunnel]) => tunnel?.in_lag === name);

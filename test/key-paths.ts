@@ -26,6 +26,8 @@ export class KeyPaths {
      */
     static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
         "routing.isis.multi_topology": "Junos only, where only `commit check` ran on a QFX5100",
+        "interfaces.ethernet.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
+        "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
     };
 
     /** Whether `path` is a key of `EXPERIMENTAL_EVERYWHERE`, or inside one. */
