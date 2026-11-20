@@ -1,4 +1,4 @@
-// Route-based IPsec tunnels. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with tunnels between documentation addresses. Tunnels with IPv4 and IPv6 endpoints, AES-GCM and AES-CBC, were made, changed both ways, and removed, each plan empty after.
+// Route-based IPsec tunnels. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with tunnels between documentation addresses. Tunnels with IPv4 and IPv6 endpoints, AES-GCM and AES-CBC, liveness checks, NAT traversal, a key and certificates, were made, changed both ways, and removed, each plan empty after.
 
 import { expect, test } from "bun:test";
 import type { Device, Ipsec } from "../../src/model";
@@ -68,6 +68,62 @@ test("FortiOS names a cbc encryption's hash in each proposal, and turns PFS off 
     expect(desired).toContain("set proposal aes256-sha256\n        set pfs disable\n        set keylifeseconds 3600");
 });
 
+test("FortiOS checks a silent peer, puts ESP in UDP always, and with certificates takes only a peer the CA signed", () => {
+    const device = withTunnels("platforms--example-firewall", {
+        "ipsec-branch-1": {
+            ...TUNNEL,
+            pre_shared_key: undefined,
+            certificate: "web",
+            ca_certificate: "branch-ca",
+            liveness_check: { interval: 10, retries: 5 },
+            nat_traversal: "always",
+        },
+        // A liveness check at the device's default timers writes only its mode.
+        "ipsec-branch-2": { ...TUNNEL, remote_address: "192.0.2.30", liveness_check: { interval: 20, retries: 3 } },
+    });
+    const certificates = { ...device.system?.certificates, "branch-ca": { certificate_file: "platforms--example-firewall.web.pem" } };
+    const desired = fortios.render({ ...device, system: { ...device.system, certificates } });
+
+    expect(desired).toContain(`config user peer
+    edit "branch-ca"
+        set ca "branch-ca"
+    next
+end`);
+    expect(desired).toContain(`    edit "ipsec-branch-1"
+        set interface "port6"
+        set ike-version 2
+        set local-gw 198.51.100.193
+        set authmethod signature
+        set peertype peer
+        set net-device disable
+        set proposal aes256gcm-prfsha256
+        set dpd on-idle
+        set nattraversal forced
+        set dhgrp 19
+        set remote-gw 192.0.2.20
+        set certificate "web"
+        set peer "branch-ca"
+        set dpd-retrycount 5
+        set dpd-retryinterval 10
+    next
+    edit "ipsec-branch-2"
+        set interface "port6"
+        set ike-version 2
+        set local-gw 198.51.100.193
+        set peertype any
+        set net-device disable
+        set proposal aes256gcm-prfsha256
+        set dpd on-idle
+        set dhgrp 19
+        set remote-gw 192.0.2.30
+        set psksecret "<secret:IPSEC_KEY>"
+    next`);
+
+    // The device doesn't print the peer a tunnel with certificates takes (TRAPS.md).
+    const shown = desired.replace("        set peertype peer\n", "");
+    expect(fortios.plan(desired, shown, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
+});
+
 test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the global steps set it", () => {
     const device = withTunnels("platforms--example-firewall", {});
     const vdoms = { ...device, system: { ...device.system, vdoms: { management: { name: "mgmt", interfaces: ["1g-1"] } } } };
@@ -85,13 +141,14 @@ test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the
     ]);
 });
 
-test("FortiOS refuses one hash for integrity and another for the pseudorandom function, a lifetime out of its range, and an address it can't hold", () => {
+test("FortiOS refuses one hash for integrity and another for the pseudorandom function, a lifetime or a liveness check out of its range, and an address it can't hold", () => {
     const device = withTunnels("platforms--example-firewall", {
         "ipsec-branch-1": {
             ...TUNNEL,
             addresses: ["10.255.12.1/30", "2001:db8:ffee::1/64"],
             local_address: "203.0.113.99",
             ike: { encryption: "aes-256-cbc", integrity: "hmac-sha2-256-128", prf: "hmac-sha2-512", dh_group: 14, lifetime: 60 },
+            liveness_check: { interval: 3601, retries: 11 },
         },
     });
 
@@ -100,6 +157,8 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
             "interfaces.ipsec.ipsec-branch-1.local_address, no interface holds 203.0.113.99",
             "interfaces.ipsec.ipsec-branch-1.ike.prf hmac-sha2-512 with integrity hmac-sha2-256-128: the platform uses one hash for both",
             "interfaces.ipsec.ipsec-branch-1.ike.lifetime 60, the platform takes 120 to 172800",
+            "interfaces.ipsec.ipsec-branch-1.liveness_check.interval 3601, the platform takes up to 3600",
+            "interfaces.ipsec.ipsec-branch-1.liveness_check.retries 11, the platform takes up to 10",
             "interfaces.ipsec.ipsec-branch-1.addresses, an IPv4 address on a tunnel takes its peer",
             "interfaces.ipsec.ipsec-branch-1.addresses, IPv6 in the tunnel, which is not built yet",
         ])

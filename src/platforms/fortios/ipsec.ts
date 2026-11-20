@@ -30,28 +30,41 @@ export class FortiOsIpsec {
     /** The fewest and most seconds a phase 1 or phase 2 key lives, `keylife` and `keylifeseconds`. */
     private static readonly LIFETIME = { min: 120, max: 172_800 } as const;
 
+    /** A liveness check's interval and retries when nothing says, which `show` doesn't print, and the most it takes, `dpd-retryinterval` and `dpd-retrycount`. */
+    private static readonly LIVENESS = { interval: 20, retries: 3, maxInterval: 3600, maxRetries: 10 } as const;
+
     static tunnels(device: Device): [string, Ipsec][] {
         return Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, tunnel]) => (tunnel ? [[name, tunnel]] : []));
     }
 
-    static render(phase1: FortiOsNode, phase2: FortiOsNode, device: Device): void {
+    /** A tunnel with certificates takes the peer's only when its CA signed it, through an entry of `user peer` named after the CA. `peertype any` would take any peer. */
+    static render(phase1: FortiOsNode, phase2: FortiOsNode, peers: FortiOsNode, device: Device): void {
         for (const [name, tunnel] of FortiOsIpsec.tunnels(device)) {
             const outgoing = FortiOsNames.holderOf(device, Address.host(tunnel.local_address));
             const ipv6 = Address.family(tunnel.remote_address) === "ipv6";
-            const { ike, esp } = tunnel;
+            const { ike, esp, liveness_check: check } = tunnel;
 
-            // The version and the family come first: the settings after them exist only once they are set. A new tunnel takes any peer ID and makes no kernel device of its own, and prints both (TRAPS.md).
+            // The version, the family, and the way to authenticate come first: the settings after them exist only once they are set. A new tunnel takes any peer ID and makes no kernel device of its own, and prints both (TRAPS.md).
             const entry = phase1.entry(name).set("interface", outgoing ? FortiOsTree.quote(FortiOsNames.of(device, outgoing)) : '""');
             if (ipv6) entry.set("ip-version", 6);
             entry.set("ike-version", 2).set(ipv6 ? "local-gw6" : "local-gw", Address.host(tunnel.local_address));
+            if (tunnel.certificate) entry.set("authmethod", "signature");
             if (ike.lifetime !== FortiOsIpsec.DEFAULT_LIFETIME.ike) entry.set("keylife", ike.lifetime);
             entry
-                .set("peertype", "any")
+                .set("peertype", tunnel.ca_certificate ? "peer" : "any")
                 .set("net-device", "disable")
-                .set("proposal", FortiOsIpsec.ikeProposal(ike))
-                .set("dhgrp", ike.dh_group)
-                .set(ipv6 ? "remote-gw6" : "remote-gw", tunnel.remote_address)
-                .set("psksecret", FortiOsTree.quote(Secrets.marker(tunnel.pre_shared_key)));
+                .set("proposal", FortiOsIpsec.ikeProposal(ike));
+            if (check) entry.set("dpd", "on-idle");
+            if (tunnel.nat_traversal === "always") entry.set("nattraversal", "forced");
+            entry.set("dhgrp", ike.dh_group).set(ipv6 ? "remote-gw6" : "remote-gw", tunnel.remote_address);
+            if (tunnel.pre_shared_key) entry.set("psksecret", FortiOsTree.quote(Secrets.marker(tunnel.pre_shared_key)));
+            if (tunnel.certificate) entry.set("certificate", FortiOsTree.quote(tunnel.certificate));
+            if (tunnel.ca_certificate) {
+                entry.set("peer", FortiOsTree.quote(tunnel.ca_certificate));
+                peers.entry(tunnel.ca_certificate).set("ca", FortiOsTree.quote(tunnel.ca_certificate));
+            }
+            if (check && check.retries !== FortiOsIpsec.LIVENESS.retries) entry.set("dpd-retrycount", check.retries);
+            if (check && check.interval !== FortiOsIpsec.LIVENESS.interval) entry.set("dpd-retryinterval", check.interval);
 
             const child = phase2.entry(name).set("phase1name", FortiOsTree.quote(name)).set("proposal", FortiOsIpsec.espProposal(esp));
             if (esp.pfs_group) child.set("dhgrp", esp.pfs_group);
@@ -60,7 +73,7 @@ export class FortiOsIpsec {
         }
     }
 
-    /** What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. The tunnel's interface holds one IPv4 address, with its peer. */
+    /** What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. A liveness check waits up to 3600 seconds and retries up to 10 times. The tunnel's interface holds one IPv4 address, with its peer. */
     static gaps(device: Device): string[] {
         const found: string[] = [];
 
@@ -81,6 +94,12 @@ export class FortiOsIpsec {
                 if (lifetime < min || lifetime > max)
                     found.push(`${where}.${sa}.lifetime ${lifetime}, the platform takes ${min} to ${max}`);
             }
+
+            const { maxInterval, maxRetries } = FortiOsIpsec.LIVENESS;
+            if ((tunnel.liveness_check?.interval ?? 0) > maxInterval)
+                found.push(`${where}.liveness_check.interval ${tunnel.liveness_check?.interval}, the platform takes up to ${maxInterval}`);
+            if ((tunnel.liveness_check?.retries ?? 0) > maxRetries)
+                found.push(`${where}.liveness_check.retries ${tunnel.liveness_check?.retries}, the platform takes up to ${maxRetries}`);
 
             const addresses = tunnel.addresses ?? [];
             const ipv4 = addresses.filter((entry) => Address.family(typeof entry === "string" ? entry : entry.address) === "ipv4");

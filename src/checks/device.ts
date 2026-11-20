@@ -455,7 +455,7 @@ export class DeviceChecks {
                 ip(where, tunnel.remote_address);
             }
 
-            if (kind === "ipsec") IpsecChecks.check(where, settings as Ipsec, report);
+            if (kind === "ipsec") IpsecChecks.check(where, settings as Ipsec, device.system?.certificates ?? {}, report);
 
             if (kind === "eoip") {
                 const id = (settings as Extract<Interface, { tunnel_id: number }>).tunnel_id;

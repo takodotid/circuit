@@ -517,6 +517,8 @@ export class Project {
                 need("VRF", x.vrf, `${at}.vrf`, written);
                 need("VLAN interface", x.member_interfaces, `${at}.member_interfaces`, written);
                 need("table", x.routing_table, `${at}.routing_table`, written);
+                need("certificate", x.certificate, `${at}.certificate`, written);
+                need("certificate", x.ca_certificate, `${at}.ca_certificate`, written);
                 (x.dhcp_client?.default_routes ?? []).forEach((r: Json, n: number) =>
                     need("table", r.routing_table, `${at}.dhcp_client.default_routes[${n}].routing_table`, written)
                 );
