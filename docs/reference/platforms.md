@@ -150,7 +150,7 @@ A note in a cell means "works, with this limit".
 | `diff`, `apply`                                                | ✅       | ✅  | ✅           | ✅    | ✅      |
 | Serial console (`access-console`)                              | ✅       | ✅  | ✅           | ✅    | ✅      |
 | LLDP check while connected                                     | ✅       | ✅  | ✅           | ✅    | ✅      |
-| `circuit bgp`, live BGP sessions                               | ✅       | ❌  | ❌           | ❌    | ❌      |
-| [Health check](/guide/apply#checking-afterwards) after `apply` | ✅       | ❌  | ❌           | ❌    | ❌      |
+| `circuit bgp`, live BGP sessions                               | ✅       | ❌  | ❌           | 🧪    | 🧪      |
+| [Health check](/guide/apply#checking-afterwards) after `apply` | ✅       | ❌  | ❌           | 🧪    | 🧪      |
 
 If your device can do something that this table doesn't show, see [Contributing](/contributing).
