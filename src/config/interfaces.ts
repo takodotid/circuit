@@ -431,6 +431,39 @@ export type IpsecLivenessCheck = {
     retries: number;
 };
 
+/**
+ * Who the peer must be, as an IKEv2 identity (RFC 7296 §3.5), matched against its certificate as RFC 4945 §3.1 says. Write one of the four.
+ */
+export type IpsecIdentity =
+    | {
+          /** The attributes the certificate's subject must hold, each with exactly this value, as RFC 4514 writes a name: `CN=branch-1,O=Example` (ID_DER_ASN1_DN, RFC 4945 §3.1.5). */
+          distinguished_name: string;
+          fqdn?: never;
+          email?: never;
+          address?: never;
+      }
+    | {
+          /** A domain name the certificate holds as a `dNSName` in its subject alternative names (ID_FQDN, RFC 4945 §3.1.2). */
+          fqdn: string;
+          distinguished_name?: never;
+          email?: never;
+          address?: never;
+      }
+    | {
+          /** An email address the certificate holds as an `rfc822Name` in its subject alternative names (ID_RFC822_ADDR, RFC 4945 §3.1.3). */
+          email: string;
+          distinguished_name?: never;
+          fqdn?: never;
+          address?: never;
+      }
+    | {
+          /** An IP address the certificate holds as an `iPAddress` in its subject alternative names (ID_IPV4_ADDR or ID_IPV6_ADDR, RFC 4945 §3.1.1). */
+          address: IP;
+          distinguished_name?: never;
+          fqdn?: never;
+          email?: never;
+      };
+
 /** How each end proves who it is (RFC 7296 §2.15): with a key both ends share, or with its own certificate, signed by a CA the other end trusts. */
 export type IpsecAuthentication<C extends string> =
     | {
@@ -438,14 +471,17 @@ export type IpsecAuthentication<C extends string> =
           pre_shared_key: Secret;
           certificate?: never;
           ca_certificate?: never;
+          remote_identity?: never;
       }
     | {
           /** This end's certificate, one of `system.certificates` with its private key. The device signs with it, and sends it to the peer (RFC 7296 §3.6). */
           certificate: C;
           /**
-           * The CA that signed the peer's certificate: one of `system.certificates`, without its private key. The device takes any certificate this CA signed, so use a CA that signs only your own tunnel ends.
+           * The CA that signed the peer's certificate: one of `system.certificates`, without its private key. Without `remote_identity`, the device takes any certificate this CA signed, so use a CA that signs only your own tunnel ends.
            */
           ca_certificate: C;
+          /** Who the peer must be: the device takes only a certificate of `ca_certificate`'s that holds this identity. Any certificate that CA signed when absent. */
+          remote_identity?: IpsecIdentity;
           pre_shared_key?: never;
       };
 

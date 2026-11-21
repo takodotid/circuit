@@ -43,8 +43,12 @@ export class FortiOsIpsec {
         return Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, tunnel]) => (tunnel ? [[name, tunnel]] : []));
     }
 
-    /** A tunnel with certificates takes the peer's only when its CA signed it, through an entry of `user peer` named after the CA. `peertype any` would take any peer. */
-    static render(phase1: FortiOsNode, phase2: FortiOsNode, peers: FortiOsNode, device: Device): void {
+    /**
+     * A tunnel with certificates takes the peer's only when its CA signed it, through an entry of `user peer` named after the CA. `peertype any` would take any peer. With a `remote_identity`, the entry is the tunnel's own, named after it, and holds the subject too. `subject-match value` makes the VDOM's every peer match each attribute of its subject whole: `substring`, the default, would take `CN=branch-10` for `CN=branch-1` (TRAPS.md).
+     */
+    static render(phase1: FortiOsNode, phase2: FortiOsNode, peers: FortiOsNode, certificates: FortiOsNode, device: Device): void {
+        if (FortiOsIpsec.tunnels(device).some(([, tunnel]) => tunnel.remote_identity)) certificates.set("subject-match", "value");
+
         for (const [name, tunnel] of FortiOsIpsec.tunnels(device)) {
             const outgoing = FortiOsNames.holderOf(device, Address.host(tunnel.local_address));
             const ipv6 = Address.family(tunnel.remote_address) === "ipv6";
@@ -71,8 +75,11 @@ export class FortiOsIpsec {
             if (tunnel.pre_shared_key) entry.set("psksecret", FortiOsTree.quote(Secrets.marker(tunnel.pre_shared_key)));
             if (tunnel.certificate) entry.set("certificate", FortiOsTree.quote(tunnel.certificate));
             if (tunnel.ca_certificate) {
-                entry.set("peer", FortiOsTree.quote(tunnel.ca_certificate));
-                peers.entry(tunnel.ca_certificate).set("ca", FortiOsTree.quote(tunnel.ca_certificate));
+                const subject = tunnel.remote_identity?.distinguished_name;
+                const peer = subject === undefined ? tunnel.ca_certificate : name;
+                entry.set("peer", FortiOsTree.quote(peer));
+                peers.entry(peer).set("ca", FortiOsTree.quote(tunnel.ca_certificate));
+                if (subject !== undefined) peers.entry(peer).set("subject", FortiOsTree.quote(subject));
             }
             if (check && check.retries !== FortiOsIpsec.LIVENESS.retries) entry.set("dpd-retrycount", check.retries);
             if (check && check.interval !== FortiOsIpsec.LIVENESS.interval) entry.set("dpd-retryinterval", check.interval);
@@ -147,6 +154,8 @@ export class FortiOsIpsec {
                     `${where}.nat_keepalive with nat_traversal always: the platform has no keepalive interval while ESP always goes in UDP`
                 );
 
+            found.push(...FortiOsIpsec.identityGaps(where, name, tunnel, device));
+
             const ipv4 = FortiOsIpsec.ofFamily(tunnel, "ipv4");
             const ipv6 = FortiOsIpsec.ofFamily(tunnel, "ipv6");
             if (ipv4.some((entry) => typeof entry === "string"))
@@ -162,6 +171,26 @@ export class FortiOsIpsec {
                 );
         }
 
+        return found;
+    }
+
+    /** A tunnel whose `remote_identity` the platform can't check: a `user peer` matches a certificate's subject, never its subject alternative names (TRAPS.md). Its entry is named after the tunnel, which a CA's entry for another tunnel may hold already. */
+    private static identityGaps(where: string, name: string, tunnel: Ipsec, device: Device): string[] {
+        const identity = tunnel.remote_identity;
+        if (!identity) return [];
+
+        const found: string[] = [];
+        for (const kind of ["fqdn", "email", "address"] as const)
+            if (identity[kind] !== undefined)
+                found.push(
+                    `${where}.remote_identity.${kind}, which RFC 4945 finds in a certificate's subject alternative names: the platform matches the subject alone, so write distinguished_name`
+                );
+
+        const sharedWithCa = FortiOsIpsec.tunnels(device).some(([, other]) => other.ca_certificate === name && !other.remote_identity);
+        if (sharedWithCa)
+            found.push(
+                `${where}.remote_identity, as the tunnel's user peer, named ${name}, is the one of the CA ${name} too: rename the tunnel`
+            );
         return found;
     }
 
