@@ -66,4 +66,4 @@ RouterOS builds deterministic pools, and FortiOS dynamic ones: see [Platforms](/
 
 A DSCP is written by its name in the IANA DSCP registry, such as `ef` (RFC 3246), `af41` (RFC 2597), `cs6` (RFC 2474), or `le` (RFC 8622). RFC 4594 says which DSCP each kind of traffic takes. `pcp` writes a priority, 0 to 7, in the VLAN tag the packet leaves with (IEEE 802.1Q), for the switches on the way. A packet that leaves without a tag carries none.
 
-Marking leaves the device's queues as they are. Queues that serve each class in its turn are not built yet ([#215](https://github.com/takodotid/circuit/issues/215)).
+A device that sends each class from its own queue sorts packets by the DSCP they leave with, after marking: see [Quality of service](/guide/qos).

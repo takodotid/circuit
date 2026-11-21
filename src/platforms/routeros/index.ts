@@ -33,6 +33,7 @@ import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
 import { RouterOsQueues } from "./queues";
+import { RouterOsSchedulers } from "./schedulers";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
@@ -448,6 +449,7 @@ export class RouterOs extends Platform {
 
         found.push(...RouterOs.unsupportedShapes(device));
         found.push(...RouterOsQueues.unsupported(device));
+        found.push(...RouterOsSchedulers.unsupported(device));
         found.push(...RouterOsFirewall.markingGaps(device));
         found.push(
             ...Derive.unbuilt(device, [
@@ -466,6 +468,7 @@ export class RouterOs extends Platform {
                 "vrf-imports",
                 "rate-limit",
                 "marking",
+                "queues",
                 "ospf-ranges",
                 "ospf-priority",
                 "ospf-unicast-links",

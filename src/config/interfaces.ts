@@ -222,6 +222,7 @@ export type Port<
     Lag extends string,
     Vrf extends string,
     Table extends string = string,
+    Scheduler extends string = string,
 > = Routed<Vrf> &
     Switched<Vlan> & {
         /** What is plugged in. On a port with a `link`, write the far end as `<far device> <far port as that device prints it>`. */
@@ -244,6 +245,8 @@ export type Port<
         shaping?: Shaping;
         /** Limits the traffic through this port, each way. Not limited when absent. */
         rate_limit?: RateLimit;
+        /** How this port sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */
+        scheduler?: Scheduler;
     };
 
 /** Limits the traffic through an interface to a rate, each way. Traffic above the rate waits in a queue or is dropped, as the platform does. */
@@ -275,7 +278,7 @@ export type Base<Vrf extends string> = Routed<Vrf> & {
 };
 
 /** A layer 3 interface on a VLAN. */
-export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> & {
+export type VlanInterface<Vlan extends string, Vrf extends string, Scheduler extends string = string> = Base<Vrf> & {
     /** The VLAN it is on, from `switching.vlans`. */
     vlan: Vlan;
     /**
@@ -288,6 +291,8 @@ export type VlanInterface<Vlan extends string, Vrf extends string> = Base<Vrf> &
     proxy_arp?: readonly IP[];
     /** Limits the traffic through this VLAN interface, each way. Not limited when absent. */
     rate_limit?: RateLimit;
+    /** How this VLAN interface sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */
+    scheduler?: Scheduler;
 };
 
 /** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. No packet arrives on it, so it has no `urpf`. */
@@ -304,7 +309,7 @@ export type LinkCheck = {
 };
 
 /** A link aggregation. Each member port or EoIP tunnel points to it with `in_lag`. */
-export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
+export type Lag<Vlan extends string, Vrf extends string, Scheduler extends string = string> = Base<Vrf> &
     Switched<Vlan> & {
         /**
          * How the members join. `lacp` agrees on the members with the far end. `static` joins them without asking. `round_robin` sends each packet over the next member in turn, so one flow uses every member (Linux's balance-rr), and it uses no LACP. `lacp` when absent.
@@ -318,6 +323,8 @@ export type Lag<Vlan extends string, Vrf extends string> = Base<Vrf> &
         mac?: MacAddress;
         /** Limits the traffic through this LAG, each way. Not limited when absent. */
         rate_limit?: RateLimit;
+        /** How this LAG sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */
+        scheduler?: Scheduler;
     };
 
 /** A GRE tunnel. */
@@ -528,7 +535,7 @@ export type PppoeClient<Carrier extends string, I extends string> = {
 /**
  * Every port and interface, by kind, each keyed by its name. A port's key is `<speed>-<position>` from the model.
  *
- * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables, `Certificate` certificates. `I` is every port and interface.
+ * The type parameters are the names the device declares: `Ethernet` the ports, `L` LAGs, `VI` VLAN interfaces, `T` the other interfaces, `V` VLANs, `F` VRFs, `Table` routing tables, `Certificate` certificates. `S` is its schedulers, and `I` every port and interface.
  */
 export type Interfaces<
     Ethernet,
@@ -540,13 +547,14 @@ export type Interfaces<
     Table extends string = string,
     Certificate extends string = string,
     I extends string = string,
+    S extends string = string,
 > = {
     /** Physical ports, keyed by `<speed>-<position>` from the model, such as `10g-4`. Ports not listed are shut down. */
     ethernet?: Ethernet;
     /** Link aggregations, keyed by name. Each member port points to one with `in_lag`. */
-    lag?: Named<L, Lag<V, F>>;
+    lag?: Named<L, Lag<V, F, S>>;
     /** Layer 3 interfaces on a VLAN, keyed by name. Each gives its VLAN in `vlan`. */
-    vlan_interface?: Named<VI, VlanInterface<V, F>>;
+    vlan_interface?: Named<VI, VlanInterface<V, F, S>>;
     /** Layer 2 bridges between VLAN interfaces, keyed by name. */
     bridge?: Named<T, Bridge<NoInfer<VI>, F>>;
     /** Loopback interfaces, keyed by name. They are always up and on no link. */

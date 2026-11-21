@@ -1,6 +1,6 @@
 // The library's router, a MikroTik RB5009, the border router (ABR) of area 0.0.0.1: the library and the field station behind it. The backbone sees the area as one route for each family, and doesn't see the archive at all.
 
-import { campus } from "../../circuit";
+import { campus, classes } from "../../circuit";
 
 export default campus.device({
     name: "library-01",
@@ -23,7 +23,12 @@ export default campus.device({
             "1g-2": { description: "Library switch", trunk_vlans: ["reading-rooms", "archive"] },
         },
         vlan_interface: {
-            "reading-rooms": { vlan: "reading-rooms", addresses: ["10.1.1.1/24", "2001:db8:10:101::1/64"], ipv6_ra: true },
+            "reading-rooms": {
+                vlan: "reading-rooms",
+                addresses: ["10.1.1.1/24", "2001:db8:10:101::1/64"],
+                ipv6_ra: true,
+                scheduler: "wifi",
+            },
             archive: { vlan: "archive", addresses: ["10.1.200.1/24"] },
         },
         loopback: { loopback: { addresses: ["10.255.0.2/32", "2001:db8:10:ffff::2/128"] } },
@@ -59,6 +64,24 @@ export default campus.device({
                         "1g-1": { network: "point-to-point" },
                     },
                 },
+            },
+        },
+    },
+
+    // The reading rooms' access points carry about 300 Mbit/s in all, less than the port's 1G, so the router queues what it sends them. Calls go first, and the rest share what is left.
+    qos: {
+        classes,
+        default_class: "best-effort",
+        schedulers: {
+            wifi: {
+                rate: "300M",
+                queues: [
+                    { class: "network", priority: "strict", max: "5M" },
+                    { class: "voice", priority: "strict", max: "30M" },
+                    { class: "video", share: 30 },
+                    { class: "best-effort", share: 60 },
+                    { class: "bulk", share: 10 },
+                ],
             },
         },
     },

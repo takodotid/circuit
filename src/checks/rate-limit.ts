@@ -29,10 +29,17 @@ export class RateLimitChecks {
             });
     }
 
+    /** Whether `rate` is a rate above 0. Reports it when it is not. */
+    static rate(where: string, rate: unknown, report: Report): boolean {
+        const amount = typeof rate === "string" ? RateLimitChecks.RATE.exec(rate)?.[1] : undefined;
+        if (amount && Number(amount) > 0) return true;
+        report(`${where} ${typeof rate === "string" ? rate : JSON.stringify(rate)} is not a rate above 0, such as 200M, 1.5G, or 64k`);
+        return false;
+    }
+
     private static limit(where: string, limit: Limit, report: Report): void {
         const { rate, burst } = Derive.limit(limit);
-        const amount = RateLimitChecks.RATE.exec(rate)?.[1];
-        if (!amount || !(Number(amount) > 0)) report(`${where} ${rate} is not a rate above 0, such as 200M, 1.5G, or 64k`);
+        RateLimitChecks.rate(where, rate, report);
         if (burst !== undefined && !(Number.isInteger(burst) && burst > 0))
             report(`${where}.bc ${burst} is not a whole number of bytes above 0`);
     }

@@ -262,6 +262,18 @@ export class RouterOsExport {
             priority: "8/8",
             queue: "default-small/default-small",
         },
+        // As a CHR on 7.24.6 printed a queue with `export verbose`.
+        "/queue tree": {
+            "bucket-size": "0.1",
+            "burst-limit": "0",
+            "burst-threshold": "0",
+            "burst-time": "0s",
+            "limit-at": "0",
+            "max-limit": "0",
+            "packet-mark": "",
+            priority: "8",
+            queue: "default-small",
+        },
         // As a CCR2216 on 7.24.6 printed a server set back to them.
         "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
         // As a CHR on 7.24.6 printed a client made with its interface, `request=prefix`, and `pool-name`, with `export verbose`, and the distance `print detail` showed once it added a default route.

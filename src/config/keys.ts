@@ -307,12 +307,22 @@ export const DEVICE = {
                 dhcp_client: { default_routes: [{ routing_table: 0, distance: 0 }] },
                 shaping: { algorithm: 0, mbps: 0 },
                 rate_limit: RATE_LIMIT,
+                scheduler: 0,
             },
         },
         lag: {
-            "*": { ...BASE, ...SWITCHED, mode: 0, id: 0, link_check: { arp_targets: 0, interval_ms: 0 }, mac: 0, rate_limit: RATE_LIMIT },
+            "*": {
+                ...BASE,
+                ...SWITCHED,
+                mode: 0,
+                id: 0,
+                link_check: { arp_targets: 0, interval_ms: 0 },
+                mac: 0,
+                rate_limit: RATE_LIMIT,
+                scheduler: 0,
+            },
         },
-        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT } },
+        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT, scheduler: 0 } },
         bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
@@ -470,7 +480,12 @@ export const DEVICE = {
         conntrack_helpers: 0,
         untracked: 0,
     },
-    qos: { marking: [MARKING_RULE] },
+    qos: {
+        marking: [MARKING_RULE],
+        classes: { "*": { dscp: 0 } },
+        default_class: 0,
+        schedulers: { "*": { rate: 0, queues: [{ class: 0, priority: 0, max: 0, share: 0 }] } },
+    },
 } as const satisfies ShapeOf<AnyDevice>;
 
 const OPTION = { code: 0, description: 0 } as const;

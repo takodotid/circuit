@@ -10,3 +10,14 @@ export const campus = circuit({
         },
     },
 });
+
+// #region classes
+// The classes of traffic, the same on every router, each with the DSCPs RFC 4594 gives it. The phones mark their calls EF themselves.
+export const classes = literal({
+    network: { dscp: ["cs6", "cs7"] },
+    voice: { dscp: ["ef"] },
+    video: { dscp: ["af41", "af42", "af43"] },
+    "best-effort": { dscp: ["cs0"] },
+    bulk: { dscp: ["cs1", "le"] },
+});
+// #endregion classes
