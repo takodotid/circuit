@@ -67,7 +67,9 @@ Area 0 is the <Term means="The OSPF area that every other area must connect to, 
 
 An area at the edge, such as a branch office with one way out, needs few routes. As a **stub area**, it takes no routes that were redistributed into OSPF, and its border router announces a default route into it instead. An **NSSA** (not-so-stubby area) is a stub area that may still redistribute routes of its own, such as a customer's static routes. With no summaries, the area doesn't take the other areas' routes either, only the default route.
 
-A border router can also sum an area up. It announces a **range**, such as `10.1.0.0/17`, in place of each network of the area inside it. The other areas then keep one route instead of many, and a VLAN added or removed inside the range changes nothing for them. A range can be hidden instead, so the other areas don't reach those networks at all.
+A border router can also sum an area up. It announces a **range**, such as `10.1.0.0/17`, in place of each network of the area inside it. The other areas then keep one route instead of many, and a VLAN added or removed inside the range changes nothing for them. A range can be hidden instead, so the other areas don't reach those networks at all. A range costs as much as the most expensive network inside it, unless you give it a cost of its own. With its own cost, a cost changed inside the area doesn't move the other areas' paths.
+
+Every area connects to the backbone. When a border router has no link into the backbone, such as the router of a building reached only through another area, a **virtual link** joins it to the backbone anyway. The link runs across the area in between, the **transit area**, to a border router that is in the backbone. The transit area is neither a stub area nor an NSSA. A virtual link is usually a stopgap until a cable to the backbone is laid.
 
 ## Links with more routers
 
@@ -188,6 +190,32 @@ routing: {
 | `network: "point-to-multipoint"`        | For a radio link where the stations don't all hear each other. No DR is elected.                                   |
 | `network: "non-broadcast"`, `neighbors` | For a link that carries no multicast: write each neighbor's address on the link. Both kinds of link are IPv4 only. |
 
+The galleries' router has no link into the backbone, only a fiber to the museum's router in area 0.0.0.2. A virtual link to the museum's router, across that area, joins it to the backbone. The galleries' own area is announced as one range, at a cost of its own:
+
+```ts
+routing: {
+    router_id: "10.255.0.5",
+    ospf: {
+        areas: {
+            "0.0.0.0": {
+                virtual_links: [{ transit_area_id: "0.0.0.2", router_id: "10.255.0.4" }],
+                interfaces: {},
+            },
+            "0.0.0.2": { interfaces: { "1g-1": { network: "point-to-point" } } },
+            "0.0.0.3": {
+                ranges: [{ prefix: "10.4.0.0/16", advertise: true, cost: 50 }],
+                interfaces: { "1g-2": { passive: true } },
+            },
+        },
+    },
+},
+```
+
+| Field              | What it does                                                                                                                                                                                                                                                    |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `virtual_links`    | In the backbone of a border router: `transit_area_id`, the area the link crosses, and `router_id`, the far border router's. Write one at both ends, and `routing.router_id` on both routers. On RouterOS, OSPF runs for one family where it has a virtual link. |
+| `cost`, in a range | The cost the range is announced with, in place of the largest cost inside it.                                                                                                                                                                                   |
+
 <Quiz
   question="Your router runs OSPF on its cable to another router. You add a guests VLAN, where only phones and laptops are. How should it appear in the OSPF area?"
   :choices="['With passive: true', 'Not at all', 'With network: point-to-point']"
@@ -206,5 +234,5 @@ OSPF runs directly on IP. It uses neither TCP nor UDP. If the router's [input fi
 To see which routers become neighbors before you apply anything, open the OSPF layer of the graph in `circuit studio`.
 
 ::: warning Not every platform runs every part
-VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. Junos and FortiOS don't run it in a VRF. Ranges, priorities, and point-to-multipoint and NBMA links run on RouterOS only, for now. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
+VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. Junos and FortiOS don't run it in a VRF. Ranges and their costs, priorities, point-to-multipoint and NBMA links, and virtual links run on RouterOS only, for now. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
 :::

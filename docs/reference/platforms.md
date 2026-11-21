@@ -99,8 +99,10 @@ A note in a cell means "works, with this limit".
 | OSPF hello and dead timers   | ✅                      | 🧪                         | ❌                       | ✅                    | ✅               |
 | OSPF authentication          | ✅                      | 🧪                         | ❌                       | MD5                   | MD5              |
 | OSPF area ranges             | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF range cost              | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | OSPF router priority         | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | OSPF NBMA and P2MP links     | ✅ OSPFv2               | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF virtual links           | ✅ one family           | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric    | 🧪 VLAN interfaces         | ❌                       | ✅                    | ✅ no passive    |
 | IS-IS multi-topology         | ❌                      | ✅                         | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                      | ❌ not yet                 | ❌                       | MD5; 🧪 HMAC-SHA-1    | MD5              |

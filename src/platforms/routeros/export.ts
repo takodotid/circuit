@@ -167,7 +167,7 @@ export class RouterOsExport {
         "/routing ospf instance": { version: "2" },
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
         // `unset` refuses a range's `advertise` and a template's `priority`, so the plan sets them back to these (TRAPS.md).
-        "/routing ospf area range": { advertise: "yes" },
+        "/routing ospf area range": { advertise: "yes", cost: "" },
         "/routing ospf interface-template": {
             "hello-interval": "10s",
             "dead-interval": "40s",
@@ -445,6 +445,8 @@ export class RouterOsExport {
             "import.filter-chain",
         ],
         "/routing ospf area": ["default-cost"],
+        // Without a cost, a range takes the largest of the routes inside it (CHR, 7.24.6).
+        "/routing ospf area range": ["cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
         "/ppp profile": RouterOsExport.PPP_PROFILE_UNSET,
@@ -483,6 +485,8 @@ export class RouterOsExport {
         "/routing ospf area range": ["area", "prefix"],
         "/routing ospf interface-template": ["area", "interfaces"],
         "/routing ospf static-neighbor": ["area", "address"],
+        // Circuit writes only virtual links there. One has no name, and is known by its transit area and far router, as in RFC 9129.
+        "/routing ospf interface": ["area", "vlink-transit-area", "vlink-neighbor-id"],
         "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
         "/mpls interface": ["interface"],

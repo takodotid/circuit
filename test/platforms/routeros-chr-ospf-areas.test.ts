@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. r-01, the border router of r-02's area, sums it into ranges, and priority picks the DR on its link to r-02. Then r-01's links are NBMA and point-to-multipoint, each with its neighbor written out. The tests run in order on the same routers. Skipped without the three CHRs.
+// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. r-01, the border router of r-02's area, sums it into ranges at a cost of their own, and priority picks the DR on its link to r-02. Then r-01's links are NBMA and point-to-multipoint, each with its neighbor written out. The tests run in order on the same routers. Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -43,6 +43,10 @@ const LOOPBACK: Record<Router, string[]> = {
 /** r-02's networks behind r-01, and the ranges r-01 sums them into. */
 const RANGES = { v4: "198.51.100.0/24", v6: "2001:db8:100::/48" };
 const SPECIFICS = { v4: "198.51.100.1/32", v6: "2001:db8:100::1/128" };
+
+/** The cost r-01 announces each range at, and the cost of r-03's link to it, RouterOS's own. */
+const RANGE_COST = 100;
+const LINK_COST = 1;
 
 /** r-01's link to r-02, then its link to r-03, each with r-01's addresses and the far router's. */
 const LINK = {
@@ -122,15 +126,16 @@ function writeLab(ospf: Partial<Record<Router, string>>): void {
 /**
  * r-01 is the border router: area 0.0.0.1 toward r-02, whose loopbacks it sums into one range for each family, and the backbone toward r-03. On the link to r-02, r-01 has `middlePriority` and r-02 `farPriority`.
  */
-function rangesLab(advertise: boolean, middlePriority: number, farPriority: number): Partial<Record<Router, string>> {
+function rangesLab(advertise: boolean, middlePriority: number, farPriority: number, cost?: number): Partial<Record<Router, string>> {
     const families = `address_families: ["ipv4", "ipv6"]`;
+    const settings = `advertise: ${advertise}${cost === undefined ? "" : `, cost: ${cost}`}`;
     return {
         "r-01": `{
             ${families},
             areas: {
                 "0.0.0.0": { interfaces: { "virtual-3": { network: "point-to-point" }, loopback: { passive: true } } },
                 "0.0.0.1": {
-                    ranges: [{ prefix: "${RANGES.v4}", advertise: ${advertise} }, { prefix: "${RANGES.v6}", advertise: ${advertise} }],
+                    ranges: [{ prefix: "${RANGES.v4}", ${settings} }, { prefix: "${RANGES.v6}", ${settings} }],
                     interfaces: { "virtual-2": { priority: ${middlePriority} } },
                 },
             },
@@ -179,6 +184,13 @@ function routes(device: string, prefix: string): number {
     return count(device, prefix.includes(":") ? "/ipv6 route" : "/ip route", `dst-address="${prefix}" and active`);
 }
 
+/** The OSPF metric of the device's active route to `prefix`, as `/routing route` prints it. */
+function metric(device: string, prefix: string): number | undefined {
+    const printed = exec(device, `/routing route print detail without-paging where dst-address="${prefix}" and active`);
+    const found = /ospf\.metric=(\d+)/.exec(printed);
+    return found ? Number(found[1]) : undefined;
+}
+
 /** How many of the device's OSPF interfaces on ether2, one for each OSPF version, are in `state`: `dr`, `dr-other`, `bdr`, or `ptp`. */
 function onEther2(device: string, state: string): number {
     return count(device, "/routing ospf interface", `interface="ether2" and state="${state}"`);
@@ -216,9 +228,9 @@ describe.skipIf(!middleChr || !secondChr || !thirdChr)(
         afterAll(() => rmSync(folder, { recursive: true, force: true }));
 
         test(
-            "r-03 sees each range in place of r-02's loopbacks, and r-02 is the DR, as r-01's priority is 0",
+            "r-03 sees each range in place of r-02's loopbacks, at the range's cost, and r-02 is the DR, as r-01's priority is 0",
             () => {
-                writeLab(rangesLab(true, 0, 1));
+                writeLab(rangesLab(true, 0, 1, RANGE_COST));
                 applyAll();
 
                 const summed = eventually(
@@ -232,6 +244,9 @@ describe.skipIf(!middleChr || !secondChr || !thirdChr)(
                 logOspf();
                 expect(summed).toBe(true);
                 expect(elected).toBe(true);
+                // The summary carries the range's cost, not the largest cost inside it (RFC 2328, section 12.4.3).
+                expect(metric("r-03", RANGES.v4)).toBe(LINK_COST + RANGE_COST);
+                expect(metric("r-03", RANGES.v6)).toBe(LINK_COST + RANGE_COST);
 
                 // OSPF's own state, which an export leaves out, changes nothing to plan.
                 for (const device of ROUTERS) expect(circuit("diff", device).status).toBe(0);
