@@ -179,12 +179,16 @@ describe.skipIf(!ready)("a CHR serving DHCP, each lease checked by RADIUS", () =
     test(
         "cpe-01, which RADIUS knows by its MAC, gets a lease, host-01 gets none, and each lease's use is reported every minute",
         () => {
+            // A client keeps a lease it took in an earlier test, which renews only after minutes: each gives its up and asks again.
+            for (const client of ["cpe-01", "host-01"]) circuit("exec", client, "/ip dhcp-client release [find]");
+
             expect(eventually(() => CPE_LEASE.test(lease("cpe-01")))).toBe(true);
-            circuit("exec", "edge-01", "/ip dhcp-server lease print detail", "/radius monitor 0 once");
+            circuit("exec", "edge-01", "/ip dhcp-server lease print detail");
 
             // RADIUS refused host-01 while cpe-01 took its lease.
-            expect(lease("host-01")).not.toMatch(HOST_LEASE);
-            expect(circuit("exec", "edge-01", "/log print").output).toContain("access rejected");
+            const rejected = () => circuit("exec", "edge-01", '/log print where message~"access rejected"').output;
+            expect(eventually(() => rejected().includes("radius authentication failed"))).toBe(true);
+            expect(lease("host-01")).not.toContain("status=bound");
 
             expect(eventually(reported)).toBe(true);
 
