@@ -434,3 +434,51 @@ test("RouterOS and FortiOS refuse multi-topology, Raisecom ROS refuses IS-IS, an
         "routing.isis.multi_topology is on, but IS-IS routes no IPv6 to put in a topology of its own. Add ipv6 to address_families, or remove multi_topology",
     ]);
 });
+
+test("Junos leaks level 2 routes into level 1 through an IS-IS export policy that runs the leak's policy, experimentally, and plans nothing against how the switch printed it", () => {
+    const junos = Platforms.get("junos");
+    const fixture = Fixtures.device("platforms--example-aggregation-switch");
+    const leaking = (isis: Isis): Device => ({
+        ...fixture,
+        routing: {
+            ...fixture.routing,
+            prefix_sets: { ...fixture.routing?.prefix_sets, loopbacks: { prefixes: ["192.0.2.0/24"] } },
+            policies: {
+                ...fixture.routing?.policies,
+                loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
+            },
+            isis,
+        },
+    });
+    const isis: Isis = { ...both("10g-48"), address_families: ["ipv4"] };
+    const device = leaking({ ...isis, level2_to_level1: { import_policy: "loopbacks" } });
+    const desired = junos.render(device);
+    expect(junos.experimental!(device)).toContain("routing.isis.level2_to_level1");
+    expect(junos.unsupported(device).filter((field) => field.startsWith("routing.isis"))).toEqual([]);
+
+    // As `show | display set` printed them in the candidate of a `commit check` on a QFX5100 (21.4R3-S8.5). Nothing was committed.
+    const printed = `set policy-options policy-statement circuit-isis-level2-to-level1 from protocol isis
+set policy-options policy-statement circuit-isis-level2-to-level1 from level 2
+set policy-options policy-statement circuit-isis-level2-to-level1 from policy loopbacks
+set policy-options policy-statement circuit-isis-level2-to-level1 to protocol isis
+set policy-options policy-statement circuit-isis-level2-to-level1 to level 1
+set policy-options policy-statement circuit-isis-level2-to-level1 then accept
+set policy-options policy-statement loopbacks term 1 from prefix-list-filter loopbacks orlonger
+set policy-options policy-statement loopbacks term 1 then accept
+set policy-options policy-statement loopbacks term 2 then reject
+set protocols isis export circuit-isis-level2-to-level1
+`;
+    const leak = /circuit-isis-level2-to-level1|policy-statement loopbacks /;
+    const others = desired
+        .split("\n")
+        .filter((line) => !leak.test(line))
+        .join("\n");
+    expect(sent("junos", desired, `${others}\n${printed}`)).toEqual([]);
+
+    // Without the leak, its export goes, and so do its policy and the leak's own, which nothing else uses. The commit checks them together.
+    expect(sent("junos", junos.render(leaking(isis)), desired)).toEqual([
+        "delete policy-options policy-statement circuit-isis-level2-to-level1",
+        "delete policy-options policy-statement loopbacks",
+        "delete protocols isis export",
+    ]);
+});

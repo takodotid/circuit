@@ -117,8 +117,9 @@ export class Junos extends Platform {
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
         // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
         if (device.routing?.mpls) found.push("routing.mpls");
-        // IS-IS multi-topology passed `commit check` only, in a candidate that was never committed.
+        // IS-IS multi-topology and the leak into level 1 passed `commit check` only, in a candidate that was never committed.
         if (device.routing?.isis?.multi_topology) found.push("routing.isis.multi_topology");
+        if (device.routing?.isis?.level2_to_level1) found.push("routing.isis.level2_to_level1");
         // VLAN translation passed `commit check` only, and a QFX5100 on 17.4 was seen not to translate with it (TRAPS.md).
         for (const { where, settings } of Derive.switchedHolders(device))
             if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
@@ -408,9 +409,6 @@ export class Junos extends Platform {
         found.push(...Derive.untested(device, Junos.TESTED));
         found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports", "rate-limit"]));
         found.push(...Junos.rateLimitGaps(device));
-        // Junos leaks with an IS-IS export policy whose terms name `from level 2` and `to level 1`.
-        if (device.routing?.isis?.level2_to_level1)
-            found.push("routing.isis.level2_to_level1, not built yet, since no device of the platform has run it");
 
         return found;
     }

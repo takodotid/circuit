@@ -27,7 +27,8 @@ export class KeyPaths {
     static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
         "routing.isis.multi_topology":
             "Junos, where only `commit check` ran on a QFX5100, and VRP, where IS-IS on an interface is experimental",
-        "routing.isis.level2_to_level1": "VRP only, where IS-IS on an interface is experimental",
+        "routing.isis.level2_to_level1":
+            "VRP, where IS-IS on an interface is experimental, and Junos, where only `commit check` ran on a QFX5100",
         "interfaces.ethernet.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
         "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
     };

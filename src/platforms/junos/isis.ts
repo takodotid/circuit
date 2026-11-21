@@ -14,6 +14,9 @@ export class JunosIsis {
     /** Where an interface's BFD for each family goes. */
     private static readonly FAMILY: Record<Family, string> = { ipv4: "inet", ipv6: "inet6" };
 
+    /** The IS-IS export policy that leaks level 2 routes into level 1, after Juniper's example. */
+    private static readonly LEAK = "circuit-isis-level2-to-level1";
+
     /** The device takes its NET from an ISO address of the main loopback. Each IS-IS interface has the ISO family. */
     static render(out: JunosStatements, device: Device, names: JunosNames): void {
         const isis = device.routing?.isis;
@@ -41,6 +44,7 @@ export class JunosIsis {
             if (!isis.address_families.includes(family as Family)) out.set("protocols isis", statement);
         if (isis.overload_bit) out.set("protocols isis overload");
         if (isis.multi_topology) out.set("protocols isis topologies ipv6-unicast");
+        if (isis.level2_to_level1) JunosIsis.leak(out, isis.level2_to_level1.import_policy);
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const unit = names.unit(name);
@@ -60,5 +64,18 @@ export class JunosIsis {
             if (settings?.bfd)
                 for (const family of isis.address_families) out.bfd(`${statement} family ${JunosIsis.FAMILY[family]}`, device.routing?.bfd);
         }
+    }
+
+    /** An IS-IS export policy that takes the level 2 routes the leak's policy accepts into level 1. Its policy runs as a subroutine: a route it accepts matches. Routes of level 1 still go up to level 2, as no term rejects them. */
+    private static leak(out: JunosStatements, policy: string): void {
+        out.set("protocols isis export", JunosIsis.LEAK);
+
+        const statement = `policy-options policy-statement ${JunosIsis.LEAK}`;
+        out.set(statement, "from protocol isis");
+        out.set(statement, "from level 2");
+        out.set(statement, "from policy", policy);
+        out.set(statement, "to protocol isis");
+        out.set(statement, "to level 1");
+        out.set(statement, "then accept");
     }
 }

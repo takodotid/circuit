@@ -102,7 +102,7 @@ A note in a cell means "works, with this limit".
 | IS-IS multi-topology         | ❌                      | ✅                         | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ✅               |
 | IS-IS overload bit           | ❌                      | ✅                         | ❌                       | ✅                    | ✅               |
-| IS-IS leaks into level 1     | ❌ leaks every route    | ✅                         | ❌                       | ❌ not yet            | ❌ not yet       |
+| IS-IS leaks into level 1     | ❌ leaks every route    | ✅                         | ❌                       | 🧪                    | ❌ not yet       |
 | BFD for IS-IS                | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌                         | ❌                       | 🧪                    | ❌               |
 | LDP label policies           | ✅ /32 or prefix set    | ❌                         | ❌                       | ❌                    | ❌               |
