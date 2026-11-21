@@ -123,7 +123,7 @@ function writeEdge(link: Link, scheduled: boolean): void {
     }[link];
     const marking = Object.values(CLASSES)
         .filter(({ dscp }) => dscp !== "cs0")
-        .map(({ address, dscp }) => `{ if: { dst: "${address}" }, then: { dscp: "${dscp}" } }`);
+        .map(({ address, dscp }) => `{ if: { dst: "${address}/32" }, then: { dscp: "${dscp}" } }`);
     const queues = `classes: {
             network: { dscp: ["cs6", "cs7"] },
             voice: { dscp: ["ef"] },
