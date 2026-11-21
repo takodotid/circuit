@@ -438,7 +438,8 @@ export const DEVICE = {
                     type: 0,
                     no_summaries: 0,
                     stub_default_cost: 0,
-                    ranges: [{ prefix: 0, advertise: 0 }],
+                    ranges: [{ prefix: 0, advertise: 0, cost: 0 }],
+                    virtual_links: [{ transit_area_id: 0, router_id: 0 }],
                     interfaces: {
                         "*": {
                             cost: 0,

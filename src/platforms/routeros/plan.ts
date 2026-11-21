@@ -74,6 +74,8 @@ export class RouterOsPlan {
         "/routing ospf area range",
         "/routing ospf interface-template",
         "/routing ospf static-neighbor",
+        // A virtual link names the backbone and its transit area.
+        "/routing ospf interface",
         "/routing isis instance",
         "/routing isis interface-template",
         // LDP runs on interfaces that forward MPLS.
@@ -113,6 +115,8 @@ export class RouterOsPlan {
         "/ipv6 firewall raw",
         "/ip dhcp-server lease",
         "/interface bridge vlan",
+        // A template makes an OSPF interface for each interface it matches.
+        "/routing ospf interface",
         // An address that advertises its network makes its prefix's entry.
         "/ipv6 nd prefix",
         // A PPP or hotspot user's rate limit is a simple queue.
