@@ -789,3 +789,41 @@ test("an interface named lo is refused on RouterOS, which has a loopback of its 
     ]);
     expect(named(withLoopbacks("loopback", "lo0"))).toEqual([]);
 });
+
+// Seen on a CHR with RouterOS 7.24.6: a LAG that takes a bridge port is refused, `ether3 already in bridge`. The bridge takes a LAG's member at once, inactive until the LAG lets it go.
+test("a port leaves the bridge before a LAG takes it, and joins the bridge from a LAG before the LAG lets it go", () => {
+    const bridge = "/interface bridge\nadd name=bridge vlan-filtering=yes\n";
+    const lag = (slaves: string) => `/interface bonding\nadd mode=802.3ad name=lag-1 slaves=${slaves}\n`;
+    const ports = (...names: string[]) =>
+        `/interface bridge port\n${names.map((name) => `add bridge=bridge interface=${name}\n`).join("")}`;
+    const sends = (desired: string, current: string) =>
+        Platforms.get("routeros")
+            .plan(desired, current, { secrets: false, rollback: 10 })
+            .steps.flatMap((step) => step.send);
+
+    const inBridge = bridge + ports("ether3", "ether4");
+    const inLag = bridge + lag("ether3,ether4") + ports("lag-1");
+    expect(sends(inLag, inBridge)).toEqual([
+        "/interface bridge port remove [ find interface=ether3 ]",
+        "/interface bridge port remove [ find interface=ether4 ]",
+        "/interface bonding add mode=802.3ad name=lag-1 slaves=ether3,ether4",
+        "/interface bridge port add bridge=bridge interface=lag-1",
+    ]);
+    expect(sends(inBridge, inLag)).toEqual([
+        "/interface bridge port add bridge=bridge interface=ether3",
+        "/interface bridge port add bridge=bridge interface=ether4",
+        "/interface bridge port remove [ find interface=lag-1 ]",
+        "/interface bonding remove [ find name=lag-1 ]",
+    ]);
+
+    // A LAG that stays takes a port from the bridge, then lets it go back.
+    const oneInLag = bridge + lag("ether3") + ports("lag-1", "ether4");
+    expect(sends(inLag, oneInLag)).toEqual([
+        "/interface bridge port remove [ find interface=ether4 ]",
+        "/interface bonding set [ find name=lag-1 ] slaves=ether3,ether4",
+    ]);
+    expect(sends(oneInLag, inLag)).toEqual([
+        "/interface bonding set [ find name=lag-1 ] slaves=ether3",
+        "/interface bridge port add bridge=bridge interface=ether4",
+    ]);
+});
