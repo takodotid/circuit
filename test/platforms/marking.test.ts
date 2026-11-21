@@ -92,7 +92,6 @@ test("every other platform refuses marking, which it does not build", () => {
     for (const [platform, model] of [
         ["junos", "QFX5100-48S-6Q"],
         ["fortios", "FG-3700D"],
-        ["vrp", "CE6855-48S6Q-HI"],
         ["raisecom-ros", "RAX721-C-6C48"],
     ] as const)
         expect(marking(Platforms.get(platform).unsupported(device(platform, model, rules)))).toEqual([

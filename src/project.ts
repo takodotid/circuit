@@ -602,6 +602,7 @@ export class Project {
         for (const [a, area] of Object.entries<Json>(d.routing?.ospf?.areas ?? {}))
             need("interface", Project.keys(area.interfaces), `routing.ospf.areas.${a}.interfaces`);
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");
+        need("policy", d.routing?.isis?.level2_to_level1?.import_policy, "routing.isis.level2_to_level1.import_policy");
         need("interface", d.routing?.mpls?.ldp?.interfaces, "routing.mpls.ldp.interfaces");
         for (const way of ["import_policy", "export_policy"]) need("policy", d.routing?.mpls?.ldp?.[way], `routing.mpls.ldp.${way}`);
 

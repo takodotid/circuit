@@ -455,6 +455,7 @@ export const DEVICE = {
             levels: { 1: { authentication: { key: SECRET } }, 2: { authentication: { key: SECRET } } },
             interfaces: { "*": { metric: 0, passive: 0, network: 0, bfd: 0 } },
             overload_bit: 0,
+            level2_to_level1: { import_policy: 0 },
         },
         mpls: { ldp: { lsr_id: 0, interfaces: 0, import_policy: 0, export_policy: 0 } },
         bfd: { interval: 0, multiplier: 0 },

@@ -1,5 +1,6 @@
 import { Derive } from "../core/derive";
 import type { Device, Isis } from "../model";
+import { PrefixPolicyChecks } from "./prefix-policy";
 
 type Report = (message: string) => void;
 
@@ -15,6 +16,11 @@ export class IsisChecks {
         "level-2": ["2"],
         "level-1-2": ["1", "2"],
     };
+    /** A leak picks level 2 routes by their prefix, and a leaked route keeps its metric and gets the up/down bit (RFC 5302). */
+    private static readonly LEAK = {
+        match: "a leak picks level 2 routes by their prefix only",
+        set: "a leaked route keeps what level 2 gave it",
+    };
 
     static check(device: Device, report: Report): void {
         const isis = device.routing?.isis;
@@ -29,6 +35,20 @@ export class IsisChecks {
         if (isis.multi_topology && !isis.address_families.includes("ipv6"))
             report(
                 "routing.isis.multi_topology is on, but IS-IS routes no IPv6 to put in a topology of its own. Add ipv6 to address_families, or remove multi_topology"
+            );
+
+        const leak = isis.level2_to_level1;
+        if (leak && isis.level_capability !== "level-1-2")
+            report(
+                `routing.isis.level2_to_level1: level_capability is ${isis.level_capability}, and only a router on both levels leaks level 2 routes into level 1. Remove it, or write level_capability: "level-1-2"`
+            );
+        if (leak)
+            PrefixPolicyChecks.check(
+                device,
+                `routing.isis.level2_to_level1.import_policy ${leak.import_policy}`,
+                leak.import_policy,
+                IsisChecks.LEAK,
+                report
             );
 
         for (const [level, settings] of Object.entries(isis.levels ?? {})) {
