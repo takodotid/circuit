@@ -188,8 +188,14 @@ export type OspfInterface = {
     cost?: number;
     /** Advertise the interface's network but form no adjacency on it. */
     passive?: boolean;
-    /** The OSPF network type of the link. `broadcast` when absent. */
-    network?: "broadcast" | "point-to-point";
+    /**
+     * The OSPF network type of the link (RFC 2328). `broadcast` when absent. On `broadcast` and `non-broadcast`, the routers elect a designated router (DR). `point-to-multipoint` treats the link as a point-to-point link to each neighbor, with no DR, as on a radio link where not every router hears the others. `non-broadcast` (NBMA) is a link that carries no multicast, so it needs `neighbors`. These two are OSPFv2 only.
+     */
+    network?: "broadcast" | "point-to-point" | "point-to-multipoint" | "non-broadcast";
+    /** The address on this link of each OSPF neighbor, for a link that carries no multicast: the device sends its hellos to each address. With `network` `non-broadcast`, or `point-to-multipoint`, which without them finds its neighbors by multicast. */
+    neighbors?: readonly IPv4[];
+    /** This device's priority, 0 to 255, in the election of the link's designated router (DR) and its backup (RFC 2328, section 9.4). The highest wins, and 0 never becomes either. On `broadcast` and `non-broadcast` links. The platform's own when absent: 128 on RouterOS. */
+    priority?: number;
     /** Seconds between hello packets, 1 to 65535. Every router on the link uses the same. 10 when absent. */
     hello_interval?: number;
     /** Seconds without a hello before a neighbor is down, more than `hello_interval` and up to 65535. Every router on the link uses the same. 40 when both are absent; write it with `hello_interval`, since platforms differ without it. */
@@ -203,6 +209,14 @@ export type OspfInterface = {
 /** An OSPF area ID, four numbers with dots between them, for example `0.0.0.0` for the backbone. */
 export type OspfAreaId = `${number}.${number}.${number}.${number}`;
 
+/** Addresses of an area that its border router (ABR) announces to the other areas as one route (RFC 2328, section 3.5). */
+export type OspfRange = {
+    /** The range, such as `10.1.0.0/16`. The area's networks inside it are not announced one by one. */
+    prefix: Prefix;
+    /** `true` announces the range as one route, while the area has a network inside it. `false` announces nothing of it, so the other areas don't reach those networks. */
+    advertise: boolean;
+};
+
 /** One OSPF area of the device. */
 export type OspfArea<I extends string> = {
     /** `stub` takes no external routes, those redistributed into OSPF (RFC 2328). `nssa` takes none from other areas, but may redistribute its own (RFC 3101). A normal area when absent. Not on the backbone, `0.0.0.0`. */
@@ -211,6 +225,8 @@ export type OspfArea<I extends string> = {
     no_summaries?: boolean;
     /** The cost, 1 to 16777214, of the default route this device announces into the area as its border router (ABR). Only with `type`. Without it, RouterOS and Junos announce no default route. */
     stub_default_cost?: number;
+    /** What this device, as the area's border router (ABR), announces to the other areas in place of the area's networks, each range once. */
+    ranges?: readonly OspfRange[];
     /** The device's ports and interfaces in this area, each with its OSPF settings. */
     interfaces: Named<I, OspfInterface>;
 };

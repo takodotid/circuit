@@ -1,4 +1,4 @@
-// OSPF area types, timers, and keys, tested on RouterOS 7.24.6, Junos 21.4R3, and FortiOS 6.2.2 (TRAPS.md). On each, a stub area and an NSSA, timers, and a key were set, changed, and taken away. The lines each device printed are fed to the adapters, with names and addresses replaced.
+// OSPF area types, timers, and keys, tested on RouterOS 7.24.6, Junos 21.4R3, and FortiOS 6.2.2 (TRAPS.md). RouterOS's ranges, priorities, and NBMA and point-to-multipoint links ran on CHRs. Each was set, changed, and taken away. The lines each device printed are fed to the adapters, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import type { Device, Ospf } from "../../src/model";
@@ -186,4 +186,104 @@ test("VRP renders the new keys behind --experimental, and Raisecom ROS refuses t
             "routing.ospf.areas.0.0.0.10.interfaces.management.dead_interval, not tested on the platform",
         ])
     );
+});
+
+/** An ABR whose uplink is point-to-multipoint and whose port to a carrier's service is NBMA, each with a neighbor, and whose area 1 is summarized. */
+const designed: Ospf = {
+    areas: {
+        "0.0.0.0": {
+            interfaces: {
+                uplink: { network: "point-to-multipoint", neighbors: ["203.0.113.1"] },
+                "1g-1": { network: "non-broadcast", priority: 0, neighbors: ["198.51.100.1"] },
+            },
+        },
+        "0.0.0.1": {
+            ranges: [
+                { prefix: "198.51.100.64/26", advertise: true },
+                { prefix: "192.0.2.0/24", advertise: false },
+            ],
+            interfaces: { servers: { priority: 200 }, management: { passive: true } },
+        },
+    },
+};
+
+/** The ranges, templates, and static neighbors of `designed`, as a CHR on 7.24.6 printed them: `advertise=yes` left out, and each neighbor's address unquoted. */
+const DESIGNED_PRINTED = `/routing ospf area range
+add area=ospf-v2-0.0.0.1 prefix=198.51.100.64/26
+add advertise=no area=ospf-v2-0.0.0.1 prefix=192.0.2.0/24
+/routing ospf interface-template
+add area=ospf-v2-0.0.0.0 interfaces=uplink type=ptmp
+add area=ospf-v2-0.0.0.0 interfaces=ether1 priority=0 type=nbma
+add area=ospf-v2-0.0.0.1 interfaces=servers priority=200
+add area=ospf-v2-0.0.0.1 interfaces=management passive
+/routing ospf static-neighbor
+add address=203.0.113.1%uplink area=ospf-v2-0.0.0.0
+add address=198.51.100.1%ether1 area=ospf-v2-0.0.0.0`;
+
+/** A RouterOS render of `designed`, with its OSPF ranges, templates, and neighbors as the router printed them. */
+const designedPrinted = () =>
+    Platforms.get("routeros")
+        .render(withOspf("platforms--example-router", designed))
+        .replace(/\/routing ospf area range\n[\s\S]*?(?=\n\/(?!routing ospf))/, DESIGNED_PRINTED);
+
+test("RouterOS writes ranges, priorities, and point-to-multipoint and NBMA links with their neighbors, and plans nothing against how the router prints them", () => {
+    const routeros = Platforms.get("routeros");
+    const desired = routeros.render(withOspf("platforms--example-router", designed));
+
+    for (const line of [
+        "add advertise=yes area=ospf-v2-0.0.0.1 prefix=198.51.100.64/26",
+        "add advertise=no area=ospf-v2-0.0.0.1 prefix=192.0.2.0/24",
+        "add area=ospf-v2-0.0.0.0 interfaces=uplink type=ptmp",
+        "add area=ospf-v2-0.0.0.0 interfaces=ether1 priority=0 type=nbma",
+        "add area=ospf-v2-0.0.0.1 interfaces=servers priority=200",
+        'add address="198.51.100.1%ether1" area=ospf-v2-0.0.0.0',
+    ])
+        expect(desired).toContain(line);
+
+    expect(routeros.plan(desired, designedPrinted(), options).steps).toEqual([]);
+});
+
+test("RouterOS sets a range's advertise and a template's priority and type back, which unset refuses, and removes a static neighbor", () => {
+    const plain: Ospf = {
+        areas: {
+            "0.0.0.0": { interfaces: { uplink: {}, "1g-1": {} } },
+            "0.0.0.1": {
+                ranges: [
+                    { prefix: "198.51.100.64/26", advertise: true },
+                    { prefix: "192.0.2.0/24", advertise: true },
+                ],
+                interfaces: { servers: {}, management: { passive: true } },
+            },
+        },
+    };
+    const desired = Platforms.get("routeros").render(withOspf("platforms--example-router", plain));
+
+    expect(sent("routeros", desired, designedPrinted())).toEqual([
+        '/routing ospf area range set [ find area=ospf-v2-0.0.0.1 and prefix="192.0.2.0/24" ] advertise=yes',
+        "/routing ospf interface-template set [ find area=ospf-v2-0.0.0.0 and interfaces=uplink ] type=broadcast",
+        "/routing ospf interface-template set [ find area=ospf-v2-0.0.0.0 and interfaces=ether1 ] priority=128 type=broadcast",
+        "/routing ospf interface-template set [ find area=ospf-v2-0.0.0.1 and interfaces=servers ] priority=128",
+        '/routing ospf static-neighbor remove [ find area=ospf-v2-0.0.0.0 and address="203.0.113.1%uplink" ]',
+        '/routing ospf static-neighbor remove [ find area=ospf-v2-0.0.0.0 and address="198.51.100.1%ether1" ]',
+    ]);
+});
+
+test("Junos, FortiOS, VRP, and Raisecom ROS refuse ranges, priorities, and point-to-multipoint and NBMA links until one of their devices runs them", () => {
+    const fixtures = {
+        junos: "platforms--example-aggregation-switch",
+        fortios: "platforms--example-firewall",
+        vrp: "platforms--example-switch",
+        "raisecom-ros": "platforms--example-core-switch",
+    };
+    const untried = "not built yet, since no device of the platform has run it";
+    for (const [platform, fixture] of Object.entries(fixtures))
+        expect(Platforms.get(platform).unsupported(withOspf(fixture, designed))).toEqual(
+            expect.arrayContaining([
+                `routing.ospf.areas.0.0.0.0.interfaces.uplink.network point-to-multipoint, ${untried}`,
+                `routing.ospf.areas.0.0.0.0.interfaces.uplink.neighbors, ${untried}`,
+                `routing.ospf.areas.0.0.0.0.interfaces.1g-1.priority, ${untried}`,
+                `routing.ospf.areas.0.0.0.0.interfaces.1g-1.network non-broadcast, ${untried}`,
+                `routing.ospf.areas.0.0.0.1.ranges, ${untried}`,
+            ])
+        );
 });

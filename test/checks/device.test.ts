@@ -320,6 +320,73 @@ test("OSPF areas, timers, and keys are checked, and a border router without a de
     ]);
 });
 
+// RFC 2328: a range is on a border router (section 3.5), and a priority where a DR is elected (section 9.4). An NBMA or a point-to-multipoint link has neighbors (Appendix C.5 and C.6).
+test("OSPF ranges, priorities, and neighbors are checked", () => {
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            ospf: {
+                areas: {
+                    "0.0.0.0": {
+                        interfaces: {
+                            uplink: { network: "point-to-point", priority: 1 },
+                            management: { network: "non-broadcast", priority: 256 },
+                            "1g-1": {
+                                network: "point-to-multipoint",
+                                neighbors: ["198.51.100.2", "198.51.100.9", "198.51.100.1", "198.51.100.1"],
+                            },
+                        },
+                    },
+                    "0.0.0.1": {
+                        ranges: [
+                            { prefix: "198.51.100.64/24", advertise: true },
+                            { prefix: "2001:db8:20::/48", advertise: false },
+                            { prefix: "198.51.100.0/24", advertise: false },
+                        ],
+                        interfaces: { servers: { passive: true, neighbors: ["198.51.100.66"] } },
+                    },
+                },
+            },
+        },
+    };
+
+    const findings = Checks.run([device], undefined).filter((finding) => finding.message.startsWith("routing.ospf"));
+    expect(findings.map(({ level, message }) => `${level}: ${message}`)).toEqual([
+        "error: routing.ospf.areas.0.0.0.0.interfaces.uplink.priority: no designated router is elected on a point-to-point link. Remove priority",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.management.priority is 256: write a whole number from 0 to 255",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.management: a non-broadcast link carries no multicast, so the device finds no neighbor there by itself. Write the address of each in neighbors",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.1g-1.neighbors[0] 198.51.100.2 is 1g-1's own address. Write the neighbor's",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.1g-1.neighbors[1] 198.51.100.9 is on no IPv4 network of 1g-1. Write the neighbor's address on this link",
+        "error: routing.ospf.areas.0.0.0.0.interfaces.1g-1.neighbors[3]: 198.51.100.1 is in neighbors twice. Remove one",
+        "error: routing.ospf.areas.0.0.0.1.ranges[0].prefix 198.51.100.64/24 has bits past its length: write 198.51.100.0/24",
+        "error: routing.ospf.areas.0.0.0.1.ranges[1].prefix 2001:db8:20::/48 is ipv6, which OSPF doesn't route here. Add ipv6 to routing.ospf.address_families, or remove the range",
+        "error: routing.ospf.areas.0.0.0.1.ranges[2].prefix: 198.51.100.0/24 is in routing.ospf.areas.0.0.0.1.ranges twice. Remove one",
+        'error: routing.ospf.areas.0.0.0.1.interfaces.servers.neighbors: a broadcast link finds its neighbors by multicast. Remove neighbors, or write network: "non-broadcast" or "point-to-multipoint"',
+    ]);
+
+    // A device in one area is no border router, so a range there does nothing. Neighbors are written for OSPFv2 only.
+    const inOneArea: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            ospf: {
+                address_families: ["ipv4", "ipv6"],
+                areas: {
+                    "0.0.0.1": {
+                        ranges: [{ prefix: "198.51.100.0/24", advertise: true }],
+                        interfaces: { "1g-1": { network: "point-to-multipoint" } },
+                    },
+                },
+            },
+        },
+    };
+    expect(messages(inOneArea).filter((message) => message.startsWith("routing.ospf"))).toEqual([
+        "routing.ospf.areas.0.0.0.1.ranges: example-router is in one area only, so it is no border router and announces no summary. Remove ranges, or write them on the border router",
+        "routing.ospf.areas.0.0.0.1.interfaces.1g-1.network point-to-multipoint with OSPFv3: Circuit runs point-to-multipoint links for OSPFv2 only. Write another network, or remove ipv6 from routing.ospf.address_families",
+    ]);
+});
+
 test("an AS number is a whole number from 0 to 4294967295, and a range starts before it ends", () => {
     const device: Device = {
         ...router,
