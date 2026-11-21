@@ -88,3 +88,8 @@ Seen on a CE6855 running V200R005.
     - An exclusion over the gateway is refused, `The IP address has been configured as a gateway address`, and a static binding of an excluded address, `The IP address has been configured as an excluded address`.
     - A gateway changes only once the network is gone: `Please delete all sections of the pool before modifying the gateway IP address`. `undo network` and `undo ip pool` ask `[Y/N]`, as does `vpn-instance` in a pool that has a network. Circuit removes a pool whose gateway or network changes, and writes it again.
     - `dhcpv6 pool <name>` refuses a name with a `-` (`Wrong parameter`), and takes `ctest_pool6`.
+- IS-IS (V200R005C00SPC800, a process with no interface committed with `commit trial`, the next plan empty, then rolled back):
+    - `import-route isis level-2 into level-1 filter-policy route-policy <name>`, and its `ipv6` twin, are refused while the route-policy does not exist: `The specified route-policy does not exist`. Circuit writes route-policies before IS-IS.
+    - The process prints its IPv6 lines after its others, between two indented ` #` lines, which the read skips. `is-level level-1-2`, the default, is not printed. `ipv6 enable` without a topology is IPv6's own topology; `topology standard` shares IPv4's.
+    - `cost-style` and `is-level` answer `IS-IS process 1 will be reset`. `set-overload` asks `Continue? [Y/N]`, and `undo isis 1` asks before it deletes the process.
+    - A second `network-entity` adds an area address beside the first, so a new NET is sent before the old one is undone. That, a leak's new policy and topology sent over the old, and the removal went into a candidate during a trial, and were cleared. IS-IS on a VLAN interface was not tried.

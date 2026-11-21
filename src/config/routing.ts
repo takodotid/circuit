@@ -270,8 +270,14 @@ export type IsisLevel = {
     authentication?: IsisAuthentication;
 };
 
-/** IS-IS (ISO/IEC 10589, RFC 1195), with wide metrics (RFC 5305). */
-export type Isis<I extends string> = {
+/** Which level 2 routes a router on both levels leaks into level 1 (RFC 5302). `P` is the device's policies. */
+export type IsisLevel2ToLevel1<P extends string> = {
+    /** The policy that picks them, from `routing.policies`. It sees each route's prefix, and the routes it accepts go into level 1, marked with the up/down bit so they never go back up. Its rules, and those of policies it calls, match `family`, `prefix`, `prefix_set`, and `prefix_length`, and set nothing. */
+    import_policy: P;
+};
+
+/** IS-IS (ISO/IEC 10589, RFC 1195), with wide metrics (RFC 5305). `P` is the device's policies. */
+export type Isis<I extends string, P extends string = string> = {
     /** The device's network entity title (NET): its area, its system ID, and `00`, such as `49.0001.0102.5500.1001.00`. No two devices share a system ID. */
     net: IsisNet;
     /** The levels the device runs: `level-1` inside its area, `level-2` between areas, or `level-1-2` for both. */
@@ -288,6 +294,10 @@ export type Isis<I extends string> = {
     interfaces: Named<I, IsisInterface>;
     /** Set the overload bit in the device's LSPs (ISO/IEC 10589). Other routers stop routing through the device, and still reach its own networks: for a router drained for maintenance, or a route reflector out of the traffic's path. */
     overload_bit?: boolean;
+    /**
+     * Leak level 2 routes into level 1 (RFC 5302), such as `{ import_policy: "loopbacks" }`. The routers of the area then take the nearest way out to them, not the default route to the nearest router on both levels. Only with `level_capability: "level-1-2"`. Without it, no level 2 route goes into level 1.
+     */
+    level2_to_level1?: IsisLevel2ToLevel1<P>;
 };
 
 /** LDP (RFC 5036): the device gives a label to each route of its IGP and tells its LDP neighbors. `P` is the device's policies. */
@@ -609,7 +619,7 @@ export type Routing<
     /** OSPF areas and interfaces, in the main table or in one VRF. */
     ospf?: Ospf<I, NoInfer<F>>;
     /** IS-IS, in the main table. */
-    isis?: Isis<I>;
+    isis?: Isis<I, NoInfer<P>>;
     /** MPLS, in the main table, such as `{ ldp: { lsr_id: "192.0.2.1", interfaces: ["100g-1", "100g-2"] } }`. */
     mpls?: Mpls<I, NoInfer<P>>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */

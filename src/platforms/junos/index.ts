@@ -408,6 +408,9 @@ export class Junos extends Platform {
         found.push(...Derive.untested(device, Junos.TESTED));
         found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports", "rate-limit"]));
         found.push(...Junos.rateLimitGaps(device));
+        // Junos leaks with an IS-IS export policy whose terms name `from level 2` and `to level 1`.
+        if (device.routing?.isis?.level2_to_level1)
+            found.push("routing.isis.level2_to_level1, not built yet, since no device of the platform has run it");
 
         return found;
     }

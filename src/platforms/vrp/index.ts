@@ -18,6 +18,7 @@ import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
+import { VrpIsis } from "./isis";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -65,29 +66,30 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp )/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
         ignore: (line) => line === "domain default" || Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
         undo: Vrp.undo,
         leave: "quit",
-        // The console refuses to drop its password while password login is still on.
-        first: /^authentication-mode /,
+        // The console refuses to drop its password while password login is still on, and IS-IS its last NET.
+        first: /^(authentication-mode|network-entity) /,
         canon: Vrp.canon,
         order: Vrp.order,
         head: (line) => VrpBgp.head(line) ?? Vrp.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, such as prefix lists, LAGs, ports, VLAN interfaces, OSPF, route-policies, BGP, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
         /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
         /^$/,
+        /^route-policy /,
+        /^isis /,
         /^interface Eth-Trunk/,
         /^interface (?!Vlanif)/,
         /^interface Vlanif/,
         /^ospf /,
-        /^route-policy /,
         /^bgp /,
     ];
 
@@ -191,7 +193,7 @@ export class Vrp extends Platform {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description`);
         }
 
-        if (routing?.isis) found.push("routing.isis");
+        found.push(...VrpIsis.unsupported(device));
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
         if (routing?.rpki) found.push("routing.rpki");
@@ -384,7 +386,7 @@ export class Vrp extends Platform {
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
-        found.push(...VrpBgp.experimental(device));
+        found.push(...VrpBgp.experimental(device), ...VrpIsis.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -431,7 +433,8 @@ export class Vrp extends Platform {
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
-        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind) /.test(line)) return line;
+        // A second NET is added beside the first, rather than replacing it.
+        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity) /.test(line)) return line;
 
         return LineDiff.head(line);
     }
@@ -503,6 +506,7 @@ export class Vrp extends Platform {
         // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
         const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
+        const isis = VrpIsis.removed(top);
 
         if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
 
@@ -524,6 +528,13 @@ export class Vrp extends Platform {
                 send: lastRemovals.map((line) => Vrp.undo(line)),
             });
         }
+
+        if (isis.length)
+            planned.push({
+                title: "IS-IS no longer used",
+                show: isis.map((line) => `- ${line}`),
+                send: isis.map((line) => Vrp.undo(line)),
+            });
 
         if (unused.length) {
             planned.push({
@@ -650,8 +661,8 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
-        const bgp = VrpBgp.undo(line);
-        if (bgp) return bgp;
+        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path);
+        if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
         if (assigned) return `undo ${assigned[1]}`;
