@@ -659,3 +659,49 @@ test("an IPsec tunnel authenticates one way, with a certificate that has its key
         ])
     );
 });
+
+test("an IPsec tunnel's remote identity is one of the four, written as RFC 7296 and RFC 4514 write it, and needs certificates", () => {
+    const tunnel = {
+        local_address: "192.0.2.1",
+        remote_address: "192.0.2.2",
+        certificate: "web",
+        ca_certificate: "ca",
+        ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+        esp: { encryption: "aes-256-gcm", lifetime: 3600 },
+    } as const;
+    // A project's types refuse these; a file Circuit reads without them may still hold them.
+    const loose = (value: object) => value as Ipsec;
+    const key = { pre_shared_key: { secret: "IPSEC_KEY" }, certificate: undefined, ca_certificate: undefined };
+    const device: Device = {
+        ...router,
+        system: {
+            ...router.system,
+            certificates: { ...router.system?.certificates, ca: { certificate_file: "platforms--example-router.web.pem" } },
+        },
+        interfaces: {
+            ...router.interfaces,
+            ipsec: {
+                good: {
+                    ...tunnel,
+                    remote_identity: { distinguished_name: "CN=branch-1, O=Example\\, Inc.,0.9.2342.19200300.100.1.25=example" },
+                },
+                name: { ...tunnel, remote_identity: { distinguished_name: "branch-1" } },
+                fqdn: { ...tunnel, remote_identity: { fqdn: "branch_1.example.net" } },
+                email: { ...tunnel, remote_identity: { email: "noc.example.net" } },
+                address: { ...tunnel, remote_identity: { address: "192.0.2.256" } },
+                two: loose({ ...tunnel, remote_identity: { fqdn: "branch-1.example.net", email: "noc@example.net" } }),
+                key: loose({ ...tunnel, ...key, remote_identity: { fqdn: "branch-1.example.net" } }),
+            },
+        },
+    };
+    const found = messages(device).filter((message) => message.includes("remote_identity"));
+
+    expect(found).toEqual([
+        'interfaces.ipsec.name.remote_identity.distinguished_name "branch-1" is no name: write each attribute as type=value, split by commas, such as CN=branch-1,O=Example',
+        'interfaces.ipsec.fqdn.remote_identity.fqdn "branch_1.example.net" is no domain name: write labels of letters, digits, and hyphens, split by dots',
+        'interfaces.ipsec.email.remote_identity.email "noc.example.net" is no email address: write it as name@domain',
+        "interfaces.ipsec.address.remote_identity.address 192.0.2.256 is no IP address",
+        "interfaces.ipsec.two.remote_identity holds fqdn, email. Write one of distinguished_name, fqdn, email, address",
+        "interfaces.ipsec.key.remote_identity needs certificate and ca_certificate: the peer's certificate carries its identity",
+    ]);
+});

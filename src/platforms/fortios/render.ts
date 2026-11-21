@@ -57,6 +57,7 @@ export class FortiOsRender {
     static readonly SECTIONS = [
         "vpn certificate local",
         "vpn certificate ca",
+        "vpn certificate setting",
         "user peer",
         "system global",
         FortiOsRender.BANNER,
@@ -325,7 +326,13 @@ export class FortiOsRender {
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
         FortiOsRender.aaa(root, device);
         FortiOsRender.interfaces(root, device);
-        FortiOsIpsec.render(section("vpn ipsec phase1-interface"), section("vpn ipsec phase2-interface"), section("user peer"), device);
+        FortiOsIpsec.render(
+            section("vpn ipsec phase1-interface"),
+            section("vpn ipsec phase2-interface"),
+            section("user peer"),
+            section("vpn certificate setting"),
+            device
+        );
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
         FortiOsMonitoring.snmp(root, device);

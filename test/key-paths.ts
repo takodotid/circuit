@@ -25,6 +25,7 @@ export class KeyPaths {
      * Keys that are experimental on every platform that has them, each with why. Examples validate without `--experimental`, so no example writes one of these, and it needs no example until a platform has it tested. Then it leaves this list for an example.
      */
     static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
+        "interfaces.ipsec.*.remote_identity": "FortiOS only, where no IKE peer sent a certificate to the FG-3700D",
         "routing.isis.multi_topology":
             "Junos, where only `commit check` ran on a QFX5100, and VRP, where IS-IS on an interface is experimental",
         "routing.isis.level2_to_level1":
