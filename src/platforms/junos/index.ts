@@ -222,6 +222,7 @@ export class Junos extends Platform {
         if (system.release_channel) found.push("system.release_channel");
         if (device.monitoring?.transceivers !== undefined) found.push("monitoring.transceivers, it is always on");
         if (device.services?.dns_server) found.push("services.dns_server");
+        if (device.services?.dns64) found.push("services.dns64, which needs services.dns_server");
         if (system.ip_stack?.syn_cookies) found.push("system.ip_stack.syn_cookies");
         if (system.logging?.local?.lines_per_file !== undefined) found.push("system.logging.local.lines_per_file, files rotate by size");
 

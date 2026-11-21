@@ -387,6 +387,74 @@ test("OSPF ranges, priorities, and neighbors are checked", () => {
     ]);
 });
 
+// RFC 2328: a summary's metric is below LSInfinity (section 12.4.3). A virtual link is in the backbone of a border router, across a normal area (section 15; RFC 3101).
+test("OSPF range costs and virtual links are checked", () => {
+    const device: Device = {
+        ...router,
+        routing: {
+            ...router.routing,
+            ospf: {
+                areas: {
+                    "0.0.0.0": {
+                        virtual_links: [
+                            { transit_area_id: "0.0.0.1", router_id: "192.0.2.1" },
+                            { transit_area_id: "0.0.0.0", router_id: "192.0.2.2" },
+                            { transit_area_id: "0.0.0.2", router_id: "192.0.2.3" },
+                            { transit_area_id: "0.0.0.3", router_id: "192.0.2.4" },
+                            { transit_area_id: "0.0.0.1", router_id: "192.0.2.255" },
+                            { transit_area_id: "0.0.0.1", router_id: "192.0.2.256" },
+                            { transit_area_id: "0.0.0.1", router_id: "192.0.2.1" },
+                        ],
+                        interfaces: {},
+                    },
+                    "0.0.0.1": {
+                        ranges: [
+                            { prefix: "198.51.100.0/25", advertise: true, cost: 16_777_215 },
+                            { prefix: "198.51.100.128/25", advertise: false, cost: 10 },
+                            { prefix: "203.0.113.0/24", advertise: true, cost: 0 },
+                        ],
+                        interfaces: { servers: { passive: true } },
+                    },
+                    "0.0.0.2": { type: "stub", stub_default_cost: 10, interfaces: { management: { passive: true } } },
+                    "0.0.0.4": { virtual_links: [{ transit_area_id: "0.0.0.1", router_id: "192.0.2.1" }], interfaces: {} },
+                },
+            },
+        },
+    };
+
+    const where = "routing.ospf.areas.0.0.0.0.virtual_links";
+    expect(messages(device).filter((message) => message.startsWith("routing.ospf"))).toEqual([
+        `${where}[1].transit_area_id: a virtual link crosses an area other than the backbone. Write the area both border routers are in`,
+        `${where}[2].transit_area_id 0.0.0.2 is a stub area, which carries no virtual link (RFC 2328, RFC 3101). Write a normal area`,
+        `${where}[3].transit_area_id 0.0.0.3: example-router has no interface in that area. Write an area of routing.ospf.areas that both border routers have interfaces in`,
+        `${where}[4].router_id 192.0.2.255 is example-router's own. Write the far border router's router ID`,
+        `${where}[5].router_id: '192.0.2.256' is not an IPv4 address. Write the far border router's router ID`,
+        `${where}[6]: the virtual link across 0.0.0.1 to 192.0.2.1 is in ${where} twice. Remove one`,
+        "routing.ospf.areas.0.0.0.1.ranges[0].cost is 16777215: write a whole number from 0 to 16777214",
+        "routing.ospf.areas.0.0.0.1.ranges[1].cost: a range with advertise false is announced at no cost. Remove cost",
+        "routing.ospf.areas.0.0.0.4.virtual_links: a virtual link is part of the backbone. Move it to routing.ospf.areas.0.0.0.0",
+    ]);
+
+    // A device in one area is no border router, and the far end knows it by a router ID it writes.
+    const { router_id: _routerId, ...unnamed } = router.routing ?? {};
+    const inOneArea: Device = {
+        ...router,
+        routing: {
+            ...unnamed,
+            ospf: {
+                areas: {
+                    "0.0.0.0": { virtual_links: [{ transit_area_id: "0.0.0.1", router_id: "192.0.2.1" }], interfaces: {} },
+                    "0.0.0.1": { interfaces: { servers: {} } },
+                },
+            },
+        },
+    };
+    expect(messages(inOneArea).filter((message) => message.startsWith("routing.ospf"))).toEqual([
+        `${where}: example-router is in one area only, so it is no border router, and a virtual link joins two border routers. Remove virtual_links, or write them on a border router`,
+        `${where}: the far end knows this device by its router ID. Write routing.router_id, such as the loopback's address`,
+    ]);
+});
+
 test("an AS number is a whole number from 0 to 4294967295, and a range starts before it ends", () => {
     const device: Device = {
         ...router,

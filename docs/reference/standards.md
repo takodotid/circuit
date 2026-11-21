@@ -47,6 +47,8 @@ Each RFC's status is as the RFC Editor listed it on 2026-11-01.
 | OSPF NSSA                                                      | RFC 3101                                                                                                                  | area `type: "nssa"`                                                  |
 | OSPFv2 authentication                                          | STD 54 (RFC 2328) for MD5, RFC 5709 for HMAC-SHA                                                                          | OSPF interface `authentication`                                      |
 | OSPF area ranges                                               | STD 54 (RFC 2328), section 3.5; RFC 5340 for OSPFv3                                                                       | area `ranges`                                                        |
+| OSPF range cost                                                | STD 54 (RFC 2328), section 12.4.3; the names of RFC 9129                                                                  | range `cost`                                                         |
+| OSPF virtual links                                             | STD 54 (RFC 2328), section 15; RFC 5340 for OSPFv3; the names of RFC 9129                                                 | backbone `virtual_links`                                             |
 | OSPF router priority                                           | STD 54 (RFC 2328), section 9.4                                                                                            | OSPF interface `priority`                                            |
 | OSPF point-to-multipoint and NBMA links                        | STD 54 (RFC 2328); the names of RFC 9129                                                                                  | OSPF interface `network`, `neighbors`                                |
 | IS-IS for IP                                                   | ISO/IEC 10589, RFC 1195                                                                                                   | `routing.isis`                                                       |
@@ -127,6 +129,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | IPv6 prefixes delegated over PPPoE   | DHCPv6 (RFC 9915) over IPv6CP (RFC 5072); a /64 of the prefix for each interface, as RFC 7084 (Informational) has a home router do. A prefix RADIUS sends: RFC 4818. The length a client asks for: RFC 9915 §18.2.1, RFC 8168 | `prefix_delegation` of `services.pppoe_server` and `interfaces.pppoe_client` |
 | NTP client and server                | RFC 5905                                                                                                                                                                                                                      | `system.ntp`, `services.ntp_server`                                          |
 | DNS resolvers used and served        | STD 13 (RFC 1034, RFC 1035)                                                                                                                                                                                                   | `system.dns`, `services.dns_server`                                          |
+| DNS64                                | RFC 6147; the NAT64 prefix, RFC 6052                                                                                                                                                                                          | `services.dns64`                                                             |
 
 ## Firewall
 
@@ -142,6 +145,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_allocation: "deterministic"`, `port_set_size`                       |
 | CGNAT that hands out blocks of ports, and logs each   | RFC 8512 port range allocation, `port-set-size`; a port limit per subscriber and less to log, BCP 127 (RFC 6888) REQ-4 and REQ-14    | `to_pool`, `port_allocation: "dynamic"`, `port_set_size`, `port_sets_per_subscriber` |
 | How long a subscriber keeps a block it doesn't use    | RFC 8512 `port-set-timeout`                                                                                                          | `port_set_timeout`                                                                   |
+| NAT64                                                 | RFC 6146; the NAT64 prefix and the IPv4 address in it, RFC 6052                                                                      | `then: "nat64"`, with the prefix in `if.dst`                                         |
 
 ## Quality of service
 

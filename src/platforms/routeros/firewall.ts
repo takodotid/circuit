@@ -60,6 +60,30 @@ export class RouterOsFirewall {
         return findings;
     }
 
+    /** Source NAT RouterOS has no way to write: port blocks handed out as subscribers need them, and NAT64 and DNS64. MikroTik's NAT page says "RouterOS does not support NAT64", and its DNS page has no DNS64. */
+    static natGaps(device: Device): string[] {
+        const found: string[] = [];
+        if (device.services?.dns64) found.push("services.dns64, RouterOS's DNS server has no DNS64");
+
+        (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
+            if (rule.then === "nat64") {
+                found.push(`firewall.nat.source[${index}].then nat64, RouterOS has no NAT64`);
+                return;
+            }
+            if (!("to_pool" in rule)) return;
+            if (rule.port_allocation === "dynamic")
+                found.push(
+                    `firewall.nat.source[${index}].port_allocation dynamic, RouterOS has no port block allocation: write deterministic`
+                );
+            if (rule.port_sets_per_subscriber !== undefined)
+                found.push(`firewall.nat.source[${index}].port_sets_per_subscriber, as a RouterOS pool gives each subscriber one block`);
+            if (rule.port_set_timeout !== undefined)
+                found.push(`firewall.nat.source[${index}].port_set_timeout, RouterOS has no port block allocation`);
+        });
+
+        return found;
+    }
+
     /**
      * Marking that would miss packets. A flow on the fast path skips the mangle table (MikroTik's manual, Mangle). So does what the switch chip routes with hardware offload on (TRAPS.md). A VLAN interface with `hardware_offload: false` is routed by the CPU, so a rule on one sees its traffic.
      */
@@ -271,7 +295,8 @@ export class RouterOsFirewall {
 
         for (const [chain, rules] of chains) {
             for (const rule of rules ?? []) {
-                if (!this.families(rule.if).includes(family)) continue;
+                // `unsupported()` refuses NAT64.
+                if (rule.then === "nat64" || !this.families(rule.if).includes(family)) continue;
 
                 if ("to_pool" in rule) {
                     // `unsupported()` refuses a dynamic pool.

@@ -35,6 +35,7 @@ import { RouterOsPppoe } from "./pppoe";
 import { RouterOsPseudowire } from "./pseudowire";
 import { RouterOsQueues } from "./queues";
 import { RouterOsSchedulers } from "./schedulers";
+import { RouterOsShapes } from "./shapes";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
@@ -265,21 +266,8 @@ export class RouterOs extends Platform {
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
-        (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
-            if (!("to_pool" in rule)) return;
-            if (rule.port_allocation === "dynamic")
-                found.push(
-                    `firewall.nat.source[${index}].port_allocation dynamic, RouterOS has no port block allocation: write deterministic`
-                );
-            if (rule.port_sets_per_subscriber !== undefined)
-                found.push(`firewall.nat.source[${index}].port_sets_per_subscriber, as a RouterOS pool gives each subscriber one block`);
-        });
+        found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
-        // A block's idle timeout needs blocks handed out as subscribers need them.
-        (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
-            if ("to_pool" in rule && rule.port_set_timeout !== undefined)
-                found.push(`firewall.nat.source[${index}].port_set_timeout, RouterOS has no port block allocation`);
-        });
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
@@ -340,7 +328,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
-        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device));
+        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device), ...RouterOsRouting.ospfGaps(device));
 
         const bgp = device.routing?.bgp;
 
@@ -434,7 +422,7 @@ export class RouterOs extends Platform {
             );
         });
 
-        found.push(...RouterOs.unsupportedShapes(device));
+        found.push(...RouterOsShapes.unsupported(device));
         found.push(...RouterOsQueues.unsupported(device));
         found.push(...RouterOsSchedulers.unsupported(device));
         found.push(...RouterOsFirewall.markingGaps(device));
@@ -459,6 +447,8 @@ export class RouterOs extends Platform {
                 "ospf-ranges",
                 "ospf-priority",
                 "ospf-unicast-links",
+                "ospf-range-cost",
+                "ospf-virtual-links",
             ])
         );
 
@@ -473,51 +463,6 @@ export class RouterOs extends Platform {
                 "routing-tables",
             ])
         );
-
-        return found;
-    }
-
-    /** What the model allows and the render does not write. */
-    private static unsupportedShapes(device: Device): string[] {
-        const found: string[] = [];
-        const firewall = device.firewall;
-        const list = (value: unknown) => Array.isArray(value) && value.length > 1;
-
-        if (firewall?.interface_sets) found.push("firewall.interface_sets, which the platform does not build yet");
-
-        const chains = (["input", "forward", "output"] as const).map(
-            (chain) => [`firewall.filter.${chain}.rules`, firewall?.filter?.[chain]?.rules] as const
-        );
-        const others = [
-            ["firewall.nat.source", firewall?.nat?.source],
-            ["firewall.nat.destination", firewall?.nat?.destination],
-            ["qos.marking", device.qos?.marking],
-        ] as const;
-
-        for (const [where, rules] of [...chains, ...others]) {
-            (rules ?? []).forEach((rule, index) => {
-                for (const field of ["src", "dst", "in_interface", "out_interface"] as const) {
-                    if (list(rule.if?.[field])) found.push(`${where}[${index}].if.${field}, a list: write one rule for each`);
-                }
-
-                for (const field of ["in_interface_set", "out_interface_set"] as const) {
-                    if (rule.if?.[field] !== undefined) found.push(`${where}[${index}].if.${field}, which the platform does not build yet`);
-                }
-            });
-        }
-
-        for (const [name, rules] of RouterOsSyntax.entries(device.switching?.acls)) {
-            rules.forEach((rule, index) => {
-                for (const field of ["src", "dst", "vlan"] as const) {
-                    if (list(rule.if?.[field])) found.push(`switching.acls.${name}[${index}].if.${field}, a list: write one rule for each`);
-                }
-            });
-        }
-
-        const allow = device.management?.allow;
-        if (typeof allow === "string") found.push(`management.allow ${allow}, an address set by name: write its prefixes`);
-
-        found.push(...RouterOsRouting.policyGaps(device));
 
         return found;
     }

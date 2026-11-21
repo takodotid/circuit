@@ -309,6 +309,7 @@ export class Vrp extends Platform {
 
         if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
         if (device.services?.dns_server) found.push("services.dns_server");
+        if (device.services?.dns64) found.push("services.dns64, which needs services.dns_server");
 
         const local = system.logging?.local;
         if (local?.lines_per_file !== undefined)

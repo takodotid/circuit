@@ -287,3 +287,91 @@ test("Junos, FortiOS, VRP, and Raisecom ROS refuse ranges, priorities, and point
             ])
         );
 });
+
+/** A border router with no link into the backbone, which a virtual link across area 1 joins to it. It sums area 2 into a range at a cost of its own. */
+const cutOff: Ospf = {
+    areas: {
+        "0.0.0.0": { virtual_links: [{ transit_area_id: "0.0.0.1", router_id: "192.0.2.1" }], interfaces: {} },
+        "0.0.0.1": { interfaces: { uplink: { network: "point-to-point" } } },
+        "0.0.0.2": {
+            ranges: [{ prefix: "198.51.100.0/24", advertise: true, cost: 100 }],
+            interfaces: { servers: { passive: true } },
+        },
+    },
+};
+
+/** The OSPF of `cutOff` as a CHR on 7.24.6 printed it: the virtual link as an OSPF interface of its own, before the templates. */
+const CUT_OFF_PRINTED = `/routing ospf instance
+add name=ospf-v2 router-id=192.0.2.255
+/routing ospf area
+add instance=ospf-v2 name=ospf-v2-0.0.0.0
+add area-id=0.0.0.1 instance=ospf-v2 name=ospf-v2-0.0.0.1
+add area-id=0.0.0.2 instance=ospf-v2 name=ospf-v2-0.0.0.2
+/routing ospf area range
+add area=ospf-v2-0.0.0.2 cost=100 prefix=198.51.100.0/24
+/routing ospf interface
+add area=ospf-v2-0.0.0.0 type=virtual-link vlink-neighbor-id=192.0.2.1 vlink-transit-area=ospf-v2-0.0.0.1
+/routing ospf interface-template
+add area=ospf-v2-0.0.0.1 interfaces=uplink type=ptp
+add area=ospf-v2-0.0.0.2 interfaces=servers passive`;
+
+const cutOffPrinted = () =>
+    Platforms.get("routeros")
+        .render(withOspf("platforms--example-router", cutOff))
+        .replace(/\/routing ospf instance\n[\s\S]*?(?=\n\/(?!routing ospf))/, CUT_OFF_PRINTED);
+
+test("RouterOS writes a virtual link and a range's cost, and plans nothing against how the router prints them", () => {
+    const routeros = Platforms.get("routeros");
+    const desired = routeros.render(withOspf("platforms--example-router", cutOff));
+
+    expect(desired).toContain(
+        "/routing ospf interface\nadd area=ospf-v2-0.0.0.0 type=virtual-link vlink-neighbor-id=192.0.2.1 vlink-transit-area=ospf-v2-0.0.0.1"
+    );
+    expect(desired).toContain("add advertise=yes area=ospf-v2-0.0.0.2 cost=100 prefix=198.51.100.0/24");
+    expect(routeros.plan(desired, cutOffPrinted(), options).steps).toEqual([]);
+    expect(routeros.unsupported(withOspf("platforms--example-router", cutOff)).filter((gap) => gap.startsWith("routing.ospf"))).toEqual([]);
+});
+
+// On a CHR with 7.24.6, each version's virtual link ran alone, and with both, `print` marked each `duplicate config` and neither came up.
+test("RouterOS refuses virtual links where OSPF runs for IPv4 and IPv6", () => {
+    const both: Ospf = { ...cutOff, address_families: ["ipv4", "ipv6"] };
+    const gaps = Platforms.get("routeros").unsupported(withOspf("platforms--example-router", both));
+    expect(gaps.filter((gap) => gap.startsWith("routing.ospf"))).toEqual([
+        "routing.ospf.areas.0.0.0.0.virtual_links with OSPF for IPv4 and IPv6, RouterOS 7.24 runs neither the OSPFv2 nor the OSPFv3 virtual link when it has both. Run OSPF for one family on this router",
+    ]);
+});
+
+test("RouterOS unsets a range's cost, and removes a virtual link before its transit area", () => {
+    const joined: Ospf = {
+        areas: {
+            "0.0.0.0": { interfaces: { uplink: { network: "point-to-point" } } },
+            "0.0.0.2": { ranges: [{ prefix: "198.51.100.0/24", advertise: true }], interfaces: { servers: { passive: true } } },
+        },
+    };
+    const desired = Platforms.get("routeros").render(withOspf("platforms--example-router", joined));
+
+    expect(sent("routeros", desired, cutOffPrinted())).toEqual([
+        '/routing ospf area range unset [ find area=ospf-v2-0.0.0.2 and prefix="198.51.100.0/24" ] cost',
+        "/routing ospf interface-template add area=ospf-v2-0.0.0.0 interfaces=uplink type=ptp",
+        "/routing ospf interface remove [ find area=ospf-v2-0.0.0.0 and vlink-transit-area=ospf-v2-0.0.0.1 and vlink-neighbor-id=192.0.2.1 and !dynamic ]",
+        "/routing ospf interface-template remove [ find area=ospf-v2-0.0.0.1 and interfaces=uplink ]",
+        "/routing ospf area remove [ find name=ospf-v2-0.0.0.1 ]",
+    ]);
+});
+
+test("Junos, FortiOS, VRP, and Raisecom ROS refuse a virtual link and a range's cost until one of their devices runs them", () => {
+    const fixtures = {
+        junos: "platforms--example-aggregation-switch",
+        fortios: "platforms--example-firewall",
+        vrp: "platforms--example-switch",
+        "raisecom-ros": "platforms--example-core-switch",
+    };
+    const untried = "not built yet, since no device of the platform has run it";
+    for (const [platform, fixture] of Object.entries(fixtures))
+        expect(Platforms.get(platform).unsupported(withOspf(fixture, cutOff))).toEqual(
+            expect.arrayContaining([
+                `routing.ospf.areas.0.0.0.0.virtual_links, ${untried}`,
+                `routing.ospf.areas.0.0.0.2.ranges[0].cost, ${untried}`,
+            ])
+        );
+});

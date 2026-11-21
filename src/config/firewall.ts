@@ -121,8 +121,16 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
           port_set_timeout?: never;
       }
     | {
-          /** `snat` to a pool shares IPv4 addresses among subscribers, as carrier-grade NAT does. Source NAT only. */
-          then: "snat";
+          /**
+           * `nat64` translates IPv6 packets to IPv4 (RFC 6146), so hosts with IPv6 alone reach IPv4 servers. `if.dst` is the NAT64 prefix, such as the well-known `64:ff9b::/96`. A packet to an address in it goes to the IPv4 address embedded there (RFC 6052), the last 32 bits after a /96, and leaves from `to_address`. Source NAT only. `services.dns64` gives hosts these addresses.
+           */
+          then: "nat64";
+          /** The IPv4 address translated packets leave from. Every host shares its ports. */
+          to_address: IPv4;
+      }
+    | {
+          /** `snat` to a pool shares IPv4 addresses among subscribers, as carrier-grade NAT does. `nat64` does the same for the IPv6 subscribers it translates (RFC 6146's IPv4 address pool). Source NAT only. */
+          then: "snat" | "nat64";
           /** The IPv4 addresses the subscribers in `if.src` leave as. Each subscriber leaves as one pool address, with blocks of TCP and UDP ports of its own. */
           to_pool: `${IPv4}/${number}`;
           /**
