@@ -42,6 +42,7 @@ export type {
     WireGuardPeer,
     Bfd,
     RpkiServer,
+    IsisAuthentication,
     OspfAuthentication,
     OspfInterface,
     PrefixSet,
