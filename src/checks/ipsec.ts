@@ -43,6 +43,10 @@ export class IpsecChecks {
             report(`${where}.liveness_check.interval ${check.interval} is not a whole number of seconds above 0`);
         if (check && !(Number.isInteger(check.retries) && check.retries > 0))
             report(`${where}.liveness_check.retries ${check.retries} is not a whole number above 0`);
+
+        const keepalive = tunnel.nat_keepalive;
+        if (keepalive !== undefined && !(Number.isInteger(keepalive) && keepalive > 0))
+            report(`${where}.nat_keepalive ${keepalive} is not a whole number of seconds above 0`);
     }
 
     /** A key both ends share, or a certificate with the CA that signed the peer's: one of the two, whole. */
