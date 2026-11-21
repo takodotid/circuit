@@ -17,6 +17,7 @@ import type {
     Interface,
     InterfaceKind,
     Isis,
+    IsisAuthentication,
     Lag,
     Limit,
     NatRule,
@@ -30,7 +31,6 @@ import type {
     RouteMatch,
     RouteRule,
     RouterAdvertisement,
-    Secret,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -563,9 +563,20 @@ export class Derive {
         return patterns;
     }
 
-    /** The key that signs IS-IS `level`: the level's own, or else the one for every level. */
-    static isisKey(isis: Isis, level: 1 | 2): Secret | undefined {
-        return isis.levels?.[level]?.authentication?.key ?? isis.authentication?.key;
+    /** Each IS-IS authentication the config writes, for every level or for one, with where it is written. */
+    static isisAuthentications(device: Device): { where: string; authentication: IsisAuthentication }[] {
+        const isis = device.routing?.isis;
+        const found = isis?.authentication ? [{ where: "routing.isis.authentication", authentication: isis.authentication }] : [];
+        for (const [level, settings] of Object.entries(isis?.levels ?? {}))
+            if (settings?.authentication)
+                found.push({ where: `routing.isis.levels.${level}.authentication`, authentication: settings.authentication });
+
+        return found;
+    }
+
+    /** What signs IS-IS `level`: the level's own authentication, or else the one for every level. */
+    static isisAuthentication(isis: Isis, level: 1 | 2): IsisAuthentication | undefined {
+        return isis.levels?.[level]?.authentication ?? isis.authentication;
     }
 
     /** The IPv4 networks of a port's or an interface's addresses. */

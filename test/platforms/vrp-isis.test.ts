@@ -189,7 +189,7 @@ test("VRP runs IS-IS on VLAN interfaces, which is experimental, and refuses what
 
     const refused: Isis = {
         ...isis,
-        authentication: { key: { secret: "ISIS_KEY" } },
+        authentication: { algorithm: "hmac-md5", key: { secret: "ISIS_KEY" } },
         interfaces: { mgmt: { bfd: true }, "10g-2": {} },
     };
     expect(vrp.unsupported(routed(refused))).toEqual([

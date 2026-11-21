@@ -100,7 +100,7 @@ A note in a cell means "works, with this limit".
 | OSPF NBMA and P2MP links     | ✅ OSPFv2               | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric    | 🧪 VLAN interfaces         | ❌                       | ✅                    | ✅ no passive    |
 | IS-IS multi-topology         | ❌                      | ✅                         | ❌                       | 🧪                    | ❌               |
-| IS-IS authentication         | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ✅               |
+| IS-IS authentication         | ❌                      | ❌ not yet                 | ❌                       | MD5; 🧪 HMAC-SHA-1    | MD5              |
 | IS-IS overload bit           | ❌                      | ✅                         | ❌                       | ✅                    | ✅               |
 | IS-IS leaks into level 1     | ❌ leaks every route    | ✅                         | ❌                       | 🧪                    | ❌ not yet       |
 | BFD for IS-IS                | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ❌               |
