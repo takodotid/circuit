@@ -522,7 +522,7 @@ export class RouterOsPlan {
             removeStep.send.push(`${menu} remove [ find list=${RouterOsPlan.quote(list)} and !dynamic ]`);
         }
 
-        for (const entry of removed) {
+        for (const entry of RouterOsPlan.onOthersFirst(menu, removed)) {
             if (wholeLists.has(entry.attrs.list ?? "")) continue;
 
             removeStep.show.push(`- ${RouterOsExport.canonical(entry)}`);
@@ -532,6 +532,21 @@ export class RouterOsPlan {
         if (changeStep.send.length) result.first.push(changeStep);
         if (removeStep.send.length) result.last.push(removeStep);
         return result;
+    }
+
+    /** VLAN interfaces on a removed VLAN interface go before it: RouterOS removes one that another is on, and leaves that one on nothing (TRAPS.md). */
+    private static onOthersFirst(menu: string, removed: Command[]): Command[] {
+        if (menu !== "/interface vlan") return removed;
+
+        const parentOf = new Map(removed.map((entry) => [entry.attrs.name, entry.attrs.interface]));
+        const depth = (entry: Command): number => {
+            let count = 0;
+            // Each step goes one VLAN interface down, so there are no more steps than entries.
+            for (let on = entry.attrs.interface; on !== undefined && parentOf.has(on) && count < removed.length; on = parentOf.get(on))
+                count++;
+            return count;
+        };
+        return [...removed].sort((a, b) => depth(b) - depth(a));
     }
 
     /**
