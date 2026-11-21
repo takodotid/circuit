@@ -612,7 +612,11 @@ export class Project {
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");
         need("policy", d.routing?.isis?.level2_to_level1?.import_policy, "routing.isis.level2_to_level1.import_policy");
         need("interface", d.routing?.mpls?.ldp?.interfaces, "routing.mpls.ldp.interfaces");
-        for (const way of ["import_policy", "export_policy"]) need("policy", d.routing?.mpls?.ldp?.[way], `routing.mpls.ldp.${way}`);
+        for (const way of ["import_policy", "export_policy"]) {
+            need("policy", d.routing?.mpls?.ldp?.[way], `routing.mpls.ldp.${way}`);
+            for (const [lsrId, neighbor] of Object.entries<Json>(d.routing?.mpls?.ldp?.neighbors ?? {}))
+                need("policy", neighbor?.[way], `routing.mpls.ldp.neighbors.${lsrId}.${way}`);
+        }
 
         for (const [s, members] of Object.entries<Json>(d.firewall?.interface_sets ?? {}))
             need("interface", members, `firewall.interface_sets.${s}`, writtenAt(d.firewall.interface_sets, s, ["interface_sets", s]));

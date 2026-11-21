@@ -512,6 +512,7 @@ export class RouterOsExport {
         // One LDP instance per VRF.
         "/mpls ldp": ["vrf"],
         "/mpls ldp interface": ["interface"],
+        "/mpls ldp neighbor": ["transport"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],
         "/ipv6 route": ["dst-address", "routing-table", "gateway"],

@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01, and LDP labels each loopback, so traffic between the two crosses the core by label. iBGP carries the routes of the bank's VRF to pe-01 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the routes of the bank's VRF to pe-01 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS).
 
 import { as64500 } from "../../circuit";
 
@@ -21,6 +21,7 @@ export default as64500.device({
             "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
             "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
+            "100g-2": { description: "pe-03 qsfp28-1-1", addresses: ["10.0.23.1/30"], link: { device: "pe-03", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.2/32"] } },
         // The clinic's frames cross the core to pe-01 on this pseudowire, which has the same pw_id, MTU, and control word there.
@@ -55,7 +56,7 @@ export default as64500.device({
             },
         },
         static_routes: [{ prefix: "10.1.2.0/24", next_hop: "172.16.2.2", vrf: "bank", description: "Bank, office 2's network" }],
-        // Both routers are in area 49.0001, at level 2 only. The system ID is the loopback address.
+        // The three routers are in area 49.0001, at level 2 only. The system ID is the loopback address.
         isis: {
             net: "49.0001.0102.5500.0002.00",
             level_capability: "level-2",
@@ -63,10 +64,11 @@ export default as64500.device({
             interfaces: {
                 loopback: { passive: true },
                 "100g-1": { network: "point-to-point", metric: 10 },
+                "100g-2": { network: "point-to-point", metric: 10 },
             },
         },
-        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-01, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
-        mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1"], import_policy: "loopbacks", export_policy: "loopbacks" } },
+        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the links to pe-01 and pe-03, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
+        mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1", "100g-2"], import_policy: "loopbacks", export_policy: "loopbacks" } },
         // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
         bgp: {
             neighbors: {
