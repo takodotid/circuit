@@ -384,3 +384,34 @@ test("both ends of an IPsec tunnel authenticate the same way, and with certifica
         Utils.root = root;
     }
 });
+
+test("an OSPF virtual link to another device needs one back, across the same area", () => {
+    const [r1, r2] = routers();
+    const withOspf = (device: Device, n: 1 | 2, across?: "0.0.0.1" | "0.0.0.3"): Device => ({
+        ...device,
+        routing: {
+            ...device.routing,
+            router_id: `10.255.0.${n}`,
+            ospf: {
+                areas: {
+                    "0.0.0.0": {
+                        virtual_links: across ? [{ transit_area_id: across, router_id: `10.255.0.${3 - n}` }] : [],
+                        interfaces: {},
+                    },
+                    "0.0.0.1": { interfaces: { "100g-1": {} } },
+                    "0.0.0.3": { interfaces: { loopback: { passive: true } } },
+                },
+            },
+        },
+    });
+    const virtualLinks = (found: string[]) => found.filter((finding) => finding.includes("virtual_links["));
+    const noneBack = (from: 1 | 2, across: string) =>
+        `error r${from}: routing.ospf.areas.0.0.0.0.virtual_links[0]: 10.255.0.${3 - from} is r${3 - from}'s router ID, and r${3 - from} has no virtual link across ${across} to 10.255.0.${from}. Write one there, or fix router_id and transit_area_id here`;
+
+    expect(virtualLinks(findings(withOspf(r1, 1, "0.0.0.1"), withOspf(r2, 2, "0.0.0.1")))).toEqual([]);
+    expect(virtualLinks(findings(withOspf(r1, 1, "0.0.0.1"), withOspf(r2, 2)))).toEqual([noneBack(1, "0.0.0.1")]);
+    expect(virtualLinks(findings(withOspf(r1, 1, "0.0.0.1"), withOspf(r2, 2, "0.0.0.3")))).toEqual([
+        noneBack(1, "0.0.0.1"),
+        noneBack(2, "0.0.0.3"),
+    ]);
+});

@@ -69,6 +69,7 @@ export class CrossChecks {
             ...CrossChecks.tunnels(devices, owners),
             ...CrossChecks.pseudowires(devices),
             ...CrossChecks.ldpTargets(devices),
+            ...CrossChecks.virtualLinks(devices),
         ];
     }
 
@@ -426,6 +427,33 @@ export class CrossChecks {
                         level: "error",
                         device: device.name,
                         message: `routing.mpls.ldp.targets ${target} is ${far.name}'s LSR ID, and ${far.name} has no target back to ${ldp.lsr_id}, so it may ignore this router's targeted hellos. Write ${ldp.lsr_id} in its routing.mpls.ldp.targets`,
+                    },
+                ];
+            });
+        });
+    }
+
+    /** An OSPF virtual link to the router ID of another of our devices has one back there, across the same area (RFC 2328, section 15). */
+    private static virtualLinks(devices: readonly Device[]): Finding[] {
+        const backbone = (device: Device) => device.routing?.ospf?.areas["0.0.0.0"]?.virtual_links ?? [];
+        const byRouterId = new Map(
+            devices.flatMap((device) => {
+                const routerId = device.routing?.router_id;
+                return routerId ? [[routerId, device] as const] : [];
+            })
+        );
+
+        return devices.flatMap((device) => {
+            const own = device.routing?.router_id;
+            return backbone(device).flatMap((link, index): Finding[] => {
+                const far = own ? byRouterId.get(link.router_id) : undefined;
+                if (!far || far === device) return [];
+                if (backbone(far).some((back) => back.router_id === own && back.transit_area_id === link.transit_area_id)) return [];
+                return [
+                    {
+                        level: "error",
+                        device: device.name,
+                        message: `routing.ospf.areas.0.0.0.0.virtual_links[${index}]: ${link.router_id} is ${far.name}'s router ID, and ${far.name} has no virtual link across ${link.transit_area_id} to ${own}. Write one there, or fix router_id and transit_area_id here`,
                     },
                 ];
             });

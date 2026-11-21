@@ -215,6 +215,16 @@ export type OspfRange = {
     prefix: Prefix;
     /** `true` announces the range as one route, while the area has a network inside it. `false` announces nothing of it, so the other areas don't reach those networks. */
     advertise: boolean;
+    /** The cost the range is announced with, 0 to 16777214. Without it, the largest cost of the area's networks inside the range (RFC 2328, section 12.4.3). Only with `advertise` `true`. */
+    cost?: number;
+};
+
+/** A virtual link to another border router (ABR), across an area both are in, that joins this device to the backbone (RFC 2328, section 15). Both ends write one, each with the other's router ID. */
+export type OspfVirtualLink = {
+    /** The area the link crosses, which this device has interfaces in. Not the backbone, and not a stub area or an NSSA. */
+    transit_area_id: OspfAreaId;
+    /** The router ID of the border router at the far end. */
+    router_id: IPv4;
 };
 
 /** One OSPF area of the device. */
@@ -227,6 +237,8 @@ export type OspfArea<I extends string> = {
     stub_default_cost?: number;
     /** What this device, as the area's border router (ABR), announces to the other areas in place of the area's networks, each range once. */
     ranges?: readonly OspfRange[];
+    /** In the backbone, `0.0.0.0`, only: links across another area to border routers in the backbone, for each OSPF version the device runs. For a border router with no link into the backbone, or a backbone cut in two. The device needs `routing.router_id`. */
+    virtual_links?: readonly OspfVirtualLink[];
     /** The device's ports and interfaces in this area, each with its OSPF settings. */
     interfaces: Named<I, OspfInterface>;
 };

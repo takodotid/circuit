@@ -229,6 +229,16 @@ export class RouterOsRouting {
         return found;
     }
 
+    /** Virtual links for both OSPF versions: RouterOS 7.24 takes the two to one router as duplicates, and runs neither (TRAPS.md). */
+    static ospfGaps(device: Device): string[] {
+        const ospf = device.routing?.ospf;
+        const families = ospf?.address_families ?? ["ipv4"];
+        if (!ospf?.areas["0.0.0.0"]?.virtual_links?.length || families.length < 2) return [];
+        return [
+            "routing.ospf.areas.0.0.0.0.virtual_links with OSPF for IPv4 and IPv6, RouterOS 7.24 runs neither the OSPFv2 nor the OSPFv3 virtual link when it has both. Run OSPF for one family on this router",
+        ];
+    }
+
     /** What a label filter can't match: a prefix but not those inside it, a length, or a prefix and a prefix set at once. A set from a registry, whose prefixes `validate` never fetches, would be a filter for each. */
     static ldpGaps(device: Device): string[] {
         const ldp = device.routing?.mpls?.ldp;
@@ -692,7 +702,7 @@ export class RouterOsRouting {
         }
     }
 
-    /** One instance per OSPF version, an area per area and instance with its ranges of the version's family, a template per interface, and the neighbors of a link without multicast. */
+    /** One instance per OSPF version, and an area per area and instance with its ranges of the version's family. Then a template per interface, the neighbors of a link without multicast, and an interface per virtual link. */
     private ospf(): void {
         const ospf = this.device.routing?.ospf;
         if (!ospf) return;
@@ -725,6 +735,7 @@ export class RouterOsRouting {
                     this.render.add("/routing ospf area range", "add", {
                         advertise: range.advertise ? "yes" : "no",
                         area: `${instance}-${areaId}`,
+                        cost: range.cost,
                         prefix: Address.prefixOf(range.prefix),
                     });
                 }
@@ -733,6 +744,16 @@ export class RouterOsRouting {
             for (const [areaId, area] of Object.entries(ospf.areas))
                 for (const [iface, settings] of Object.entries(area.interfaces))
                     this.ospfTemplate(`${instance}-${areaId}`, iface, settings ?? {});
+
+            // A virtual link is an OSPF interface of its own, not a template, which refuses `type=virtual-link` (TRAPS.md).
+            for (const [areaId, area] of Object.entries(ospf.areas))
+                for (const link of area.virtual_links ?? [])
+                    this.render.add("/routing ospf interface", "add", {
+                        area: `${instance}-${areaId}`,
+                        type: "virtual-link",
+                        "vlink-neighbor-id": link.router_id,
+                        "vlink-transit-area": `${instance}-${link.transit_area_id}`,
+                    });
         }
     }
 
