@@ -239,6 +239,17 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
     );
 });
 
+test("FortiOS refuses IPv6 in a tunnel when another tunnel has the name of its phase 2 for IPv6", () => {
+    const device = withTunnels("platforms--example-firewall", {
+        "ipsec-branch-1": { ...TUNNEL, addresses: [{ address: "10.255.12.1/30", peer_address: "10.255.12.2" }, "2001:db8:ffee::1/64"] },
+        "ipsec-branch-1-v6": TUNNEL,
+    });
+
+    expect(fortios.unsupported(device)).toContain(
+        "interfaces.ipsec.ipsec-branch-1.addresses, IPv6 in the tunnel while another tunnel is named ipsec-branch-1-v6, which its phase 2 for IPv6 takes"
+    );
+});
+
 test("Junos, VRP, and Raisecom ROS refuse it, since the switches don't encrypt what they forward, and so does RouterOS", () => {
     for (const fixture of ["platforms--example-aggregation-switch", "platforms--example-switch", "platforms--example-core-switch"]) {
         const device = withTunnels(fixture, { "ipsec-branch-1": TUNNEL });

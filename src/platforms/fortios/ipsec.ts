@@ -155,6 +155,11 @@ export class FortiOsIpsec {
             // The tunnel's interface has no IPv6 peer, `remote-ip6`.
             if (ipv6.some((entry) => typeof entry !== "string")) found.push(`${where}.addresses, a peer on an IPv6 address`);
             if (ipv6.length > 1) found.push(`${where}.addresses, one IPv6 address`);
+            const ipv6Child = `${name}${FortiOsIpsec.IPV6_SUFFIX}`;
+            if (ipv6.length > 0 && device.interfaces?.ipsec?.[ipv6Child])
+                found.push(
+                    `${where}.addresses, IPv6 in the tunnel while another tunnel is named ${ipv6Child}, which its phase 2 for IPv6 takes`
+                );
         }
 
         return found;
