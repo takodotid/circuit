@@ -1,5 +1,5 @@
 import { Derive } from "../core/derive";
-import type { Device, Isis } from "../model";
+import type { Device, Isis, IsisAuthentication } from "../model";
 import { PrefixPolicyChecks } from "./prefix-policy";
 
 type Report = (message: string) => void;
@@ -10,6 +10,8 @@ export class IsisChecks {
     private static readonly NET = /^[0-9a-f]{2}(\.[0-9a-f]{4}){3,9}\.00$/i;
     /** The largest wide metric of a link that SPF uses: one of 2^24 - 1 takes the link out (RFC 5305). */
     private static readonly MAX_METRIC = 16_777_214;
+    /** A key ID is two octets (RFC 5310). */
+    private static readonly MAX_KEY_ID = 65_535;
     /** The levels each level capability runs, as `levels` names them. */
     private static readonly LEVELS: Record<Isis["level_capability"], readonly string[]> = {
         "level-1": ["1"],
@@ -51,8 +53,10 @@ export class IsisChecks {
                 report
             );
 
+        IsisChecks.keyId("routing.isis.authentication", isis.authentication, report);
         for (const [level, settings] of Object.entries(isis.levels ?? {})) {
             const at = `routing.isis.levels.${level}`;
+            IsisChecks.keyId(`${at}.authentication`, settings?.authentication, report);
             if (!IsisChecks.LEVELS[isis.level_capability].includes(level))
                 report(`${at}: level_capability is ${isis.level_capability}, so the device doesn't run level ${level}. Remove it`);
             if (settings?.authentication && isis.authentication)
@@ -69,5 +73,11 @@ export class IsisChecks {
             if (vrf)
                 report(`${at}: ${name} routes in VRF ${vrf}, and IS-IS runs in the main table. Remove it from routing.isis.interfaces`);
         }
+    }
+
+    private static keyId(at: string, authentication: IsisAuthentication | undefined, report: Report): void {
+        const id = authentication?.key_id;
+        if (id !== undefined && !(Number.isInteger(id) && id >= 0 && id <= IsisChecks.MAX_KEY_ID))
+            report(`${at}.key_id is ${id}: write a whole number from 0 to ${IsisChecks.MAX_KEY_ID}`);
     }
 }

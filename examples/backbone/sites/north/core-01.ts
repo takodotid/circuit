@@ -38,7 +38,7 @@ export default as64500.device({
             level_capability: "level-1-2",
             address_families: ["ipv4"],
             // One key signs both levels.
-            authentication: { key: secret("ISIS_KEY") },
+            authentication: { algorithm: "hmac-md5", key: secret("ISIS_KEY") },
             interfaces: {
                 loopback: { passive: true },
                 "40g-1": { network: "point-to-point", metric: 100 },

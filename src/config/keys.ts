@@ -5,7 +5,7 @@ import type { AnyDevice } from "./device";
 import type { FilterRule, NatRule, TcpMssRule } from "./firewall";
 import type { Checks, Integrations, NetworkSecrets, NetworkSettings, Prefixes, Site } from "./network";
 import type { MarkingRule } from "./qos";
-import type { CallRule, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
+import type { CallRule, IsisAuthentication, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
 import type { AclRule } from "./switching";
 
 /**
@@ -36,6 +36,7 @@ export type ShapeOf<T> = [Exclude<T, Prim>] extends [never]
 const SECRET = { secret: 0, secret_file: 0 } as const;
 const RANGE = { min: 0, max: 0 } as const;
 const RADIUS_SERVER = { address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 } as const;
+const ISIS_AUTHENTICATION = { algorithm: 0, key_id: 0, key: SECRET } as const satisfies ShapeOf<IsisAuthentication>;
 const LIMIT = { cir: 0, bc: 0 } as const;
 const RATE_LIMIT = { input: LIMIT, output: LIMIT } as const;
 
@@ -463,8 +464,8 @@ export const DEVICE = {
             level_capability: 0,
             address_families: 0,
             multi_topology: 0,
-            authentication: { key: SECRET },
-            levels: { 1: { authentication: { key: SECRET } }, 2: { authentication: { key: SECRET } } },
+            authentication: ISIS_AUTHENTICATION,
+            levels: { 1: { authentication: ISIS_AUTHENTICATION }, 2: { authentication: ISIS_AUTHENTICATION } },
             interfaces: { "*": { metric: 0, passive: 0, network: 0, bfd: 0 } },
             overload_bit: 0,
             level2_to_level1: { import_policy: 0 },

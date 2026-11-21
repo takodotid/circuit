@@ -187,12 +187,12 @@ export class RouterOs extends Platform {
     override readonly console = RouterOs.CONSOLE;
 
     /**
-     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning.
+     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning, and so is IS-IS on both levels.
      */
     override checks(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
         const statics = device.routing?.static_routes ?? [];
-        const findings: Finding[] = [...RouterOsRouting.passiveWithoutAddress(device), ...RouterOsFirewall.largePools(device)];
+        const findings: Finding[] = [...RouterOsRouting.findings(device), ...RouterOsFirewall.largePools(device)];
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;

@@ -403,7 +403,8 @@ export class FortiOsRouting {
         // MD5 takes its key from a key chain only, one per level. It signs the level's LSPs and sequence number packets here, and its hellos on each interface.
         const chains = new Map<number, string>();
         for (const level of levels) {
-            const key = Derive.isisKey(isis, level);
+            // `unsupported()` refuses HMAC-SHA.
+            const key = Derive.isisAuthentication(isis, level)?.key;
             if (!key) continue;
 
             const chain = `${FortiOsRouting.ISIS_KEY_CHAIN}${level}`;
@@ -610,6 +611,10 @@ export class FortiOsRouting {
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
         // Neither `router isis` nor its interfaces have a setting for a topology (RFC 5120).
         if (routing?.isis?.multi_topology) found.push("routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only");
+        // The FortiOS 6.2 CLI reference lists `password` and `md5` for `auth-mode-l1` and `auth-mode-l2`, and a key chain's key has no algorithm.
+        for (const { where, authentication } of Derive.isisAuthentications(device))
+            if (authentication.algorithm !== "hmac-md5")
+                found.push(`${where}.algorithm ${authentication.algorithm}, FortiOS 6.2 signs IS-IS with hmac-md5 only`);
         // The FortiOS 6.2 CLI reference lists `redistribute-l2` in `router isis`, with an access list in `redistribute-l2-list`.
         if (routing?.isis?.level2_to_level1)
             found.push("routing.isis.level2_to_level1, not built yet, since no device of the platform has run it");
