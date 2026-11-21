@@ -73,6 +73,14 @@ export class ServicesChecks {
     static check(device: Device, report: Report, cidr: Checker, ip: Checker): void {
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             const where = `services.dhcp_server.${name}`;
+            if (server.radius) {
+                if (!server.radius.length)
+                    report(`${where}.radius is empty: write the RADIUS servers that check each lease, or leave it out`);
+                ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
+            } else if (server.acct_interim_interval !== undefined)
+                report(`${where}.acct_interim_interval without radius: write the RADIUS servers that get the reports, or leave it out`);
+            ServicesChecks.interim(`${where}.acct_interim_interval`, server.acct_interim_interval, report);
+
             cidr(where, server.network);
             if (!Address.isCidr(server.network)) continue;
             if (Address.family(server.network) === "ipv6") {
@@ -225,19 +233,24 @@ export class ServicesChecks {
                     report(`${where}.local_address ${server.local_address} is in pool: write a pool without it`);
             }
 
-            const { mtu, acct_interim_interval: interval } = server;
+            const { mtu } = server;
             if (mtu !== undefined && (!Number.isInteger(mtu) || mtu < ServicesChecks.MIN_MTU || mtu > ServicesChecks.PPPOE_MTU))
                 report(
                     `${where}.mtu ${mtu} is not a whole number from ${ServicesChecks.MIN_MTU} to ${ServicesChecks.PPPOE_MTU}, the most RFC 2516 allows`
                 );
-            if (interval !== undefined && (!Number.isInteger(interval) || interval < ServicesChecks.MIN_INTERIM_SECONDS))
-                report(
-                    `${where}.acct_interim_interval ${interval} is not a whole number of seconds from ${ServicesChecks.MIN_INTERIM_SECONDS}, the least RFC 2869 allows`
-                );
+            ServicesChecks.interim(`${where}.acct_interim_interval`, server.acct_interim_interval, report);
 
             if (!server.radius.length) report(`${where}.radius is empty: write the RADIUS servers that check subscribers`);
             ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
             if (server.prefix_delegation) ServicesChecks.delegation(`${where}.prefix_delegation`, server.prefix_delegation, report);
         }
+    }
+
+    /** Seconds between interim accounting reports, as RFC 2869 allows them. */
+    private static interim(where: string, interval: number | undefined, report: Report): void {
+        if (interval !== undefined && (!Number.isInteger(interval) || interval < ServicesChecks.MIN_INTERIM_SECONDS))
+            report(
+                `${where} ${interval} is not a whole number of seconds from ${ServicesChecks.MIN_INTERIM_SECONDS}, the least RFC 2869 allows`
+            );
     }
 }

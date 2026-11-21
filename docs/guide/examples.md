@@ -26,7 +26,7 @@ A home, an office, or an internal network. It has a router, a switch, three VLAN
 
 ## An edge router
 
-Your own AS with two edge routers, a broadband gateway, and the router of an office of yours. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, and RADIUS checks each home. A home router that asks gets an IPv6 prefix. The office router logs in to the gateway as a home does, and gives the office a /64 of its prefix.
+Your own AS with two edge routers, a broadband gateway, and the router of an office of yours. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, or with DHCP on a second PON port (IPoE), and RADIUS checks each home. A home router that asks gets an IPv6 prefix. The office router logs in to the gateway as a home does, asks for a /56, and gives the office a /64 of it.
 
 ::: code-group
 

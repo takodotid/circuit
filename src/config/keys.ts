@@ -352,7 +352,7 @@ export const DEVICE = {
                 password: SECRET,
                 service_name: 0,
                 mtu: 0,
-                prefix_delegation: { interfaces: { "*": 0 } },
+                prefix_delegation: { prefix_length: 0, interfaces: { "*": 0 } },
             },
         },
     },
@@ -375,6 +375,8 @@ export const DEVICE = {
                 pool: 0,
                 lease_time: 0,
                 reservations: [{ address: 0, mac: 0, description: 0 }],
+                radius: [RADIUS_SERVER],
+                acct_interim_interval: 0,
             },
         },
         dhcpv6_server: {

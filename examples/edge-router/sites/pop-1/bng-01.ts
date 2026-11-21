@@ -1,4 +1,4 @@
-// The broadband gateway: homes behind the OLT log in with PPPoE, and the billing system's RADIUS servers check each one and set its rate. A home router that asks gets an IPv6 prefix for its own networks. It reaches the internet through edge-01.
+// The broadband gateway: homes behind the OLT log in with PPPoE, and the billing system's RADIUS servers check each one and set its rate. A home router that asks gets an IPv6 prefix for its own networks. Homes on the second PON port take their address by DHCP instead (IPoE), and the same servers check each one by its MAC address. It reaches the internet through edge-01.
 
 import { as64500 } from "../../circuit";
 
@@ -30,20 +30,51 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.2/24"], vrf: "management" },
             "25g-1": { description: "edge-01", addresses: ["198.51.100.2/30", "2001:db8:100:ffff::2/64"] },
-            "25g-2": { description: "OLT", trunk_vlans: ["olt-1"] },
+            "25g-2": { description: "OLT", trunk_vlans: ["olt-1", "olt-2"] },
         },
         vlan_interface: {
             "vlan-olt-1": { vlan: "olt-1" },
+            "vlan-olt-2": { vlan: "olt-2", addresses: ["100.64.64.1/18"] },
         },
     },
     switching: {
         vlans: {
             "olt-1": { id: 101, description: "Homes on the OLT's first PON port" },
+            "olt-2": { id: 102, description: "Homes on the OLT's second PON port" },
         },
     },
 
-    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
+    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT, and the billing system may send a home its own /56 instead. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
     services: {
+        // A home on the second PON port gets a lease only once the RADIUS servers accept its MAC address.
+        dhcp_server: {
+            "olt-2": {
+                interface: "vlan-olt-2",
+                network: "100.64.64.0/18",
+                gateway: "100.64.64.1",
+                dns: ["198.51.100.53", "198.51.100.54"],
+                pool: ["100.64.64.2", "100.64.127.254"],
+                radius: [
+                    {
+                        address: "10.0.0.11",
+                        secret_key: secret("RADIUS_KEY"),
+                        source_address: "10.0.0.2",
+                        vrf: "management",
+                        auth_port: 1645,
+                        acct_port: 1646,
+                    },
+                    {
+                        address: "10.0.0.12",
+                        secret_key: secret("RADIUS_KEY"),
+                        source_address: "10.0.0.2",
+                        vrf: "management",
+                        auth_port: 1645,
+                        acct_port: 1646,
+                    },
+                ],
+                acct_interim_interval: 300,
+            },
+        },
         pppoe_server: {
             "olt-1": {
                 interfaces: ["vlan-olt-1"],
@@ -86,7 +117,7 @@ export default as64500.device({
     },
     firewall: {
         nat: {
-            source: [{ description: "Homes to the internet", if: { src: "100.64.0.0/18", out_interface: "25g-1" }, then: "masquerade" }],
+            source: [{ description: "Homes to the internet", if: { src: "100.64.0.0/17", out_interface: "25g-1" }, then: "masquerade" }],
         },
     },
 });

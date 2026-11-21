@@ -548,8 +548,11 @@ export class Project {
             );
 
         for (const group of ["dhcp_server", "dhcpv6_server", "dhcp_relay"])
-            for (const [s, x] of Object.entries<Json>(d.services?.[group] ?? {}))
-                need("interface", x.interface, `services.${group}.${s}.interface`, writtenAt(d.services[group], s, [group, s]));
+            for (const [s, x] of Object.entries<Json>(d.services?.[group] ?? {})) {
+                const written = writtenAt(d.services[group], s, [group, s]);
+                need("interface", x.interface, `services.${group}.${s}.interface`, written);
+                (x.radius ?? []).forEach((r: Json, n: number) => need("VRF", r.vrf, `services.${group}.${s}.radius[${n}].vrf`, written));
+            }
         for (const [s, x] of Object.entries<Json>(d.services?.pppoe_server ?? {})) {
             const written = writtenAt(d.services.pppoe_server, s, ["pppoe_server", s]);
             need("interface", x.interfaces, `services.pppoe_server.${s}.interfaces`, written);

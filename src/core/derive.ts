@@ -643,6 +643,15 @@ export class Derive {
         return found;
     }
 
+    /** Where each DHCP server asks RADIUS about its leases, `radius` and `acct_interim_interval`, for a platform that doesn't build it. */
+    static radiusLeases(device: Device): string[] {
+        return Object.entries(device.services?.dhcp_server ?? {}).flatMap(([name, server]) =>
+            (["radius", "acct_interim_interval"] as const)
+                .filter((key) => server[key] !== undefined)
+                .map((key) => `services.dhcp_server.${name}.${key}`)
+        );
+    }
+
     /** Each VRF a service of the device itself names, with where: a management service, SNMP, NTP, DNS, a syslog collector, or a RADIUS server. */
     static serviceVrfs(device: Device): { where: string; vrf: string }[] {
         const { management, monitoring, system } = device;

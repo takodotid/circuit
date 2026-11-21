@@ -204,7 +204,9 @@ export class RouterOsExport {
         },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
-        "/ip dhcp-server": { "lease-time": "30m" },
+        "/ip dhcp-server": { "lease-time": "30m", "use-radius": "no" },
+        // As a CHR on 7.24.6 printed them with `export verbose`.
+        "/ip dhcp-server config": { accounting: "yes", "interim-update": "0s", "radius-password": "empty", "store-leases-disk": "5m" },
         // As a CHR on 7.24.6 printed them with `export verbose`. A PPPoE server is added disabled.
         "/interface pppoe-server server": {
             disabled: "yes",

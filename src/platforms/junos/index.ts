@@ -382,6 +382,7 @@ export class Junos extends Platform {
         }
         if (services.pppoe_server)
             found.push("services.pppoe_server, Junos serves PPPoE subscribers on MX routers only, which Circuit does not support");
+        for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for Junos`);
 
         const flow = device.monitoring?.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);

@@ -83,6 +83,19 @@ test("RouterOS finds nothing to change before or after the session holds its pre
     ]);
 });
 
+test("RouterOS asks for a prefix length with a hint, and takes the hint back once the config has none", () => {
+    const hinted = withPppoe({ internet: { ...ISP, prefix_delegation: { ...ISP.prefix_delegation!, prefix_length: 56 } } });
+    const desired = routeros.render(hinted);
+
+    expect(desired).toContain(
+        "/ipv6 dhcp-client\nadd interface=internet pool-name=internet prefix-hint=::/56 request=prefix use-peer-dns=no"
+    );
+    expect(sent(desired, desired)).toEqual([]);
+    expect(sent(routeros.render(withPppoe({ internet: ISP })), desired)).toEqual([
+        "/ipv6 dhcp-client set [ find interface=internet ] prefix-hint=::/0",
+    ]);
+});
+
 test("RouterOS adds the client before what names it, and removes it after", () => {
     const device = withPppoe({ internet: ISP });
     device.routing = { ...device.routing, static_routes: [{ prefix: "::/0", interface: "internet" }] };
@@ -157,6 +170,20 @@ test("validate checks the login, the port the session runs over, the MTU, and wh
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.servers also takes a prefix from interfaces.pppoe_client.backup: give it one of them",
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.25g-4 is switched, so it holds no address: give the prefix to the VLAN interface of its VLAN",
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.25g-2 is in LAG uplink: give the prefix to the LAG",
+    ]);
+});
+
+test("validate wants a prefix hint that holds a /64 for each interface listed", () => {
+    const hint = (prefix_length: number) => ({ ...ISP, prefix_delegation: { ...ISP.prefix_delegation!, prefix_length } });
+    const device = withPppoe({
+        internet: hint(64),
+        backup: { ...hint(0), interface: "25g-2" },
+        fiber: { ...hint(63), interface: "25g-3" },
+    });
+
+    expect(errors(device).filter((message) => message.includes("prefix_length"))).toEqual([
+        "interfaces.pppoe_client.internet.prefix_delegation.prefix_length 64 is not a whole number from 1 to 63, the longest prefix that holds a /64 for each interface listed",
+        "interfaces.pppoe_client.backup.prefix_delegation.prefix_length 0 is not a whole number from 1 to 63, the longest prefix that holds a /64 for each interface listed",
     ]);
 });
 

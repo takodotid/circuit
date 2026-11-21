@@ -1,4 +1,4 @@
-// Two RouterOS CHRs, which the devices workflow boots, linked port to port, and FreeRADIUS on the runner. edge-01 is a PPPoE server whose subscribers RADIUS checks, and which delegates IPv6 prefixes. cpe-01 is a subscriber's router whose PPPoE client logs in through it, asks for a prefix, and gives a /64 of it to its hosts. Skipped without the CHRs and FreeRADIUS.
+// Two RouterOS CHRs, which the devices workflow boots, linked port to port, and FreeRADIUS on the runner. edge-01 is a PPPoE server whose subscribers RADIUS checks, and which delegates IPv6 prefixes. cpe-01 is a subscriber's router whose PPPoE client logs in through it, asks for a prefix, and gives a /64 of it to its hosts, then takes one RADIUS sends. Skipped without the CHRs and FreeRADIUS.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -18,6 +18,9 @@ const password = process.env.CIRCUIT_TEST_CHR_PASSWORD ?? "";
 const radiusSecret = process.env.CHR_RADIUS_SECRET;
 const subscriber = process.env.CHR_SUBSCRIBER;
 const subscriberPassword = process.env.CHR_SUBSCRIBER_PASSWORD;
+/** A second subscriber, whose accept carries an IPv6 prefix (Delegated-IPv6-Prefix, RFC 4818), outside `DELEGATED`. */
+const prefixSubscriber = process.env.CHR_PREFIX_SUBSCRIBER;
+const radiusPrefix = process.env.CHR_RADIUS_PREFIX;
 
 const repo = join(import.meta.dir, "..", "..");
 const folder = realpathSync(mkdtempSync(join(tmpdir(), "circuit-chr-pppoe-")));
@@ -42,6 +45,8 @@ const EDGE_IPV6 = "2001:db8:100::1";
 const FROM_PREFIX = /address=(2001:db8:100:[\da-f:]+)\/64/;
 /** The rate a change of authorization gives the session, each way, as RouterOS writes a queue's limit. */
 const RATE = "10M/10M";
+/** The prefix length cpe-01 asks for, a /60, though RADIUS sends a /56. */
+const HINT = 60;
 
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
@@ -124,19 +129,19 @@ function hostsAddress(): string | undefined {
     return FROM_PREFIX.exec(printed)?.[1];
 }
 
-/** cpe-01, a subscriber's router: its PPPoE client and what goes through it, or none. */
-function writeCpe(pppoe: boolean): void {
+/** cpe-01, a subscriber's router: its PPPoE client and what goes through it, logged in as `user` and asking for a prefix of `hint` bits when given, or none. */
+function writeCpe(pppoe: boolean, user = subscriber, hint?: number): void {
     const client = `
         loopback: { hosts: { description: "Where the subscriber's hosts would be" } },
         pppoe_client: {
             "internet": {
                 interface: "virtual-2",
                 description: "edge-01",
-                user: "${subscriber}",
+                user: "${user}",
                 password: secret("SUBSCRIBER_PASSWORD"),
                 service_name: "as64500",
                 mtu: 1492,
-                prefix_delegation: { interfaces: { hosts: "::1" } },
+                prefix_delegation: { ${hint ? `prefix_length: ${hint}, ` : ""}interfaces: { hosts: "::1" } },
             },
         },`;
     const routes = `
@@ -159,7 +164,9 @@ function writeCpe(pppoe: boolean): void {
     );
 }
 
-const ready = Boolean(edgeChr && cpeChr && edgeRest && edgeCoa && radiusSecret && subscriber && subscriberPassword);
+const ready = Boolean(
+    edgeChr && cpeChr && edgeRest && edgeCoa && radiusSecret && subscriber && subscriberPassword && prefixSubscriber && radiusPrefix
+);
 
 describe.skipIf(!ready)("a CHR serving PPPoE, checked by RADIUS", () => {
     beforeAll(() => {
@@ -296,6 +303,37 @@ describe.skipIf(!ready)("a CHR serving PPPoE, checked by RADIUS", () => {
             expect(circuit("diff", "cpe-01").status).toBe(0);
             const left = circuit("exec", "cpe-01", "/interface pppoe-client print count-only", "/ipv6 dhcp-client print count-only").output;
             expect(left.match(/^0$/gm)?.length).toBe(2);
+        },
+        TEST_MS
+    );
+
+    test(
+        "a subscriber RADIUS sends a prefix for gets it in place of one from the pool, and cpe-01's client asks for a /60 and takes the /56",
+        async () => {
+            // edge-01 logs each DHCPv6 packet, to show the length cpe-01 asks for. The rule is a person's, and is gone before the plans below.
+            await typed(edgeRest!, "/system logging add topics=dhcp,debug");
+            writeCpe(true, prefixSubscriber, HINT);
+            expect(circuit("apply", "cpe-01", "--confirm", "--secrets").status).toBe(0);
+
+            let hosts: string | undefined;
+            expect(eventually(() => (hosts = hostsAddress()) !== undefined)).toBe(true);
+            circuit("exec", "edge-01", "/ipv6 dhcp-server binding print detail", "/ipv6 pool used print");
+            circuit("exec", "cpe-01", "/ipv6 dhcp-client print detail");
+            expect(Address.contains(radiusPrefix!, hosts!)).toBe(true);
+            expect(Address.contains(DELEGATED, hosts!)).toBe(false);
+            expect(circuit("exec", "edge-01", `/ping ${hosts} src-address=${EDGE_IPV6} count=3`).output).toContain("received=3");
+
+            // The Solicit carries the hint as an IA Prefix of ::/60 (RFC 8168).
+            expect(circuit("exec", "edge-01", "/log print").output).toContain(`prefix: ::/${HINT}`);
+            // A list matches only quoted, with `;` between its items (TRAPS.md).
+            await typed(edgeRest!, '/system logging remove [find topics="dhcp;debug"]');
+
+            expect(circuit("diff", "cpe-01").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
+
+            // RADIUS hears of the prefix in the session's accounting.
+            const accounting = shell(`sudo sh -c 'cat ${ACCOUNTING}'`);
+            expect(accounting).toContain(`Delegated-IPv6-Prefix = ${radiusPrefix}`);
         },
         TEST_MS
     );
