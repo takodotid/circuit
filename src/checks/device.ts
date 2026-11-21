@@ -14,6 +14,7 @@ import { L3vpnChecks } from "./l3vpn";
 import { RateLimitChecks } from "./rate-limit";
 import { MplsChecks } from "./mpls";
 import { NatChecks } from "./nat";
+import { Nat64Checks } from "./nat64";
 import { OspfChecks } from "./ospf";
 import { PppoeClientChecks } from "./pppoe-client";
 import { PseudowireChecks } from "./pseudowire";
@@ -107,6 +108,7 @@ export class DeviceChecks {
         L3vpnChecks.check(device, report);
         PseudowireChecks.check(device, report);
         NatChecks.check(device, report);
+        Nat64Checks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
         QosChecks.check(device, report);

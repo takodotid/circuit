@@ -125,6 +125,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | IPv6 prefixes delegated over PPPoE   | DHCPv6 (RFC 9915) over IPv6CP (RFC 5072); a /64 of the prefix for each interface, as RFC 7084 (Informational) has a home router do. A prefix RADIUS sends: RFC 4818. The length a client asks for: RFC 9915 §18.2.1, RFC 8168 | `prefix_delegation` of `services.pppoe_server` and `interfaces.pppoe_client` |
 | NTP client and server                | RFC 5905                                                                                                                                                                                                                      | `system.ntp`, `services.ntp_server`                                          |
 | DNS resolvers used and served        | STD 13 (RFC 1034, RFC 1035)                                                                                                                                                                                                   | `system.dns`, `services.dns_server`                                          |
+| DNS64                                | RFC 6147; the NAT64 prefix, RFC 6052                                                                                                                                                                                          | `services.dns64`                                                             |
 
 ## Firewall
 
@@ -139,6 +140,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Source-based blackholing                              | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`                                                       |
 | CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_allocation: "deterministic"`, `port_set_size`                       |
 | CGNAT that hands out blocks of ports, and logs each   | RFC 8512 port range allocation, `port-set-size`; a port limit per subscriber and less to log, BCP 127 (RFC 6888) REQ-4 and REQ-14    | `to_pool`, `port_allocation: "dynamic"`, `port_set_size`, `port_sets_per_subscriber` |
+| NAT64                                                 | RFC 6146; the NAT64 prefix and the IPv4 address in it, RFC 6052                                                                      | `then: "nat64"`, with the prefix in `if.dst`                                         |
 
 ## Quality of service
 

@@ -278,15 +278,7 @@ export class RouterOs extends Platform {
                 );
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
-        (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
-            if (!("to_pool" in rule)) return;
-            if (rule.port_allocation === "dynamic")
-                found.push(
-                    `firewall.nat.source[${index}].port_allocation dynamic, RouterOS has no port block allocation: write deterministic`
-                );
-            if (rule.port_sets_per_subscriber !== undefined)
-                found.push(`firewall.nat.source[${index}].port_sets_per_subscriber, as a RouterOS pool gives each subscriber one block`);
-        });
+        found.push(...RouterOsFirewall.natGaps(device));
         for (const field of ["dhcp_snooping", "ra_guard"] as const)
             for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
                 if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
