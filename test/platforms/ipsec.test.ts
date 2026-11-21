@@ -1,4 +1,4 @@
-// Route-based IPsec tunnels. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with tunnels between documentation addresses. Tunnels with IPv4 and IPv6 endpoints, AES-GCM and AES-CBC, liveness checks, NAT traversal, a key and certificates, were made, changed both ways, and removed, each plan empty after.
+// Route-based IPsec tunnels. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with tunnels between documentation addresses. Tunnels with IPv4 and IPv6 endpoints, AES-GCM and AES-CBC, a key and certificates, were made, changed both ways, and removed, each plan empty after. So were liveness checks on and off, NAT traversal, and a NAT keepalive interval.
 
 import { expect, test } from "bun:test";
 import type { Device, Ipsec } from "../../src/model";
@@ -124,6 +124,43 @@ end`);
     expect(fortios.plan(desired, shown, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
 });
 
+test("FortiOS turns liveness checks off and sets the NAT keepalive interval, which it doesn't print at its default", () => {
+    const device = withTunnels("platforms--example-firewall", {
+        "ipsec-branch-1": { ...TUNNEL, liveness_check: false, nat_keepalive: 25 },
+        "ipsec-branch-2": { ...TUNNEL, remote_address: "192.0.2.30", nat_keepalive: 10 },
+    });
+    const desired = fortios.render(device);
+
+    expect(desired).toContain(`        set proposal aes256gcm-prfsha256
+        set dpd disable
+        set keepalive 25
+        set dhgrp 19
+        set remote-gw 192.0.2.20`);
+    expect(desired).toContain(`        set proposal aes256gcm-prfsha256
+        set dhgrp 19
+        set remote-gw 192.0.2.30`);
+});
+
+test("FortiOS unsets what a setting hides before it sets that setting: the liveness timers before `dpd disable`, and forced NAT traversal before the keepalive", () => {
+    const current = fortios.render(
+        withTunnels("platforms--example-firewall", {
+            "ipsec-branch-1": { ...TUNNEL, liveness_check: { interval: 10, retries: 5 }, nat_traversal: "always" },
+        })
+    );
+    const desired = fortios.render(
+        withTunnels("platforms--example-firewall", { "ipsec-branch-1": { ...TUNNEL, liveness_check: false, nat_keepalive: 30 } })
+    );
+
+    const send = fortios.plan(desired, current, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
+    expect(send.join("\n")).toContain(`edit "ipsec-branch-1"
+unset dpd-retryinterval
+unset dpd-retrycount
+unset nattraversal
+set dpd disable
+set keepalive 30
+next`);
+});
+
 test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the global steps set it", () => {
     const device = withTunnels("platforms--example-firewall", {});
     const vdoms = { ...device, system: { ...device.system, vdoms: { management: { name: "mgmt", interfaces: ["1g-1"] } } } };
@@ -141,7 +178,7 @@ test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the
     ]);
 });
 
-test("FortiOS refuses one hash for integrity and another for the pseudorandom function, a lifetime or a liveness check out of its range, and an address it can't hold", () => {
+test("FortiOS refuses one hash for integrity and another for the pseudorandom function, a lifetime, a liveness check, or a NAT keepalive out of its range, and an address it can't hold", () => {
     const device = withTunnels("platforms--example-firewall", {
         "ipsec-branch-1": {
             ...TUNNEL,
@@ -149,6 +186,12 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
             local_address: "203.0.113.99",
             ike: { encryption: "aes-256-cbc", integrity: "hmac-sha2-256-128", prf: "hmac-sha2-512", dh_group: 14, lifetime: 60 },
             liveness_check: { interval: 3601, retries: 11 },
+            nat_keepalive: 901,
+        },
+        "ipsec-branch-2": {
+            ...TUNNEL,
+            nat_traversal: "always",
+            nat_keepalive: 9,
         },
     });
 
@@ -159,8 +202,11 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
             "interfaces.ipsec.ipsec-branch-1.ike.lifetime 60, the platform takes 120 to 172800",
             "interfaces.ipsec.ipsec-branch-1.liveness_check.interval 3601, the platform takes up to 3600",
             "interfaces.ipsec.ipsec-branch-1.liveness_check.retries 11, the platform takes up to 10",
+            "interfaces.ipsec.ipsec-branch-1.nat_keepalive 901, the platform takes 10 to 900",
             "interfaces.ipsec.ipsec-branch-1.addresses, an IPv4 address on a tunnel takes its peer",
             "interfaces.ipsec.ipsec-branch-1.addresses, IPv6 in the tunnel, which is not built yet",
+            "interfaces.ipsec.ipsec-branch-2.nat_keepalive 9, the platform takes 10 to 900",
+            "interfaces.ipsec.ipsec-branch-2.nat_keepalive with nat_traversal always: the platform has no keepalive interval while ESP always goes in UDP",
         ])
     );
 });

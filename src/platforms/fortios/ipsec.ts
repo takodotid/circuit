@@ -33,6 +33,9 @@ export class FortiOsIpsec {
     /** A liveness check's interval and retries when nothing says, which `show` doesn't print, and the most it takes, `dpd-retryinterval` and `dpd-retrycount`. */
     private static readonly LIVENESS = { interval: 20, retries: 3, maxInterval: 3600, maxRetries: 10 } as const;
 
+    /** The NAT keepalive interval when nothing says, which `show` doesn't print, and the fewest and most seconds `keepalive` takes. */
+    private static readonly KEEPALIVE = { interval: 10, min: 10, max: 900 } as const;
+
     static tunnels(device: Device): [string, Ipsec][] {
         return Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, tunnel]) => (tunnel ? [[name, tunnel]] : []));
     }
@@ -42,7 +45,8 @@ export class FortiOsIpsec {
         for (const [name, tunnel] of FortiOsIpsec.tunnels(device)) {
             const outgoing = FortiOsNames.holderOf(device, Address.host(tunnel.local_address));
             const ipv6 = Address.family(tunnel.remote_address) === "ipv6";
-            const { ike, esp, liveness_check: check } = tunnel;
+            const { ike, esp } = tunnel;
+            const check = tunnel.liveness_check || undefined;
 
             // The version, the family, and the way to authenticate come first: the settings after them exist only once they are set. A new tunnel takes any peer ID and makes no kernel device of its own, and prints both (TRAPS.md).
             const entry = phase1.entry(name).set("interface", outgoing ? FortiOsTree.quote(FortiOsNames.of(device, outgoing)) : '""');
@@ -55,7 +59,11 @@ export class FortiOsIpsec {
                 .set("net-device", "disable")
                 .set("proposal", FortiOsIpsec.ikeProposal(ike));
             if (check) entry.set("dpd", "on-idle");
+            if (tunnel.liveness_check === false) entry.set("dpd", "disable");
             if (tunnel.nat_traversal === "always") entry.set("nattraversal", "forced");
+            // The interval exists only while NAT traversal is `enable`, the default (TRAPS.md).
+            const keepalive = tunnel.nat_keepalive;
+            if (keepalive !== undefined && keepalive !== FortiOsIpsec.KEEPALIVE.interval) entry.set("keepalive", keepalive);
             entry.set("dhgrp", ike.dh_group).set(ipv6 ? "remote-gw6" : "remote-gw", tunnel.remote_address);
             if (tunnel.pre_shared_key) entry.set("psksecret", FortiOsTree.quote(Secrets.marker(tunnel.pre_shared_key)));
             if (tunnel.certificate) entry.set("certificate", FortiOsTree.quote(tunnel.certificate));
@@ -73,7 +81,9 @@ export class FortiOsIpsec {
         }
     }
 
-    /** What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. A liveness check waits up to 3600 seconds and retries up to 10 times. The tunnel's interface holds one IPv4 address, with its peer. */
+    /**
+     * What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. A liveness check waits up to 3600 seconds and retries up to 10 times. A NAT keepalive goes every 10 to 900 seconds, never with NAT traversal forced. The tunnel's interface holds one IPv4 address, with its peer.
+     */
     static gaps(device: Device): string[] {
         const found: string[] = [];
 
@@ -96,10 +106,20 @@ export class FortiOsIpsec {
             }
 
             const { maxInterval, maxRetries } = FortiOsIpsec.LIVENESS;
-            if ((tunnel.liveness_check?.interval ?? 0) > maxInterval)
-                found.push(`${where}.liveness_check.interval ${tunnel.liveness_check?.interval}, the platform takes up to ${maxInterval}`);
-            if ((tunnel.liveness_check?.retries ?? 0) > maxRetries)
-                found.push(`${where}.liveness_check.retries ${tunnel.liveness_check?.retries}, the platform takes up to ${maxRetries}`);
+            const check = tunnel.liveness_check || undefined;
+            if (check && check.interval > maxInterval)
+                found.push(`${where}.liveness_check.interval ${check.interval}, the platform takes up to ${maxInterval}`);
+            if (check && check.retries > maxRetries)
+                found.push(`${where}.liveness_check.retries ${check.retries}, the platform takes up to ${maxRetries}`);
+
+            const keepalive = tunnel.nat_keepalive;
+            const { min, max } = FortiOsIpsec.KEEPALIVE;
+            if (keepalive !== undefined && (keepalive < min || keepalive > max))
+                found.push(`${where}.nat_keepalive ${keepalive}, the platform takes ${min} to ${max}`);
+            if (keepalive !== undefined && tunnel.nat_traversal === "always")
+                found.push(
+                    `${where}.nat_keepalive with nat_traversal always: the platform has no keepalive interval while ESP always goes in UDP`
+                );
 
             const addresses = tunnel.addresses ?? [];
             const ipv4 = addresses.filter((entry) => Address.family(typeof entry === "string" ? entry : entry.address) === "ipv4");

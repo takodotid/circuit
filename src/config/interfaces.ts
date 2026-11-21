@@ -444,12 +444,14 @@ export type Ipsec<C extends string = string> = Pick<Base<never>, "description" |
     remote_address: IP;
     ike: IpsecIke;
     esp: IpsecEsp;
-    /** Ask a silent peer whether it is still there, so a dead peer takes the tunnel down. The device's own default when absent. */
-    liveness_check?: IpsecLivenessCheck;
+    /** Ask a silent peer whether it is still there, so a dead peer takes the tunnel down. With `false`, the device never asks. The device's own default when absent. */
+    liveness_check?: false | IpsecLivenessCheck;
     /**
      * NAT traversal (RFC 7296 §2.23). When IKE finds a NAT between the ends, both put ESP in UDP on port 4500 (RFC 3948). The end behind the NAT sends keepalives, so the NAT keeps its mapping. `always` puts ESP in UDP even when there is no NAT, for a path that drops ESP. Only when IKE finds a NAT, when absent.
      */
     nat_traversal?: "always";
+    /** Seconds between the NAT-keepalive packets (RFC 3948 §2.3) this end sends while it is behind a NAT. Use it for a NAT that forgets an idle mapping sooner than the device's own interval. The device's own interval when absent. */
+    nat_keepalive?: number;
 } & IpsecAuthentication<C>;
 
 /** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */

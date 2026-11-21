@@ -29,6 +29,7 @@ export default as64500.device({
             "1g-1": { description: "Management", addresses: ["10.0.2.1/24"] },
             "40g-1": { description: "core-01 et-0/0/48", addresses: ["10.0.12.2/30"], link: { device: "core-01", port: "40g-1" } },
             "10g-1": { description: "Cogent", addresses: ["203.0.113.6/30"] },
+            "10g-2": { description: "Office internet line, behind the office router's NAT", addresses: ["192.168.10.2/24"] },
         },
         loopback: { loopback: { addresses: ["10.255.2.1/32"] } },
         // Two branch offices reach the region over the internet, through Cogent. Both ends of a tunnel write the same algorithms.
@@ -58,6 +59,20 @@ export default as64500.device({
                 liveness_check: { interval: 10, retries: 3 },
                 nat_traversal: "always",
             },
+            // Out-of-band access for the operators, from the jump host, over the office's internet line.
+            // This end is behind the office router's NAT, which forgets an idle UDP mapping after 30 seconds.
+            // So it sends a NAT keepalive every 20 seconds. With no other path to fail over to, it doesn't check its peer.
+            "ipsec-oob": {
+                description: "Out-of-band, to the jump host",
+                addresses: [{ address: "10.255.12.9/30", peer_address: "10.255.12.10" }],
+                local_address: "192.168.10.2",
+                remote_address: "192.0.2.40",
+                pre_shared_key: secret("IPSEC_OOB"),
+                ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+                esp: { encryption: "aes-256-gcm", pfs_group: 19, lifetime: 3600 },
+                liveness_check: false,
+                nat_keepalive: 20,
+            },
         },
     },
 
@@ -67,6 +82,7 @@ export default as64500.device({
             { prefix: as64500.prefixes.ours.v4, blackhole: true },
             { prefix: "10.21.0.0/16", interface: "ipsec-branch-1", description: "Branch office 1" },
             { prefix: "10.22.0.0/16", interface: "ipsec-branch-2", description: "Branch office 2" },
+            { prefix: "192.0.2.40/32", next_hop: "192.168.10.1", description: "The jump host, over the office line" },
         ],
         isis: {
             net: "49.0001.0102.5500.2001.00",
