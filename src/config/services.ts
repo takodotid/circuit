@@ -70,7 +70,7 @@ export type Upnp<I extends string> = {
 };
 
 /**
- * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, and its rate comes from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
+ * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, its IPv6 prefix from `prefix_delegation` unless RADIUS sends one, and its rate from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
  */
 export type PppoeServer<I extends string, F extends string = string> = {
     /** The ports and interfaces subscribers connect on. */
@@ -91,7 +91,7 @@ export type PppoeServer<I extends string, F extends string = string> = {
     acct_interim_interval?: number;
     /** Let the RADIUS servers end a session or change it, such as its rate, on UDP port 3799 (RFC 5176). Off when absent. */
     dynamic_authorization?: true;
-    /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. No IPv6 prefix when absent. */
+    /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. A subscriber that RADIUS sends a prefix for (Delegated-IPv6-Prefix, RFC 4818) gets that one instead. When absent, only those subscribers get a prefix. */
     prefix_delegation?: PrefixDelegation;
 };
 

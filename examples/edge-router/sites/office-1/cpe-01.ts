@@ -1,4 +1,4 @@
-// The router of a sales office of our own, on the OLT like any home. It logs in to bng-01 with PPPoE and takes its IPv4 address from the session. It asks for an IPv6 prefix too, and gives the office a /64 of it.
+// The router of a sales office of our own, on the OLT like any home. It logs in to bng-01 with PPPoE and takes its IPv4 address from the session. It asks for a /56 of IPv6 too, and gives the office a /64 of it.
 
 import { as64500 } from "../../circuit";
 
@@ -32,7 +32,7 @@ export default as64500.device({
                 password: secret("CPE_01_PPPOE_PASSWORD"),
                 service_name: "as64500",
                 mtu: 1492,
-                prefix_delegation: { interfaces: { "1g-1": "::1" } },
+                prefix_delegation: { prefix_length: 56, interfaces: { "1g-1": "::1" } },
             },
         },
     },

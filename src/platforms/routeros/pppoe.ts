@@ -113,7 +113,13 @@ export class RouterOsPppoe {
             const delegation = client.prefix_delegation;
             if (!delegation) continue;
 
-            render.add("/ipv6 dhcp-client", "add", { interface: name, "pool-name": name, request: "prefix", "use-peer-dns": "no" });
+            render.add("/ipv6 dhcp-client", "add", {
+                interface: name,
+                "pool-name": name,
+                "prefix-hint": delegation.prefix_length !== undefined && `::/${delegation.prefix_length}`,
+                request: "prefix",
+                "use-peer-dns": "no",
+            });
             for (const [lan, address] of RouterOsSyntax.entries(delegation.interfaces)) {
                 const ra = Derive.routerAdvertisement(Derive.settings(device, lan) ?? {});
                 render.add("/ipv6 address", "add", {

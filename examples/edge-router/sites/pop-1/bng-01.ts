@@ -42,7 +42,7 @@ export default as64500.device({
         },
     },
 
-    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
+    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT, and the billing system may send a home its own /56 instead. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
     services: {
         pppoe_server: {
             "olt-1": {
