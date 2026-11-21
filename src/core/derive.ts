@@ -17,6 +17,7 @@ import type {
     Interface,
     InterfaceKind,
     Isis,
+    IsisAuthentication,
     Lag,
     Limit,
     NatRule,
@@ -30,7 +31,6 @@ import type {
     RouteMatch,
     RouteRule,
     RouterAdvertisement,
-    Secret,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -103,7 +103,9 @@ export type BuiltFeature =
     | "queues"
     | "ospf-ranges"
     | "ospf-priority"
-    | "ospf-unicast-links";
+    | "ospf-unicast-links"
+    | "ospf-range-cost"
+    | "ospf-virtual-links";
 
 export class Derive {
     /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
@@ -574,9 +576,20 @@ export class Derive {
         return patterns;
     }
 
-    /** The key that signs IS-IS `level`: the level's own, or else the one for every level. */
-    static isisKey(isis: Isis, level: 1 | 2): Secret | undefined {
-        return isis.levels?.[level]?.authentication?.key ?? isis.authentication?.key;
+    /** Each IS-IS authentication the config writes, for every level or for one, with where it is written. */
+    static isisAuthentications(device: Device): { where: string; authentication: IsisAuthentication }[] {
+        const isis = device.routing?.isis;
+        const found = isis?.authentication ? [{ where: "routing.isis.authentication", authentication: isis.authentication }] : [];
+        for (const [level, settings] of Object.entries(isis?.levels ?? {}))
+            if (settings?.authentication)
+                found.push({ where: `routing.isis.levels.${level}.authentication`, authentication: settings.authentication });
+
+        return found;
+    }
+
+    /** What signs IS-IS `level`: the level's own authentication, or else the one for every level. */
+    static isisAuthentication(isis: Isis, level: 1 | 2): IsisAuthentication | undefined {
+        return isis.levels?.[level]?.authentication ?? isis.authentication;
     }
 
     /** The IPv4 networks of a port's or an interface's addresses. */
@@ -652,7 +665,7 @@ export class Derive {
         return found;
     }
 
-    /** OSPF's area ranges, router priority, and point-to-multipoint and NBMA links, which a platform builds once a device of it has run them. */
+    /** OSPF's area ranges and their cost, router priority, point-to-multipoint and NBMA links, and virtual links, which a platform builds once a device of it has run them. */
     private static unbuiltOspf(device: Device, has: (feature: BuiltFeature) => boolean): string[] {
         const found: string[] = [];
         const untried = "not built yet, since no device of the platform has run it";
@@ -660,6 +673,10 @@ export class Derive {
         for (const [areaId, area] of Object.entries(device.routing?.ospf?.areas ?? {})) {
             const where = `routing.ospf.areas.${areaId}`;
             if (area.ranges && !has("ospf-ranges")) found.push(`${where}.ranges, ${untried}`);
+            (area.ranges ?? []).forEach((range, index) => {
+                if (range.cost !== undefined && !has("ospf-range-cost")) found.push(`${where}.ranges[${index}].cost, ${untried}`);
+            });
+            if (area.virtual_links && !has("ospf-virtual-links")) found.push(`${where}.virtual_links, ${untried}`);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 const at = `${where}.interfaces.${name}`;

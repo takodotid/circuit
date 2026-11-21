@@ -5,7 +5,7 @@ import { Secrets } from "../../core/secrets";
 import type { AsNumbers, Device, Family, Neighbor, NeighborSettings, PolicyRule, Prefix, PrefixSet, RouteRule } from "../../model";
 import { JunosStatements } from "./statements";
 
-/** BGP sessions, the policies they use, prefix sets, and RPKI servers. */
+/** BGP sessions, the policies they and IS-IS's leak use, prefix sets, and RPKI servers. */
 export class JunosBgp {
     /** The policy of a session that states none, so it learns or announces nothing. */
     private static readonly REJECT_ALL = "circuit-reject-all";
@@ -74,6 +74,9 @@ export class JunosBgp {
         bgp.rpki();
         bgp.sessions();
         bgp.vrfImports();
+        // IS-IS's leak runs its policy as a subroutine of its own export policy.
+        const leak = device.routing?.isis?.level2_to_level1;
+        if (leak) bgp.used.add(leak.import_policy);
         for (const policy of [...bgp.used].sort()) bgp.policyStatement(policy);
     }
 

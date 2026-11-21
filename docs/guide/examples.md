@@ -72,7 +72,7 @@ Two provider edge routers, one in each point of presence. IS-IS carries their lo
 
 ## A campus on OSPF
 
-Three routers on private IPv4 addresses and the campus's own IPv6 prefix, running OSPF without BGP. The core router is the backbone's designated router, with BFD on the backbone VLAN, and announces a static route to the labs into OSPF. The library's router joins the backbone with priority 0, and is the border router of a totally stubby area. It announces the area to the backbone as one range for each family, and hides the archive. In that area, the field station's router runs IPv4 only. Its radio to two stations that don't hear each other is point-to-multipoint, with a key. Its carrier's line carries no multicast, so it is NBMA, with its neighbor written out. It says hello less often there.
+Five routers on private IPv4 addresses and the campus's own IPv6 prefix, running OSPF without BGP. The core router is the backbone's designated router, with BFD on the backbone VLAN, and announces a static route to the labs into OSPF. The library's router joins the backbone with priority 0, and is the border router of a totally stubby area. It announces the area to the backbone as one range for each family, and hides the archive. In that area, the field station's router runs IPv4 only. Its radio to two stations that don't hear each other is point-to-multipoint, with a key. Its carrier's line carries no multicast, so it is NBMA, with its neighbor written out. It says hello less often there. The museum runs IPv4 only. Its router is on the backbone VLAN, and a fiber leads to the galleries' router, in an area between them. The galleries' router has no link into the backbone, so a virtual link to the museum's router, across that area, joins it. It announces the galleries' area as one range, at a cost of its own.
 
 ::: code-group
 
@@ -83,6 +83,10 @@ Three routers on private IPv4 addresses and the campus's own IPv6 prefix, runnin
 <<< @/../examples/campus/sites/library/library-01.ts
 
 <<< @/../examples/campus/sites/field-station/field-01.ts
+
+<<< @/../examples/campus/sites/museum/museum-01.ts
+
+<<< @/../examples/campus/sites/museum/museum-02.ts
 
 :::
 

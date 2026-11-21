@@ -35,6 +35,7 @@ import { RouterOsPppoe } from "./pppoe";
 import { RouterOsPseudowire } from "./pseudowire";
 import { RouterOsQueues } from "./queues";
 import { RouterOsSchedulers } from "./schedulers";
+import { RouterOsShapes } from "./shapes";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
@@ -186,12 +187,12 @@ export class RouterOs extends Platform {
     override readonly console = RouterOs.CONSOLE;
 
     /**
-     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning.
+     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning, and so is IS-IS on both levels.
      */
     override checks(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
         const statics = device.routing?.static_routes ?? [];
-        const findings: Finding[] = [...RouterOsRouting.passiveWithoutAddress(device), ...RouterOsFirewall.largePools(device)];
+        const findings: Finding[] = [...RouterOsRouting.findings(device), ...RouterOsFirewall.largePools(device)];
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -335,7 +336,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
-        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device));
+        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device), ...RouterOsRouting.ospfGaps(device));
 
         const bgp = device.routing?.bgp;
 
@@ -429,7 +430,7 @@ export class RouterOs extends Platform {
             );
         });
 
-        found.push(...RouterOs.unsupportedShapes(device));
+        found.push(...RouterOsShapes.unsupported(device));
         found.push(...RouterOsQueues.unsupported(device));
         found.push(...RouterOsSchedulers.unsupported(device));
         found.push(...RouterOsFirewall.markingGaps(device));
@@ -454,6 +455,8 @@ export class RouterOs extends Platform {
                 "ospf-ranges",
                 "ospf-priority",
                 "ospf-unicast-links",
+                "ospf-range-cost",
+                "ospf-virtual-links",
             ])
         );
 
@@ -468,48 +471,6 @@ export class RouterOs extends Platform {
                 "routing-tables",
             ])
         );
-
-        return found;
-    }
-
-    /** What the model allows and the render does not write. */
-    private static unsupportedShapes(device: Device): string[] {
-        const found: string[] = [];
-        const firewall = device.firewall;
-        const list = (value: unknown) => Array.isArray(value) && value.length > 1;
-
-        const taken = Object.keys(firewall?.interface_sets ?? {}).filter((set) => RouterOsRender.TAKEN_LISTS.includes(set));
-        for (const set of taken) found.push(`firewall.interface_sets.${set}, an interface list RouterOS has: give the set another name`);
-
-        const chains = (["input", "forward", "output"] as const).map(
-            (chain) => [`firewall.filter.${chain}.rules`, firewall?.filter?.[chain]?.rules] as const
-        );
-        const others = [
-            ["firewall.nat.source", firewall?.nat?.source],
-            ["firewall.nat.destination", firewall?.nat?.destination],
-            ["qos.marking", device.qos?.marking],
-        ] as const;
-
-        for (const [where, rules] of [...chains, ...others]) {
-            (rules ?? []).forEach((rule, index) => {
-                for (const field of ["src", "dst", "in_interface", "out_interface"] as const) {
-                    if (list(rule.if?.[field])) found.push(`${where}[${index}].if.${field}, a list: write one rule for each`);
-                }
-            });
-        }
-
-        for (const [name, rules] of RouterOsSyntax.entries(device.switching?.acls)) {
-            rules.forEach((rule, index) => {
-                for (const field of ["src", "dst", "vlan"] as const) {
-                    if (list(rule.if?.[field])) found.push(`switching.acls.${name}[${index}].if.${field}, a list: write one rule for each`);
-                }
-            });
-        }
-
-        const allow = device.management?.allow;
-        if (typeof allow === "string") found.push(`management.allow ${allow}, an address set by name: write its prefixes`);
-
-        found.push(...RouterOsRouting.policyGaps(device));
 
         return found;
     }

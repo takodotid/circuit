@@ -215,6 +215,16 @@ export type OspfRange = {
     prefix: Prefix;
     /** `true` announces the range as one route, while the area has a network inside it. `false` announces nothing of it, so the other areas don't reach those networks. */
     advertise: boolean;
+    /** The cost the range is announced with, 0 to 16777214. Without it, the largest cost of the area's networks inside the range (RFC 2328, section 12.4.3). Only with `advertise` `true`. */
+    cost?: number;
+};
+
+/** A virtual link to another border router (ABR), across an area both are in, that joins this device to the backbone (RFC 2328, section 15). Both ends write one, each with the other's router ID. */
+export type OspfVirtualLink = {
+    /** The area the link crosses, which this device has interfaces in. Not the backbone, and not a stub area or an NSSA. */
+    transit_area_id: OspfAreaId;
+    /** The router ID of the border router at the far end. */
+    router_id: IPv4;
 };
 
 /** One OSPF area of the device. */
@@ -227,6 +237,8 @@ export type OspfArea<I extends string> = {
     stub_default_cost?: number;
     /** What this device, as the area's border router (ABR), announces to the other areas in place of the area's networks, each range once. */
     ranges?: readonly OspfRange[];
+    /** In the backbone, `0.0.0.0`, only: links across another area to border routers in the backbone, for each OSPF version the device runs. For a border router with no link into the backbone, or a backbone cut in two. The device needs `routing.router_id`. */
+    virtual_links?: readonly OspfVirtualLink[];
     /** The device's ports and interfaces in this area, each with its OSPF settings. */
     interfaces: Named<I, OspfInterface>;
 };
@@ -258,11 +270,25 @@ export type IsisInterface = {
     bfd?: boolean;
 };
 
-/** How IS-IS packets are signed: with HMAC-MD5 (RFC 5304). The device ignores a router without the key. */
-export type IsisAuthentication = {
-    /** The key, 35 characters at most on FortiOS. Every router at the level uses the same one: in its area at level 1, across areas at level 2. */
-    key: Secret;
-};
+/**
+ * How IS-IS packets are signed, with OpenConfig's key chain names. The device ignores a router without the key. Every router at the level uses the same algorithm, key ID, and key: in its area at level 1, across areas at level 2.
+ */
+export type IsisAuthentication =
+    | {
+          /** HMAC-MD5 (RFC 5304). */
+          algorithm: "hmac-md5";
+          /** The key, 35 characters at most on FortiOS. */
+          key: Secret;
+          key_id?: never;
+      }
+    | {
+          /** HMAC-SHA (RFC 5310). */
+          algorithm: "hmac-sha-1" | "hmac-sha-256" | "hmac-sha-384" | "hmac-sha-512";
+          /** The key's ID, 0 to 65535, which each packet carries so the receiver knows the key (RFC 5310). 0 to 63 on Junos. */
+          key_id: number;
+          /** The key. */
+          key: Secret;
+      };
 
 /** IS-IS settings of one level. */
 export type IsisLevel = {
@@ -288,7 +314,7 @@ export type Isis<I extends string, P extends string = string> = {
     multi_topology?: boolean;
     /** Sign every IS-IS packet with one key, at each level the device runs. For a key per level, write it in `levels` instead. */
     authentication?: IsisAuthentication;
-    /** Settings of level 1 or level 2, such as `{ 2: { authentication: { key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. */
+    /** Settings of level 1 or level 2, such as `{ 2: { authentication: { algorithm: "hmac-md5", key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. */
     levels?: { 1?: IsisLevel; 2?: IsisLevel };
     /** The device's ports and interfaces that run IS-IS, each with its settings. */
     interfaces: Named<I, IsisInterface>;

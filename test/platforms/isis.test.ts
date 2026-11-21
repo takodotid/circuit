@@ -197,10 +197,15 @@ test("a NET ends in 00 after a system ID of three groups, a metric is wide, and 
 });
 
 const key = { secret: "ISIS_KEY" };
+/** HMAC-MD5 with the key. */
+const md5 = { algorithm: "hmac-md5", key } as const;
 
 test("Junos signs each level it runs with the level's key or the one for every level, and plans nothing against the cipher it prints", () => {
     const junos = Platforms.get("junos");
-    const levels = { 1: { authentication: { key: { secret: "ISIS_L1_KEY" } } }, 2: { authentication: { key } } };
+    const levels: Isis["levels"] = {
+        1: { authentication: { algorithm: "hmac-md5", key: { secret: "ISIS_L1_KEY" } } },
+        2: { authentication: md5 },
+    };
     const desired = junos.render(withIsis("platforms--example-aggregation-switch", { ...both("10g-48"), levels }));
 
     for (const statement of [
@@ -212,7 +217,7 @@ test("Junos signs each level it runs with the level's key or the one for every l
         expect(desired).toContain(statement);
 
     // A level 2 router signs level 2 only.
-    const instance = junos.render(withIsis("platforms--example-aggregation-switch", { ...core({}, "10g-48"), authentication: { key } }));
+    const instance = junos.render(withIsis("platforms--example-aggregation-switch", { ...core({}, "10g-48"), authentication: md5 }));
     expect(instance).toContain("set protocols isis level 2 authentication-key <secret:ISIS_KEY>");
     expect(instance).not.toContain("level 1 authentication");
 
@@ -227,7 +232,7 @@ test("FortiOS keeps each level's key in a key chain, which MD5 needs, and unsets
     const fortios = Platforms.get("fortios");
     const sections = /^config router (?:key-chain|isis)\n[\s\S]*?^end\n/gm;
     const render = (isis: Isis) => fortios.render(withIsis("platforms--example-firewall", isis)).match(sections)!.join("");
-    const desired = render({ ...core({}, "10g-2"), authentication: { key } });
+    const desired = render({ ...core({}, "10g-2"), authentication: md5 });
 
     // As the firewall printed it, with the key the read redacts: the firewall prints it in clear.
     const signed = `
@@ -295,8 +300,8 @@ test("RouterOS refuses IS-IS authentication, which 7.24 has none of", () => {
     const refused = (isis: Partial<Isis>) =>
         routeros.unsupported(withIsis("platforms--example-router", { ...core({}, "uplink"), ...isis }));
 
-    expect(refused({ authentication: { key } })).toContain("routing.isis.authentication, RouterOS 7.24 has no IS-IS authentication");
-    expect(refused({ levels: { 2: { authentication: { key } } } })).toContain(
+    expect(refused({ authentication: md5 })).toContain("routing.isis.authentication, RouterOS 7.24 has no IS-IS authentication");
+    expect(refused({ levels: { 2: { authentication: md5 } } })).toContain(
         "routing.isis.levels.2.authentication, RouterOS 7.24 has no IS-IS authentication"
     );
 });
@@ -304,8 +309,8 @@ test("RouterOS refuses IS-IS authentication, which 7.24 has none of", () => {
 test("a level's settings are for a level the device runs, and its key is written once", () => {
     const device = withIsis("platforms--example-router", {
         ...core({}, "uplink"),
-        authentication: { key },
-        levels: { 1: {}, 2: { authentication: { key } } },
+        authentication: md5,
+        levels: { 1: {}, 2: { authentication: md5 } },
     });
     const findings = Checks.run([device], undefined).filter((finding) => finding.message.startsWith("routing.isis"));
 
@@ -351,6 +356,20 @@ test("RouterOS refuses the overload bit and BFD, which its IS-IS has neither of"
             "routing.isis.interfaces.uplink.bfd, RouterOS 7.24 has no BFD for IS-IS",
         ])
     );
+});
+
+test("validate warns that RouterOS on both levels leaks every level 2 route into level 1, as no setting holds one back", () => {
+    const warnings = (isis: Isis) =>
+        Checks.run([withIsis("platforms--example-router", isis)], undefined)
+            .filter((finding) => finding.level === "warning" && finding.message.startsWith("routing.isis"))
+            .map((finding) => finding.message);
+
+    expect(warnings(both("uplink"))).toEqual([
+        "routing.isis.level_capability is level-1-2: on RouterOS 7.24, a router on both levels leaks every level 2 route into level 1, and nothing holds one back. The level 1 routers of its area learn every route of level 2, and no default route from it",
+    ]);
+    expect(warnings(core({ passive: true }, "uplink"))).toEqual([]);
+    // With `level2_to_level1`, RouterOS refuses the leak itself, which says the same.
+    expect(warnings({ ...both("uplink"), level2_to_level1: { import_policy: "loopbacks" } })).toEqual([]);
 });
 
 test("FortiOS sets the overload bit, and refuses BFD, which its IS-IS has none of", () => {
@@ -432,5 +451,124 @@ test("RouterOS and FortiOS refuse multi-topology, Raisecom ROS refuses IS-IS, an
     const findings = Checks.run([ipv4Only], undefined).filter((finding) => finding.message.startsWith("routing.isis"));
     expect(findings.map((finding) => finding.message)).toEqual([
         "routing.isis.multi_topology is on, but IS-IS routes no IPv6 to put in a topology of its own. Add ipv6 to address_families, or remove multi_topology",
+    ]);
+});
+
+test("Junos leaks level 2 routes into level 1 through an IS-IS export policy that runs the leak's policy, experimentally, and plans nothing against how the switch printed it", () => {
+    const junos = Platforms.get("junos");
+    const fixture = Fixtures.device("platforms--example-aggregation-switch");
+    const leaking = (isis: Isis): Device => ({
+        ...fixture,
+        routing: {
+            ...fixture.routing,
+            prefix_sets: { ...fixture.routing?.prefix_sets, loopbacks: { prefixes: ["192.0.2.0/24"] } },
+            policies: {
+                ...fixture.routing?.policies,
+                loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
+            },
+            isis,
+        },
+    });
+    const isis: Isis = { ...both("10g-48"), address_families: ["ipv4"] };
+    const device = leaking({ ...isis, level2_to_level1: { import_policy: "loopbacks" } });
+    const desired = junos.render(device);
+    expect(junos.experimental!(device)).toContain("routing.isis.level2_to_level1");
+    expect(junos.unsupported(device).filter((field) => field.startsWith("routing.isis"))).toEqual([]);
+
+    // As `show | display set` printed them in the candidate of a `commit check` on a QFX5100 (21.4R3-S8.5). Nothing was committed.
+    const printed = `set policy-options policy-statement circuit-isis-level2-to-level1 from protocol isis
+set policy-options policy-statement circuit-isis-level2-to-level1 from level 2
+set policy-options policy-statement circuit-isis-level2-to-level1 from policy loopbacks
+set policy-options policy-statement circuit-isis-level2-to-level1 to protocol isis
+set policy-options policy-statement circuit-isis-level2-to-level1 to level 1
+set policy-options policy-statement circuit-isis-level2-to-level1 then accept
+set policy-options policy-statement loopbacks term 1 from prefix-list-filter loopbacks orlonger
+set policy-options policy-statement loopbacks term 1 then accept
+set policy-options policy-statement loopbacks term 2 then reject
+set protocols isis export circuit-isis-level2-to-level1
+`;
+    const leak = /circuit-isis-level2-to-level1|policy-statement loopbacks /;
+    const others = desired
+        .split("\n")
+        .filter((line) => !leak.test(line))
+        .join("\n");
+    expect(sent("junos", desired, `${others}\n${printed}`)).toEqual([]);
+
+    // Without the leak, its export goes, and so do its policy and the leak's own, which nothing else uses. The commit checks them together.
+    expect(sent("junos", junos.render(leaking(isis)), desired)).toEqual([
+        "delete policy-options policy-statement circuit-isis-level2-to-level1",
+        "delete policy-options policy-statement loopbacks",
+        "delete protocols isis export",
+    ]);
+});
+
+/** HMAC-SHA-1 with the key under key ID 1. */
+const sha1 = { algorithm: "hmac-sha-1", key_id: 1, key } as const;
+
+test("Junos signs a level with HMAC-SHA-1 from a key chain, experimentally, and plans nothing against how the switch printed it", () => {
+    const junos = Platforms.get("junos");
+    const device = withIsis("platforms--example-aggregation-switch", {
+        ...both("10g-48"),
+        levels: { 1: { authentication: md5 }, 2: { authentication: sha1 } },
+    });
+    const desired = junos.render(device);
+    expect(junos.experimental!(device)).toContain("routing.isis.levels.2.authentication.algorithm hmac-sha-1");
+
+    const chain = "set security authentication-key-chains key-chain circuit-isis-l2-keys key 1";
+    for (const statement of [
+        "set protocols isis level 1 authentication-key <secret:ISIS_KEY>",
+        "set protocols isis level 1 authentication-type md5",
+        "set protocols isis level 2 authentication-key-chain circuit-isis-l2-keys",
+        `${chain} secret <secret:ISIS_KEY>`,
+        `${chain} start-time 2001-1-1.00:00:00`,
+        `${chain} algorithm hmac-sha-1`,
+        `${chain} options isis-enhanced`,
+    ])
+        expect(desired).toContain(statement);
+
+    // As the switch printed them in the candidate of a `commit check` (21.4R3-S8.5): each key as a `$9$` cipher, and the start time in the switch's time zone. Nothing was committed.
+    const printed = desired
+        .replace("authentication-key <secret:ISIS_KEY>", 'authentication-key "$9$HmPQtpBRclP5hreMN-qmfT36tu1SyKO1"')
+        .replace("secret <secret:ISIS_KEY>", 'secret "$9$OtF6REyXxdw2aEcYoJU.m1RhSevX7Vg4Z"')
+        .replace("start-time 2001-1-1.00:00:00", 'start-time "2001-1-1.00:00:00 +0700"');
+    expect(sent("junos", desired, printed)).toEqual([]);
+
+    // From HMAC-MD5 to HMAC-SHA-1 on level 1: the level's own key goes, and a key chain of its own comes.
+    const changed = junos.render(
+        withIsis("platforms--example-aggregation-switch", {
+            ...both("10g-48"),
+            levels: { 1: { authentication: sha1 }, 2: { authentication: sha1 } },
+        })
+    );
+    expect(sent("junos", changed, printed)).toEqual([
+        "delete protocols isis level 1 authentication-key",
+        "delete protocols isis level 1 authentication-type",
+        "set protocols isis level 1 authentication-key-chain circuit-isis-l1-keys",
+        "set security authentication-key-chains key-chain circuit-isis-l1-keys key 1 secret <secret:ISIS_KEY>",
+        "set security authentication-key-chains key-chain circuit-isis-l1-keys key 1 start-time 2001-1-1.00:00:00",
+        "set security authentication-key-chains key-chain circuit-isis-l1-keys key 1 algorithm hmac-sha-1",
+        "set security authentication-key-chains key-chain circuit-isis-l1-keys key 1 options isis-enhanced",
+    ]);
+});
+
+test("Junos 21.4 refuses HMAC-SHA2 and a key ID over 63, FortiOS 6.2 signs IS-IS with HMAC-MD5 only, and a key ID is two octets", () => {
+    const sha256 = { algorithm: "hmac-sha-256", key_id: 64, key } as const;
+    const junos = withIsis("platforms--example-aggregation-switch", { ...core({}, "10g-48"), levels: { 2: { authentication: sha256 } } });
+    expect(Platforms.get("junos").unsupported(junos)).toEqual(
+        expect.arrayContaining([
+            "routing.isis.levels.2.authentication.algorithm hmac-sha-256, Junos 21.4 signs IS-IS with hmac-md5 or hmac-sha-1 only",
+            "routing.isis.levels.2.authentication.key_id 64, a Junos key chain numbers its keys from 0 to 63",
+        ])
+    );
+
+    const fortios = withIsis("platforms--example-firewall", { ...core({}, "10g-2"), authentication: sha1 });
+    expect(Platforms.get("fortios").unsupported(fortios)).toContain(
+        "routing.isis.authentication.algorithm hmac-sha-1, FortiOS 6.2 signs IS-IS with hmac-md5 only"
+    );
+
+    const device = withIsis("platforms--example-router", { ...core({}, "uplink"), authentication: { ...sha1, key_id: 65_536 } });
+    const findings = Checks.run([device], undefined).filter((finding) => finding.message.startsWith("routing.isis"));
+    expect(findings.map((finding) => finding.message)).toEqual([
+        "routing.isis.authentication.key_id is 65536: write a whole number from 0 to 65535",
     ]);
 });

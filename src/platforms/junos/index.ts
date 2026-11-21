@@ -16,6 +16,7 @@ import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, P
 import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
 import { JunosBgpSessions } from "./bgp-sessions";
+import { JunosIsis } from "./isis";
 import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
@@ -117,8 +118,11 @@ export class Junos extends Platform {
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
         // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
         if (device.routing?.mpls) found.push("routing.mpls");
-        // IS-IS multi-topology passed `commit check` only, in a candidate that was never committed.
+        // IS-IS multi-topology, the leak into level 1, and HMAC-SHA passed `commit check` only, in a candidate that was never committed.
         if (device.routing?.isis?.multi_topology) found.push("routing.isis.multi_topology");
+        if (device.routing?.isis?.level2_to_level1) found.push("routing.isis.level2_to_level1");
+        for (const { where, authentication } of Derive.isisAuthentications(device))
+            if (authentication.algorithm === "hmac-sha-1") found.push(`${where}.algorithm hmac-sha-1`);
         // VLAN translation passed `commit check` only, and a QFX5100 on 17.4 was seen not to translate with it (TRAPS.md).
         for (const { where, settings } of Derive.switchedHolders(device))
             if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
@@ -408,9 +412,7 @@ export class Junos extends Platform {
         found.push(...Derive.untested(device, Junos.TESTED));
         found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports", "rate-limit"]));
         found.push(...Junos.rateLimitGaps(device));
-        // Junos leaks with an IS-IS export policy whose terms name `from level 2` and `to level 1`.
-        if (device.routing?.isis?.level2_to_level1)
-            found.push("routing.isis.level2_to_level1, not built yet, since no device of the platform has run it");
+        found.push(...JunosIsis.unsupported(device));
 
         return found;
     }
