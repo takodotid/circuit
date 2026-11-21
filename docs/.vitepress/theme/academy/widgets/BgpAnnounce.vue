@@ -12,12 +12,12 @@ const places: Record<number, { name: string; x: number; y: number }> = {
     64500: { name: "You", x: 90, y: 190 },
     6939: { name: "Hurricane Electric", x: 250, y: 70 },
     1299: { name: "Arelion", x: 450, y: 70 },
-    2906: { name: "Netflix", x: 620, y: 70 },
+    27776: { name: "El Boldo", x: 620, y: 70 },
     15169: { name: "Google", x: 450, y: 310 },
     174: { name: "Cogent", x: 250, y: 310 },
 };
 
-const ases = [64500, 6939, 174, 1299, 15169, 2906];
+const ases = [64500, 6939, 174, 1299, 15169, 27776];
 
 const allLinks: AsLink[] = [
     { a: 64500, b: 6939, provider: 6939 },
@@ -25,7 +25,7 @@ const allLinks: AsLink[] = [
     { a: 6939, b: 1299 },
     { a: 174, b: 1299 },
     { a: 174, b: 15169 },
-    { a: 1299, b: 2906, provider: 1299 },
+    { a: 1299, b: 27776, provider: 1299 },
 ];
 
 const cut = ref<string[]>([]);
