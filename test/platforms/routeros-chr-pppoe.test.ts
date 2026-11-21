@@ -129,6 +129,11 @@ function hostsAddress(): string | undefined {
     return FROM_PREFIX.exec(printed)?.[1];
 }
 
+/** Whether edge-01 reaches `hosts` from its loopback, within `WAIT_MS`. A new address takes no packets until duplicate address detection ends, about 1.5 s later on a CHR (RFC 4862, TRAPS.md). So one ping is sent until one answers. */
+function answers(hosts: string): boolean {
+    return eventually(() => circuit("exec", "edge-01", `/ping ${hosts} src-address=${EDGE_IPV6} count=1`).output.includes("received=1"));
+}
+
 /** cpe-01, a subscriber's router: its PPPoE client and what goes through it, logged in as `user` and asking for a prefix of `hint` bits when given, or none. */
 function writeCpe(pppoe: boolean, user = subscriber, hint?: number): void {
     const client = `
@@ -260,6 +265,7 @@ describe.skipIf(!ready)("a CHR serving PPPoE, checked by RADIUS", () => {
             // The /64 is in a prefix from edge-01's pool, and each router reaches the other's address through the session.
             expect(Address.contains(DELEGATED, hosts!)).toBe(true);
             expect(circuit("exec", "cpe-01", "/ping 100.64.0.1 count=3").output).toContain("received=3");
+            expect(answers(hosts!)).toBe(true);
             expect(circuit("exec", "edge-01", `/ping ${hosts} src-address=${EDGE_IPV6} count=3`).output).toContain("received=3");
 
             // The session's address, its prefix, and the /64 each interface took change nothing the plan reads.
@@ -321,6 +327,7 @@ describe.skipIf(!ready)("a CHR serving PPPoE, checked by RADIUS", () => {
             circuit("exec", "cpe-01", "/ipv6 dhcp-client print detail");
             expect(Address.contains(radiusPrefix!, hosts!)).toBe(true);
             expect(Address.contains(DELEGATED, hosts!)).toBe(false);
+            expect(answers(hosts!)).toBe(true);
             expect(circuit("exec", "edge-01", `/ping ${hosts} src-address=${EDGE_IPV6} count=3`).output).toContain("received=3");
 
             // The Solicit carries the hint as an IA Prefix of ::/60 (RFC 8168).

@@ -21,11 +21,11 @@ const router = (tables: string[]) => ({
         ethernet: {
             "1g-1": { dhcp_client: { default_routes: [{ routing_table: "biznet" }, { routing_table: "biznet2", distance: 200 }] } },
         },
-        loopback: { lo: { addresses: ["192.0.2.1/32"] } },
+        loopback: { loopback: { addresses: ["192.0.2.1/32"] } },
         wireguard: { wg1: { listen_port: 51811, routing_table: "biznet2", private_key: { secret: "WG" } } },
     },
     routing: { tables: Object.fromEntries(tables.map((table) => [table, {}])) },
-    services: { upnp: { internal: ["lan9"], external: "lo" } },
+    services: { upnp: { internal: ["lan9"], external: "loopback" } },
 });
 
 beforeAll(async () => {

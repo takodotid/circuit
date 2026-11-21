@@ -32,6 +32,7 @@ import { Derive } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
+import { RouterOsPseudowire } from "./pseudowire";
 import { RouterOsQueues } from "./queues";
 import { RouterOsSchedulers } from "./schedulers";
 import { RouterOsRender } from "./render";
@@ -70,11 +71,8 @@ export class RouterOs extends Platform {
     private static readonly NO_VPNV6 =
         "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
 
-    /** A pseudowire's L2MTU, the MTU it tells the far PE, when its `mtu` is left out, and the least `mtu` Circuit writes. */
-    private static readonly PSEUDOWIRE_MTU = 1500;
-
-    /** The largest MTU of a VLAN interface on a bridge where a pseudowire runs: `PSEUDOWIRE_MTU` less a VLAN tag (TRAPS.md). */
-    private static readonly PSEUDOWIRE_VLAN_MTU = 1496;
+    /** RouterOS 7 has a loopback interface of its own by this name, and refuses another interface by it (TRAPS.md). */
+    private static readonly OWN_LOOPBACK = "lo";
 
     /** Version 6 has another BGP and filter language. */
     private static readonly SUPPORTED_MAJOR = 7;
@@ -257,26 +255,14 @@ export class RouterOs extends Platform {
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
+        for (const { name, kind } of Derive.interfaces(device))
+            if (name === RouterOs.OWN_LOOPBACK)
+                found.push(
+                    `interfaces.${kind}.${name}, the name of RouterOS's own loopback interface: write another name${kind === "loopback" ? ", such as loopback" : ""}`
+                );
         // MikroTik's changelog adds it in 7.25, which no device here runs yet.
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
-        const pseudowires = RouterOsSyntax.entries(device.interfaces?.pseudowire);
-        for (const [name, pseudowire] of pseudowires) {
-            if (device.switching?.vlans?.[pseudowire.access_vlan]?.private_vlan)
-                found.push(
-                    `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a private VLAN, not built for a pseudowire yet`
-                );
-            // A lower MTU would lower the bridge's VLAN interfaces with it, before which RouterOS refuses it (TRAPS.md).
-            if (pseudowire.mtu !== undefined && pseudowire.mtu < RouterOs.PSEUDOWIRE_MTU)
-                found.push(
-                    `interfaces.pseudowire.${name}.mtu ${pseudowire.mtu}: RouterOS refuses a pseudowire MTU below a VLAN interface's on its bridge with a tag, and the plan does not lower those first. Write ${RouterOs.PSEUDOWIRE_MTU} or more`
-                );
-        }
-        // A running pseudowire's L2MTU is the bridge's, so each VLAN interface on the bridge is lowered to it less a tag (TRAPS.md).
-        for (const [name, iface] of pseudowires.length ? RouterOsSyntax.entries(device.interfaces?.vlan_interface) : [])
-            if (iface.mtu === undefined || iface.mtu > RouterOs.PSEUDOWIRE_VLAN_MTU)
-                found.push(
-                    `interfaces.vlan_interface.${name}.mtu ${iface.mtu ?? "left out, 1500"} beside a pseudowire: RouterOS lowers it to ${RouterOs.PSEUDOWIRE_VLAN_MTU} once the pseudowire runs, and refuses more. Write mtu: ${RouterOs.PSEUDOWIRE_VLAN_MTU} or less`
-                );
+        found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
         (device.firewall?.nat?.source ?? []).forEach((rule, index) => {

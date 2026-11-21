@@ -108,6 +108,15 @@ test("RouterOS refuses an inner VLAN interface with a MAC, and a VLAN whose name
         "interfaces.vlan_interface.cust-1001.mac beside inner_vlan_id, not tested on a device yet",
         "switching.vlans.hall-2: RouterOS names the VLAN interface of its outer tag after the VLAN, and interfaces.loopback.hall-2 has that name. Rename one, or write a plain VLAN interface on hall-2",
     ]);
+
+    const own = ccr("0x8100");
+    own.switching!.vlans = { lo: { id: 600 }, servers: { id: 100 } };
+    own.interfaces!.ethernet!["25g-3"] = { qinq_vlan: "lo" };
+    own.interfaces!.ethernet!["25g-4"] = { trunk_vlans: ["lo", "servers"] };
+    own.interfaces!.vlan_interface!["cust-1001"]!.vlan = "lo";
+    expect(routeros.unsupported(own)).toEqual([
+        "switching.vlans.lo: RouterOS names the VLAN interface of its outer tag after the VLAN, and RouterOS's own loopback has that name. Rename one, or write a plain VLAN interface on lo",
+    ]);
 });
 
 test("Junos can't set the TPID on 21.4, and no other platform builds either key yet", () => {

@@ -15,6 +15,12 @@ export class RouterOsVlanTags {
     /** What the router has not been tried with on an 802.1ad bridge. */
     private static readonly UNTESTED = "not tested on a bridge with tpid 0x88a8 yet";
 
+    /** Interface names the render or RouterOS itself holds: the bridge, and RouterOS 7's own loopback, `lo` (TRAPS.md). */
+    private static readonly RESERVED: Partial<Record<string, string>> = {
+        [RouterOsVlanTags.BRIDGE]: "the bridge of the switched ports",
+        lo: "RouterOS's own loopback",
+    };
+
     /** The bridge's TPID, when it is 802.1ad's. It is one for every port of the bridge, so `unsupported()` wants it on each switched port and LAG. */
     static tpid(device: Device): typeof RouterOsVlanTags.SERVICE_TAG | undefined {
         const serviceTag = Derive.switchedHolders(device).some(({ settings }) => settings.tpid === RouterOsVlanTags.SERVICE_TAG);
@@ -146,7 +152,7 @@ export class RouterOsVlanTags {
         for (const port of Catalog.devicePorts(device))
             taken.set(Catalog.spell(device.platform, device.model, port), `interfaces.ethernet.${port}`);
         for (const vlan of RouterOsVlanTags.madeOuter(device)) {
-            const holder = taken.get(vlan) ?? (vlan === RouterOsVlanTags.BRIDGE ? "the bridge of the switched ports" : undefined);
+            const holder = taken.get(vlan) ?? RouterOsVlanTags.RESERVED[vlan];
             if (holder)
                 found.push(
                     `switching.vlans.${vlan}: RouterOS names the VLAN interface of its outer tag after the VLAN, and ${holder} has that name. Rename one, or write a plain VLAN interface on ${vlan}`
