@@ -160,9 +160,13 @@ export type Switched<Vlan extends string> = {
     /** The VLAN for untagged frames on a trunk, from `switching.vlans`. Only with `trunk_vlans`. */
     native_vlan?: Vlan;
     /**
-     * QinQ: every frame that arrives on this port or LAG, tagged or not, takes this VLAN's tag on top, and a frame that leaves loses it. So a customer's own VLANs cross your network inside one VLAN, from `switching.vlans`. A trunk carries it as any other VLAN, each frame 4 bytes longer. The outer tag is 0x8100, as on any trunk, not IEEE 802.1ad's 0x88a8. DHCP snooping, ARP inspection, and RA guard don't look inside it. Not with `access_vlan` or `trunk_vlans`.
+     * QinQ: every frame that arrives on this port or LAG, tagged or not, takes this VLAN's tag on top, and a frame that leaves loses it. So a customer's own VLANs cross your network inside one VLAN, from `switching.vlans`. A trunk carries it as any other VLAN, each frame 4 bytes longer, with the trunk's `tpid`. DHCP snooping, ARP inspection, and RA guard don't look inside it. Not with `access_vlan` or `trunk_vlans`.
      */
     qinq_vlan?: Vlan;
+    /**
+     * The TPID of the VLAN tags this port or LAG sends and takes, OpenConfig's `tpid`. `0x88a8` is IEEE 802.1ad's service tag (S-tag), such as on a trunk that carries QinQ VLANs to another provider. A frame tagged with another TPID counts as untagged: an access port with `0x88a8` takes a frame tagged 0x8100 into its VLAN, with its tag inside. Write the same at the far end. `0x8100`, 802.1Q's customer tag, when absent.
+     */
+    tpid?: "0x8100" | "0x88a8";
     /**
      * VLAN translation (IEEE 802.1Q's VID translation): a frame that arrives tagged `from` is switched in VLAN `to`, and a frame of `to` leaves tagged `from`. So a switch or a customer on the far end keeps its own VLAN IDs, such as `[{ from: 20, to: "mgmt" }]`. Each `to` is one of `trunk_vlans`, once. No `from` is the ID of a VLAN the port carries.
      */
@@ -279,8 +283,12 @@ export type Base<Vrf extends string> = Routed<Vrf> & {
 
 /** A layer 3 interface on a VLAN. */
 export type VlanInterface<Vlan extends string, Vrf extends string, Scheduler extends string = string> = Base<Vrf> & {
-    /** The VLAN it is on, from `switching.vlans`. */
+    /** The VLAN it is on, from `switching.vlans`. With `inner_vlan_id`, its tag is the outer one. */
     vlan: Vlan;
+    /**
+     * QinQ: the ID of the inner tag, 1 to 4094, OpenConfig's `inner-vlan-id`. The interface ends one customer VLAN inside `vlan`, as a BNG or a PE does. It takes the frames of `vlan` whose inner tag has this ID, and sends its own with both tags, such as `{ vlan: "olt-3", inner_vlan_id: 1001 }`. The outer tag has the `tpid` of the ports that carry `vlan`, and the inner tag is 0x8100.
+     */
+    inner_vlan_id?: number;
     /**
      * A MAC address of its own, instead of the one it shares with the device's other VLAN interfaces. A gateway in front of a transparent firewall needs one. Frames to it come back on another VLAN, and with a shared MAC the bridge would take them as its own and keep them.
      */

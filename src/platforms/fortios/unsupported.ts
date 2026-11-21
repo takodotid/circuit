@@ -35,6 +35,8 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.systemGaps(device));
         found.push(...FortiOsUnsupported.managementGaps(device));
         found.push(...FortiOsUnsupported.interfaceGaps(device));
+        const { tpid, innerVlans } = Derive.stackedTags(device);
+        for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
         found.push(...FortiOsIpsec.gaps(device));
         found.push(...FortiOsRender.sourceCheck(device).gaps);
         found.push(...FortiOsUnsupported.staticGaps(device));

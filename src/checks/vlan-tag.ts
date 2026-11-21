@@ -3,7 +3,7 @@ import type { Device, Lag, Port } from "../model";
 
 type Report = (message: string) => void;
 
-/** How a port or LAG tags its VLANs beyond a plain trunk: QinQ, and VLAN translation as IEEE 802.1Q's VID translation table allows it. */
+/** How a port or LAG tags its VLANs beyond a plain trunk: QinQ, its TPID, and VLAN translation as IEEE 802.1Q's VID translation table allows it. A VLAN interface's inner VLAN. */
 export class VlanTagChecks {
     /** The highest VLAN ID (IEEE 802.1Q): 4095 is reserved. */
     private static readonly MAX_VLAN_ID = 4094;
@@ -12,6 +12,37 @@ export class VlanTagChecks {
         for (const { where, settings } of Derive.switchedHolders(device)) {
             VlanTagChecks.qinq(where, settings, device, report);
             VlanTagChecks.translation(where, settings, device, report);
+            VlanTagChecks.tpid(where, settings, report);
+        }
+        VlanTagChecks.innerVlans(device, report);
+    }
+
+    /** A TPID is that of the tags a switched port or LAG carries. A LAG's members carry the LAG's. */
+    private static tpid(where: string, settings: Port | Lag, report: Report): void {
+        if (settings.tpid === undefined) return;
+
+        const lag = (settings as Port).in_lag;
+        if (lag) report(`${where}.tpid is on a member of ${lag}: write it on the LAG`);
+        else if (!settings.access_vlan && !settings.trunk_vlans && !settings.qinq_vlan)
+            report(`${where}.tpid is on a port that switches no VLAN: write it where access_vlan, trunk_vlans, or qinq_vlan is`);
+    }
+
+    /** An inner VLAN ID is a VLAN ID, and one VLAN interface ends each inner VLAN of an outer one. */
+    private static innerVlans(device: Device, report: Report): void {
+        const ended = new Map<string, string>();
+
+        for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
+            const id = iface?.inner_vlan_id;
+            if (!iface || id === undefined) continue;
+
+            const where = `interfaces.vlan_interface.${name}`;
+            if (!Number.isInteger(id) || id < 1 || id > VlanTagChecks.MAX_VLAN_ID)
+                report(`${where}.inner_vlan_id ${id} is outside 1-${VlanTagChecks.MAX_VLAN_ID}`);
+
+            const pair = `${iface.vlan} ${id}`;
+            const other = ended.get(pair);
+            if (other) report(`${where} ends inner VLAN ${id} of ${iface.vlan}, as interfaces.vlan_interface.${other} does: keep one`);
+            ended.set(pair, name);
         }
     }
 
