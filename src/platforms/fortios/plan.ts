@@ -190,6 +190,7 @@ export class FortiOsPlan {
         "firewall service custom": { factory: FortiOsPlan.FACTORY_SERVICES },
         "firewall policy": FortiOsPlan.ORDERED,
         "firewall policy6": FortiOsPlan.ORDERED,
+        "firewall policy64": FortiOsPlan.ORDERED,
         "firewall shaper traffic-shaper": { factory: FortiOsShaping.FACTORY_SHAPERS },
         "firewall shaping-policy": { numbered: { keys: [["name"]] } },
         "firewall local-in-policy": FortiOsPlan.ORDERED,
@@ -250,8 +251,11 @@ export class FortiOsPlan {
         "router ospf6": FortiOsPlan.OSPF_DEFAULTS,
         "router isis": { "is-type": "level-1-2" },
         "firewall ippool": { "block-size": "128", "num-blocks-per-user": "8" },
+        // RFC 6052's well-known prefix.
+        "system nat64": { "nat64-prefix": "64:ff9b::/96" },
         "firewall policy": FortiOsPlan.DENY,
         "firewall policy6": FortiOsPlan.DENY,
+        "firewall policy64": FortiOsPlan.DENY,
         "firewall local-in-policy": FortiOsPlan.DENY,
         "firewall local-in-policy6": FortiOsPlan.DENY,
     };

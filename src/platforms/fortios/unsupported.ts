@@ -7,6 +7,7 @@ import { FortiOsFirewall } from "./firewall";
 import { FortiOsIpsec } from "./ipsec";
 import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
+import { FortiOsNat64 } from "./nat64";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsShaping } from "./shaping";
@@ -42,6 +43,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
         found.push(...FortiOsUnsupported.firewallGaps(device));
+        found.push(...FortiOsNat64.gaps(device));
         found.push(...FortiOsUnsupported.serviceGaps(device));
 
         for (const field of ["stp", "dhcp_snooping", "arp_inspection", "ra_guard"] as const)
@@ -526,9 +528,10 @@ export class FortiOsUnsupported {
             const match = rule.if;
             found.push(...FortiOsUnsupported.listGaps(where, match));
 
-            if (FortiOsFirewall.familiesOf(device, match).includes("ipv6") && (match?.family === "ipv6" || match?.src || match?.dst)) {
-                found.push(`${where}, IPv6: central NAT translates IPv4`);
-            }
+            const nat64 = rule.then === "nat64";
+            const ipv6 =
+                FortiOsFirewall.familiesOf(device, match).includes("ipv6") && (match?.family === "ipv6" || match?.src || match?.dst);
+            if (ipv6 && !nat64) found.push(`${where}, IPv6: central NAT translates IPv4`);
 
             if (rule.then === "dnat") found.push(`${where}.then dnat, in source NAT`);
             if ("to_pool" in rule) {
@@ -537,7 +540,7 @@ export class FortiOsUnsupported {
                 if (Address.family(rule.to_address) === "ipv6") found.push(`${where}.to_address, IPv6: central NAT translates IPv4`);
                 if (rule.to_port !== undefined && match?.src_port === undefined) found.push(`${where}.to_port, without if.src_port`);
             }
-            if (match?.dst_port !== undefined) found.push(`${where}.if.dst_port, central NAT matches the source port only`);
+            if (match?.dst_port !== undefined && !nat64) found.push(`${where}.if.dst_port, central NAT matches the source port only`);
             if (Array.isArray(match?.src_port)) found.push(`${where}.if.src_port, one port or range`);
             if ((match?.src && match.src_address_set) || (match?.dst && match.dst_address_set))
                 found.push(`${where}.if, a prefix and a set on one side`);

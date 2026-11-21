@@ -392,6 +392,13 @@ describe("samples", () => {
             "docs/academy/professional/routing-security.md": ["208.65.153.0/24", "208.65.152.0/22"],
             // Cloudflare's public resolvers, as a home router uses them.
             "examples/single-site/sites/home/router.ts": ["1.1.1.1", "1.0.0.1"],
+            // RFC 6052's well-known NAT64 prefix, which a project writes as it is.
+            "docs/guide/rules.md": ["64:ff9b::/96"],
+            "src/checks/nat64.ts": ["64:ff9b::/96"],
+            "src/config/firewall.ts": ["64:ff9b::/96"],
+            "src/config/services.ts": ["64:ff9b::/96"],
+            "src/platforms/fortios/plan.ts": ["64:ff9b::/96"],
+            "test/platforms/nat64.test.ts": ["64:ff9b::/96", "64:ff9b::"],
             // Global addresses from IANA's special-purpose registries, which Address.isGlobal must find global.
             "test/core/address.test.ts": ["192.31.196.1", "192.0.0.9", "2620:4f:8000::1", "2001:1::1", "64:ff9b::c000:201"],
         };

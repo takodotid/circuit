@@ -111,6 +111,13 @@ export type Services<I extends string, F extends string = string> = {
     pppoe_server?: Record<string, PppoeServer<I, F>>;
     /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */
     dns_server?: true;
+    /**
+     * DNS64 (RFC 6147): asked for the IPv6 addresses of a name that has IPv4 addresses alone, the DNS server answers with each IPv4 address embedded in `prefix`. A NAT64 translates them (`then: "nat64"`). A name with IPv6 addresses gets those. Needs `dns_server`. Off when absent.
+     */
+    dns64?: {
+        /** The NAT64 prefix it builds addresses in (RFC 6052), such as the well-known `64:ff9b::/96`: the `if.dst` of the NAT64 rule that translates them. */
+        prefix: `${IPv6}/${number}`;
+    };
     /** Answer time queries from others. Off when absent. Raisecom ROS answers them whenever it takes time from `system.ntp`, and has no setting to stop it, so Circuit writes nothing for it there and warns when it is absent. */
     ntp_server?: true;
     /** Let hosts behind source NAT open their own ports. Off when absent. */
