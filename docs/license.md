@@ -48,3 +48,21 @@ Circuit is maintained by the {{ circuit.author.name }}, <a :href="`mailto:${circ
 - Paul Miller's [noble-ciphers](https://github.com/paulmillr/noble-ciphers) and [noble-hashes](https://github.com/paulmillr/noble-hashes), for decrypting secrets in Studio.
 - [VitePress](https://vitepress.dev), for this website.
 - The [NLNOG Ring looking glass](https://github.com/NLNOG/lg.ring.nlnog.net), for its community format.
+
+### Networks in the samples
+
+The companies and AS numbers named as customers in the docs and examples are real networks, chosen as samples. None of them is a customer of Circuit's authors, and nothing here describes their real setup. A company that would rather not appear can [open an issue](https://github.com/takodotid/circuit/issues), and it will be replaced.
+
+<!-- vale off -->
+
+| Network                                 | AS       | Country    |
+| --------------------------------------- | -------- | ---------- |
+| Terramix S.A.                           | AS274016 | Costa Rica |
+| Elemech Contractors Proprietary Limited | AS329604 | Botswana   |
+| Novaram ApS                             | AS34165  | Denmark    |
+| iGP Tech d.o.o.                         | AS43023  | Croatia    |
+| Sea Gem Company Limited                 | AS135975 | Vietnam    |
+| Aluxis Inc                              | AS402237 | Canada     |
+| Inversiones y servicios EL BOLDO S.A    | AS27776  | Chile      |
+
+<!-- vale on -->

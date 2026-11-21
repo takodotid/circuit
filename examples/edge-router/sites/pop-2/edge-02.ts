@@ -1,4 +1,4 @@
-// The second edge router, a Juniper QFX5100 at AMS-IX. It peers through the exchange's route servers and with Hurricane Electric, and sells transit to a customer with its own AS.
+// The second edge router, a Juniper QFX5100 at AMS-IX. It peers through the exchange's route servers and with Hurricane Electric, and sells transit to Novaram, AS34165, a customer with its own AS.
 // The addresses are documentation ranges, so use the ones the exchange and the customer give you.
 
 import { as64500 } from "../../circuit";
@@ -56,7 +56,7 @@ export default as64500.device({
             // #region urpf
             // Strict uRPF drops what arrives from an address not routed back through the same interface. So the customer can send only from the block we route to it and from its end of the link, and a server only from its own subnet (BCP 38).
             "10g-2": {
-                description: "AS64501",
+                description: "Novaram",
                 addresses: ["198.51.100.129/30", "2001:db8:100:ff::1/64"],
                 urpf: { ipv4: "strict", ipv6: "strict" },
             },
@@ -156,10 +156,10 @@ export default as64500.device({
                     communities: { groups: ["exchange"] },
                 },
                 // #endregion prefix-limits
-                as64501: {
+                novaram: {
                     address: "198.51.100.130",
-                    remote_as: 64501,
-                    description: "AS64501, a transit customer",
+                    remote_as: 34165,
+                    description: "Novaram, a transit customer",
                     max_prefixes: 10,
                     graceful_restart: true,
                     import_policy: "customer-import",
@@ -185,15 +185,18 @@ export default as64500.device({
                 { description: "Bogons", if: { prefix_set: "bogons-v6" }, then: "reject" },
                 { if: { prefix_set: "ours-v4" }, then: "reject" },
                 { if: { prefix_set: "ours-v6" }, then: "reject" },
-                // Through a route server, the first AS is the member that sent the route. AS64501's customers reach us through AS64501, which pays for it.
-                { description: "AS64501's customers", if: { first_as: { min: 64502, max: 64505 } }, then: "reject" },
+                // Through a route server, the first AS is the member that sent the route. Novaram's customers, iGP Tech, AS43023, and Sea Gem, AS135975, reach us through Novaram, which pays for it.
+                { description: "Novaram's customers", if: { first_as: [43023, 135975] }, then: "reject" },
+                // AS64496 to AS64499, one company's networks, announce space that isn't theirs. Nothing they send or originate is taken.
+                { description: "Hijacks from AS64496 to AS64499", if: { first_as: { min: 64496, max: 64499 } }, then: "reject" },
+                { description: "Hijacks from AS64496 to AS64499", if: { origin_as: { min: 64496, max: 64499 } }, then: "reject" },
                 { set: { local_pref: 200 }, then: "accept" },
             ],
             "customer-import": [
-                // AS64501 announces the block itself, or for one of its own customers, AS64502 to AS64505.
+                // Novaram announces the block itself, or for one of its own customers, iGP Tech or Sea Gem.
                 {
                     description: "The block we gave it",
-                    if: { prefix: "198.51.100.192/26", first_as: 64501, origin_as: [64501, { min: 64502, max: 64505 }] },
+                    if: { prefix: "198.51.100.192/26", first_as: 34165, origin_as: [34165, 43023, 135975] },
                     then: "accept",
                 },
                 { then: "reject" },
