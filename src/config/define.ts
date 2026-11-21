@@ -56,6 +56,8 @@ type Declared<
     IS extends string,
     U extends string,
     C extends string,
+    QC extends string,
+    SC extends string,
 > = {
     port: Pt;
     lag: L;
@@ -72,6 +74,8 @@ type Declared<
     interfaceSet: IS;
     user: U;
     certificate: C;
+    qosClass: QC;
+    scheduler: SC;
     anyInterface: Pt | L | VI | I;
 };
 
@@ -103,6 +107,8 @@ type NamesOf<D> = {
     interfaceSet: KeysAt<D, "firewall", "interface_sets">;
     user: KeysAt<D, "system", "users">;
     certificate: KeysAt<D, "system", "certificates">;
+    qosClass: KeysAt<D, "qos", "classes">;
+    scheduler: KeysAt<D, "qos", "schedulers">;
     anyInterface: KeysAt<
         D,
         "interfaces",
@@ -126,7 +132,7 @@ type EthernetOf<P extends Platform, M extends Model<P>, N extends Names> = Check
     N["port"],
     PortName<P, M>,
     M,
-    Port<NoInfer<N["vlan"]>, NoInfer<N["acl"]>, NoInfer<N["lag"]>, NoInfer<N["vrf"]>, NoInfer<N["table"]>>
+    Port<NoInfer<N["vlan"]>, NoInfer<N["acl"]>, NoInfer<N["lag"]>, NoInfer<N["vrf"]>, NoInfer<N["table"]>, NoInfer<N["scheduler"]>>
 >;
 
 /** The names the device itself declares, which `device()` infers, and those its parts declare. */
@@ -174,6 +180,8 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
     const InterfaceSets extends string = never,
     const Users extends string = never,
     const Certificates extends string = never,
+    const QosClasses extends string = never,
+    const Schedulers extends string = never,
 >(
     // `site` is checked on its own. Inside the device type, a wrong site in a network of one site would add an error at each port.
     device: {
@@ -202,7 +210,9 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                                 AddressSets,
                                 InterfaceSets,
                                 Users,
-                                Certificates
+                                Certificates,
+                                QosClasses,
+                                Schedulers
                             >,
                             PartsOf<Sources, Name>
                         >,
@@ -225,7 +235,9 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                                     AddressSets,
                                     InterfaceSets,
                                     Users,
-                                    Certificates
+                                    Certificates,
+                                    QosClasses,
+                                    Schedulers
                                 >,
                                 PartsOf<Sources, Name>
                             >
@@ -254,7 +266,9 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                 AddressSets,
                 InterfaceSets,
                 Users,
-                Certificates
+                Certificates,
+                QosClasses,
+                Schedulers
             >,
             PartsOf<Sources, Name>
         >,
@@ -277,7 +291,9 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                     AddressSets,
                     InterfaceSets,
                     Users,
-                    Certificates
+                    Certificates,
+                    QosClasses,
+                    Schedulers
                 >,
                 PartsOf<Sources, Name>
             >
@@ -305,7 +321,9 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
             AddressSets,
             InterfaceSets,
             Users,
-            Certificates
+            Certificates,
+            QosClasses,
+            Schedulers
         >,
         PartsOf<Sources, Name>
     >,

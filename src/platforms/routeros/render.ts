@@ -14,6 +14,7 @@ import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
 import { RouterOsQueues } from "./queues";
 import { RouterOsRouting } from "./routing";
+import { RouterOsSchedulers } from "./schedulers";
 import { RouterOsSyntax } from "./syntax";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */
@@ -92,6 +93,7 @@ export class RouterOsRender {
         render.interfaceMenus();
         render.addressing();
         RouterOsQueues.render(render, device);
+        RouterOsSchedulers.render(render, device);
         RouterOsFirewall.render(render, device);
         RouterOsRouting.render(render, device);
         render.management();

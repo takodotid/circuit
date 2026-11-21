@@ -490,6 +490,8 @@ export class Project {
             user: new Set(Project.keys(d.system?.users)),
             certificate: new Set(Project.keys(d.system?.certificates)),
             "SNMP user": new Set(Project.keys(d.monitoring?.snmp?.users)),
+            class: new Set(Project.keys(d.qos?.classes)),
+            scheduler: new Set(Project.keys(d.qos?.schedulers)),
         };
         const need = (kind: string, value: unknown, where: string, written = "") => {
             for (const v of Project.list(value)) {
@@ -534,6 +536,7 @@ export class Project {
                 need("table", x.routing_table, `${at}.routing_table`, written);
                 need("certificate", x.certificate, `${at}.certificate`, written);
                 need("certificate", x.ca_certificate, `${at}.ca_certificate`, written);
+                need("scheduler", x.scheduler, `${at}.scheduler`, written);
                 (x.dhcp_client?.default_routes ?? []).forEach((r: Json, n: number) =>
                     need("table", r.routing_table, `${at}.dhcp_client.default_routes[${n}].routing_table`, written)
                 );
@@ -560,6 +563,10 @@ export class Project {
         }
         need("interface", d.services?.upnp?.internal, "services.upnp.internal");
         need("interface", d.services?.upnp?.external, "services.upnp.external");
+
+        need("class", d.qos?.default_class, "qos.default_class");
+        for (const [s, scheduler] of Object.entries<Json>(d.qos?.schedulers ?? {}))
+            (scheduler?.queues ?? []).forEach((q: Json, i: number) => need("class", q?.class, `qos.schedulers.${s}.queues[${i}].class`));
 
         (d.routing?.static_routes ?? []).forEach((r: Json, i: number) => {
             need("interface", r.interface, `routing.static_routes[${i}].interface`);

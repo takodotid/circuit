@@ -1,6 +1,6 @@
 // The field station's router, a MikroTik RB5009, in the library's stub area for IPv4 only. A radio links it to the observatory and the boathouse, which don't hear each other. The farm's router is on a carrier's line that carries no multicast.
 
-import { campus } from "../../circuit";
+import { campus, classes } from "../../circuit";
 
 export default campus.device({
     name: "field-01",
@@ -18,7 +18,7 @@ export default campus.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "library-01 ether2", addresses: ["10.1.3.2/30"], link: { device: "library-01", port: "1g-1" } },
-            "1g-2": { description: "Radio to the observatory and the boathouse", addresses: ["10.1.4.1/28"] },
+            "1g-2": { description: "Radio to the observatory and the boathouse", addresses: ["10.1.4.1/28"], scheduler: "radio" },
             "1g-3": { description: "Carrier's line to the farm", addresses: ["10.1.5.1/29"] },
         },
         loopback: { loopback: { addresses: ["10.255.0.3/32"] } },
@@ -45,4 +45,24 @@ export default campus.device({
             },
         },
     },
+
+    // #region queues
+    // The radio carries 95 Mbit/s, less than the port's 1G, so the router queues what it sends to the radio, where it can choose what goes first. Network control and calls go first, each with a cap, so the rest always gets through. The other classes share what is left.
+    qos: {
+        classes,
+        default_class: "best-effort",
+        schedulers: {
+            radio: {
+                rate: "95M",
+                queues: [
+                    { class: "network", priority: "strict", max: "5M" },
+                    { class: "voice", priority: "strict", max: "20M" },
+                    { class: "video", share: 40 },
+                    { class: "best-effort", share: 50 },
+                    { class: "bulk", share: 10 },
+                ],
+            },
+        },
+    },
+    // #endregion queues
 });

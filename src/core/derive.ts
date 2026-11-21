@@ -48,6 +48,9 @@ type Announcement = { neighbor: string; prefix: string };
 /** A port, a LAG, or a VLAN interface with a rate limit, with its path, such as `interfaces.ethernet.10g-1`. */
 export type RateLimited = { where: string; name: string; kind: "ethernet" | "lag" | "vlan_interface"; rateLimit: RateLimit };
 
+/** A port, a LAG, or a VLAN interface with a scheduler, by its name in `qos.schedulers`, with its path. */
+export type Scheduled = { where: string; name: string; kind: "ethernet" | "lag" | "vlan_interface"; scheduler: string };
+
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
 
@@ -97,6 +100,7 @@ export type BuiltFeature =
     | "vrf-imports"
     | "rate-limit"
     | "marking"
+    | "queues"
     | "ospf-ranges"
     | "ospf-priority"
     | "ospf-unicast-links";
@@ -207,6 +211,16 @@ export class Derive {
         return kinds.flatMap((kind) =>
             Object.entries<{ rate_limit?: RateLimit } | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
                 settings?.rate_limit ? [{ where: `interfaces.${kind}.${name}`, name, kind, rateLimit: settings.rate_limit }] : []
+            )
+        );
+    }
+
+    /** Each port, LAG, and VLAN interface with a scheduler. */
+    static scheduled(device: Device): Scheduled[] {
+        const kinds = ["ethernet", "lag", "vlan_interface"] as const;
+        return kinds.flatMap((kind) =>
+            Object.entries<{ scheduler?: string } | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
+                settings?.scheduler ? [{ where: `interfaces.${kind}.${name}`, name, kind, scheduler: settings.scheduler }] : []
             )
         );
     }
@@ -617,6 +631,11 @@ export class Derive {
 
         if (!has("rate-limit")) for (const { where } of Derive.rateLimited(device)) found.push(`${where}.rate_limit, ${notBuilt}`);
         if (device.qos?.marking && !has("marking")) found.push(`qos.marking, ${notBuilt}`);
+        if (!has("queues")) {
+            for (const field of ["classes", "default_class", "schedulers"] as const)
+                if (device.qos?.[field] !== undefined) found.push(`qos.${field}, ${notBuilt}`);
+            for (const { where } of Derive.scheduled(device)) found.push(`${where}.scheduler, ${notBuilt}`);
+        }
 
         found.push(...Derive.unbuiltOspf(device, has));
         return found;

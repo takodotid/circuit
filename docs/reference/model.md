@@ -38,7 +38,7 @@ device
 ├─ services              what the box serves to hosts: dhcp server, dhcpv6 server, dhcp relay, pppoe server, dns server, ntp server
 ├─ routing               where packets go: tables, vrfs, policy_routing, static_routes, bgp, ospf, isis, mpls, bfd, rpki, policies, prefix sets
 ├─ firewall              which packets pass and how they are rewritten: address sets, filter, nat, tcp_mss, untracked, conntrack_helpers
-└─ qos                   how traffic is told apart by its class: marking
+└─ qos                   how traffic is told apart by its class, and how each class is sent: marking, classes, schedulers
 ```
 
 Each field's doc comment in `src/config/` says what it means.

@@ -25,6 +25,7 @@ const sidebar: DefaultTheme.SidebarItem[] = [
             { text: "Rules", link: "/guide/rules" },
             { text: "Parts and merge", link: "/guide/parts" },
             { text: "BGP communities", link: "/guide/communities" },
+            { text: "Quality of service", link: "/guide/qos" },
             { text: "Checks", link: "/guide/checks" },
             { text: "Secrets", link: "/guide/secrets" },
         ],

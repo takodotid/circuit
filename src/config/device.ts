@@ -80,6 +80,10 @@ export type Names = {
     user: string;
     /** Keys of `system.certificates`. */
     certificate: string;
+    /** Keys of `qos.classes`. */
+    qosClass: string;
+    /** Keys of `qos.schedulers`. */
+    scheduler: string;
     /** Every port and interface: `port`, `lag`, `vlanInterface`, and `interface` together. */
     anyInterface: string;
 };
@@ -104,7 +108,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
         NoInfer<N["vrf"]>,
         NoInfer<N["table"]>,
         NoInfer<N["certificate"]>,
-        NoInfer<N["anyInterface"]>
+        NoInfer<N["anyInterface"]>,
+        NoInfer<N["scheduler"]>
     >;
     /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
@@ -114,8 +119,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
     /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, and connection-tracking helpers. */
     firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"]>;
-    /** How traffic is told apart by its class: marking. */
-    qos?: Qos<NoInfer<N["anyInterface"]>, NoInfer<N["addressSet"]>, NoInfer<N["interfaceSet"]>>;
+    /** How traffic is told apart by its class, and how each class is sent: marking, classes, and schedulers. */
+    qos?: Qos<NoInfer<N["anyInterface"]>, NoInfer<N["addressSet"]>, NoInfer<N["interfaceSet"]>, N["qosClass"], N["scheduler"]>;
 };
 
 /**
@@ -158,7 +163,7 @@ export type Part<N extends Names, Ethernet, Net extends NetworkFacts = AnyFacts>
 type AnyNames = { [K in keyof Names]: string };
 
 /** A port as a part writes it, before the device it goes to checks its names. */
-export type AnyPort = Port<string, string, string, string, string>;
+export type AnyPort = Port<string, string, string, string, string, string>;
 
 /** Any device, as the network holds it. */
 export type AnyDevice = Device<string, string, string, AnyNames, Record<string, AnyPort>>;
