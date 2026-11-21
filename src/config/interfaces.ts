@@ -368,6 +368,10 @@ export type Pseudowire<Vlan extends string> = {
     pw_id: number;
     /** The VLAN it is in, from `switching.vlans`. Its frames cross the pseudowire without the VLAN's tag, raw mode (RFC 4448, section 4.4.1). */
     access_vlan: Vlan;
+    /** The MTU the pseudowire tells the far PE, in bytes: the largest frame it carries, without its Ethernet header (RFC 8077, section 6.4). Write the same at the far PE: RFC 8077 keeps the pseudowire down otherwise. The platform's own when absent, 1500 on RouterOS. */
+    mtu?: number;
+    /** Put the control word (RFC 4385) in front of each frame. A P router that shares traffic out among links then never takes a frame for an IP packet (RFC 4448, section 4.6). The platform's own when absent, without it on RouterOS. */
+    control_word?: boolean;
 };
 
 /** An encryption algorithm with its key length in bits (IANA, IKEv2 transform type 1). A `gcm` one also protects integrity (AEAD, RFC 4106 and RFC 5282), so it takes no `integrity`. */

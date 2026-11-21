@@ -85,6 +85,16 @@ export class L3vpnChecks {
                 );
 
             for (const way of ["import", "export"] as const) {
+                const policy = vrf?.[`${way}_policy`];
+                const picks =
+                    way === "import"
+                        ? "the VPN routes the VRF takes, and it takes"
+                        : "the routes the VRF sends as VPN routes, and it sends";
+                if (policy !== undefined && !targets?.[way]?.length)
+                    report(
+                        `${at}.${way}_policy ${policy} picks ${picks} none without ${way} targets. Write route_targets.${way}, or remove ${way}_policy`
+                    );
+
                 const seen = new Set<string>();
                 for (const target of targets?.[way] ?? []) {
                     const problem = L3vpnChecks.valueProblem(target);

@@ -34,11 +34,17 @@ export class RouterOsRouting {
     /** Names the output chain of a session with `send_default_route`, which accepts the default route and hands every other route to its export's chain. */
     private static readonly WITH_DEFAULT = "DEFAULT";
 
-    /** Names the chain of a policy in `routing.vrf_imports`, which hands each route to the policy's chain for its family. */
+    /** Names the chain of a policy for the routes a table hands to the BGP VPN table, from `routing.vrf_imports` or a VRF's `export_policy`. It hands each route to the policy's chain for its family. */
     private static readonly IMPORTED = "VRF";
+
+    /** Names the chain of a VRF's `import_policy`, for the VPN routes it takes. It hands each to the policy's chain for its family, which matches the route's prefix without its route distinguisher (TRAPS.md). */
+    private static readonly FROM_VPN = "FROM-VPN";
 
     /** What a table hands to the BGP VPN table for another to take: every route but those of the VPN table itself. */
     private static readonly EXPORTED = "connected,static,ospf,bgp";
+
+    /** The prefix every IPv4 prefix is inside, so a label filter for it matches every label. */
+    private static readonly EVERY_IPV4 = presets.default_routes.ipv4;
 
     /** The chain of a session that carries VPN routes only. It takes them, which their route targets pick, and rejects the rest (TRAPS.md). */
     private static readonly VPN = "VPN";
@@ -195,6 +201,38 @@ export class RouterOsRouting {
             if (settings?.bfd) found.push(`${where}.bfd, RouterOS 7.24 has no BFD for IS-IS`);
             if (settings?.passive && settings.metric !== undefined)
                 found.push(`${where}.metric with passive, RouterOS refuses a metric on a passive interface`);
+        }
+        return found;
+    }
+
+    /** What a label filter can't match: a prefix but not those inside it, a length, or a prefix and a prefix set at once. A set from a registry, whose prefixes `validate` never fetches, would be a filter for each. */
+    static ldpGaps(device: Device): string[] {
+        const ldp = device.routing?.mpls?.ldp;
+        const policies = device.routing?.policies ?? {};
+        const pending = [...new Set([ldp?.import_policy, ldp?.export_policy].filter((policy) => policy !== undefined))];
+        const found: string[] = [];
+
+        // A policy called on the way is looked at once, after those LDP names.
+        for (const policy of pending) {
+            (policies[policy] ?? []).forEach((rule, index) => {
+                if (rule.call !== undefined && !pending.includes(rule.call)) pending.push(rule.call);
+                const match = RouterOsRouting.onRoutes(rule) ? rule.if : undefined;
+                const where = `routing.policies.${policy}[${index}].if`;
+                const prefix = match?.prefix;
+                if (prefix && Address.family(Address.host(prefix)) === "ipv4" && !prefix.endsWith("/32"))
+                    found.push(
+                        `${where}.prefix ${prefix} in an LDP policy: a RouterOS label filter matches the prefixes inside it too. Write a prefix set, which matches so`
+                    );
+                if (prefix && match.prefix_set)
+                    found.push(`${where}, prefix and prefix_set at once in an LDP policy: a RouterOS label filter matches one prefix`);
+                if (match?.prefix_length)
+                    found.push(`${where}.prefix_length in an LDP policy: a RouterOS label filter matches a prefix only`);
+                const set = match?.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
+                if (set && "source" in set)
+                    found.push(
+                        `${where}.prefix_set ${match!.prefix_set}, from a registry, in an LDP policy: RouterOS writes a label filter for each prefix. Write the prefixes`
+                    );
+            });
         }
         return found;
     }
@@ -451,9 +489,15 @@ export class RouterOsRouting {
             }
         }
 
-        // A table takes routes of both families.
-        const imported = [...new Set((this.device.routing?.vrf_imports ?? []).map(({ policy }) => policy))].sort();
-        for (const policy of imported) for (const family of ["ipv4", "ipv6"] as const) want(policy, family);
+        // A table hands routes of both families to the VPN table, and takes both from it.
+        const vrfs = Object.values(this.device.routing?.vrfs ?? {});
+        const unique = (names: (string | undefined)[]) => [...new Set(names.filter((name) => name !== undefined))].sort();
+        const imported = unique([
+            ...(this.device.routing?.vrf_imports ?? []).map(({ policy }) => policy),
+            ...vrfs.map((vrf) => vrf?.export_policy),
+        ]);
+        const fromVpn = unique(vrfs.map((vrf) => vrf?.import_policy));
+        for (const policy of [...imported, ...fromVpn]) for (const family of ["ipv4", "ipv6"] as const) want(policy, family);
 
         const called = new Set(Object.values(policies).flatMap((rules) => (rules ?? []).flatMap((rule) => (rule.call ? [rule.call] : []))));
 
@@ -496,13 +540,16 @@ export class RouterOsRouting {
 
         this.vpnChains();
 
-        // The VPN table takes both families through one chain (TRAPS.md).
-        for (const policy of imported) {
-            const chain = `${policy}-${RouterOsRouting.IMPORTED}`;
+        // The VPN table takes both families through one chain. A VRF takes both from it through another, where each route is of a VPN family (TRAPS.md).
+        const chains = [
+            ...imported.map((policy) => ({ chain: `${policy}-${RouterOsRouting.IMPORTED}`, policy, afi: { ipv4: "ipv4", ipv6: "ipv6" } })),
+            ...fromVpn.map((policy) => ({ chain: `${policy}-${RouterOsRouting.FROM_VPN}`, policy, afi: { ipv4: "vpnv4", ipv6: "vpnv6" } })),
+        ];
+        for (const { chain, policy, afi } of chains) {
             for (const family of ["ipv4", "ipv6"] as const)
                 this.render.add("/routing filter rule", "add", {
                     chain,
-                    rule: `if (afi ${family}) { jump ${RouterOsRouting.chainName(policy, family)} }`,
+                    rule: `if (afi ${afi[family]}) { jump ${RouterOsRouting.chainName(policy, family)} }`,
                 });
             this.render.add("/routing filter rule", "add", { chain, rule: "reject" });
         }
@@ -718,7 +765,7 @@ export class RouterOsRouting {
     }
 
     /**
-     * Each VRF in an L3VPN (RFC 4364) hands every route it holds to the BGP VPN table with its export targets. It takes the VPN routes with an import target, as MikroTik's VRF guide sets it up. One label stands for the whole VRF, not one per prefix.
+     * Each VRF in an L3VPN (RFC 4364) hands every route it holds to the BGP VPN table with its export targets, through its export policy's chain. It takes the VPN routes with an import target, through its import policy's chain, as MikroTik's VRF guide sets it up. One label stands for the whole VRF, not one per prefix.
      */
     private vpns(): void {
         for (const [vrf, settings] of RouterOsSyntax.entries(this.device.routing?.vrfs)) {
@@ -727,9 +774,12 @@ export class RouterOsRouting {
 
             const exported = settings.route_targets?.export ?? [];
             const imported = settings.route_targets?.import ?? [];
+            const { export_policy: exportPolicy, import_policy: importPolicy } = settings;
             this.render.add("/routing bgp vpn", "add", {
+                "export.filter-chain": exportPolicy && `${exportPolicy}-${RouterOsRouting.IMPORTED}`,
                 "export.redistribute": exported.length ? RouterOsRouting.EXPORTED : undefined,
                 "export.route-targets": exported.length ? exported.join(",") : undefined,
+                "import.filter-chain": importPolicy && `${importPolicy}-${RouterOsRouting.FROM_VPN}`,
                 "import.route-targets": imported.length ? imported.join(",") : undefined,
                 instance: "default",
                 "label-allocation-policy": "per-vrf",
@@ -749,6 +799,36 @@ export class RouterOsRouting {
         for (const iface of interfaces) this.render.add("/mpls interface", "add", { interface: iface });
         this.render.add("/mpls ldp", "add", { afi: "ip", "lsr-id": ldp.lsr_id, "transport-addresses": ldp.lsr_id });
         for (const iface of interfaces) this.render.add("/mpls ldp interface", "add", { interface: iface });
+        this.ldpFilters("/mpls ldp accept-filter", "accept", ldp.import_policy);
+        this.ldpFilters("/mpls ldp advertise-filter", "advertise", ldp.export_policy);
+    }
+
+    /**
+     * An LDP policy as label filters, in its order: an entry for each prefix a rule matches, with the rule's decision. A filter matches its prefix and every prefix inside it, as `prefix_set` does. With no entry matching, RouterOS takes the label, so the filters end in one that rejects every prefix, unless the last already decides for all.
+     */
+    private ldpFilters(menu: string, decision: "accept" | "advertise", policy: string | undefined): void {
+        if (!policy) return;
+
+        const entries = this.ldpEntries(policy, []);
+        if (entries.at(-1)?.prefix !== RouterOsRouting.EVERY_IPV4) entries.push({ prefix: RouterOsRouting.EVERY_IPV4, then: "reject" });
+        for (const { prefix, then } of entries)
+            this.render.add(menu, "add", { [decision]: RouterOsSyntax.yesNo(then === "accept"), prefix });
+    }
+
+    /** The prefixes a policy's rules match, each with the rule's decision, and in place of a call, those of the policy it calls. LDP labels IPv4 routes only, so a rule or a prefix of IPv6 has none. */
+    private ldpEntries(policy: string, calling: readonly string[]): { prefix: string; then: "accept" | "reject" }[] {
+        if (calling.includes(policy)) return [];
+
+        return (this.device.routing?.policies?.[policy] ?? []).flatMap((rule) => {
+            if (rule.call !== undefined) return this.ldpEntries(rule.call, [...calling, policy]);
+            if (!RouterOsRouting.onRoutes(rule) || !rule.then || !this.appliesTo(rule, "ipv4")) return [];
+
+            const { then } = rule;
+            let prefixes: readonly string[] = [RouterOsRouting.EVERY_IPV4];
+            if (rule.if?.prefix) prefixes = [rule.if.prefix];
+            else if (rule.if?.prefix_set) prefixes = RouterOsSyntax.prefixesOf(this.device, rule.if.prefix_set) ?? [];
+            return prefixes.filter((prefix) => Address.family(Address.host(prefix)) === "ipv4").map((prefix) => ({ prefix, then }));
+        });
     }
 
     /**

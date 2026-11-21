@@ -112,8 +112,8 @@ export class RouterOsExport {
             "tag-stacking": "no",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
-        // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md).
-        "/interface vpls": { disabled: "yes" },
+        // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md). `pw-l2mtu` and `pw-control-word` set to these print them.
+        "/interface vpls": { disabled: "yes", "pw-l2mtu": "1500", "pw-control-word": "default" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
         "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
         "/interface ethernet switch port": {
@@ -201,6 +201,7 @@ export class RouterOsExport {
             "export.route-targets": "",
             "import.route-targets": "",
             "export.filter-chain": "",
+            "import.filter-chain": "",
         },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
@@ -422,7 +423,14 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4",
             "input.limit-process-routes-ipv6",
         ],
-        "/routing bgp vpn": ["export.redistribute", "export.route-targets", "import.route-targets", "export.filter-chain"],
+        // An empty `import.filter-chain` prints as `""` (CHR, 7.24.6).
+        "/routing bgp vpn": [
+            "export.redistribute",
+            "export.route-targets",
+            "import.route-targets",
+            "export.filter-chain",
+            "import.filter-chain",
+        ],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
@@ -506,6 +514,9 @@ export class RouterOsExport {
         "/interface ethernet switch rule",
         // RADIUS servers are asked in this order.
         "/radius",
+        // The first label filter that holds a label's prefix decides.
+        "/mpls ldp accept-filter",
+        "/mpls ldp advertise-filter",
     ]);
 
     /** The whole export. A console reads until the prompt, so its export is whole. Over SSH, one that is cut is read again from a file. */

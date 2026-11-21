@@ -17,11 +17,18 @@ export class JunosMpls {
         }
     }
 
-    /** Junos has no LSR ID of its own for LDP in the main instance: it is the router ID. */
+    /** Junos has no LSR ID of its own for LDP in the main instance: it is the router ID. LDP's policies wait for a router that runs MPLS. */
     static unsupported(device: Device): string[] {
         const ldp = device.routing?.mpls?.ldp;
-        if (!ldp || ldp.lsr_id === device.routing?.router_id) return [];
+        if (!ldp) return [];
 
-        return [`routing.mpls.ldp.lsr_id ${ldp.lsr_id}, Junos takes the LSR ID from routing.router_id: write the same address in both`];
+        const found = (["import_policy", "export_policy"] as const)
+            .filter((way) => ldp[way] !== undefined)
+            .map((way) => `routing.mpls.ldp.${way}, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
+        if (ldp.lsr_id !== device.routing?.router_id)
+            found.push(
+                `routing.mpls.ldp.lsr_id ${ldp.lsr_id}, Junos takes the LSR ID from routing.router_id: write the same address in both`
+            );
+        return found;
     }
 }

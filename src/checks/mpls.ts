@@ -1,16 +1,28 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, Mpls } from "../model";
+import type { Device, Mpls, RouteMatch } from "../model";
 
 type Report = (message: string) => void;
 
 /** MPLS in the main table, with LDP (RFC 5036) between LSR IDs that the IGP carries. */
 export class MplsChecks {
+    /** What an LDP policy's rules match: a label has a prefix, and nothing else a route policy matches. */
+    private static readonly LDP_MATCHES: readonly string[] = [
+        "family",
+        "prefix",
+        "prefix_set",
+        "prefix_length",
+    ] satisfies (keyof RouteMatch)[];
+
     static check(device: Device, report: Report): void {
         const ldp = device.routing?.mpls?.ldp;
         if (!ldp) return;
 
         MplsChecks.lsrId(device, ldp, report);
+        for (const way of ["import_policy", "export_policy"] as const) {
+            const policy = ldp[way];
+            if (policy) MplsChecks.ldpPolicy(device, `routing.mpls.ldp.${way} ${policy}`, policy, new Set(), report);
+        }
 
         const seen = new Set<string>();
         for (const name of ldp.interfaces) {
@@ -74,5 +86,24 @@ export class MplsChecks {
             report(
                 `${at} is on loopback ${name}, which neither OSPF nor IS-IS announces, so other LDP routers can't reach it. Add ${name} to routing.isis.interfaces, or to an area of routing.ospf, with passive: true`
             );
+    }
+
+    /** A policy LDP uses, and each one it calls, matches a label's prefix only, and sets nothing. */
+    private static ldpPolicy(device: Device, at: string, name: string, seen: Set<string>, report: Report): void {
+        if (seen.has(name)) return;
+        seen.add(name);
+
+        (device.routing?.policies?.[name] ?? []).forEach((rule, index) => {
+            if (rule.call !== undefined) return MplsChecks.ldpPolicy(device, at, rule.call, seen, report);
+            if (rule.communities !== undefined) return;
+
+            const where = `${at}: routing.policies.${name}[${index}]`;
+            const other = Object.keys(rule.if ?? {}).filter((key) => !MplsChecks.LDP_MATCHES.includes(key));
+            if (other.length)
+                report(
+                    `${where}.if has ${other.join(", ")}, and an LDP label has only a prefix. Match ${MplsChecks.LDP_MATCHES.join(", ")}`
+                );
+            if (rule.set) report(`${where}.set, and an LDP label has nothing to set. Remove set, and write then: "accept" or "reject"`);
+        });
     }
 }

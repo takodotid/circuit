@@ -23,9 +23,16 @@ export default as64500.device({
             "100g-1": { description: "pe-02 qsfp28-1-1", addresses: ["10.0.12.1/30"], link: { device: "pe-02", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.1/32"] } },
-        // The clinic's frames cross the core to pe-02 on this pseudowire, which has the same pw_id there.
+        // The clinic's frames cross the core to pe-02 on this pseudowire, which has the same pw_id, MTU, and control word there.
         pseudowire: {
-            "pw-clinic": { description: "Clinic, to site 2 at pe-02", peer: "10.255.0.2", pw_id: 201, access_vlan: "clinic" },
+            "pw-clinic": {
+                description: "Clinic, to site 2 at pe-02",
+                peer: "10.255.0.2",
+                pw_id: 201,
+                access_vlan: "clinic",
+                mtu: 1500,
+                control_word: true,
+            },
         },
     },
 
@@ -42,6 +49,9 @@ export default as64500.device({
                 description: "Bank, offices 1 and 2",
                 route_distinguisher: "64500:101",
                 route_targets: { import: ["64500:101"], export: ["64500:101"] },
+                // Only the offices' networks cross the core, not the links to the bank's routers.
+                import_policy: "bank-offices",
+                export_policy: "bank-offices",
             },
         },
         static_routes: [{ prefix: "10.1.1.0/24", next_hop: "172.16.1.2", vrf: "bank", description: "Bank, office 1's network" }],
@@ -55,8 +65,8 @@ export default as64500.device({
                 "100g-1": { network: "point-to-point", metric: 10 },
             },
         },
-        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-02.
-        mpls: { ldp: { lsr_id: "10.255.0.1", interfaces: ["100g-1"] } },
+        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-02, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
+        mpls: { ldp: { lsr_id: "10.255.0.1", interfaces: ["100g-1"], import_policy: "loopbacks", export_policy: "loopbacks" } },
         // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
         bgp: {
             neighbors: {
@@ -68,6 +78,14 @@ export default as64500.device({
                     address_families: ["vpnv4"],
                 },
             },
+        },
+        prefix_sets: {
+            "bank-offices": { prefixes: ["10.1.0.0/16"] },
+            loopbacks: { prefixes: ["10.255.0.0/24"] },
+        },
+        policies: {
+            "bank-offices": [{ if: { prefix_set: "bank-offices" }, then: "accept" }, { then: "reject" }],
+            loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
         },
     },
 });

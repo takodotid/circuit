@@ -343,7 +343,7 @@ export const DEVICE = {
             },
         },
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
-        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0 } },
+        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0, mtu: 0, control_word: 0 } },
         pppoe_client: {
             "*": {
                 interface: 0,
@@ -404,7 +404,9 @@ export const DEVICE = {
     routing: {
         router_id: 0,
         tables: { "*": { description: 0 } },
-        vrfs: { "*": { description: 0, route_distinguisher: 0, route_targets: { import: 0, export: 0 } } },
+        vrfs: {
+            "*": { description: 0, route_distinguisher: 0, route_targets: { import: 0, export: 0 }, import_policy: 0, export_policy: 0 },
+        },
         vrf_imports: [{ from: 0, to: 0, policy: 0 }],
         policy_routing: [ROUTING_RULE],
         static_routes: [STATIC_ROUTE],
@@ -453,7 +455,7 @@ export const DEVICE = {
             interfaces: { "*": { metric: 0, passive: 0, network: 0, bfd: 0 } },
             overload_bit: 0,
         },
-        mpls: { ldp: { lsr_id: 0, interfaces: 0 } },
+        mpls: { ldp: { lsr_id: 0, interfaces: 0, import_policy: 0, export_policy: 0 } },
         bfd: { interval: 0, multiplier: 0 },
         rpki: [{ address: 0, port: 0, description: 0 }],
         policies: { "*": [POLICY_RULE] },
