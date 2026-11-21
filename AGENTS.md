@@ -13,7 +13,8 @@ Tools check the mechanical rules (`bun run check`): Oxlint, Vale, knip, Prettier
 5. Keep changes small and inside the existing structure. Do what was asked.
 6. Keep no memory outside the repo: a rule goes here, a device surprise in its `TRAPS.md`, open work in a GitHub issue.
 7. When the owner approves a new rule or decision, add it here or to `DECISIONS.md` in the same change.
-8. For work with several parts, act as the orchestrator. Give each part to a subagent with a brief: context, files, and what done looks like. Run independent parts in parallel, and review every result against the owner's request before it lands.
+8. Close an issue once what it asks is built and proven on the devices and CI that can prove it. The closing comment lists each platform's gap, as `docs/reference/platforms.md` does, and a large part left over becomes a new, focused issue.
+9. For work with several parts, act as the orchestrator. Give each part to a subagent with a brief: context, files, and what done looks like. Run independent parts in parallel, and review every result against the owner's request before it lands.
 
 ## Principles
 
