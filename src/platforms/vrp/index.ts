@@ -235,6 +235,7 @@ export class Vrp extends Platform {
         }
 
         found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
+        for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for VRP`);
 
         const refusedGroups = [
             ["services.dhcpv6_server", device.services?.dhcpv6_server],

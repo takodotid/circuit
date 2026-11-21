@@ -1,4 +1,4 @@
-import type { Device, Family, Prefix } from "../../model";
+import type { Device, Family, Prefix, RadiusServer } from "../../model";
 
 /** How RouterOS writes a value, and the lookups the render, firewall, and routing share. */
 export class RouterOsSyntax {
@@ -30,6 +30,20 @@ export class RouterOsSyntax {
     /** An address reached through a VRF, as a server's address names it: `192.0.2.1@mgmt`. */
     static inVrf(address: string, vrf: string | undefined): string {
         return vrf ? `${address}@${vrf}` : address;
+    }
+
+    /** RADIUS servers in one form for comparing, as the platform keeps one list of them for each service, such as `ppp` or `dhcp`. */
+    static radiusServers(servers: readonly RadiusServer[] | undefined): string {
+        return JSON.stringify(
+            (servers ?? []).map((server) => [
+                server.address,
+                server.vrf,
+                server.auth_port,
+                server.acct_port,
+                server.source_address,
+                "secret" in server.secret_key ? server.secret_key.secret : server.secret_key.secret_file,
+            ])
+        );
     }
 
     static yesNo(on: boolean | undefined): string {

@@ -375,6 +375,8 @@ export const DEVICE = {
                 pool: 0,
                 lease_time: 0,
                 reservations: [{ address: 0, mac: 0, description: 0 }],
+                radius: [RADIUS_SERVER],
+                acct_interim_interval: 0,
             },
         },
         dhcpv6_server: {

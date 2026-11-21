@@ -1,6 +1,6 @@
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, PppoeServer, RadiusServer } from "../../model";
+import type { Device, PppoeServer } from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -154,14 +154,10 @@ export class RouterOsPppoe {
 
     /** What all PPPoE servers of a router share, in one form for comparing. */
     private static shared(server: PppoeServer): string {
-        const radius = (entry: RadiusServer) => [
-            entry.address,
-            entry.vrf,
-            entry.auth_port,
-            entry.acct_port,
-            entry.source_address,
-            "secret" in entry.secret_key ? entry.secret_key.secret : entry.secret_key.secret_file,
-        ];
-        return JSON.stringify([server.radius.map(radius), server.acct_interim_interval, server.dynamic_authorization ?? false]);
+        return JSON.stringify([
+            RouterOsSyntax.radiusServers(server.radius),
+            server.acct_interim_interval,
+            server.dynamic_authorization ?? false,
+        ]);
     }
 }

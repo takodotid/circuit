@@ -11,8 +11,8 @@ export type Reservation = {
     description?: string;
 };
 
-/** A DHCP server for one IPv4 network. */
-export type DhcpServer<I extends string> = {
+/** A DHCP server for one IPv4 network. `F` is the device's VRFs. */
+export type DhcpServer<I extends string, F extends string = string> = {
     /** The port or interface it answers on. */
     interface: I;
     /** The IPv4 network it serves. An IPv6 network is served by `dhcpv6_server`. */
@@ -27,6 +27,10 @@ export type DhcpServer<I extends string> = {
     lease_time?: number;
     /** Addresses fixed to a MAC. */
     reservations?: readonly Reservation[];
+    /** RADIUS servers, in order, as `pppoe_server` writes them. A client gets a lease only once they accept it (RFC 2865), asked by its MAC address. They get the accounting of each lease (RFC 2866). Every client gets a lease when absent. */
+    radius?: readonly RadiusServer<F>[];
+    /** Seconds between reports of each lease's use to the RADIUS servers (RFC 2869). Only at the start and the end of a lease when absent. Only with `radius`. */
+    acct_interim_interval?: number;
 };
 
 /** Prefixes a DHCPv6 server delegates to routers that ask, such as a customer's router (IA_PD, RFC 9915). */
@@ -98,7 +102,7 @@ export type PppoeServer<I extends string, F extends string = string> = {
 /** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs. */
 export type Services<I extends string, F extends string = string> = {
     /** DHCP servers, keyed by name, one per network. */
-    dhcp_server?: Record<string, DhcpServer<I>>;
+    dhcp_server?: Record<string, DhcpServer<I, F>>;
     /** DHCPv6 servers, keyed by name, one per interface. */
     dhcpv6_server?: Record<string, Dhcpv6Server<I>>;
     /** DHCP relays, keyed by name. */
