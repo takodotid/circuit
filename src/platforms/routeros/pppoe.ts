@@ -49,6 +49,8 @@ export class RouterOsPppoe {
             render.add("/ppp profile", "add", {
                 "dhcpv6-pd-pool": delegation && pdPool,
                 "dns-server": server.dns?.join(","),
+                // Each session's interface joins the list while it is up.
+                "interface-list": server.interface_set,
                 "local-address": server.local_address,
                 name,
                 "remote-address": name,

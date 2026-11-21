@@ -104,6 +104,7 @@ export default as64500.device({
                 acct_interim_interval: 300,
                 dynamic_authorization: true,
                 prefix_delegation: { pool: "2001:db8:100:4000::/50", prefix_length: 56 },
+                interface_set: "homes",
             },
         },
     },
@@ -116,6 +117,26 @@ export default as64500.device({
         ],
     },
     firewall: {
+        // The homes on the second PON port, and each PPPoE session while it is up. A home reaches the router itself only for an address, a prefix, and a ping.
+        interface_sets: { homes: ["vlan-olt-2"] },
+        filter: {
+            input: {
+                rules: [
+                    { description: "Ping from homes", if: { in_interface_set: "homes", protocol: "icmp" }, then: "accept" },
+                    {
+                        description: "DHCP from homes",
+                        if: { in_interface_set: "homes", protocol: "udp", dst_port: presets.ports.dhcp_server },
+                        then: "accept",
+                    },
+                    {
+                        description: "A prefix for a home's router (DHCPv6)",
+                        if: { in_interface_set: "homes", protocol: "udp", dst_port: 547 },
+                        then: "accept",
+                    },
+                    { description: "Nothing else from homes", if: { in_interface_set: "homes" }, then: "drop" },
+                ],
+            },
+        },
         nat: {
             source: [{ description: "Homes to the internet", if: { src: "100.64.0.0/17", out_interface: "25g-1" }, then: "masquerade" }],
         },

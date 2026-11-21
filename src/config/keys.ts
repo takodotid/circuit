@@ -406,6 +406,7 @@ export const DEVICE = {
                 acct_interim_interval: 0,
                 dynamic_authorization: 0,
                 prefix_delegation: { pool: 0, prefix_length: 0 },
+                interface_set: 0,
             },
         },
         dns_server: 0,

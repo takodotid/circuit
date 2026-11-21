@@ -26,6 +26,13 @@ export class RouterOsRender {
     /** The bridge every switched port joins. One per device. */
     private static readonly BRIDGE = "bridge";
 
+    /** The interface lists of the ports LLDP runs on, and of those the platform's own client reaches over MAC. */
+    private static readonly LLDP_LIST = "lldp";
+    private static readonly NATIVE_LIST = "native";
+
+    /** Interface lists an interface set can't be named: the render's own, and those every RouterOS has (MikroTik's manual, Interface lists). */
+    static readonly TAKEN_LISTS = [RouterOsRender.LLDP_LIST, RouterOsRender.NATIVE_LIST, "all", "none", "dynamic", "static"];
+
     /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
     private static readonly ISOLATED_HORIZON = 1;
 
@@ -586,18 +593,24 @@ export class RouterOsRender {
         }
     }
 
-    /** Interface lists scope what works at layer 2: neighbor discovery, and the platform's own client over MAC. The IP firewall never sees either. */
+    /** Interface lists scope what works at layer 2: neighbor discovery, and the platform's own client over MAC. The IP firewall never sees either. An interface set that sessions join is a list too, which the firewall matches, since a session's interface is named only when it comes up. */
     private interfaceLists(): void {
         const lists = new Map<string, string[]>();
 
         const lldp = this.lldpMembers();
-        if (lldp) lists.set("lldp", lldp);
+        if (lldp) lists.set(RouterOsRender.LLDP_LIST, lldp);
 
         const native = this.device.management?.native_protocol?.interfaces;
         if (native)
             lists.set(
-                "native",
+                RouterOsRender.NATIVE_LIST,
                 native.map((member) => this.name(member))
+            );
+
+        for (const [set, members] of RouterOsSyntax.entries(this.device.firewall?.interface_sets))
+            lists.set(
+                set,
+                members.map((member) => this.name(member))
             );
 
         for (const list of lists.keys()) this.add("/interface list", "add", { name: list });
@@ -847,14 +860,14 @@ export class RouterOsRender {
 
     /** What works at layer 2: the platform's client over MAC, MAC ping, the bandwidth test server and neighbor discovery. */
     private layerTwo(): void {
-        const nativeList = this.device.management?.native_protocol?.interfaces ? "native" : "none";
+        const nativeList = this.device.management?.native_protocol?.interfaces ? RouterOsRender.NATIVE_LIST : "none";
         this.add("/tool mac-server", "set", { "allowed-interface-list": nativeList });
         this.add("/tool mac-server mac-winbox", "set", { "allowed-interface-list": nativeList });
         this.add("/tool mac-server ping", "set", { enabled: "no" });
         this.add("/tool bandwidth-server", "set", { enabled: "no" });
 
         let discovery = "none";
-        if (this.lldpMembers()) discovery = "lldp";
+        if (this.lldpMembers()) discovery = RouterOsRender.LLDP_LIST;
         else if (this.device.switching?.lldp) discovery = "all";
         this.add("/ip neighbor discovery-settings", "set", { "discover-interface-list": discovery, protocol: "lldp" });
     }

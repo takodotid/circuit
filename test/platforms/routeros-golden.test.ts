@@ -146,7 +146,7 @@ test("what v1 writes and the platform does not render is refused, by its v1 path
         management: { ...edge.management, allow: "admins" },
         firewall: {
             address_sets: { admins: ["192.0.2.0/24"] },
-            interface_sets: { uplinks: ["25g-1"] },
+            interface_sets: { uplinks: ["25g-1"], dynamic: ["25g-2"] },
             filter: {
                 input: { rules: [{ if: { src: ["192.0.2.0/24", "198.51.100.0/24"], in_interface_set: "uplinks" }, then: "accept" }] },
             },
@@ -156,9 +156,8 @@ test("what v1 writes and the platform does not render is refused, by its v1 path
     } as Device;
 
     expect(platform.unsupported(device)).toEqual([
-        "firewall.interface_sets, which the platform does not build yet",
+        "firewall.interface_sets.dynamic, an interface list RouterOS has: give the set another name",
         "firewall.filter.input.rules[0].if.src, a list: write one rule for each",
-        "firewall.filter.input.rules[0].if.in_interface_set, which the platform does not build yet",
         "switching.acls.extra[0].if.vlan, a list: write one rule for each",
         "management.allow admins, an address set by name: write its prefixes",
         "routing.policies.TAGS[0].communities import",

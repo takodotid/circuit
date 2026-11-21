@@ -76,7 +76,7 @@ export type Upnp<I extends string> = {
 /**
  * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, its IPv6 prefix from `prefix_delegation` unless RADIUS sends one, and its rate from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
  */
-export type PppoeServer<I extends string, F extends string = string> = {
+export type PppoeServer<I extends string, F extends string = string, IS extends string = string> = {
     /** The ports and interfaces subscribers connect on. */
     interfaces: readonly I[];
     /** The service name it offers (RFC 2516), such as the network's name. A client that asks for another name gets no answer. Every client is answered when absent. */
@@ -97,10 +97,12 @@ export type PppoeServer<I extends string, F extends string = string> = {
     dynamic_authorization?: true;
     /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. A subscriber that RADIUS sends a prefix for (Delegated-IPv6-Prefix, RFC 4818) gets that one instead. When absent, only those subscribers get a prefix. */
     prefix_delegation?: PrefixDelegation;
+    /** The interface set, from `firewall.interface_sets`, that each session's interface joins while it is up. A firewall rule with `in_interface_set` or `out_interface_set` then matches every subscriber, though the device names each session's interface only when it comes up. */
+    interface_set?: IS;
 };
 
-/** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs. */
-export type Services<I extends string, F extends string = string> = {
+/** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs, `IS` its interface sets. */
+export type Services<I extends string, F extends string = string, IS extends string = string> = {
     /** DHCP servers, keyed by name, one per network. */
     dhcp_server?: Record<string, DhcpServer<I, F>>;
     /** DHCPv6 servers, keyed by name, one per interface. */
@@ -108,7 +110,7 @@ export type Services<I extends string, F extends string = string> = {
     /** DHCP relays, keyed by name. */
     dhcp_relay?: Record<string, DhcpRelay<I>>;
     /** PPPoE servers for subscribers, keyed by name. */
-    pppoe_server?: Record<string, PppoeServer<I, F>>;
+    pppoe_server?: Record<string, PppoeServer<I, F, IS>>;
     /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */
     dns_server?: true;
     /** Answer time queries from others. Off when absent. Raisecom ROS answers them whenever it takes time from `system.ntp`, and has no setting to stop it, so Circuit writes nothing for it there and warns when it is absent. */

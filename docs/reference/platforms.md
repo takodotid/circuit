@@ -144,6 +144,7 @@ A note in a cell means "works, with this limit".
 | DHCP leases checked by RADIUS      | ✅ one RADIUS setting    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | PPPoE server                       | ✅ one RADIUS setting    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | Delegated IPv6 prefixes over PPPoE | ✅ from a pool or RADIUS | ❌                    | ❌                         | ❌                       | ❌                                              |
+| PPPoE sessions in an interface set | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DNS server                         | ✅                       | ❌                    | ❌                         | ❌                       | ✅                                              |
 | NTP client                         | ✅                       | ✅                    | ✅                         | ✅                       | ✅                                              |
 | NTP server                         | ✅                       | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
