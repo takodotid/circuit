@@ -515,7 +515,47 @@ test("a dynamic pool fits one subscriber's blocks on an address, and shares no a
         "firewall.nat.source, to_pool 198.51.100.96/27: write port_sets_per_subscriber, the most blocks one subscriber holds at once",
         'firewall.nat.source, to_pool 198.51.100.128/27: write port_allocation: "deterministic" or "dynamic", how each subscriber gets its ports',
         "firewall.nat.source, to_pool 198.51.100.192/27: a deterministic pool gives each subscriber one block. Remove port_sets_per_subscriber.",
-        "firewall.nat.source: to_pool 198.51.100.0/27, dynamic, 4 × 512 ports and to_pool 198.51.100.0/27, dynamic, 4 × 256 ports share addresses, so two subscribers would get the same ports. Write the same port_set_size and port_sets_per_subscriber in both, or give each its own pool addresses.",
+        "firewall.nat.source: to_pool 198.51.100.0/27, dynamic, 4 × 512 ports and to_pool 198.51.100.0/27, dynamic, 4 × 256 ports share addresses, so two subscribers would get the same ports. Write the same port_set_size, port_sets_per_subscriber, and port_set_timeout in both, or give each its own pool addresses.",
+    ]);
+});
+
+test("a dynamic pool keeps an unused block whole seconds, as long in each rule on the pool, and a deterministic pool has no timeout", () => {
+    const pba = {
+        if: { src: "100.64.0.0/16" },
+        then: "snat",
+        to_pool: "198.51.100.0/27",
+        port_allocation: "dynamic",
+        port_set_size: 512,
+        port_sets_per_subscriber: 4,
+        port_set_timeout: 120,
+    } as const;
+    const device: Device = {
+        ...router,
+        firewall: {
+            nat: {
+                source: [
+                    pba,
+                    { ...pba, if: { src: "100.65.0.0/16" } },
+                    { ...pba, port_set_timeout: 60 },
+                    { ...pba, to_pool: "198.51.100.32/27", port_set_timeout: 0.5 },
+                    {
+                        ...pba,
+                        if: { src: "100.64.4.0/22" },
+                        to_pool: "198.51.100.64/27",
+                        port_allocation: "deterministic",
+                        port_set_size: 2016,
+                        port_sets_per_subscriber: undefined,
+                    } as unknown as NatRule,
+                ],
+            },
+        },
+    };
+    const found = messages(device).filter((message) => message.startsWith("firewall.nat"));
+
+    expect(found).toEqual([
+        "firewall.nat.source, to_pool 198.51.100.32/27: port_set_timeout 0.5 is not a whole number of seconds above 0",
+        "firewall.nat.source, to_pool 198.51.100.64/27: a deterministic pool keeps each subscriber's block for good. Remove port_set_timeout.",
+        "firewall.nat.source: to_pool 198.51.100.0/27, dynamic, 4 × 512 ports, port_set_timeout 120 and to_pool 198.51.100.0/27, dynamic, 4 × 512 ports, port_set_timeout 60 share addresses, so two subscribers would get the same ports. Write the same port_set_size, port_sets_per_subscriber, and port_set_timeout in both, or give each its own pool addresses.",
     ]);
 });
 

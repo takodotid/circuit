@@ -67,7 +67,7 @@ class Objects {
         const name = FortiOsNames.network(rule.to_pool);
         const { first, last } = Address.range(name);
 
-        this.root
+        const entry = this.root
             .block("firewall ippool")
             .entry(name)
             // Block sizes exist only in this type, so it comes first.
@@ -76,6 +76,9 @@ class Objects {
             .set("endip", Address.fromNumber(last, "ipv4"))
             .set("block-size", rule.port_set_size)
             .set("num-blocks-per-user", rule.port_sets_per_subscriber);
+        // The device doesn't print its default (TRAPS.md).
+        const timeout = rule.port_set_timeout;
+        if (timeout !== undefined && timeout !== FortiOsFirewall.BLOCK_POOL.timeout.default) entry.set("pba-timeout", timeout);
         return name;
     }
 
@@ -97,8 +100,12 @@ class Objects {
 }
 
 export class FortiOsFirewall {
-    /** What `firewall ippool` takes in a pool of port blocks on 6.2.2: the ports in a block, and the blocks one subscriber holds. */
-    static readonly BLOCK_POOL = { size: { min: 64, max: 4096 }, perSubscriber: { min: 1, max: 128 } } as const;
+    /** What `firewall ippool` takes in a pool of port blocks on 6.2.2: the ports in a block, the blocks one subscriber holds, and the seconds it keeps one unused. That is 30 when nothing says, which `show` doesn't print. */
+    static readonly BLOCK_POOL = {
+        size: { min: 64, max: 4096 },
+        perSubscriber: { min: 1, max: 128 },
+        timeout: { min: 3, max: 300, default: 30 },
+    } as const;
 
     /** IP protocol numbers, for a protocol the platform names only by number. */
     static readonly PROTOCOL_NUMBER: Record<Protocol, number> = { tcp: 6, udp: 17, icmp: 1, gre: 47, esp: 50, ah: 51, ospf: 89, vrrp: 112 };

@@ -43,7 +43,7 @@ export class NatChecks {
 
                 const fix =
                     a.rule.port_allocation === "dynamic" && b.rule.port_allocation === "dynamic" && a.rule.to_pool === b.rule.to_pool
-                        ? "Write the same port_set_size and port_sets_per_subscriber in both, or give each its own pool addresses."
+                        ? "Write the same port_set_size, port_sets_per_subscriber, and port_set_timeout in both, or give each its own pool addresses."
                         : "Give each its own pool addresses.";
                 report(
                     `firewall.nat.source: ${a.label} and ${b.label} share addresses, so two subscribers would get the same ports. ${fix}`
@@ -78,6 +78,8 @@ export class NatChecks {
 
         if (rule.port_sets_per_subscriber !== undefined)
             report(`${where}: a deterministic pool gives each subscriber one block. Remove port_sets_per_subscriber.`);
+        if (rule.port_set_timeout !== undefined)
+            report(`${where}: a deterministic pool keeps each subscriber's block for good. Remove port_set_timeout.`);
         if (!src) {
             report(`${where}: write the subscribers' IPv4 prefix in if.src`);
             return undefined;
@@ -112,8 +114,13 @@ export class NatChecks {
         const available = Derive.POOL_PORTS.max - Derive.POOL_PORTS.min + 1;
         const size = rule.port_set_size;
         const sets = rule.port_sets_per_subscriber;
+        const timeout = rule.port_set_timeout;
 
         if (!NatChecks.clean(where, "to_pool", rule.to_pool, report)) return undefined;
+        if (timeout !== undefined && !(Number.isInteger(timeout) && timeout > 0)) {
+            report(`${where}: port_set_timeout ${timeout} is not a whole number of seconds above 0`);
+            return undefined;
+        }
         if (sets === undefined) {
             report(`${where}: write port_sets_per_subscriber, the most blocks one subscriber holds at once`);
             return undefined;
@@ -133,8 +140,8 @@ export class NatChecks {
 
         return {
             rule,
-            label: `to_pool ${rule.to_pool}, dynamic, ${sets} × ${size} ports`,
-            key: `${rule.to_pool} dynamic ${size} ${sets}`,
+            label: `to_pool ${rule.to_pool}, dynamic, ${sets} × ${size} ports${timeout === undefined ? "" : `, port_set_timeout ${timeout}`}`,
+            key: `${rule.to_pool} dynamic ${size} ${sets} ${timeout}`,
         };
     }
 }

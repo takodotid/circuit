@@ -488,7 +488,7 @@ export class FortiOsUnsupported {
                 `${where}.port_allocation ${rule.port_allocation}: a fixed port range pool does not keep a subscriber's sessions in its block of ports. Write dynamic, whose blocks the device logs`,
             ];
 
-        const { size, perSubscriber } = FortiOsFirewall.BLOCK_POOL;
+        const { size, perSubscriber, timeout } = FortiOsFirewall.BLOCK_POOL;
         const found: string[] = [];
         const within = (value: number, range: { min: number; max: number }) => value >= range.min && value <= range.max;
 
@@ -498,6 +498,8 @@ export class FortiOsUnsupported {
             found.push(
                 `${where}.port_sets_per_subscriber ${rule.port_sets_per_subscriber}, the platform takes ${perSubscriber.min} to ${perSubscriber.max} blocks`
             );
+        if (rule.port_set_timeout !== undefined && !within(rule.port_set_timeout, timeout))
+            found.push(`${where}.port_set_timeout ${rule.port_set_timeout}, the platform takes ${timeout.min} to ${timeout.max} seconds`);
         if (rule.if?.src_port !== undefined) found.push(`${where}.if.src_port, with a pool, which translates every source port`);
         return found;
     }
