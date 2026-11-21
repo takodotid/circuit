@@ -525,7 +525,7 @@ export type ClientPrefixDelegation<I extends string> = {
 /**
  * A PPPoE client (RFC 2516): the session the router opens over `interface` to its provider's PPPoE server, logged in with `user` and `password`. The server gives it its IPv4 address (IPCP, RFC 1332), so it has no `addresses`. A route through it, such as the default route, is a static route with `interface`, and a source NAT matches it with `out_interface`. The router uses `system.dns`, not the resolvers the server offers.
  */
-export type PppoeClient<Carrier extends string, I extends string> = {
+export type PppoeClient<Carrier extends string, I extends string, Vrf extends string = string> = {
     /** The port, LAG, or VLAN interface it runs over, toward the provider. It holds no address for the session. */
     interface: Carrier;
     /** What the link is for, such as the provider and the circuit ID. */
@@ -542,6 +542,8 @@ export type PppoeClient<Carrier extends string, I extends string> = {
     prefix_delegation?: ClientPrefixDelegation<I>;
     /** Make an IPv6 address on the session from the /64 the server announces in its router advertisements (SLAAC, RFC 4862). The router takes the default route they carry too, as a host does (RFC 4861). The session takes it when it next comes up. No IPv6 address on the session when absent. */
     slaac?: true;
+    /** The VRF the session routes in, from `routing.vrfs`, such as one that keeps a provider's internet apart from the main table. Its address is there, and a route through it is written with that `vrf`. The main table when absent. */
+    vrf?: Vrf;
 };
 
 /**
@@ -584,5 +586,5 @@ export type Interfaces<
     /** Ethernet pseudowires to other PEs, keyed by name. Each is a port in its `access_vlan`. */
     pseudowire?: Named<T, Pseudowire<V>>;
     /** PPPoE clients, keyed by name: each a session to a provider over a port, a LAG, or a VLAN interface. */
-    pppoe_client?: Named<T, PppoeClient<NoInfer<(keyof Ethernet & string) | L | VI>, I>>;
+    pppoe_client?: Named<T, PppoeClient<NoInfer<(keyof Ethernet & string) | L | VI>, I, F>>;
 };

@@ -109,6 +109,49 @@ test("RouterOS adds the client before what names it, and removes it after", () =
     }
 });
 
+test("RouterOS puts a client with a VRF in that VRF, with the routes through it, and takes it out once the config drops it", () => {
+    const { prefix_delegation: _delegation, ...client } = ISP;
+    const inVrf = (vrf: string | undefined) => {
+        const device = withPppoe({ internet: { ...client, vrf } });
+        device.routing = { ...device.routing, static_routes: [{ prefix: "0.0.0.0/0", interface: "internet", vrf }] };
+        return routeros.render(device);
+    };
+    const desired = inVrf("guests");
+
+    expect(desired).toContain('add comment="Kept apart from everything else" interfaces="guests,internet" name=guests');
+    // A gateway without its VRF stays inactive (CHR, 7.24.6).
+    expect(desired).toContain("add dst-address=0.0.0.0/0 gateway=internet@guests routing-table=guests");
+    expect(sent(desired, desired)).toEqual([]);
+
+    const plan = sent(inVrf(undefined), desired);
+    expect(plan).toContain("/ip vrf set [ find name=guests ] interfaces=guests");
+    expect(plan).toContain("/ip route add dst-address=0.0.0.0/0 gateway=internet");
+});
+
+test("RouterOS refuses a VRF with no interface, which it can't hold", () => {
+    const device = withPppoe({});
+    device.routing = { ...device.routing, vrfs: { ...device.routing?.vrfs, wan: { description: "The provider's internet" } } };
+    expect(routeros.unsupported(device)).toContain(
+        "routing.vrfs.wan, a VRF with no interface: RouterOS needs one in each. Give it its interfaces with vrf, or leave the VRF out"
+    );
+});
+
+test("validate wants a route through a client in the client's VRF", () => {
+    const device = withPppoe({ internet: { ...ISP, vrf: "guests" }, backup: { ...ISP, interface: "25g-3" } });
+    device.routing = {
+        ...device.routing,
+        static_routes: [
+            { prefix: "0.0.0.0/0", interface: "internet" },
+            { prefix: "::/0", interface: "backup", vrf: "guests" },
+        ],
+    };
+
+    expect(errors(device).filter((message) => message.startsWith("routing.static_routes"))).toEqual([
+        'routing.static_routes 0.0.0.0/0 leaves through interfaces.pppoe_client.internet, which routes in VRF guests: write vrf: "guests" on the route',
+        'routing.static_routes ::/0 is in VRF guests, but interfaces.pppoe_client.backup routes in the main table: write vrf: "guests" on the client, or take vrf off the route',
+    ]);
+});
+
 test("RouterOS delegates a PPPoE server's prefixes from a pool its profile names, and clears one set by hand", () => {
     const desired = routeros.render(withPppoe({}, { "olt-1": OLT }));
 
@@ -204,6 +247,7 @@ test("validate checks the login, the port the session runs over, the MTU, and wh
         "interfaces.pppoe_client.internet.prefix_delegation.interfaces.25g-1 is the session's own way to the provider: give the prefix to an interface toward your hosts",
         "interfaces.pppoe_client.backup.interface 25g-3 is switched: run the client on a routed port, or on a VLAN interface of the VLAN that reaches the provider",
         "interfaces.pppoe_client.backup.prefix_delegation.interfaces.servers: '2001:db8::1' is not the last 64 bits of an address, such as ::1. The first 64 bits come from the prefix",
+        "interfaces.pppoe_client.backup.prefix_delegation.interfaces.guests routes in guests, but the session in the main table, where the prefix's route is: put both in one VRF",
         "interfaces.pppoe_client.backup.prefix_delegation.interfaces.guests: '::' is not the last 64 bits of an address, such as ::1. The first 64 bits come from the prefix",
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.servers also takes a prefix from interfaces.pppoe_client.backup: give it one of them",
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.25g-4 is switched, so it holds no address: give the prefix to the VLAN interface of its VLAN",

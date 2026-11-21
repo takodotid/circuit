@@ -366,6 +366,7 @@ export const DEVICE = {
                 mtu: 0,
                 prefix_delegation: { prefix_length: 0, interfaces: { "*": 0 } },
                 slaac: 0,
+                vrf: 0,
             },
         },
     },

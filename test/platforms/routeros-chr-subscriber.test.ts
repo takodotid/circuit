@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots, the first linked to the others, and FreeRADIUS on the runner. edge-01 delegates prefixes by DHCPv6 to cpe-01 and host-01, asking RADIUS, which knows cpe-01 only. Then it is a PPPoE server whose sessions join an interface set its firewall matches and take a /64 by SLAAC, and cpe-01 logs in to it. Skipped without the CHRs and FreeRADIUS.
+// Three RouterOS CHRs, which the devices workflow boots, the first linked to the others, and FreeRADIUS on the runner. edge-01 delegates prefixes by DHCPv6 to cpe-01 and host-01, asking RADIUS, which knows cpe-01 only. Then cpe-01 logs in to its PPPoE server, whose sessions join an interface set and take a /64 by SLAAC, then from a VRF. Skipped without the CHRs and FreeRADIUS.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -40,6 +40,8 @@ const HELD_PREFIX = /status=bound[\s\S]*prefix=(2001:db8:100:[\da-f:]+\/\d+)/;
 /** edge-01's own address in every session, and its IPv6 address on its loopback. */
 const EDGE = "100.64.0.1";
 const EDGE_IPV6 = "2001:db8:100::1";
+/** An address of edge-01 past the session, on its loopback, which cpe-01 reaches only by a route through the session. */
+const BEYOND = "192.0.2.1";
 /** Where each session's /64 comes from, and cpe-01's address in one, as RouterOS prints it. */
 const SLAAC_POOL = "2001:db8:100:1000::/52";
 const FROM_SLAAC = /address=(2001:db8:100:1[\da-f]{3}:[\da-f:]+)\/64/;
@@ -158,7 +160,7 @@ function writeEdge(server: Server): void {
             "virtual-2": { description: "Subscribers" },
             "virtual-3": { description: "host-01", addresses: ["2001:db8:100:a::1/64"], ipv6_ra: true },
         },
-        loopback: { loopback: { addresses: ["${EDGE_IPV6}/128"] } },
+        loopback: { loopback: { addresses: ["${EDGE_IPV6}/128", "${BEYOND}/32"] } },
     },
     services: {
         pppoe_server: {
@@ -187,8 +189,11 @@ function writeEdge(server: Server): void {
     );
 }
 
-/** cpe-01, a subscriber's router, with its PPPoE client or none. With `slaac`, the client makes its address on the session from the /64 edge-01 announces. */
-function writeCpe(pppoe: boolean, slaac = false): void {
+/** What cpe-01's PPPoE client has besides its login. */
+type Client = { slaac?: boolean; vrf?: string };
+
+/** cpe-01, a subscriber's router, with its PPPoE client or none. With `slaac`, the client makes its address on the session from the /64 edge-01 announces. With `vrf`, the session and a default route through it are in that VRF. */
+function writeCpe(pppoe: boolean, options: Client = {}): void {
     const client = `
         pppoe_client: {
             internet: {
@@ -198,9 +203,15 @@ function writeCpe(pppoe: boolean, slaac = false): void {
                 password: secret("SUBSCRIBER_PASSWORD"),
                 service_name: "as64500",
                 mtu: 1492,
-                ${slaac ? "slaac: true," : ""}
+                ${options.slaac ? "slaac: true," : ""}
+                ${options.vrf ? `vrf: "${options.vrf}",` : ""}
             },
         },`;
+    const vrf = `
+    routing: {
+        vrfs: { ${options.vrf}: { description: "The provider's internet" } },
+        static_routes: [{ prefix: "0.0.0.0/0", interface: "internet", vrf: "${options.vrf}" }],
+    },`;
     writeDevice(
         "cpe-01",
         cpeChr!,
@@ -210,7 +221,7 @@ function writeCpe(pppoe: boolean, slaac = false): void {
             "virtual-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "virtual-2": { description: "edge-01" },
         },${pppoe ? client : ""}
-    },`
+    },${options.vrf ? vrf : ""}`
     );
 }
 
@@ -387,7 +398,7 @@ describe.skipIf(!ready)("subscribers of a CHR's PPPoE server", () => {
         "a session gets a /64 of the pool, cpe-01 makes its address there by SLAAC, edge-01 reaches it, and the plans stay empty",
         async () => {
             writeEdge({ interfaceSet: true, slaac: true });
-            writeCpe(true, true);
+            writeCpe(true, { slaac: true });
             for (const device of ["edge-01", "cpe-01"]) {
                 expect(circuit("apply", device, "--confirm").status).toBe(0);
                 expect(circuit("diff", device).status).toBe(0);
@@ -422,6 +433,38 @@ describe.skipIf(!ready)("subscribers of a CHR's PPPoE server", () => {
             expect(circuit("diff", "edge-01").output).toContain("remote-ipv6-prefix-pool");
             expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
             expect(circuit("diff", "edge-01").status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "cpe-01's session goes into a VRF, reaches past edge-01 by a route there and not from the main table, and comes back out",
+        async () => {
+            // edge-01 lets subscribers ping it again.
+            writeEdge({});
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            await redial();
+
+            writeCpe(true, { vrf: "wan" });
+            expect(circuit("apply", "cpe-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "cpe-01").status).toBe(0);
+            const inWan = () => circuit("exec", "cpe-01", `/ping ${BEYOND} vrf=wan count=3`).output.includes("received=3");
+            expect(eventually(inWan)).toBe(true);
+            expect(circuit("exec", "cpe-01", "/ip address print detail where interface=internet").output).toContain("vrf=wan");
+            expect(circuit("exec", "cpe-01", `/ping ${BEYOND} count=1`).output).not.toContain("received=1");
+
+            // The route stays active once the session comes up again.
+            await redial();
+            expect(eventually(inWan)).toBe(true);
+            expect(circuit("diff", "cpe-01").status).toBe(0);
+
+            // The VRF goes with the client's vrf, and a VRF removed while it holds the session keeps it until it comes up again (TRAPS.md).
+            writeCpe(true);
+            expect(circuit("apply", "cpe-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "cpe-01").status).toBe(0);
+            await redial();
+            expect(circuit("exec", "cpe-01", "/ip address print detail where interface=internet").output).toContain("vrf=main");
+            expect(pings()).toBe(true);
         },
         TEST_MS
     );

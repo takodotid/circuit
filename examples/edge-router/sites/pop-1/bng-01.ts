@@ -52,6 +52,18 @@ export default as64500.device({
             "25g-1": { description: "edge-01", addresses: ["198.51.100.2/30", "2001:db8:100:ffff::2/64"] },
             // The OLT tags with IEEE 802.1ad's service tag: the homes of a PON port share a VLAN, and each business has a VLAN of its own inside olt-3.
             "25g-2": { description: "OLT", trunk_vlans: ["olt-1", "olt-2", "olt-3"], tpid: "0x88a8" },
+            "25g-3": { description: "Broadband line of a local provider" },
+        },
+        // An out-of-band way in over another provider's line, in the management VRF, for when edge-01 is down.
+        pppoe_client: {
+            oob: {
+                interface: "25g-3",
+                description: "Out of band",
+                user: "bng-01-oob",
+                password: secret("BNG_01_OOB_PASSWORD"),
+                mtu: 1492,
+                vrf: "management",
+            },
         },
         vlan_interface: {
             "vlan-olt-1": { vlan: "olt-1" },
@@ -120,6 +132,7 @@ export default as64500.device({
         static_routes: [
             { prefix: presets.default_routes.ipv4, next_hop: "198.51.100.1", description: "edge-01" },
             { prefix: presets.default_routes.ipv6, next_hop: "2001:db8:100:ffff::1", description: "edge-01" },
+            { prefix: presets.default_routes.ipv4, interface: "oob", vrf: "management", description: "Out of band" },
         ],
     },
     firewall: {

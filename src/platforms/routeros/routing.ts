@@ -164,6 +164,16 @@ export class RouterOsRouting {
         for (const name of vrfs)
             if (interfaceNames.has(name))
                 found.push(`routing.vrfs.${name}, the name of an interface: RouterOS makes an interface named after each VRF`);
+        // `/ip vrf` refuses `interfaces=""`: "interfaces must be specified" (CHR, 7.24.6).
+        const members = new Set(
+            [...Derive.ports(device), ...Derive.interfaces(device).map(({ name, settings }) => [name, settings] as const)].map(
+                ([, settings]) => settings.vrf
+            )
+        );
+        for (const name of vrfs.filter((vrf) => !members.has(vrf)))
+            found.push(
+                `routing.vrfs.${name}, a VRF with no interface: RouterOS needs one in each. Give it its interfaces with vrf, or leave the VRF out`
+            );
 
         if (device.routing?.vrf_imports && !device.routing.bgp)
             found.push(
@@ -378,8 +388,11 @@ export class RouterOsRouting {
             const verb = route.blackhole ? "add blackhole" : "add";
             const nextHop = route.next_hop && Address.host(route.next_hop);
             const out = route.interface && this.render.name(route.interface);
+            // A route in a VRF through a PPPoE client stays inactive unless its gateway says the VRF: `internet@wan` (TRAPS.md).
+            const session = route.interface !== undefined && this.device.interfaces?.pppoe_client?.[route.interface] !== undefined;
+            const through = out && session && route.vrf ? `${out}@${route.vrf}` : out;
             // A next hop with its interface is written `fe80::1%ether1`, the form a link-local next hop needs (TRAPS.md).
-            const gateway = nextHop && out ? `${nextHop}%${out}` : (nextHop ?? out);
+            const gateway = nextHop && out ? `${nextHop}%${out}` : (nextHop ?? through);
             this.render.add(menu, verb, {
                 comment: route.description,
                 distance: route.distance,
