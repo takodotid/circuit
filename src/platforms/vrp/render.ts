@@ -9,6 +9,7 @@ import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
 import { VrpIsis } from "./isis";
+import { VrpMarking } from "./marking";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -132,6 +133,7 @@ export class VrpRender {
         this.snmpAcl();
         this.ethertypeAclBlocks();
         this.lines.push(...VrpAcls.blocks(device));
+        this.lines.push(...VrpMarking.lines(device));
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();

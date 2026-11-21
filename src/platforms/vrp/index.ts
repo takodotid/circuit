@@ -19,6 +19,7 @@ import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
 import { VrpIsis } from "./isis";
+import { VrpMarking } from "./marking";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -66,7 +67,7 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp )/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -77,12 +78,14 @@ export class Vrp extends Platform {
         first: /^(authentication-mode|network-entity) /,
         canon: Vrp.canon,
         order: Vrp.order,
-        head: (line) => VrpBgp.head(line) ?? Vrp.head(line),
+        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? Vrp.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
         /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
+        /^traffic (classifier|behavior) /,
+        /^traffic policy /,
         /^$/,
         /^route-policy /,
         /^isis /,
@@ -343,7 +346,7 @@ export class Vrp extends Platform {
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
         found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
-        found.push(...Derive.unbuilt(device, ["urpf", "rate-limit"]));
+        found.push(...Derive.unbuilt(device, ["urpf", "rate-limit", "marking"]), ...VrpMarking.unsupported(device));
 
         for (const { where, kind, rateLimit } of Derive.rateLimited(device)) {
             if (kind === "vlan_interface") found.push(`${where}.rate_limit, on a VLAN interface, which is not built yet`);
@@ -386,7 +389,7 @@ export class Vrp extends Platform {
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
-        found.push(...VrpBgp.experimental(device), ...VrpIsis.experimental(device));
+        found.push(...VrpBgp.experimental(device), ...VrpIsis.experimental(device), ...VrpMarking.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -490,6 +493,7 @@ export class Vrp extends Platform {
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
+        VrpMarking.order(groups);
         const keys = Vrp.keySteps(groups, desired, current);
         if (keys.problems.length) return { steps: [], problems: keys.problems };
 
@@ -661,7 +665,7 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
-        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path);
+        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpMarking.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);

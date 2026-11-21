@@ -134,7 +134,7 @@ A note in a cell means "works, with this limit".
 | CGNAT pool, deterministic          | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
 | CGNAT pool, dynamic                | ❌                       | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
 | TCP MSS clamp                      | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DSCP and PCP marking               | ✅ not with fast path    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DSCP and PCP marking               | ✅ not with fast path    | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
 | DHCP server                        | ✅                       | 🧪                    | ❌                         | ✅                       | ✅                                              |
 | DHCPv6 server                      | ✅ pool is a prefix      | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
 | DHCP relay                         | ✅                       | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
@@ -150,7 +150,8 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 
 - **Junos.** A QFX5100 marks in a filter on each interface where traffic arrives. That filter also marks what goes to the switch itself, can't match the interface a packet leaves through, and can't set a PCP.
 - **FortiOS.** A DSCP is set for a whole session, in the firewall policy or the shaping policy the session takes. A session takes one shaping policy, and rate limits already use them.
-- **VRP and Raisecom ROS.** Not built yet.
+- **VRP.** Marking is Huawei's MQC: an ACL and a traffic classifier for each rule, and a traffic policy for each family, applied to all the switch receives. Huawei's reference has `remark dscp` work only on what the switch routes, as marking means. `remark 8021p` works only on what it switches, so VRP refuses `pcp`. A CE6855 took the policies on a spare port, but no packet was seen marked, so marking stays experimental.
+- **Raisecom ROS.** Not built yet.
 
 ### Management and monitoring
 
