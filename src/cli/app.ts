@@ -33,6 +33,8 @@ export class App {
     /** Once the person says yes, or with `--confirm`. */
     static async uninstall(confirmed: boolean): Promise<void> {
         const binary = Installation.binary() ?? Ui.fail("This Circuit runs from its sources, so there is nothing installed to remove.");
+        const packaged = Installation.packaged();
+        if (packaged) Ui.fail(`A package manager installed this Circuit. Remove it with: ${packaged.uninstall}`);
         const folder = dirname(binary);
 
         if (!confirmed) {

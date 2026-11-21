@@ -86,6 +86,8 @@ In a project, Circuit lists up to five newer versions, newest first. Pick one, t
 
 Circuit also updates itself before each command, so you rarely need `circuit update --app`. Your projects keep their own versions.
 
+A Circuit that a package manager installed never replaces itself. It tells you a newer version is out, and the package manager's command to get it.
+
 If a [security advisory](https://github.com/takodotid/circuit/security/advisories) affects your project's version, Circuit runs nothing until you move the project to a fixed version. [SECURITY.md](https://github.com/takodotid/circuit/blob/main/SECURITY.md) explains advisories and signed releases.
 
 ## Uninstall
@@ -95,3 +97,5 @@ circuit uninstall
 ```
 
 It asks first. Then it removes Circuit, its `PATH` entry, the **Settings > Apps** entry on Windows, and `~/.circuit`. It never touches your projects.
+
+If a package manager installed Circuit, `circuit uninstall` removes nothing and gives you the package manager's command.
