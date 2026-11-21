@@ -58,7 +58,9 @@ A provider carries the EPL circuits of many customers across the same switches, 
 
 So you keep your own VLAN numbers end to end, and they never clash with another customer's. The cost is size: each tag adds 4 bytes to the frame, so the provider's links must carry frames a little larger than yours. This is the same [MTU](/academy/beginner/cables) question as for any tunnel.
 
-You don't write QinQ in your own files, because your port sends and receives ordinary frames. Circuit has no field for an outer tag, so it writes your side of such a circuit, but not the provider's.
+Each tag starts with a number that says what kind of tag it is, the TPID. An ordinary tag is 0x8100. 802.1ad gives the outer tag a number of its own, 0x88a8, so a switch can tell the provider's tag from yours. Some providers use 0x8100 for both, and both ends of a link must agree.
+
+You don't write QinQ in your own files, because your port sends and receives ordinary frames. The provider writes it on its own devices: `qinq_vlan` on the port toward you adds the outer tag, and `tpid` on its trunks picks 0x88a8 for it. Where a provider's router takes your traffic in, such as a broadband gateway, a VLAN interface with `inner_vlan_id` ends one of your VLANs inside its outer one.
 
 ## Routed for you with an IP VPN
 
