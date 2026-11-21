@@ -1,9 +1,11 @@
 // The devices of Circuit 0.x's examples, templates, and use cases, in the v1 model (`scripts/from-v0.ts`), with what 0.x rendered for each and what it called unsupported. A port of a platform renders each the same.
 
-import { readdirSync, readFileSync } from "node:fs";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Utils } from "../src/core/utils";
 import type { Device } from "../src/model";
+import { Project } from "../src/project";
 
 export class Fixtures {
     static readonly FOLDER = join(import.meta.dir, "fixtures", "v0");
@@ -34,5 +36,17 @@ export class Fixtures {
 
     static ofPlatform(platform: string): string[] {
         return Fixtures.names().filter((name) => Fixtures.device(name).platform === platform);
+    }
+
+    /** The devices of a project in `examples/`, by name, read from a copy: Bun imports a file once. */
+    static async example(name: string): Promise<Record<string, Device>> {
+        const folder = mkdtempSync(join(tmpdir(), `circuit-${name}-`));
+        try {
+            cpSync(join(import.meta.dir, "..", "examples", name), folder, { recursive: true });
+            const [network] = (await Project.read(folder)).networks;
+            return network!.devices;
+        } finally {
+            rmSync(folder, { recursive: true, force: true });
+        }
     }
 }

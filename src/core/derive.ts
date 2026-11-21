@@ -7,8 +7,11 @@ import type {
     AdvertisedPrefix,
     AsNumbers,
     AsRange,
+    BgpFamily,
+    DeterministicPoolNatRule,
     Device,
     Dhcpv6Server,
+    Dscp,
     Family,
     FilterRule,
     Interface,
@@ -18,7 +21,6 @@ import type {
     Limit,
     NatRule,
     NeighborSettings,
-    PoolNatRule,
     Port,
     PortRange,
     Prefix,
@@ -93,7 +95,8 @@ export type BuiltFeature =
     | "nat-state"
     | "urpf"
     | "vrf-imports"
-    | "rate-limit";
+    | "rate-limit"
+    | "marking";
 
 export class Derive {
     /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
@@ -110,6 +113,8 @@ export class Derive {
         "ipsec",
         "wireguard",
         "eoip",
+        "pseudowire",
+        "pppoe_client",
     ];
 
     /** Fields a platform renders only once they are tested on one of its devices. */
@@ -119,13 +124,41 @@ export class Derive {
         ["bound_to", "port-binding"],
     ] as const;
 
-    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge doesn't route. */
-    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge"];
+    /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge or a pseudowire doesn't route. */
+    private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge", "pseudowire"];
 
     /** Bits per second in each unit a `Rate` takes. */
     static readonly RATE_UNITS = { k: 1e3, M: 1e6, G: 1e9 } as const;
 
     static readonly BITS_PER_BYTE = 8;
+
+    /** Each DSCP's value, from the IANA DSCP registry. */
+    static readonly DSCP: Readonly<Record<Dscp, number>> = {
+        cs0: 0,
+        cs1: 8,
+        cs2: 16,
+        cs3: 24,
+        cs4: 32,
+        cs5: 40,
+        cs6: 48,
+        cs7: 56,
+        af11: 10,
+        af12: 12,
+        af13: 14,
+        af21: 18,
+        af22: 20,
+        af23: 22,
+        af31: 26,
+        af32: 28,
+        af33: 30,
+        af41: 34,
+        af42: 36,
+        af43: 38,
+        ef: 46,
+        "voice-admit": 44,
+        le: 1,
+        nqb: 45,
+    };
 
     /** The ways into the device in `management`. */
     private static readonly MANAGEMENT_SERVICES = ["ssh", "telnet", "http", "https", "api", "api_tls", "ftp", "native_protocol"] as const;
@@ -297,6 +330,37 @@ export class Derive {
         return numbers;
     }
 
+    /** The `ipv4` and `ipv6` routes a BGP session carries: the families it states, or its address's when it states none. A VPN family is left out. */
+    static unicastFamilies(settings: Pick<NeighborSettings, "address_families">, address: string): Family[] {
+        const families = settings.address_families ?? [Address.family(address)];
+        return families.filter((family): family is Family => family === "ipv4" || family === "ipv6");
+    }
+
+    /** The VPN families a BGP session carries, `vpnv4` and `vpnv6`. */
+    static vpnFamilies(settings: Pick<NeighborSettings, "address_families">): BgpFamily[] {
+        return (settings.address_families ?? []).filter((family) => family === "vpnv4" || family === "vpnv6");
+    }
+
+    /** Where the device writes an L3VPN: each VRF's route distinguisher and route targets, and each neighbor or group that carries a VPN family. */
+    static l3vpn(device: Device): string[] {
+        const found: string[] = [];
+        for (const [name, vrf] of Object.entries(device.routing?.vrfs ?? {})) {
+            if (vrf?.route_distinguisher !== undefined) found.push(`routing.vrfs.${name}.route_distinguisher`);
+            if (vrf?.route_targets) found.push(`routing.vrfs.${name}.route_targets`);
+        }
+
+        const bgp = device.routing?.bgp;
+        const sessions = [
+            ...Object.entries(bgp?.neighbor_groups ?? {}).map(([name, settings]) => ({ where: `neighbor_groups.${name}`, settings })),
+            ...Object.entries(bgp?.neighbors ?? {}).map(([name, settings]) => ({ where: `neighbors.${name}`, settings })),
+        ];
+        for (const { where, settings } of sessions) {
+            const families = Derive.vpnFamilies(settings ?? {});
+            if (families.length) found.push(`routing.bgp.${where}.address_families ${families.join(" and ")}`);
+        }
+        return found;
+    }
+
     /** A neighbor's prefix limit in its long form, or none. */
     static prefixLimit(settings: NeighborSettings): PrefixLimit | undefined {
         const max = settings.max_prefixes;
@@ -326,7 +390,7 @@ export class Derive {
         return Object.entries(bgp?.neighbors ?? {}).flatMap(([neighbor, written]) => {
             const group = written.neighbor_group ? bgp?.neighbor_groups?.[written.neighbor_group] : undefined;
             const settings = { ...group, ...written };
-            const families = settings.address_families ?? [Address.family(written.address)];
+            const families = Derive.unicastFamilies(settings, written.address);
             const policy = settings.export_policy;
 
             const defaults = settings.send_default_route ? families.map((family) => presets.default_routes[family]) : [];
@@ -414,7 +478,7 @@ export class Derive {
     /**
      * Where each subscriber leaves, RFC 7422's sequential mapping. Each pool address takes the same number of subscribers, in address order. Each one's block of `port_set_size` ports follows the block before it, from port 1024. Nothing when `if.src` is not one prefix that `validate` takes.
      */
-    static poolAddresses(rule: PoolNatRule): PoolAddress[] {
+    static poolAddresses(rule: DeterministicPoolNatRule): PoolAddress[] {
         const src = [rule.if?.src].flat()[0];
         if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool)) return [];
 
@@ -445,9 +509,40 @@ export class Derive {
         return addresses;
     }
 
+    /** The base AS numbers are written in, for `numberPatterns`. */
+    private static readonly BASE = 10;
+
     /** AS numbers as ranges, a single number as a range of one. */
     static asRanges(numbers: AsNumbers): AsRange[] {
         return [numbers].flat().map((each) => (typeof each === "number" ? { min: each, max: each } : each));
+    }
+
+    /**
+     * Patterns that together match the numbers from `min` to `max`, with no repetition count, as the NLNOG BGP Filter Guide writes them. 65552 to 131071 is `6555[2-9]`, `655[6-9][0-9]`, and on to `13107[0-1]`.
+     */
+    static numberPatterns(min: number, max: number): string[] {
+        const patterns: string[] = [];
+
+        for (let low = min; low <= max;) {
+            // One length of number at a time, so no pattern needs a leading zero.
+            const length = String(low).length;
+            const high = Math.min(max, Derive.BASE ** length - 1);
+
+            // The most trailing digits that can be any digit, then how far the digit before them goes.
+            let any = 0;
+            while (any < length - 1 && low % Derive.BASE ** (any + 1) === 0 && low + Derive.BASE ** (any + 1) - 1 <= high) any++;
+            const block = Derive.BASE ** any;
+            const first = Math.floor(low / block) % Derive.BASE;
+            let last = first;
+            while (last < Derive.BASE - 1 && low + (last - first + 2) * block - 1 <= high) last++;
+
+            const above = Math.floor(low / (block * Derive.BASE));
+            const digit = first === last ? `${first}` : `[${first}-${last}]`;
+            patterns.push(`${above || ""}${digit}${"[0-9]".repeat(any)}`);
+            low += (last - first + 1) * block;
+        }
+
+        return patterns;
     }
 
     /** The key that signs IS-IS `level`: the level's own, or else the one for every level. */
@@ -517,6 +612,7 @@ export class Derive {
         if (device.routing?.vrf_imports && !has("vrf-imports")) found.push(`routing.vrf_imports, ${notBuilt}`);
 
         if (!has("rate-limit")) for (const { where } of Derive.rateLimited(device)) found.push(`${where}.rate_limit, ${notBuilt}`);
+        if (device.qos?.marking && !has("marking")) found.push(`qos.marking, ${notBuilt}`);
 
         return found;
     }

@@ -11,9 +11,13 @@ import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
-import type { Dialect, Group } from "../line-diff";
+import type { Dialect, Entry, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import { VrpAaa } from "./aaa";
+import { VrpAcls } from "./acls";
+import { VrpBgp } from "./bgp";
+import { VrpDhcp } from "./dhcp";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -48,7 +52,6 @@ export class Vrp extends Platform {
         "authentication-scheme default",
         "authorization-scheme default",
         "accounting-scheme default",
-        "domain default",
         "Info:",
         // Derived from the switch's MAC once SNMP is on.
         "snmp-agent local-engineid",
@@ -56,32 +59,36 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|stub|nssa|default-cost)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl number |aaa$|user-interface |ospf \d+|ip vpn-instance |bfd$|alarm$)/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp )/,
         indented: true,
         terminator: "#",
-        ignore: (line) => Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
+        // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
+        ignore: (line) => line === "domain default" || Vrp.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
         undo: Vrp.undo,
         leave: "quit",
         // The console refuses to drop its password while password login is still on.
         first: /^authentication-mode /,
         canon: Vrp.canon,
         order: Vrp.order,
+        head: (line) => VrpBgp.head(line) ?? Vrp.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, users, and BFD. Then come device-wide lines, LAGs, ports, VLAN interfaces, OSPF, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, and BFD. Then come device-wide lines, such as prefix lists, LAGs, ports, VLAN interfaces, OSPF, route-policies, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
-        /^(ip vpn-instance|vlan |acl number|aaa|bfd)/,
+        /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
         /^$/,
         /^interface Eth-Trunk/,
         /^interface (?!Vlanif)/,
         /^interface Vlanif/,
         /^ospf /,
+        /^route-policy /,
+        /^bgp /,
     ];
 
     /** The platform offers an ECDSA host key it then signs wrongly, so RSA is asked for. */
@@ -146,17 +153,7 @@ export class Vrp extends Platform {
         }
 
         for (const [name, port] of Derive.ports(device)) {
-            for (const field of [
-                "speed",
-                "ingress_acl",
-                "mtu",
-                "addresses",
-                "urpf",
-                "vrrp",
-                "vrf",
-                "ipv6_ra",
-                "hardware_offload",
-            ] as const) {
+            for (const field of ["speed", "mtu", "addresses", "urpf", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`interfaces.ethernet.${name}.${field}, ports are switched; use a VLAN interface`);
             }
 
@@ -175,6 +172,9 @@ export class Vrp extends Platform {
         for (const { name, kind, settings } of interfaces) {
             const where = `interfaces.${kind}.${name}`;
             if (kind === "ipsec") found.push(`${where}, IPsec: a CloudEngine switch does not encrypt the traffic it forwards`);
+            else if (kind === "pseudowire") found.push(`${where}, a pseudowire, not built yet`);
+            else if (kind === "pppoe_client")
+                found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
             else if (kind !== "vlan_interface" && kind !== "lag") found.push(`${where}, a ${kind}`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
@@ -191,9 +191,9 @@ export class Vrp extends Platform {
             if (vrf?.description) found.push(`routing.vrfs.${name}.description`);
         }
 
-        if (routing?.bgp) found.push("routing.bgp");
         if (routing?.isis) found.push("routing.isis");
         if (routing?.mpls) found.push("routing.mpls, not built yet");
+        for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
         if (routing?.rpki) found.push("routing.rpki");
         // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
         if (routing?.ospf?.vrf) found.push("routing.ospf.vrf, not built yet");
@@ -204,7 +204,8 @@ export class Vrp extends Platform {
                 found.push(`${where}.algorithm ${authentication.algorithm}, the platform signs OSPF with md5 or hmac-sha-256`);
             if (authentication.key_id === 0) found.push(`${where}.key_id 0, the platform numbers keys from 1`);
         }
-        if (routing?.router_id && !routing.ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
+        if (routing?.router_id && !routing.ospf && !routing.bgp)
+            found.push("routing.router_id without routing.ospf or routing.bgp, only they use it here");
 
         const bfd = routing?.bfd;
         const interval = Vrp.BFD_INTERVAL_MS;
@@ -233,13 +234,10 @@ export class Vrp extends Platform {
                 found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
         }
 
+        found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
+
         const refusedGroups = [
-            ["firewall", device.firewall],
-            ["services.dhcp_server", device.services?.dhcp_server],
             ["services.dhcpv6_server", device.services?.dhcpv6_server],
-            ["switching.acls", device.switching?.acls],
-            ["routing.policies", routing?.policies],
-            ["routing.prefix_sets", routing?.prefix_sets],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
         ] as const;
@@ -258,7 +256,8 @@ export class Vrp extends Platform {
         }
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
-        if (device.system?.aaa) found.push("system.aaa, which only RouterOS, Junos, and FortiOS build for now");
+        found.push(...VrpAaa.unsupported(device));
+        found.push(...VrpBgp.unsupported(device));
 
         const management = device.management ?? {};
 
@@ -283,6 +282,8 @@ export class Vrp extends Platform {
         // Snooping runs on each port, over all of its VLANs.
         for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
             if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
@@ -319,6 +320,11 @@ export class Vrp extends Platform {
 
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
         found.push(...Derive.unbuiltMonitoring(device));
+        // Huawei's NQA documentation for CloudEngine V200R005C10.
+        for (const name of Object.keys(monitoring.probes ?? {}))
+            found.push(
+                `monitoring.probes.${name}, not built for VRP: NQA asks before it changes a running test, and deletes none until it is stopped`
+            );
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
@@ -368,13 +374,16 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. So is a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
+        for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
+        found.push(...VrpBgp.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -397,6 +406,33 @@ export class Vrp extends Platform {
         }
 
         return found;
+    }
+
+    /** Each filter chain is refused with what stands in its way. `Derive.unbuilt` refuses TCP MSS clamps. */
+    private static firewallGaps(device: Device): string[] {
+        const { filter, tcp_mss: _tcpMss, ...rest } = device.firewall ?? {};
+        const found = Object.keys(rest).map((key) => `firewall.${key}`);
+
+        if (filter?.input)
+            found.push(
+                "firewall.filter.input, V200R005 filters traffic to the switch only with a blacklist, which drops what it lists; management.allow guards SSH and SNMP"
+            );
+        if (filter?.forward)
+            found.push(
+                "firewall.filter.forward, the switch's traffic filter checks what it switches as well as what it routes: use switching.acls on the ports"
+            );
+        if (filter?.output) found.push("firewall.filter.output, the switch filters nothing it sends itself");
+
+        return found;
+    }
+
+    /** An ACL rule's description is a setting of its own beside the rule. A pool's lists take more than one value, so a line that changes is undone whole. */
+    private static head(line: string): string {
+        const description = /^rule \d+ description/.exec(line);
+        if (description) return description[0];
+        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind) /.test(line)) return line;
+
+        return LineDiff.head(line);
     }
 
     /** Each OSPF interface's authentication, with where it is written. */
@@ -445,9 +481,11 @@ export class Vrp extends Platform {
         );
 
         Vrp.removeLoghosts(groups, desired, current);
-        Vrp.replaceRules(groups, current);
+        Vrp.replaceRules(groups, desired, current);
+        VrpDhcp.rebuild(groups, desired, current, Vrp.DIALECT);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
+        VrpAaa.order(groups, desired, current, Vrp.DIALECT);
         const keys = Vrp.keySteps(groups, desired, current);
         if (keys.problems.length) return { steps: [], problems: keys.problems };
 
@@ -462,7 +500,8 @@ export class Vrp extends Platform {
         ];
 
         // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
-        const lastRemovals = top?.remove.filter((line) => /^acl number \d+$/.test(line)) ?? [];
+        const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
+        const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
 
         if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
 
@@ -473,12 +512,24 @@ export class Vrp extends Platform {
 
         if (firstRemovals.length) {
             // `undo vlan batch` removes a VLAN's own settings with it, so only the interfaces and the list are sent.
-            const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map(Vrp.undo);
+            const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map((line) => Vrp.undo(line));
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
 
         if (lastRemovals.length) {
-            planned.push({ title: "ACLs no longer used", show: lastRemovals.map((line) => `- ${line}`), send: lastRemovals.map(Vrp.undo) });
+            planned.push({
+                title: "ACLs no longer used",
+                show: lastRemovals.map((line) => `- ${line}`),
+                send: lastRemovals.map((line) => Vrp.undo(line)),
+            });
+        }
+
+        if (unused.length) {
+            planned.push({
+                title: "Route policies and lists no longer used",
+                show: unused.map((line) => `- ${line}`),
+                send: unused.map((line) => Vrp.undo(line)),
+            });
         }
 
         return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
@@ -591,14 +642,27 @@ export class Vrp extends Platform {
         };
     }
 
-    private static undo(line: string): string {
+    private static undo(line: string, path: readonly string[] = []): string {
         // A negated line is undone by stating it.
         if (line.startsWith("undo ")) return line.slice("undo ".length);
+        // A domain lets go of a scheme, a server group, or its level by the keyword alone: `undo radius server group`.
+        if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
+        const server = VrpAaa.undo(line);
+        if (server) return server;
+        const bgp = VrpBgp.undo(line);
+        if (bgp) return bgp;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
         if (assigned) return `undo ${assigned[1]}`;
+        // A named ACL is removed by its name, and a rule's description by its rule's number.
+        const named = /^(acl (?:ipv6 )?name \S+) advance$/.exec(line);
+        if (named) return `undo ${named[1]}`;
+        const description = /^rule \d+ description/.exec(line);
+        if (description) return `undo ${description[0]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
+        const pool = Vrp.undoInPool(line, path);
+        if (pool) return pool;
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `undo ${keyword[1]}`;
@@ -614,9 +678,21 @@ export class Vrp extends Platform {
         return `undo ${line}`;
     }
 
+    /** A pool's network, lease, and VRF are undone by their keyword, and a static binding by its address. */
+    private static undoInPool(line: string, path: readonly string[]): string | undefined {
+        if (!path[0]?.startsWith("ip pool ")) return undefined;
+
+        const keyword = /^(network|lease|vpn-instance) /.exec(line);
+        if (keyword) return `undo ${keyword[1]}`;
+        const binding = /^(static-bind ip-address \S+) /.exec(line);
+        return binding ? `undo ${binding[1]}` : undefined;
+    }
+
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
     private static canon(line: string): string {
-        return line.replace(/((?:password|community read|-mode \S+(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>");
+        return line
+            .replace(/((?:password|community read|-mode \S+(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>")
+            .replace(/(shared-key(?:-| )cipher) \S+/g, "$1 <secret>");
     }
 
     private static order(path: string[]): number {
@@ -647,19 +723,39 @@ export class Vrp extends Platform {
         }
     }
 
-    /** An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first. */
-    private static replaceRules(groups: Group[], current: string): void {
+    /**
+     * An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first, which takes its description with it, so the description is sent again. A rule that goes takes its description too.
+     */
+    private static replaceRules(groups: Group[], desired: string, current: string): void {
         const existing = LineDiff.entries(current, Vrp.DIALECT);
+        const wanted = LineDiff.entries(desired, Vrp.DIALECT);
+        const isDescription = (line: string) => /^rule \d+ description /.test(line);
 
         for (const group of groups) {
-            if (!group.path[0]?.startsWith("acl number ")) continue;
+            if (!group.path[0]?.startsWith("acl ")) continue;
+
+            const inBlock = (entries: Entry[]) => entries.filter((entry) => entry.path.join("\n") === group.path.join("\n"));
+            const rulesUndone = new Set<string>();
 
             for (const line of group.add) {
                 const rule = /^rule \d+ /.exec(line)?.[0];
-                if (!rule) continue;
+                if (!rule || isDescription(line)) continue;
 
-                const old = existing.find((entry) => entry.path.join("\n") === group.path.join("\n") && entry.line.startsWith(rule));
+                const old = inBlock(existing).find((entry) => entry.line.startsWith(rule) && !isDescription(entry.line));
                 if (old && !group.remove.includes(old.line)) group.remove.push(old.line);
+                if (old) rulesUndone.add(rule);
+            }
+
+            for (const line of group.remove) {
+                const rule = /^rule \d+ /.exec(line)?.[0];
+                if (rule && !isDescription(line)) rulesUndone.add(rule);
+            }
+
+            const undoneWith = (line: string) => [...rulesUndone].some((rule) => line.startsWith(`${rule}description `));
+            group.remove = group.remove.filter((line) => !(isDescription(line) && undoneWith(line)));
+
+            for (const { line } of inBlock(wanted)) {
+                if (isDescription(line) && undoneWith(line) && !group.add.includes(line)) group.add.push(line);
             }
         }
     }

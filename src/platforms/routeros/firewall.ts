@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, Ethertype, Family, FilterMatch, NatRule, PoolNatRule, Ports } from "../../model";
+import type { AclRule, DeterministicPoolNatRule, Device, Ethertype, Family, FilterMatch, Finding, NatRule, Ports } from "../../model";
 import { Derive } from "../../core/derive";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
@@ -23,10 +23,71 @@ export class RouterOsFirewall {
     /** The protocols a NAT pool gives each subscriber a block of ports in. */
     private static readonly POOL_PROTOCOLS = ["tcp", "udp"] as const;
 
+    /** The most subscribers of one pool proven: a /20, whose 8449 rules took 89 s to apply on a CHR (7.24.6). */
+    private static readonly PROVEN_SUBSCRIBERS = 4096;
+
     private constructor(
         private readonly render: RouterOsRender,
         private readonly device: Device
     ) {}
+
+    /** A pool with more subscribers than were proven. Each subscriber takes a rule for each protocol, and each pool address two, so its apply takes minutes. */
+    static largePools(device: Device): Finding[] {
+        const findings: Finding[] = [];
+        const seen = new Set<string>();
+
+        for (const rule of device.firewall?.nat?.source ?? []) {
+            if (!("to_pool" in rule) || rule.port_allocation !== "deterministic") continue;
+
+            const src = [rule.if?.src].flat()[0];
+            // NatChecks reports a pool without clean IPv4 prefixes.
+            if (!src || !Address.isCidr(src) || !Address.isCidr(rule.to_pool) || Address.family(src) !== "ipv4") continue;
+            if (seen.has(`${rule.to_pool} ${src}`)) continue;
+            seen.add(`${rule.to_pool} ${src}`);
+
+            const subscribers = 2 ** (32 - Address.split(src).len);
+            if (subscribers <= RouterOsFirewall.PROVEN_SUBSCRIBERS) continue;
+
+            const addresses = 2 ** (32 - Address.split(rule.to_pool).len);
+            const rules = subscribers * RouterOsFirewall.POOL_PROTOCOLS.length + addresses * 2 + 1;
+            findings.push({
+                level: "warning",
+                device: device.name,
+                message: `firewall.nat.source, to_pool ${rule.to_pool}: if.src ${src} has ${subscribers} subscribers, which take about ${rules} firewall rules on RouterOS. The largest pool proven is a /20 of ${RouterOsFirewall.PROVEN_SUBSCRIBERS} subscribers, whose apply took 89 s on a CHR. Try this one on a lab device first, or split the subscribers among routers.`,
+            });
+        }
+
+        return findings;
+    }
+
+    /**
+     * Marking that would miss packets. A flow on the fast path skips the mangle table (MikroTik's manual, Mangle). So does what the switch chip routes with hardware offload on (TRAPS.md). A VLAN interface with `hardware_offload: false` is routed by the CPU, so a rule on one sees its traffic.
+     */
+    static markingGaps(device: Device): string[] {
+        const rules = device.qos?.marking ?? [];
+        if (!rules.length) return [];
+
+        const found: string[] = [];
+        const fastPath = Object.values(device.firewall?.filter ?? {}).some((chain) => chain?.rules?.some((rule) => rule.fast_path));
+        if (fastPath) found.push("qos.marking beside a fast_path rule, whose flows skip the mangle table: take fast_path off");
+
+        const software = (iface: string | readonly string[] | undefined) =>
+            [iface].flat().some((name) => name !== undefined && device.interfaces?.vlan_interface?.[name]?.hardware_offload === false);
+        if (device.system?.hardware_offload)
+            rules.forEach((rule, index) => {
+                if (software(rule.if?.in_interface) || software(rule.if?.out_interface)) return;
+                found.push(
+                    `qos.marking[${index}] while system.hardware_offload is on, whose routed traffic skips the mangle table: match in if.in_interface or if.out_interface a VLAN interface with hardware_offload: false`
+                );
+            });
+
+        rules.forEach((rule, index) => {
+            if (Array.isArray(rule.if?.dscp) && rule.if.dscp.length > 1)
+                found.push(`qos.marking[${index}].if.dscp, a list: write one rule for each`);
+        });
+
+        return found;
+    }
 
     static render(render: RouterOsRender, device: Device): void {
         const firewall = new RouterOsFirewall(render, device);
@@ -36,6 +97,7 @@ export class RouterOsFirewall {
             firewall.filter(family);
             firewall.nat(family);
             firewall.tcpMss(family);
+            firewall.marking(family);
         }
 
         firewall.helpers();
@@ -212,7 +274,8 @@ export class RouterOsFirewall {
                 if (!this.families(rule.if).includes(family)) continue;
 
                 if ("to_pool" in rule) {
-                    if (Address.family(rule.to_pool) !== family) continue;
+                    // `unsupported()` refuses a dynamic pool.
+                    if (rule.port_allocation !== "deterministic" || Address.family(rule.to_pool) !== family) continue;
 
                     this.render.add(menu, "add", {
                         action: "jump",
@@ -251,7 +314,7 @@ export class RouterOsFirewall {
     /**
      * A NAT pool, as MikroTik's NAT page writes RFC 7422: the pool's chain jumps to a chain for each pool address, by the subscribers that leave as it. There, each subscriber's TCP and UDP go to its block of ports, and anything else to the address alone.
      */
-    private pool(menu: string, rule: PoolNatRule): void {
+    private pool(menu: string, rule: DeterministicPoolNatRule): void {
         const addresses = Derive.poolAddresses(rule);
 
         for (const { address, subscribers } of addresses) {
@@ -301,6 +364,32 @@ export class RouterOsFirewall {
             };
             // In the order the device exports them, so the rule reads back the same.
             this.render.add(menu, "add", Object.fromEntries(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b))));
+        }
+    }
+
+    /**
+     * Marking rewrites what the device routes, in the mangle table's forward chain, after the TCP MSS clamps. Its rules end with `passthrough=no`, so the first rule that matches marks the packet and the next are skipped. A PCP is the packet's priority, which the VLAN tag it leaves with carries (TRAPS.md). The priority is set first: a DSCP changed first would no longer match the next rule's `dscp`.
+     */
+    private marking(family: Family): void {
+        const menu = family === "ipv4" ? "/ip firewall mangle" : "/ipv6 firewall mangle";
+
+        for (const rule of this.device.qos?.marking ?? []) {
+            if (!this.families(rule.if).includes(family)) continue;
+
+            const dscp = RouterOsFirewall.one(rule.if?.dscp);
+            const match = { ...this.matchProperties(rule.if, family), dscp: dscp && Derive.DSCP[dscp] };
+            const { dscp: newDscp, pcp } = rule.then;
+            const actions = [
+                ...(pcp === undefined ? [] : [{ action: "set-priority", "new-priority": pcp }]),
+                ...(newDscp === undefined ? [] : [{ action: "change-dscp", "new-dscp": Derive.DSCP[newDscp] }]),
+            ];
+
+            actions.forEach((action, index) => {
+                const passthrough = index === actions.length - 1 ? "no" : undefined;
+                const properties = { ...action, chain: "forward", comment: rule.description, ...match, passthrough };
+                // In the order the device exports them, so the rule reads back the same.
+                this.render.add(menu, "add", Object.fromEntries(Object.entries(properties).sort(([a], [b]) => a.localeCompare(b))));
+            });
         }
     }
 

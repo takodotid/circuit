@@ -4,7 +4,7 @@ import { expect, test } from "bun:test";
 import { presets } from "../../src/config/presets";
 import type { Device, Neighbor, PolicyRule } from "../../src/model";
 import { Platforms } from "../../src/platforms";
-import { FortiOsRouting } from "../../src/platforms/fortios/routing";
+import { Derive } from "../../src/core/derive";
 import { Fixtures } from "../fixtures";
 
 const options = { secrets: false, rollback: 10 };
@@ -162,7 +162,7 @@ test("FortiOS matches one AS path list per rule, a pattern for each number range
     expect(fortios.experimental?.(device)).toEqual([]);
 });
 
-test("FortiOS writes a number range as patterns that match exactly its numbers", () => {
+test("A number range is written as patterns as patterns that match exactly its numbers", () => {
     for (const [min, max] of [
         [0, 0],
         [9, 12],
@@ -170,14 +170,14 @@ test("FortiOS writes a number range as patterns that match exactly its numbers",
         [64512, 65534],
         [65552, 131071],
     ] as const) {
-        const pattern = new RegExp(`^(${FortiOsRouting.numberPatterns(min, max).join("|")})$`);
+        const pattern = new RegExp(`^(${Derive.numberPatterns(min, max).join("|")})$`);
         const wrong: number[] = [];
         for (let number = Math.max(0, min - 1000); number <= max + 1000; number++)
             if (pattern.test(String(number)) !== (number >= min && number <= max)) wrong.push(number);
         expect(wrong).toEqual([]);
     }
 
-    expect(FortiOsRouting.numberPatterns(4200000000, 4294967294)).toEqual([
+    expect(Derive.numberPatterns(4200000000, 4294967294)).toEqual([
         "42[0-8][0-9][0-9][0-9][0-9][0-9][0-9][0-9]",
         "429[0-3][0-9][0-9][0-9][0-9][0-9][0-9]",
         "4294[0-8][0-9][0-9][0-9][0-9][0-9]",

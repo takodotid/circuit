@@ -21,10 +21,12 @@ export type Segment = {
     next?: string;
 };
 
-/** A prefix in use without being a segment: a loopback's address, a point-to-point address, or a block routed elsewhere. */
+/** A prefix in use without being a segment: a loopback's address, a point-to-point address, a block routed elsewhere, or a NAT or PPPoE pool. */
 export type Block = {
     prefix: string;
     what: string;
+    /** `first-last`, for a pool that is no prefix. Then `prefix` is the smallest prefix that holds it, which places it in a space. */
+    range?: string;
 };
 
 /** Space the network owns: in `circuit({ prefixes })`, originated in BGP, or asked for. Everything in use inside it, and what is free. */
@@ -115,6 +117,26 @@ export class AddressSpace {
         return `about 2^${nearer}`;
     }
 
+    /** The addresses a block uses: its range, or all of its prefix. */
+    private static extent(block: Block): Taken {
+        const [first, last] = (block.range ?? "").split("-");
+        if (first === undefined || last === undefined) return Address.range(block.prefix);
+        return { first: AddressSpace.numberOf(first), last: AddressSpace.numberOf(last) };
+    }
+
+    /** The first and last address of a prefix. */
+    private static ends(prefix: string): { first: string; last: string } {
+        const { first, last, family } = Address.range(prefix);
+        return { first: Address.fromNumber(first, family), last: Address.fromNumber(last, family) };
+    }
+
+    /** The smallest prefix that holds both addresses. */
+    private static covering(first: string, last: string): string {
+        const family = Address.family(first);
+        const differing = (AddressSpace.numberOf(first) ^ AddressSpace.numberOf(last)).toString(2).replace(/^0$/, "").length;
+        return Address.prefixOf(`${first}/${Address.bits(family) - differing}`);
+    }
+
     private static byAddress(a: Use, b: Use): number {
         const first = (use: Use) => AddressSpace.numberOf(use.address.split("-")[0] ?? "");
         return first(a) < first(b) ? -1 : first(a) > first(b) ? 1 : 0;
@@ -187,6 +209,12 @@ export class AddressSpace {
             return true;
         };
 
+        // A range is an address taken only when both ends are in one segment. A range that leaves its segment is a block.
+        const claim = (first: string, last: string, what: string, label = `${first}-${last}`) => {
+            const prefix = segmentOf(first);
+            return prefix !== undefined && prefix === segmentOf(last) && take(label, what, first, last);
+        };
+
         for (const device of devices) {
             for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
                 if (!server) continue;
@@ -211,6 +239,45 @@ export class AddressSpace {
                         prefix: Address.prefixOf(delegated),
                         what: `prefixes delegated by DHCPv6 server ${name} on ${device.name}`,
                     });
+            }
+
+            for (const [name, server] of Object.entries(device.services?.pppoe_server ?? {})) {
+                if (!server) continue;
+                const [start, end] = server.pool;
+                const what = `PPPoE pool ${name} on ${device.name}`;
+                if (Address.isValid(start) && Address.isValid(end) && !claim(start, end, what))
+                    blocks.push({ prefix: AddressSpace.covering(start, end), what, range: `${start}-${end}` });
+
+                const local = `PPPoE server ${name} on ${device.name}`;
+                if (Address.isValid(server.local_address) && !take(server.local_address, local))
+                    blocks.push({ prefix: `${server.local_address}/${Address.bits("ipv4")}`, what: local });
+
+                const delegated = server.prefix_delegation?.pool;
+                if (delegated && Address.isCidr(delegated))
+                    blocks.push({
+                        prefix: Address.prefixOf(delegated),
+                        what: `prefixes delegated by PPPoE server ${name} on ${device.name}`,
+                    });
+            }
+
+            // A pool and the subscribers it serves are both address space in use. A rule with no pool, such as masquerade, uses none.
+            for (const rule of device.firewall?.nat?.source ?? []) {
+                if (!("to_pool" in rule) || !Address.isCidr(rule.to_pool)) continue;
+
+                // A deterministic pool's subscribers are one prefix, and a dynamic pool's any number.
+                const subscribers = [rule.if?.src].flat().filter((src) => src !== undefined);
+                const pool = AddressSpace.ends(rule.to_pool);
+                if (!claim(pool.first, pool.last, `NAT pool ${rule.to_pool} on ${device.name}`, rule.to_pool))
+                    blocks.push({
+                        prefix: Address.prefixOf(rule.to_pool),
+                        what: `NAT pool${subscribers.length ? ` for ${subscribers.join(", ")}` : ""} on ${device.name}`,
+                    });
+
+                for (const prefix of subscribers.filter((src) => Address.isCidr(src))) {
+                    const each = AddressSpace.ends(prefix);
+                    const what = `subscribers of NAT pool ${rule.to_pool} on ${device.name}`;
+                    if (!claim(each.first, each.last, what, prefix)) blocks.push({ prefix: Address.prefixOf(prefix), what });
+                }
             }
 
             for (const route of device.routing?.static_routes ?? []) {
@@ -315,7 +382,11 @@ export class AddressSpace {
 
             // Smaller spaces inside this one are in use too.
             const nested = spacePrefixes.filter((other) => other !== space && Address.contains(space, other));
-            const taken = [...spaceSegments, ...spaceBlocks.map((block) => block.prefix), ...nested].map((prefix) => Address.range(prefix));
+            const taken = [
+                ...spaceSegments.map((prefix) => Address.range(prefix)),
+                ...spaceBlocks.map(AddressSpace.extent),
+                ...nested.map((prefix) => Address.range(prefix)),
+            ];
 
             return {
                 prefix: space,
@@ -369,7 +440,7 @@ export class AddressSpace {
             lines.push(`  ${each.prefix}, ${each.free} free${each.next ? `, next ${each.next}` : ""}`);
             for (const use of each.uses) lines.push(`      ${use.address}  ${use.what}`);
         };
-        const block = (each: Block) => lines.push(`  ${each.prefix}  ${each.what}`);
+        const block = (each: Block) => lines.push(`  ${each.range ?? each.prefix}  ${each.what}`);
 
         for (const space of report.spaces) {
             lines.push(`${space.prefix}, ${space.owner}`);

@@ -2,7 +2,7 @@
 
 import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { registry } from "../src/config/define";
 import type { Registered } from "../src/config/define";
 import type { Shape } from "../src/config/keys";
@@ -20,6 +20,20 @@ type ShapeMap = Readonly<Record<string, Shape>>;
 export class KeyPaths {
     /** The keys each test has not reached yet: a list that may only shrink. */
     private static readonly GAPS = join(import.meta.dir, "key-gaps.json");
+
+    /**
+     * Keys that are experimental on every platform that has them, each with why. Examples validate without `--experimental`, so no example writes one of these, and it needs no example until a platform has it tested. Then it leaves this list for an example.
+     */
+    static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
+        "routing.isis.multi_topology": "Junos only, where only `commit check` ran on a QFX5100",
+        "interfaces.ethernet.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
+        "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
+    };
+
+    /** Whether `path` is a key of `EXPERIMENTAL_EVERYWHERE`, or inside one. */
+    static experimentalEverywhere(path: string): boolean {
+        return Object.keys(KeyPaths.EXPERIMENTAL_EVERYWHERE).some((key) => path === key || KeyPaths.inside(path, key));
+    }
 
     /** Every key path of `shape`, each before the keys inside it. */
     static all(shape: Shape, path = ""): string[] {
@@ -89,9 +103,9 @@ export class KeyPaths {
     }
 
     /**
-     * Each project in `examples/`, read by `Project.read` from a copy, as Bun imports a file once. `written` holds each device as its files write it: `Project.read` then writes out each communities rule in place, so a copy is taken as the device registers.
+     * Each project in `examples/`, read by `Project.read` from a copy, as Bun imports a file once. `written` holds each device as its files write it: `Project.read` then writes out each communities rule in place, so a copy is taken as the device registers. With `filesFrom`, each device's certificate files are written from that folder, where a test reads files from.
      */
-    static async examples(): Promise<{ settings: object[]; written: object[]; devices: Device[] }> {
+    static async examples(filesFrom?: string): Promise<{ settings: object[]; written: object[]; devices: Device[] }> {
         const examples = join(import.meta.dir, "..", "examples");
         const scratch = mkdtempSync(join(tmpdir(), "circuit-key-paths-"));
         const read = { settings: [] as object[], written: [] as object[], devices: [] as Device[] };
@@ -111,6 +125,7 @@ export class KeyPaths {
                 for (const network of (await Project.read(join(scratch, name))).networks) {
                     read.settings.push(network.settings);
                     read.devices.push(...Object.values(network.devices));
+                    if (filesFrom) KeyPaths.rebase(Object.values(network.devices), join(examples, name), filesFrom);
                 }
             }
         } finally {
@@ -118,6 +133,13 @@ export class KeyPaths {
             rmSync(scratch, { recursive: true, force: true });
         }
         return read;
+    }
+
+    /** Each device's certificate files, written from the folder `to` instead of the project at `from`. */
+    private static rebase(devices: readonly Device[], from: string, to: string): void {
+        const certificates = devices.flatMap((device) => Object.values(device.system?.certificates ?? {}));
+        for (const certificate of certificates)
+            if (certificate) certificate.certificate_file = relative(to, join(from, certificate.certificate_file));
     }
 
     /** A secret is one key: `secret()` or `secretFile()` writes it whole. */

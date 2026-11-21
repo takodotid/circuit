@@ -66,10 +66,10 @@ After every change, Circuit logs in again in a new session. The change stays onl
 
 ## Checking afterwards
 
-On RouterOS only, `apply` checks three things after it sends.
+On RouterOS, `apply` checks three things after it sends. On Junos and FortiOS it checks the second, the BGP sessions, and only with `--experimental`: there the check is not tested on a device with BGP sessions yet.
 
 1. **Switch rules.** If the plan changed switch rules, none may be invalid. A rule that doesn't fit the switch chip stops working without a word, and so does every rule after it.
-2. **BGP sessions.** Every session that was up before must be up again within 180 seconds. If one closed on its prefix limit, Circuit prints the `circuit bgp ... --clear-limit` command to run once you know why.
+2. **BGP sessions.** Every session that was up before must be up again within 180 seconds. If one closed on its prefix limit, Circuit tells you to clear it once you know why. On RouterOS it prints the `circuit bgp ... --clear-limit` command for it.
 3. **Announcements.** A session can stay up and still stop announcing. So each session must announce again what it announced before, if the config still announces it there: a default route with `send_default_route`, and each prefix of `originated_prefixes` its export policy accepts. A prefix the export decides by its AS path or RPKI state is not checked.
 
 If a check fails, `apply` fails, but the change stays on the device. Fix the problem and apply again.

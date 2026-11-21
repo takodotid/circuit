@@ -11,7 +11,8 @@ export type Dialect = {
     terminator: string;
     /** Lines that describe the device rather than configure it, or that the device prints whatever is set. */
     ignore: (line: string) => boolean;
-    undo: (line: string) => string;
+    /** The command that takes a line away, given the blocks it sits in. */
+    undo: (line: string, path: readonly string[]) => string;
     /** The command that leaves one block level. */
     leave: string;
     /** Lines sent before their block's undos, because the platform refuses an undo until they are in place. */
@@ -20,6 +21,8 @@ export type Dialect = {
     canon?: (line: string) => string;
     /** Where a block is sent among the others, lowest first, so nothing is referenced before it exists. Absent, blocks go in the order they differ. */
     order?: (path: string[]) => number;
+    /** The part of a line that says which setting it is, when `LineDiff.head` would take too little or too much of it. */
+    head?: (line: string) => string;
 };
 
 /** A line with the blocks it sits in, outermost first. */
@@ -32,9 +35,9 @@ export type Group = { path: string[]; remove: string[]; add: string[] };
 export type Around = (group: Group) => { before: string[]; after: string[] };
 
 export class LineDiff {
-    /** What a switch prints in place of a secret: the cipher of a password, a community, an SNMPv3 key, or an OSPF key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
+    /** What a switch prints in place of a secret: the cipher of a password, a community, or a key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
     private static readonly STORED_CREDENTIAL =
-        /((?:password|community read|-mode \S+(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community)( +)\S+/gm;
+        /((?:password|community read|-mode \S+(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community|shared-key(?:-| )cipher)( +)\S+/gm;
 
     private static indentOf(raw: string): number {
         return raw.length - raw.trimStart().length;
@@ -95,6 +98,7 @@ export class LineDiff {
     /** What differs, by block. A device line replaced by a desired line with the same head isn't undone: sending the new one is enough. A block the render doesn't hold goes with its header, and its lines with it. */
     static compare(desired: string, current: string, dialect: Dialect): Group[] {
         const canon = dialect.canon ?? ((line: string) => line);
+        const head = dialect.head ?? LineDiff.head;
         const keyOf = (entry: Entry) => [...entry.path, canon(entry.line)].join("\u0000");
         const pathKey = (path: string[]) => path.join("\u0000");
 
@@ -139,7 +143,7 @@ export class LineDiff {
             const replaced = wanted.some((other) => {
                 const sameBlock = pathKey(other.path) === pathKey(entry.path);
                 const isNew = !existingKeys.has(keyOf(other));
-                return sameBlock && isNew && LineDiff.head(other.line) === LineDiff.head(entry.line);
+                return sameBlock && isNew && head(other.line) === head(entry.line);
             });
             if (!replaced) groupFor(entry.path).remove.push(entry.line);
         }
@@ -214,7 +218,7 @@ export class LineDiff {
             // A block header sent on its own, such as an empty `bfd`, enters its view; it is left at once so the next line is not sent into it.
             const added = late.flatMap((line) => (dialect.block.test(line) ? [line, dialect.leave] : [line]));
 
-            const inner = [...early, ...group.remove.map(dialect.undo), ...added];
+            const inner = [...early, ...group.remove.map((line) => dialect.undo(line, group.path)), ...added];
             const leave = group.path.map(() => dialect.leave);
 
             return {

@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { ProjectCommands } from "../../src/cli/project-commands";
 import { Secrets } from "../../src/core/secrets";
 import { Platforms } from "../../src/platforms";
+import { RouterOsExport } from "../../src/platforms/routeros/export";
 import { StudioDataReader } from "../../src/studio/data";
 import { StudioServer } from "../../src/studio/server";
 import { PathCheck } from "../../src/transport/path-check";
@@ -33,7 +34,7 @@ let onParse: (command: string) => string = () => "(evaluate)\n";
 
 const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
     if (command === ":put [/system resource get version]") return `${VERSION}\n`;
-    if (command === "/export") return `# 2026-10-23 10:00:00 by RouterOS ${VERSION}\n${running}`;
+    if (command === RouterOsExport.READ) return `# 2026-10-23 10:00:00 by RouterOS ${VERSION}\n${running}${RouterOsExport.END}\n`;
     if (command.startsWith(":foreach c in=[/certificate find]")) return certificates;
     if (command === "/user export" || command.startsWith(":foreach ")) return "";
     if (command.startsWith(":put [:parse ")) return onParse(command);

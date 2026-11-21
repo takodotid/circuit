@@ -42,6 +42,8 @@ const WRITTEN_OUT: Record<string, string> = {
     "firewall.interface_sets": "each set's interfaces",
     "firewall.**.in_interface_set": "each set's interfaces",
     "firewall.**.out_interface_set": "each set's interfaces",
+    "qos.marking[].if.in_interface_set": "each set's interfaces",
+    "qos.marking[].if.out_interface_set": "each set's interfaces",
 };
 
 /** Keys `Project.read` takes out on some platforms. */
@@ -53,6 +55,7 @@ const TAKEN_OUT: Record<string, readonly string[]> = Object.fromEntries(
 const DOCUMENTATION_ONLY: Partial<Record<PlatformName, Record<string, string>>> = {
     junos: { "services.dhcp_server.*.reservations[].description": "a static binding, `host` in an address pool, has no description" },
     fortios: { "interfaces.bridge.*.description": "a bridge is a forward domain, a number set on each member" },
+    "raisecom-ros": { "services.ntp_server": "the switch answers time queries whenever it takes time from servers" },
 };
 
 /** A key from another platform's device goes into at most this many of the platform's own devices. That is enough to land where it means something. */
@@ -212,7 +215,7 @@ function kindOf(path: string): [Shape, string] {
 }
 
 Utils.root = Fixtures.FOLDER;
-const devices: Device[] = [...(await KeyPaths.examples()).devices, ...Fixtures.names().map((name) => Fixtures.device(name))];
+const devices: Device[] = [...(await KeyPaths.examples(Fixtures.FOLDER)).devices, ...Fixtures.names().map((name) => Fixtures.device(name))];
 const paths = KeyPaths.all(DEVICE);
 const held = byPath(devices);
 
@@ -317,8 +320,13 @@ for (const platform of Platforms.all()) {
 
 test("each key a platform reads is written in some device, so it can be tried", () => {
     const noExample = KeyPaths.listed("examples");
+    // A key experimental on every platform that has it is in no example. Its tests try it on each platform instead.
     const unwritten = paths.filter(
-        (path) => !held.has(path) && !skipped(path) && !noExample.some((gap) => gap === path || KeyPaths.inside(path, gap))
+        (path) =>
+            !held.has(path) &&
+            !skipped(path) &&
+            !KeyPaths.experimentalEverywhere(path) &&
+            !noExample.some((gap) => gap === path || KeyPaths.inside(path, gap))
     );
 
     expect(unwritten.map((path) => `${path}: no device holds it. Write it in an example project in examples/.`)).toEqual([]);

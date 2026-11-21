@@ -57,6 +57,7 @@ export class FortiOsRender {
     static readonly SECTIONS = [
         "vpn certificate local",
         "vpn certificate ca",
+        "user peer",
         "system global",
         FortiOsRender.BANNER,
         "system settings",
@@ -82,6 +83,7 @@ export class FortiOsRender {
         ...["", "2", "3", "4"].flatMap((number) => [`log syslogd${number} setting`, `log syslogd${number} filter`]),
         "system sflow",
         "system netflow",
+        "system link-monitor",
         "system dhcp server",
         "system dhcp6 server",
         "router static",
@@ -323,12 +325,13 @@ export class FortiOsRender {
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
         FortiOsRender.aaa(root, device);
         FortiOsRender.interfaces(root, device);
-        FortiOsIpsec.render(section("vpn ipsec phase1-interface"), section("vpn ipsec phase2-interface"), device);
+        FortiOsIpsec.render(section("vpn ipsec phase1-interface"), section("vpn ipsec phase2-interface"), section("user peer"), device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
         FortiOsMonitoring.snmp(root, device);
         FortiOsMonitoring.logging(root, device);
         FortiOsMonitoring.flowExport(root, device);
+        FortiOsMonitoring.probes(section("system link-monitor"), device);
         FortiOsRender.dhcpServers(section("system dhcp server"), device);
         FortiOsRender.dhcpv6Servers(section("system dhcp6 server"), device);
         FortiOsRender.staticRoutes(section("router static"), section("router static6"), device, device.routing?.static_routes ?? []);

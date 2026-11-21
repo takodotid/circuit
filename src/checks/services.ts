@@ -1,6 +1,6 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, Finding, IP } from "../model";
+import type { Device, Finding, IP, PrefixDelegation } from "../model";
 
 type Report = (message: string) => void;
 type Checker = (where: string, value: string) => void;
@@ -8,9 +8,9 @@ type Checker = (where: string, value: string) => void;
 /** What a device serves to hosts: DHCP, DHCPv6, and PPPoE servers. */
 export class ServicesChecks {
     /** The largest packet a PPPoE session may carry (RFC 2516). */
-    private static readonly PPPOE_MTU = 1492;
+    static readonly PPPOE_MTU = 1492;
     /** The smallest datagram every IPv4 host takes (RFC 791). */
-    private static readonly MIN_MTU = 576;
+    static readonly MIN_MTU = 576;
     /** The shortest time RFC 2869 allows between interim accounting reports, in seconds. */
     private static readonly MIN_INTERIM_SECONDS = 60;
 
@@ -115,6 +115,28 @@ export class ServicesChecks {
             if (flow?.protocol === "sflow")
                 report(`${where}: sFlow sends packet samples, not flows. Remove it, or export netflow-v9 or ipfix`);
         }
+
+        ServicesChecks.probes(device, report, ip);
+    }
+
+    /** Each probe pings one address, from an address of the same family, every whole number of seconds. */
+    private static probes(device: Device, report: Report, ip: Checker): void {
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const where = `monitoring.probes.${name}`;
+            ip(`${where}.target`, probe.target);
+            if (probe.source_address !== undefined) ip(`${where}.source_address`, probe.source_address);
+            if (!Number.isInteger(probe.interval) || probe.interval < 1)
+                report(`${where}.interval ${probe.interval}: write a whole number of seconds, from 1`);
+
+            const source = probe.source_address;
+            if (
+                source &&
+                Address.isValid(source) &&
+                Address.isValid(probe.target) &&
+                Address.family(source) !== Address.family(probe.target)
+            )
+                report(`${where}.source_address ${source} and target ${probe.target} differ in family`);
+        }
     }
 
     /** One server per interface, giving something: addresses in a network of its interface, prefixes from a pool, or DNS servers. */
@@ -148,26 +170,28 @@ export class ServicesChecks {
                     );
             }
 
-            const delegation = server.prefix_delegation;
-            if (delegation) {
-                const at = `${where}.prefix_delegation`;
-                if (!Address.isCidr(delegation.pool) || Address.family(delegation.pool) !== "ipv6") {
-                    report(`${at}.pool '${delegation.pool}' is not an IPv6 prefix, such as 2001:db8:100:8000::/49`);
-                } else {
-                    const { len } = Address.split(delegation.pool);
-                    const most = Address.bits("ipv6");
-                    if (Address.prefixOf(delegation.pool) !== Address.canonical(delegation.pool))
-                        report(`${at}.pool ${delegation.pool} has bits past its length: write ${Address.prefixOf(delegation.pool)}`);
-                    if (!Number.isInteger(delegation.prefix_length) || delegation.prefix_length <= len || delegation.prefix_length > most)
-                        report(
-                            `${at}.prefix_length ${delegation.prefix_length} is not a whole number from ${len + 1} to ${most}: each prefix delegated is a part of pool, a /${len}`
-                        );
-                }
-            }
+            if (server.prefix_delegation) ServicesChecks.delegation(`${where}.prefix_delegation`, server.prefix_delegation, report);
 
             if (server.lease_time !== undefined && (!Number.isInteger(server.lease_time) || server.lease_time <= 0))
                 report(`${where}.lease_time ${server.lease_time} is not a whole number of seconds above 0`);
         }
+    }
+
+    /** Prefixes to delegate: an IPv6 prefix, written without bits past its length, and each prefix delegated a part of it. */
+    private static delegation(at: string, delegation: PrefixDelegation, report: Report): void {
+        if (!Address.isCidr(delegation.pool) || Address.family(delegation.pool) !== "ipv6") {
+            report(`${at}.pool '${delegation.pool}' is not an IPv6 prefix, such as 2001:db8:100:8000::/49`);
+            return;
+        }
+
+        const { len } = Address.split(delegation.pool);
+        const most = Address.bits("ipv6");
+        if (Address.prefixOf(delegation.pool) !== Address.canonical(delegation.pool))
+            report(`${at}.pool ${delegation.pool} has bits past its length: write ${Address.prefixOf(delegation.pool)}`);
+        if (!Number.isInteger(delegation.prefix_length) || delegation.prefix_length <= len || delegation.prefix_length > most)
+            report(
+                `${at}.prefix_length ${delegation.prefix_length} is not a whole number from ${len + 1} to ${most}: each prefix delegated is a part of pool, a /${len}`
+            );
     }
 
     /** Each PPPoE server answers on some interface, as the only one there with its service name, and gives IPv4 addresses from a pool that holds no address of its own. */
@@ -213,6 +237,7 @@ export class ServicesChecks {
 
             if (!server.radius.length) report(`${where}.radius is empty: write the RADIUS servers that check subscribers`);
             ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
+            if (server.prefix_delegation) ServicesChecks.delegation(`${where}.prefix_delegation`, server.prefix_delegation, report);
         }
     }
 }

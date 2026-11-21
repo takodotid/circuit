@@ -21,9 +21,11 @@ import type {
     ReadSession,
     SwitchRules,
 } from "../platform";
+import { BgpHealth } from "../bgp-health";
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
 import { RouterOsDhcp } from "./dhcp";
+import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
@@ -38,8 +40,9 @@ import { RouterOsSyntax } from "./syntax";
 /** An SSH session or the console. Commands run one at a time, and each returns what it printed. */
 type Session = {
     run(command: string, timeout?: number): Promise<string>;
-    /** Only SSH can write a file. */
+    /** Only SSH can write or read a file. */
     upload?(path: string, content: string): Promise<void>;
+    download?(path: string): Promise<Buffer>;
     /** A fresh login, which tests that access survived. */
     fresh(): Promise<Session>;
     end(): void;
@@ -61,6 +64,13 @@ export class RouterOs extends Platform {
 
     private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
 
+    /** A far PE took no IPv6 route of a VRF into its own (TRAPS.md). */
+    private static readonly NO_VPNV6 =
+        "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
+
+    /** The largest MTU of a VLAN interface on a bridge where a pseudowire runs: the pseudowire's L2MTU, 1500, less a VLAN tag (TRAPS.md). */
+    private static readonly PSEUDOWIRE_VLAN_MTU = 1496;
+
     /** Version 6 has another BGP and filter language. */
     private static readonly SUPPORTED_MAJOR = 7;
 
@@ -69,8 +79,6 @@ export class RouterOs extends Platform {
 
     /** A backup's name holds the time it was taken, to the minute: `pre-apply-202610240312`. */
     private static readonly BACKUP_STAMP_CHARS = 12;
-
-    private static readonly EXPORT_TIMEOUT_MS = 300_000;
 
     /** A command that changes the device: the backup, and each command of a plan. */
     private static readonly CHANGE_TIMEOUT_MS = 120_000;
@@ -175,12 +183,12 @@ export class RouterOs extends Platform {
     override readonly console = RouterOs.CONSOLE;
 
     /**
-     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`.
+     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning.
      */
     override checks(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
         const statics = device.routing?.static_routes ?? [];
-        const findings: Finding[] = RouterOsRouting.passiveWithoutAddress(device);
+        const findings: Finding[] = [...RouterOsRouting.passiveWithoutAddress(device), ...RouterOsFirewall.largePools(device)];
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -246,11 +254,35 @@ export class RouterOs extends Platform {
         }
         // MikroTik's changelog adds it in 7.25, which no device here runs yet.
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
+        const pseudowires = RouterOsSyntax.entries(device.interfaces?.pseudowire);
+        for (const [name, pseudowire] of pseudowires)
+            if (device.switching?.vlans?.[pseudowire.access_vlan]?.private_vlan)
+                found.push(
+                    `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a private VLAN, not built for a pseudowire yet`
+                );
+        // A running pseudowire's L2MTU is the bridge's, so each VLAN interface on the bridge is lowered to it less a tag (TRAPS.md).
+        for (const [name, iface] of pseudowires.length ? RouterOsSyntax.entries(device.interfaces?.vlan_interface) : [])
+            if (iface.mtu === undefined || iface.mtu > RouterOs.PSEUDOWIRE_VLAN_MTU)
+                found.push(
+                    `interfaces.vlan_interface.${name}.mtu ${iface.mtu ?? "left out, 1500"} beside a pseudowire: RouterOS lowers it to ${RouterOs.PSEUDOWIRE_VLAN_MTU} once the pseudowire runs, and refuses more. Write mtu: ${RouterOs.PSEUDOWIRE_VLAN_MTU} or less`
+                );
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
+        (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
+            if (!("to_pool" in rule)) return;
+            if (rule.port_allocation === "dynamic")
+                found.push(
+                    `firewall.nat.source[${index}].port_allocation dynamic, RouterOS has no port block allocation: write deterministic`
+                );
+            if (rule.port_sets_per_subscriber !== undefined)
+                found.push(`firewall.nat.source[${index}].port_sets_per_subscriber, as a RouterOS pool gives each subscriber one block`);
+        });
         for (const field of ["dhcp_snooping", "ra_guard"] as const)
             for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
                 if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
+        // A switch rule changes a VLAN ID as a frame comes in only, and exactly between two ports only.
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation, RouterOS changes a VLAN ID only as a frame comes in`);
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
@@ -323,9 +355,13 @@ export class RouterOs extends Platform {
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
-            const families = neighbor.address_families ?? group?.address_families ?? [Address.family(neighbor.address)];
-
-            if (families.length > 1) found.push(`routing.bgp.neighbors.${name}.address_families, one family per session`);
+            const settings = { ...group, ...neighbor };
+            if (Derive.unicastFamilies(settings, neighbor.address).length > 1)
+                found.push(`routing.bgp.neighbors.${name}.address_families, one of ipv4 and ipv6 per session`);
+            const vpn = Derive.vpnFamilies(settings);
+            if (vpn.includes("vpnv6")) found.push(`routing.bgp.neighbors.${name}.address_families vpnv6, ${RouterOs.NO_VPNV6}`);
+            if (vpn.length && settings.max_prefixes !== undefined)
+                found.push(`routing.bgp.neighbors.${name}.max_prefixes, with VPN routes: RouterOS limits only ipv4 and ipv6 routes`);
 
             // MikroTik's reference: `remote.ttl` "only affects EBGP peers".
             const internal = (neighbor.remote_as ?? group?.remote_as) === bgp?.asn;
@@ -402,6 +438,7 @@ export class RouterOs extends Platform {
 
         found.push(...RouterOs.unsupportedShapes(device));
         found.push(...RouterOsQueues.unsupported(device));
+        found.push(...RouterOsFirewall.markingGaps(device));
         found.push(
             ...Derive.unbuilt(device, [
                 "eoip",
@@ -418,6 +455,7 @@ export class RouterOs extends Platform {
                 "urpf",
                 "vrf-imports",
                 "rate-limit",
+                "marking",
             ])
         );
 
@@ -447,12 +485,13 @@ export class RouterOs extends Platform {
         const chains = (["input", "forward", "output"] as const).map(
             (chain) => [`firewall.filter.${chain}.rules`, firewall?.filter?.[chain]?.rules] as const
         );
-        const nat = [
+        const others = [
             ["firewall.nat.source", firewall?.nat?.source],
             ["firewall.nat.destination", firewall?.nat?.destination],
+            ["qos.marking", device.qos?.marking],
         ] as const;
 
-        for (const [where, rules] of [...chains, ...nat]) {
+        for (const [where, rules] of [...chains, ...others]) {
             (rules ?? []).forEach((rule, index) => {
                 for (const field of ["src", "dst", "in_interface", "out_interface"] as const) {
                     if (list(rule.if?.[field])) found.push(`${where}[${index}].if.${field}, a list: write one rule for each`);
@@ -499,7 +538,7 @@ export class RouterOs extends Platform {
         try {
             await RouterOs.checkVersion(session, device);
 
-            const config = await session.run("/export", RouterOs.EXPORT_TIMEOUT_MS);
+            const config = await RouterOsExport.read(session, device);
             const users = await session.run("/user export");
             const certificates = (await session.run(RouterOs.LIST_CERTIFICATES)).trim();
             const keys = (await session.run(RouterOs.LIST_SSH_KEYS)).trim();
@@ -712,7 +751,7 @@ export class RouterOs extends Platform {
         const switchRules = plan.steps.some((step) => step.send.some((command) => command.startsWith(RouterOs.SWITCH_RULES)));
         const limits = options.bgp ?? BgpWait.AFTER_APPLY;
 
-        const establishedBefore = await this.establishedSessions(device, options);
+        const establishedBefore = await BgpHealth.established(this, device, options);
         const announcedBefore = establishedBefore.length ? await this.announcedNow(device, options) : [];
 
         return {
@@ -726,7 +765,7 @@ export class RouterOs extends Platform {
 
                 try {
                     const switchProblems = switchRules ? await RouterOs.invalidSwitchRules(session, device) : [];
-                    const bgpProblems = await this.bgpBack(device, session, establishedBefore, limits);
+                    const bgpProblems = await BgpHealth.back(this, device, session, establishedBefore, limits);
                     const announceProblems = await RouterOs.announcedBack(device, session, announcedBefore, limits);
                     return [...switchProblems, ...bgpProblems, ...announceProblems];
                 } finally {
@@ -769,50 +808,6 @@ export class RouterOs extends Platform {
         const described = (far ? Derive.ports(far) : []).filter(([, port]) => port.description === reported).map(([name]) => name);
 
         return described.length === 1 ? described[0]! : reported;
-    }
-
-    /** The names of the configured neighbors whose session is established now. None, without logging in, on a device without BGP neighbors. */
-    private async establishedSessions(device: Device, options: ReadOptions): Promise<string[]> {
-        if (!Object.keys(device.routing?.bgp?.neighbors ?? {}).length) return [];
-
-        const session = await this.session(device, options);
-
-        try {
-            const sessions = await this.bgpSessions(device, session);
-            return sessions.filter((bgp) => bgp.established).map((bgp) => bgp.neighbor);
-        } finally {
-            session.close();
-        }
-    }
-
-    /** Wait until every one of these neighbors is established again, and give a problem for each that is not when time runs out. */
-    private async bgpBack(device: Device, session: ReadSession, neighbors: readonly string[], limits: WaitLimits): Promise<string[]> {
-        if (!neighbors.length) return [];
-
-        console.log(`  BGP: ${neighbors.length} session(s) were established before; waiting up to ${limits.seconds} s for them`);
-
-        const read = async () => (await this.bgpSessions(device, session)).filter((bgp) => neighbors.includes(bgp.neighbor));
-        const after = await BgpWait.until(
-            read,
-            (sessions) => BgpWait.upCount(sessions) === neighbors.length,
-            limits,
-            (sessions) =>
-                console.log(
-                    `  BGP: ${BgpWait.upCount(sessions)}/${neighbors.length} established again, checking again in ${limits.every} s`
-                )
-        );
-
-        const down = after.filter((bgp) => !bgp.established);
-        if (!down.length) {
-            console.log(`  BGP: all ${neighbors.length} established again`);
-            return [];
-        }
-
-        return down.map((bgp) =>
-            bgp.limit
-                ? `BGP session ${bgp.neighbor} was established before the apply and closed on its limit${bgp.limit.max !== undefined ? ` of ${bgp.limit.max} prefixes` : ""}: the neighbor sends more than it may. Find out why, then: circuit bgp ${device.name} --neighbors '^${bgp.neighbor}$' --clear-limit`
-                : `BGP session ${bgp.neighbor} was established before the apply and is not ${limits.seconds} s after it (${bgp.reason ?? (bgp.uptime === "no session" ? "no session" : "not established")}). Look with: circuit bgp ${device.name} --log`
-        );
     }
 
     /** `announced`, over a session of its own. None, without logging in, when the config has no session announce a route the device makes. */
@@ -930,6 +925,7 @@ export class RouterOs extends Platform {
         return {
             run: (command, timeout) => Ssh.exec(client, command, timeout),
             upload: (path, content) => Ssh.upload(client, path, content),
+            download: (path) => Ssh.download(client, path),
             fresh: async () => {
                 client.end();
                 return RouterOs.sshSession(await Ssh.retrying(() => RouterOs.login(device)), device);

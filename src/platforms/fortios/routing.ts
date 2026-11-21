@@ -213,7 +213,7 @@ export class FortiOsRouting {
 
     /** The families a session carries: its own, or the family of its address. */
     static familiesOfNeighbor(device: Device, neighbor: Neighbor): Family[] {
-        return [...(FortiOsRouting.neighborSettings(device, neighbor).address_families ?? [Address.family(neighbor.address)])];
+        return Derive.unicastFamilies(FortiOsRouting.neighborSettings(device, neighbor), neighbor.address);
     }
 
     /** The prefixes a set lists, from a list or a map of named prefixes; undefined for a set a registry fills. */
@@ -525,36 +525,8 @@ export class FortiOsRouting {
         if (!field) return [];
 
         const { before, after } = FortiOsRouting.AS_ANCHORS[field];
-        const numbers = Derive.asRanges(match[field]!).flatMap(({ min, max }) => FortiOsRouting.numberPatterns(min, max));
+        const numbers = Derive.asRanges(match[field]!).flatMap(({ min, max }) => Derive.numberPatterns(min, max));
         return numbers.map((number) => `${before}${number}${after}`);
-    }
-
-    /**
-     * Patterns that together match the numbers from `min` to `max`, with no repetition count, as the NLNOG BGP Filter Guide writes them. 65552 to 131071 is `6555[2-9]`, `655[6-9][0-9]`, and on to `13107[0-1]`.
-     */
-    static numberPatterns(min: number, max: number): string[] {
-        const patterns: string[] = [];
-
-        for (let low = min; low <= max;) {
-            // One length of number at a time, so no pattern needs a leading zero.
-            const length = String(low).length;
-            const high = Math.min(max, 10 ** length - 1);
-
-            // The most trailing digits that can be any digit, then how far the digit before them goes.
-            let any = 0;
-            while (any < length - 1 && low % 10 ** (any + 1) === 0 && low + 10 ** (any + 1) - 1 <= high) any++;
-            const block = 10 ** any;
-            const first = Math.floor(low / block) % 10;
-            let last = first;
-            while (last < 9 && low + (last - first + 2) * block - 1 <= high) last++;
-
-            const above = Math.floor(low / (block * 10));
-            const digit = first === last ? `${first}` : `[${first}-${last}]`;
-            patterns.push(`${above || ""}${digit}${"[0-9]".repeat(any)}`);
-            low += (last - first + 1) * block;
-        }
-
-        return patterns;
     }
 
     /** A path of `min` ASes or more, and `max` or fewer when given: one AS, then one more after each space. `^[0-9]+( [0-9]+){50}` is 51 or more, and `^$` the empty path. */
@@ -636,6 +608,8 @@ export class FortiOsRouting {
         const noVrf = "FortiOS 6.2 runs BGP in the default VRF only";
         for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
+        // Neither `router isis` nor its interfaces have a setting for a topology (RFC 5120).
+        if (routing?.isis?.multi_topology) found.push("routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only");
         for (const [name, settings] of Object.entries(routing?.isis?.interfaces ?? {})) {
             const where = `routing.isis.interfaces.${name}`;
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);

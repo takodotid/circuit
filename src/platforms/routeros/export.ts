@@ -1,7 +1,8 @@
-// Reads an export into commands, and normalizes both sides so that only a real difference survives a comparison.
+// Reads the export from the device and into commands, and normalizes both sides so that only a real difference survives a comparison.
 
 import { createHash } from "node:crypto";
 import { Address } from "../../core/address";
+import type { Device } from "../../model";
 
 export type Command = {
     /** The menu the command belongs to, such as `/ip address`. */
@@ -23,7 +24,29 @@ export type Parsed = {
     ports: string[];
 };
 
+/** Where the export is read: over SSH, which can also fetch a file, or on the console. */
+type Reader = {
+    run(command: string, timeout?: number): Promise<string>;
+    download?(path: string): Promise<Buffer>;
+};
+
 export class RouterOsExport {
+    private static readonly READ_TIMEOUT_MS = 300_000;
+
+    /** Printed after the export, in the same command. RouterOS stops SSH output at 2 MiB with no error, and `Ssh.exec` stops at its timeout, so an export without it is cut (TRAPS.md). */
+    static readonly END = "# circuit: end of export";
+
+    static readonly READ = `/export; :put "${RouterOsExport.END}"`;
+
+    /** An export too large for SSH output is written to `<name>-<time>.rsc`, fetched over SFTP, and removed. */
+    private static readonly FILE = "circuit-read";
+
+    /** How the device refuses `/export file=` to a group without `ftp` and `write`, and SFTP to one without `ftp` (CHR, 7.24.6). */
+    private static readonly NO_FILE_RIGHTS = /not enough permissions|Unable to start subsystem: sftp/;
+
+    /** How much of the device's answer an error quotes. */
+    private static readonly QUOTE_CHARS = 200;
+
     /** An IS-IS template's metric at each level, by its link type. */
     private static readonly ISIS_METRICS = ["ptp.l1.metric", "ptp.l2.metric", "bcast.l1.metric", "bcast.l2.metric"];
 
@@ -53,6 +76,15 @@ export class RouterOsExport {
         "wins-server",
     ];
 
+    /** A DHCPv6 client's properties that `export verbose` prints as `!name` while they are not set (CHR, 7.24.6). */
+    private static readonly DHCPV6_CLIENT_UNSET = ["custom-iana-id", "custom-iapd-id", "pool-prefix-length"];
+
+    /** A PPP profile's IPv6 pools, which `export verbose` leaves out while they are not set. `unset` refuses them, and an empty value clears them (CHR, 7.24.6). */
+    private static readonly PPP_PROFILE_POOLS = ["dhcpv6-pd-pool", "remote-ipv6-prefix-pool"];
+
+    /** The bits of an IPv6 address after a /64, its interface ID (RFC 4291). */
+    private static readonly INTERFACE_ID_BITS = 64n;
+
     /**
      * Values the platform holds when nothing was set, per menu, and under `*` for every menu. A property at its default is dropped from both sides of a comparison. A property the config does not state is reset to it, and one without a default here is a problem in the plan.
      */
@@ -80,6 +112,8 @@ export class RouterOsExport {
             "tag-stacking": "no",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
+        // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md).
+        "/interface vpls": { disabled: "yes" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
         "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
         "/interface ethernet switch port": {
@@ -151,6 +185,13 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4": "",
             "input.limit-process-routes-ipv6": "",
         },
+        // A VPN entry's lists print nothing until they are set.
+        "/routing bgp vpn": {
+            "export.redistribute": "",
+            "export.route-targets": "",
+            "import.route-targets": "",
+            "export.filter-chain": "",
+        },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         "/ip dhcp-server": { "lease-time": "30m" },
@@ -182,7 +223,9 @@ export class RouterOsExport {
             "use-ipv6": "yes",
             "use-mpls": "default",
             "use-upnp": "default",
-            ...Object.fromEntries(RouterOsExport.PPP_PROFILE_UNSET.map((property) => [property, ""])),
+            ...Object.fromEntries(
+                [...RouterOsExport.PPP_PROFILE_UNSET, ...RouterOsExport.PPP_PROFILE_POOLS].map((property) => [property, ""])
+            ),
         },
         "/ppp aaa": {
             accounting: "yes",
@@ -208,6 +251,38 @@ export class RouterOsExport {
         },
         // As a CCR2216 on 7.24.6 printed a server set back to them.
         "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
+        // As a CHR on 7.24.6 printed a client made with its interface, `request=prefix`, and `pool-name`, with `export verbose`, and the distance `print detail` showed once it added a default route.
+        "/ipv6 dhcp-client": {
+            "accept-prefix-without-address": "yes",
+            "add-default-route": "no",
+            "allow-reconfigure": "no",
+            "check-gateway": "none",
+            "default-route-distance": "1",
+            "default-route-tables": "default",
+            "dhcp-options": "",
+            disabled: "no",
+            "prefix-address-lists": "",
+            "prefix-hint": "::/0",
+            "use-peer-dns": "yes",
+            "validate-server-duid": "yes",
+            ...Object.fromEntries(RouterOsExport.DHCPV6_CLIENT_UNSET.map((property) => [property, ""])),
+        },
+        // As a CHR on 7.24.6 printed a client made with its interface, name, user, and password, with `export verbose`, and a distance set back to 1. A client is added disabled.
+        "/interface pppoe-client": {
+            "ac-name": "",
+            "add-default-route": "no",
+            "default-route-distance": "1",
+            allow: "pap,chap,mschap1,mschap2",
+            "dial-on-demand": "no",
+            disabled: "yes",
+            "keepalive-timeout": "10",
+            "max-mru": "auto",
+            "max-mtu": "auto",
+            mrru: "disabled",
+            profile: "default",
+            "service-name": "",
+            "use-peer-dns": "no",
+        },
         // As an RB5009 on 7.24.6 printed a client made with nothing but its interface.
         "/ip dhcp-client": {
             "add-default-route": "yes",
@@ -235,6 +310,8 @@ export class RouterOsExport {
             "active-flow-timeout": "30m",
             "inactive-flow-timeout": "15s",
         },
+        // A probe added without a type is the older `simple` one (CHR, 7.24.6).
+        "/tool netwatch": { type: "simple", interval: "10s", "src-address": "" },
         "/tool mac-server": { "allowed-interface-list": "all" },
         "/tool mac-server mac-winbox": { "allowed-interface-list": "all" },
         "/tool mac-server ping": { enabled: "yes" },
@@ -314,8 +391,11 @@ export class RouterOsExport {
         "/interface ethernet": { speed: "auto-negotiation" },
     };
 
-    /** Properties the device makes up for itself when an entry is created, such as an EoIP tunnel's random MAC. The plan leaves them as they are when the render doesn't state them. */
-    static readonly GENERATED: Record<string, readonly string[]> = { "/interface eoip": ["mac-address"] };
+    /** Properties the device makes up for itself when an entry is created, such as an EoIP tunnel's or a VPLS interface's random MAC. The plan leaves them as they are when the render doesn't state them. */
+    static readonly GENERATED: Record<string, readonly string[]> = {
+        "/interface eoip": ["mac-address"],
+        "/interface vpls": ["mac-address"],
+    };
 
     /** Properties the device clears only with `unset`: empty, it refuses them or takes them as another value (TRAPS.md). */
     static readonly UNSET: Record<string, readonly string[]> = {
@@ -330,10 +410,14 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4",
             "input.limit-process-routes-ipv6",
         ],
+        "/routing bgp vpn": ["export.redistribute", "export.route-targets", "import.route-targets", "export.filter-chain"],
         "/routing ospf area": ["default-cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
         "/routing isis interface-template": RouterOsExport.ISIS_METRICS,
         "/ppp profile": RouterOsExport.PPP_PROFILE_UNSET,
+        "/ipv6 dhcp-client": RouterOsExport.DHCPV6_CLIENT_UNSET,
+        // An empty one prints `src-address=""` (CHR, 7.24.6).
+        "/tool netwatch": ["src-address"],
     };
 
     /** A secret the device takes only with another property: a template given `auth` without `auth-key` is refused (TRAPS.md). It is sent whenever that property changes. */
@@ -387,6 +471,7 @@ export class RouterOsExport {
         "/ip upnp interfaces": ["interface"],
         // One client per interface.
         "/ip dhcp-client": ["interface"],
+        "/ipv6 dhcp-client": ["interface"],
         "/ipv6 nd": ["interface"],
         "/ipv6 nd prefix": ["prefix", "interface"],
     };
@@ -408,6 +493,46 @@ export class RouterOsExport {
         // RADIUS servers are asked in this order.
         "/radius",
     ]);
+
+    /** The whole export. A console reads until the prompt, so its export is whole. Over SSH, one that is cut is read again from a file. */
+    static async read(reader: Reader, device: Device): Promise<string> {
+        if (!reader.download) return reader.run("/export", RouterOsExport.READ_TIMEOUT_MS);
+
+        const printed = await reader.run(RouterOsExport.READ, RouterOsExport.READ_TIMEOUT_MS);
+        if (printed.endsWith(RouterOsExport.END)) return printed.slice(0, -RouterOsExport.END.length);
+
+        try {
+            return await RouterOsExport.readFile(reader, reader.download);
+        } catch (error) {
+            const reason = (error as Error).message;
+            const role = RouterOsExport.NO_FILE_RIGHTS.test(reason)
+                ? `. Writing the file and fetching it take the ftp and write policies: set system.users.${device.connection.user}.role to "admin"`
+                : "";
+            throw new Error(
+                `${device.name}: the export over SSH stopped before its end, since RouterOS sends at most 2 MiB, and reading it from a file failed: ${reason}${role}`,
+                { cause: error }
+            );
+        }
+    }
+
+    /** The export, written to a file on the device, fetched over SFTP, and removed. */
+    private static async readFile(reader: Reader, download: (path: string) => Promise<Buffer>): Promise<string> {
+        const name = `${RouterOsExport.FILE}-${Date.now()}`;
+        const file = `${name}.rsc`;
+
+        try {
+            // The size prints once the file is written.
+            const size = (await reader.run(`/export file=${name}; :put [/file get ${file} size]`, RouterOsExport.READ_TIMEOUT_MS)).trim();
+            if (!/^\d+$/.test(size)) throw new Error(`/export file=${name} answered ${size.slice(0, RouterOsExport.QUOTE_CHARS)}`);
+
+            const content = await download(file);
+            if (content.length !== Number(size)) throw new Error(`SFTP gave ${content.length} of the file's ${size} bytes`);
+            return content.toString("utf8");
+        } finally {
+            // A connection the device closed cannot remove it. The file holds no secret: an export leaves them out.
+            await reader.run(`/file remove [find name="${file}"]`).catch(() => "");
+        }
+    }
 
     /** Undo the line wrapping an export applies: a backslash at the end of a line continues it. */
     private static unwrap(text: string): string {
@@ -550,6 +675,7 @@ export class RouterOsExport {
         if (!isAddress) return raw;
 
         const onInterface = property === "address" && (command.menu === "/ip address" || command.menu === "/ipv6 address");
+        if (onInterface && command.attrs["from-pool"]) return RouterOsExport.interfaceId(raw);
         return raw
             .split(",")
             .map((item) => RouterOsExport.address(item, onInterface))
@@ -567,6 +693,14 @@ export class RouterOsExport {
         if (value.includes(":") && !value.includes("/")) return `${value}/128`;
 
         return value;
+    }
+
+    /** An address from a pool by its interface ID, its last 64 bits. The device prints it as written while the pool is missing. Once the pool gives it a /64, it prints the part after the pool's prefix: `::1/64` is then `::1`, or `0:0:0:1::1` in the pool's second /64 (TRAPS.md). */
+    private static interfaceId(raw: string): string {
+        const [host = ""] = raw.split("/");
+        const value = Address.toNumber(host);
+        if (value === null || Address.family(host) !== "ipv6") return raw;
+        return Address.fromNumber(value & ((1n << RouterOsExport.INTERFACE_ID_BITS) - 1n), "ipv6");
     }
 
     /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and the interface after a `%`, as in `fe80::1%ether1`, as it is. An interface alone stays as it is. */
@@ -619,6 +753,10 @@ export class RouterOsExport {
         // A BFD configuration covers interfaces, or the addresses of multihop sessions, never both. A selector on a property that is not set matches nothing, so only the one that is set identifies it.
         const addresses = command.attrs.addresses;
         if (command.menu === "/routing bfd configuration" && addresses !== undefined) return { addresses };
+
+        // An address from a pool is known by its pool and its interface. Which /64 of the pool it holds can change, and with it what the device prints (TRAPS.md).
+        const pool = command.attrs["from-pool"];
+        if (command.menu === "/ipv6 address" && pool) return { "from-pool": pool, interface: command.attrs.interface ?? "" };
 
         const normalized = RouterOsExport.normal(command);
         const properties = RouterOsExport.IDENTITY[command.menu] ?? ["name"];

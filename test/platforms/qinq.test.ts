@@ -1,4 +1,4 @@
-// QinQ ports. The Junos statements are as a QFX5100 with Junos 21.4R3 printed them after a commit, and the RouterOS line as a CCR2216 with RouterOS 7.24.6 exported it. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
+// QinQ ports. The Junos statements are as a QFX5100 with Junos 21.4R3 printed them after a commit, and the RouterOS line as a CCR2216 with RouterOS 7.24.6 exported it. The Raisecom lines are as a RAX721 with ROS 6.5.2 printed them. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -75,15 +75,25 @@ test("RouterOS stacks the QinQ VLAN's tag on every frame of the port", () => {
     );
 });
 
-test("VRP tunnels the port only with --experimental, and Raisecom ROS and FortiOS refuse it", () => {
+test("Raisecom ROS tunnels an access port in the QinQ VLAN, as a RAX721 with ROS 6.5.2 printed it", () => {
+    const raisecom = Platforms.get("raisecom-ros");
+    const device = tunnel("raisecom-ros", "RAX721-C-6C48", "10g-1", "10g-2", "10g-3");
+    const desired = raisecom.render(device);
+
+    expect(raisecom.unsupported(device)).toEqual([]);
+    expect(desired).toContain("interface tengigabitethernet 1/3/1\nswitchport access vlan 600\ndot1q-tunnel\n!");
+    expect(sent("raisecom-ros", desired, desired.replace("dot1q-tunnel\n", "dot1q-tunnel \n"))).toEqual([]);
+
+    device.interfaces!.lag = { uplink: { qinq_vlan: "hall-2" } };
+    expect(raisecom.unsupported(device)).toEqual(["interfaces.lag.uplink.qinq_vlan, tested on a port alone"]);
+});
+
+test("VRP tunnels the port only with --experimental, and FortiOS refuses it", () => {
     const vrp = Platforms.get("vrp");
     const device = tunnel("vrp", "CE6855-48S6Q-HI", "10g-40", "10g-41", "10g-42");
 
     expect(vrp.render(device)).toContain("interface 10GE1/0/40\n port link-type dot1q-tunnel\n port default vlan 600");
     expect(vrp.experimental!(device)).toEqual(["interfaces.ethernet.10g-40.qinq_vlan"]);
-    expect(Platforms.get("raisecom-ros").unsupported(tunnel("raisecom-ros", "RAX721-C-6C48", "10g-1", "10g-2", "10g-3"))).toContain(
-        "interfaces.ethernet.10g-1.qinq_vlan, which only RouterOS, Junos, and VRP build for now"
-    );
     expect(Platforms.get("fortios").unsupported(tunnel("fortios", "FG-3700D", "10g-1", "10g-2", "10g-3"))).toContain(
         "interfaces.ethernet.10g-1.qinq_vlan, ports are routed"
     );

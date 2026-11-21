@@ -132,5 +132,5 @@ routing: {
 ```
 
 ::: warning Not every platform runs BGP
-RouterOS, Junos, and FortiOS run BGP. VRP and Raisecom ROS report `routing.bgp` as an error. Only RouterOS has BGP roles, so the others report `role` as an error. FortiOS has no RPKI, so it refuses the RPKI rule in `presets.bgp_sanity`. See [Platforms](/reference/platforms).
+RouterOS, Junos, FortiOS, and VRP run BGP. Raisecom ROS reports `routing.bgp` as an error. Only RouterOS has BGP roles, so the others report `role` as an error. FortiOS and VRP have no RPKI, so they refuse the RPKI rule in `presets.bgp_sanity`. See [Platforms](/reference/platforms).
 :::

@@ -12,8 +12,11 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { TestedFeature } from "../../core/derive";
 import { Platform } from "../platform";
-import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession } from "../platform";
+import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, Plan, ReadOptions, ReadSession, Tool } from "../platform";
+import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
+import { JunosBgpSessions } from "./bgp-sessions";
+import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
@@ -100,6 +103,9 @@ export class Junos extends Platform {
 
     override readonly console = Junos.CONSOLE;
 
+    /** Read on a QFX5100 without BGP, where the device says `BGP is not running`. A session's fields come from Juniper's documentation. */
+    override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
+
     /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF, and a DHCP server on an interface in one, only passed `commit check`. */
     override experimental(device: Device): string[] {
         const found = Derive.serviceVrfs(device)
@@ -109,8 +115,17 @@ export class Junos extends Platform {
         for (const group of ["dhcp_server", "dhcpv6_server"] as const)
             for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
+        // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
+        if (device.routing?.mpls) found.push("routing.mpls");
+        // IS-IS multi-topology passed `commit check` only, in a candidate that was never committed.
+        if (device.routing?.isis?.multi_topology) found.push("routing.isis.multi_topology");
+        // VLAN translation passed `commit check` only, and a QFX5100 on 17.4 was seen not to translate with it (TRAPS.md).
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
         // A port's policer passed `commit check`. A LAG's was not tried.
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
+        // RPM's tests passed `commit check` only, in a candidate that was never committed.
+        for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
         return found;
     }
 
@@ -120,11 +135,23 @@ export class Junos extends Platform {
 
         for (const { name, kind } of interfaces) {
             if (kind === "bridge") found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
+            if (kind === "pseudowire")
+                found.push(
+                    `interfaces.pseudowire.${name}, a pseudowire, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`
+                );
             if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
+        for (const name of Object.keys(device.monitoring?.probes ?? {}))
+            if (name.length > JunosMonitoring.TEST_NAME_CHARS)
+                found.push(
+                    `monitoring.probes.${name}, the platform takes a test name of ${JunosMonitoring.TEST_NAME_CHARS} characters at most`
+                );
+        // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
+        for (const where of Derive.l3vpn(device))
+            found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 
@@ -256,6 +283,10 @@ export class Junos extends Platform {
             }
             if (kind === "ipsec") {
                 found.push(`${where}, IPsec: a QFX switch does not encrypt the traffic it forwards`);
+                continue;
+            }
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client: Junos runs one on SRX firewalls only, and a QFX switch has none`);
                 continue;
             }
 
@@ -577,6 +608,15 @@ export class Junos extends Platform {
 
         const client = await Junos.login(device);
         return { run: (command, timeout) => Ssh.exec(client, command, timeout), close: () => client.end() };
+    }
+
+    override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        return JunosBgpSessions.read(device, session);
+    }
+
+    /** Each BGP session established before the apply must be established again. */
+    override health(device: Device, _plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        return BgpHealth.check(this, device, options);
     }
 
     /** The device prints a password as a hash, an SNMP key as a reversible cipher, and a community and a trap group, named by their community, as themselves. None leave the read. */

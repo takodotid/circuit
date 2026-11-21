@@ -1,9 +1,10 @@
-// What `circuit bgp` reads on RouterOS, over a real SSH session against a fake device.
+// What `circuit bgp` reads on RouterOS, over a real SSH session against a fake device, and which platforms read BGP sessions.
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { BgpWait } from "../../src/platforms/bgp-wait";
 import { Platforms } from "../../src/platforms";
 import type { Device } from "../../src/model";
+import type { Platform } from "../../src/platforms/platform";
 import { Fixtures } from "../fixtures";
 import { FakeSshDevice } from "./fake-ssh";
 
@@ -87,7 +88,11 @@ test("waiting reads again until enough sessions are up, and gives up at the limi
     expect(Date.now() - started).toBeLessThan(2000);
 });
 
-test("only RouterOS reads BGP sessions so far", () => {
-    const reading = Platforms.all().filter((candidate) => candidate.bgpSessions && candidate.bgpLog);
-    expect(reading.map((candidate) => candidate.name)).toEqual(["routeros"]);
+test("RouterOS, Junos, and FortiOS read BGP sessions, and only RouterOS has them tested and reads the BGP log", () => {
+    const names = (platforms: readonly Platform[]) => platforms.map((candidate) => candidate.name);
+    const reading = Platforms.all().filter((candidate) => candidate.bgpSessions);
+
+    expect(names(reading)).toEqual(["routeros", "junos", "fortios"]);
+    expect(names(reading.filter((candidate) => !candidate.experimentalTools.includes("bgp")))).toEqual(["routeros"]);
+    expect(names(reading.filter((candidate) => candidate.bgpLog))).toEqual(["routeros"]);
 });

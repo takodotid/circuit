@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
-import type { Device } from "../../src/model";
+import type { Device, Ipsec, NatRule } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const router = Fixtures.device("platforms--example-router");
@@ -368,7 +368,13 @@ test("logins through servers name one kind of server, at least one, each once, s
 });
 
 test("a pool's subscribers and blocks of ports fit, and two pools share no address unless they map alike", () => {
-    const cgnat = { if: { src: "100.64.0.0/22" }, then: "snat", to_pool: "198.51.100.0/27", port_set_size: 2016 } as const;
+    const cgnat = {
+        if: { src: "100.64.0.0/22" },
+        then: "snat",
+        to_pool: "198.51.100.0/27",
+        port_allocation: "deterministic",
+        port_set_size: 2016,
+    } as const;
     const device: Device = {
         ...router,
         firewall: {
@@ -400,6 +406,52 @@ test("a pool's subscribers and blocks of ports fit, and two pools share no addre
     ]);
 });
 
+test("a dynamic pool fits one subscriber's blocks on an address, and shares no address with another pool unless it is the same one", () => {
+    const pba = {
+        if: { src: "100.64.0.0/16" },
+        then: "snat",
+        to_pool: "198.51.100.0/27",
+        port_allocation: "dynamic",
+        port_set_size: 512,
+        port_sets_per_subscriber: 4,
+    } as const;
+    const deterministic = { ...pba, port_allocation: "deterministic", port_sets_per_subscriber: undefined } as const;
+    const device: Device = {
+        ...router,
+        firewall: {
+            nat: {
+                source: [
+                    pba,
+                    { ...pba, if: { src: "100.65.0.0/16" } },
+                    { ...pba, port_set_size: 256 },
+                    { ...pba, to_pool: "198.51.100.32/27", port_sets_per_subscriber: 200 },
+                    { ...pba, to_pool: "198.51.100.64/27", port_set_size: 0.5 },
+                    { ...pba, to_pool: "198.51.100.96/27", port_sets_per_subscriber: undefined } as unknown as NatRule,
+                    { ...pba, to_pool: "198.51.100.128/27", port_allocation: "random" } as unknown as NatRule,
+                    { ...deterministic, if: { src: "100.64.0.0/22" }, to_pool: "198.51.100.160/27", port_set_size: 2016 },
+                    {
+                        ...deterministic,
+                        if: { src: "100.64.4.0/22" },
+                        to_pool: "198.51.100.192/27",
+                        port_set_size: 2016,
+                        port_sets_per_subscriber: 4,
+                    } as unknown as NatRule,
+                ],
+            },
+        },
+    };
+    const found = messages(device).filter((message) => message.startsWith("firewall.nat"));
+
+    expect(found).toEqual([
+        "firewall.nat.source, to_pool 198.51.100.32/27: one subscriber's 200 blocks of 512 ports take 102400 ports, more than the 64512 from 1024 to 65535 on its pool address. Write port_sets_per_subscriber: 126 or less.",
+        "firewall.nat.source, to_pool 198.51.100.64/27: port_set_size 0.5 is not a whole number from 1 to 64512",
+        "firewall.nat.source, to_pool 198.51.100.96/27: write port_sets_per_subscriber, the most blocks one subscriber holds at once",
+        'firewall.nat.source, to_pool 198.51.100.128/27: write port_allocation: "deterministic" or "dynamic", how each subscriber gets its ports',
+        "firewall.nat.source, to_pool 198.51.100.192/27: a deterministic pool gives each subscriber one block. Remove port_sets_per_subscriber.",
+        "firewall.nat.source: to_pool 198.51.100.0/27, dynamic, 4 × 512 ports and to_pool 198.51.100.0/27, dynamic, 4 × 256 ports share addresses, so two subscribers would get the same ports. Write the same port_set_size and port_sets_per_subscriber in both, or give each its own pool addresses.",
+    ]);
+});
+
 test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes integrity and a gcm one none, and a lifetime is whole seconds", () => {
     const device: Device = {
         ...router,
@@ -423,6 +475,45 @@ test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes inte
             'interfaces.ipsec.branch.ike has aes-256-cbc without integrity. Add integrity, such as "hmac-sha2-256-128"',
             "interfaces.ipsec.branch.ike.lifetime 0.5 is not a whole number of seconds above 0",
             "interfaces.ipsec.branch.esp.integrity: aes-256-gcm protects integrity itself. Remove integrity",
+        ])
+    );
+});
+
+test("an IPsec tunnel authenticates one way, with a certificate that has its key and a CA that has none, and checks liveness in whole numbers", () => {
+    const tunnel = {
+        local_address: "192.0.2.1",
+        remote_address: "192.0.2.2",
+        ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+        esp: { encryption: "aes-256-gcm", lifetime: 3600 },
+    } as const;
+    // A project's types refuse the first three; a file Circuit reads without them may still hold them.
+    const loose = (value: object) => value as Ipsec;
+    const device: Device = {
+        ...router,
+        system: {
+            ...router.system,
+            certificates: { ...router.system?.certificates, ca: { certificate_file: "platforms--example-router.web.pem" } },
+        },
+        interfaces: {
+            ...router.interfaces,
+            ipsec: {
+                both: loose({ ...tunnel, pre_shared_key: { secret: "IPSEC_KEY" }, certificate: "web", ca_certificate: "ca" }),
+                none: loose(tunnel),
+                alone: loose({ ...tunnel, certificate: "web" }),
+                swapped: { ...tunnel, certificate: "ca", ca_certificate: "web", liveness_check: { interval: 0, retries: 2.5 } },
+            },
+        },
+    };
+
+    expect(messages(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.ipsec.both: pre_shared_key and a certificate. Keep one: pre_shared_key, or certificate with ca_certificate",
+            "interfaces.ipsec.none has no way to authenticate. Add pre_shared_key, or certificate with ca_certificate",
+            "interfaces.ipsec.alone.certificate needs ca_certificate: the CA that signed the peer's certificate",
+            "interfaces.ipsec.swapped.certificate ca has no private key to sign with. Add its private_key",
+            "interfaces.ipsec.swapped.ca_certificate web has a private key: write the CA's certificate alone, which the device only trusts",
+            "interfaces.ipsec.swapped.liveness_check.interval 0 is not a whole number of seconds above 0",
+            "interfaces.ipsec.swapped.liveness_check.retries 2.5 is not a whole number above 0",
         ])
     );
 });

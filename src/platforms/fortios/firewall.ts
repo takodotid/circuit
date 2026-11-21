@@ -1,7 +1,19 @@
 // Filtering becomes policies through the device and local-in policies to it. NAT becomes central source NAT and virtual IPs, and a port's ACL a stateless ACL.
 
 import { Address } from "../../core/address";
-import type { AclRule, Device, Family, FilterMatch, FilterRule, NatRule, Ports, Prefix, Protocol, Service } from "../../model";
+import type {
+    AclRule,
+    Device,
+    DynamicPoolNatRule,
+    Family,
+    FilterMatch,
+    FilterRule,
+    NatRule,
+    Ports,
+    Prefix,
+    Protocol,
+    Service,
+} from "../../model";
 import { Derive } from "../../core/derive";
 import { FortiOsNames } from "./names";
 
@@ -50,6 +62,23 @@ class Objects {
         this.root.block("firewall ippool").entry(address).set("startip", address).set("endip", address);
     }
 
+    /** A pool that gives each subscriber blocks of ports as it needs them, and logs each block, named after its prefix. */
+    blockPool(rule: DynamicPoolNatRule): string {
+        const name = FortiOsNames.network(rule.to_pool);
+        const { first, last } = Address.range(name);
+
+        this.root
+            .block("firewall ippool")
+            .entry(name)
+            // Block sizes exist only in this type, so it comes first.
+            .set("type", "port-block-allocation")
+            .set("startip", Address.fromNumber(first, "ipv4"))
+            .set("endip", Address.fromNumber(last, "ipv4"))
+            .set("block-size", rule.port_set_size)
+            .set("num-blocks-per-user", rule.port_sets_per_subscriber);
+        return name;
+    }
+
     service(match: FilterMatch | undefined, family: Family): string {
         const { name, block } = FortiOsFirewall.serviceOf(match, family);
 
@@ -68,6 +97,9 @@ class Objects {
 }
 
 export class FortiOsFirewall {
+    /** What `firewall ippool` takes in a pool of port blocks on 6.2.2: the ports in a block, and the blocks one subscriber holds. */
+    static readonly BLOCK_POOL = { size: { min: 64, max: 4096 }, perSubscriber: { min: 1, max: 128 } } as const;
+
     /** IP protocol numbers, for a protocol the platform names only by number. */
     static readonly PROTOCOL_NUMBER: Record<Protocol, number> = { tcp: 6, udp: 17, icmp: 1, gre: 47, esp: 50, ah: 51, ospf: 89, vrrp: 112 };
 
@@ -312,7 +344,7 @@ export class FortiOsFirewall {
         if (rule.description) entry.set("comments", FortiOsTree.quote(rule.description));
     }
 
-    /** Source NAT: to the outgoing interface's address, or to a pool of one address. */
+    /** Source NAT: to the outgoing interface's address, to a pool of one address, or to a pool that hands out blocks of ports. */
     private static sourceNat(entry: FortiOsNode, objects: Objects, device: Device, rule: NatRule): void {
         const match = rule.if;
 
@@ -324,10 +356,10 @@ export class FortiOsFirewall {
 
         const ports = FortiOsFirewall.portList(match?.src_port);
 
-        // `unsupported()` refuses a pool.
-        if ("to_pool" in rule) return;
-
-        if (rule.then === "snat") {
+        if ("to_pool" in rule) {
+            // `unsupported()` refuses a deterministic pool.
+            if (rule.port_allocation === "dynamic") entry.set("nat-ippool", FortiOsTree.quote(objects.blockPool(rule)));
+        } else if (rule.then === "snat") {
             objects.pool(rule.to_address);
             entry.set("nat-ippool", FortiOsTree.quote(rule.to_address));
             // A pool keeps the source port only when told which.

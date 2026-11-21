@@ -4,7 +4,7 @@ import type { Device, Family } from "../../model";
 import type { JunosNames } from "./names";
 import type { JunosStatements } from "./statements";
 
-/** IS-IS in the main table, with wide metrics only. */
+/** IS-IS in the main table, with wide metrics only. IPv6 shares IPv4's topology unless `multi_topology` gives it its own. */
 export class JunosIsis {
     private static readonly LEVELS = { "level-1": [1], "level-2": [2], "level-1-2": [1, 2] } as const;
 
@@ -40,6 +40,7 @@ export class JunosIsis {
         for (const [family, statement] of Object.entries(JunosIsis.NOT_ROUTED))
             if (!isis.address_families.includes(family as Family)) out.set("protocols isis", statement);
         if (isis.overload_bit) out.set("protocols isis overload");
+        if (isis.multi_topology) out.set("protocols isis topologies ipv6-unicast");
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const unit = names.unit(name);
@@ -51,7 +52,10 @@ export class JunosIsis {
             if (settings?.passive) out.set(statement, "passive");
             if (settings?.network === "point-to-point") out.set(statement, "point-to-point");
             const metric = settings?.metric;
-            if (metric !== undefined) for (const level of levels) out.set(statement, "level", level, "metric", metric);
+            // In a topology of its own, IPv6 has a metric of its own, which the config's one metric sets too.
+            const metrics = isis.multi_topology ? ["metric", "ipv6-unicast-metric"] : ["metric"];
+            if (metric !== undefined)
+                for (const level of levels) for (const kind of metrics) out.set(statement, "level", level, kind, metric);
             // A BFD session runs for each family.
             if (settings?.bfd)
                 for (const family of isis.address_families) out.bfd(`${statement} family ${JunosIsis.FAMILY[family]}`, device.routing?.bfd);

@@ -1,6 +1,6 @@
 name: devices
 
-# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first. test/platforms/routeros-chr-pppoe.test.ts makes the first a PPPoE server for the second, checked by FreeRADIUS on the runner. test/platforms/routeros-chr-mpls.test.ts runs LDP across all three. test/platforms/routeros-chr-cgnat.test.ts shares a NAT pool of the first among subscribers, the second one of them and the third the internet.
+# Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. test/platforms/routeros-chr.test.ts applies to the first, test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first. test/platforms/routeros-chr-pppoe.test.ts makes the first a PPPoE server, checked by FreeRADIUS on the runner, and the second its PPPoE client, which takes an IPv6 prefix from it. test/platforms/routeros-chr-mpls.test.ts runs LDP across all three. test/platforms/routeros-chr-l3vpn.test.ts runs an L3VPN between the second and the third, across the first, and test/platforms/routeros-chr-pseudowire.test.ts a pseudowire between them, then a VPLS among all three. test/platforms/routeros-chr-cgnat.test.ts shares a NAT pool of the first among subscribers, the second one of them and the third the internet. test/platforms/routeros-chr-marking.test.ts has the first mark what it routes from the second to the third, which counts each DSCP and PCP. test/platforms/routeros-chr-isis.test.ts runs IS-IS for IPv4 and IPv6 across all three. test/platforms/routeros-chr-probes.test.ts has the first probe the other two, one in a VRF, and an address nothing answers. test/platforms/routeros-chr-large-export.test.ts gives the first a config whose export passes the 2 MiB RouterOS sends over SSH.
 
 on:
     pull_request:
@@ -20,7 +20,8 @@ permissions:
 jobs:
     routeros:
         runs-on: ubuntu-latest
-        timeout-minutes: 30
+        # The tests take about 30 minutes in all, most of it waiting for routing protocols to come up.
+        timeout-minutes: 45
         env:
             # RouterOS's long-term release, and the checksum MikroTik publishes beside its CHR image.
             CHR_VERSION: 7.24.6
@@ -51,7 +52,7 @@ jobs:
                   persist-credentials: false
             - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
               with:
-                  bun-version: 1.4.4
+                  bun-version: 1.4.5
             - run: bun install --frozen-lockfile
 
             # GitHub's Linux runners have KVM, open to the runner's user through a udev rule.
@@ -132,8 +133,14 @@ jobs:
             - run: bun test test/platforms/routeros-chr-vrf-services.test.ts
             - run: bun test test/platforms/routeros-chr-pppoe.test.ts
             - run: bun test test/platforms/routeros-chr-rate-limit.test.ts
+            - run: bun test test/platforms/routeros-chr-marking.test.ts
             - run: bun test test/platforms/routeros-chr-mpls.test.ts
+            - run: bun test test/platforms/routeros-chr-l3vpn.test.ts
+            - run: bun test test/platforms/routeros-chr-pseudowire.test.ts
             - run: bun test test/platforms/routeros-chr-cgnat.test.ts
+            - run: bun test test/platforms/routeros-chr-isis.test.ts
+            - run: bun test test/platforms/routeros-chr-probes.test.ts
+            - run: bun test test/platforms/routeros-chr-large-export.test.ts
 
             - name: the CHRs' consoles
               if: failure()

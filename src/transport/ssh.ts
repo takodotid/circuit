@@ -375,6 +375,22 @@ export class Ssh {
         });
     }
 
+    /** Read a file from the device over SFTP. */
+    static download(client: Client, path: string): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            client.sftp((error, sftp) => {
+                if (error) return reject(error);
+
+                sftp.readFile(path, (readError, content) => {
+                    sftp.end();
+
+                    if (readError) reject(readError);
+                    else resolve(content);
+                });
+            });
+        });
+    }
+
     /** Write a file to the device over SFTP. */
     static upload(client: Client, path: string, content: string | Buffer): Promise<void> {
         return new Promise((resolve, reject) => {

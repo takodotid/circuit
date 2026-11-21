@@ -63,7 +63,21 @@ export type FlowExport<I extends string> = {
     idle_timeout?: number;
 };
 
-/** What the device reports to collectors. `I` is the device's ports and interfaces, `C` its certificates, `F` its VRFs. */
+/**
+ * An ICMP echo probe the device runs on its own and keeps the results of: RFC 4560's ping test, which vendors call Netwatch, RPM, NQA, or a link monitor. How many echo requests a test sends, and when the target counts as down, is the platform's own. `F` is the device's VRFs.
+ */
+export type Probe<F extends string = string> = {
+    /** The address the device sends echo requests to (RFC 4560's `pingCtlTargetAddress`). */
+    target: IP;
+    /** Seconds from one test to the next (RFC 4560's `pingCtlFrequency`). */
+    interval: number;
+    /** The device's own address the requests come from (RFC 4560's `pingCtlSourceAddress`). The platform picks one when absent. */
+    source_address?: IP;
+    /** The VRF the device reaches the target through, from `routing.vrfs`. The main table when absent. */
+    vrf?: F;
+};
+
+/** What the device reports to collectors, and the probes it runs. `I` is the device's ports and interfaces, `C` its certificates, `F` its VRFs. */
 export type Monitoring<I extends string, C extends string = string, F extends string = string> = {
     /** SNMP polling. */
     snmp?: Service<F> & {
@@ -84,4 +98,8 @@ export type Monitoring<I extends string, C extends string = string, F extends st
     flow_export?: FlowExport<I>;
     /** Read the optics' temperature, power, and voltage. */
     transceivers?: boolean;
+    /**
+     * ICMP echo probes, by the name the device shows each under. Circuit only sets them up: nothing acts on a result. Read them on RouterOS with `/tool netwatch print`, on Junos with `show services rpm probe-results` or SNMP's DISMAN-PING-MIB (owner `circuit`, the name as test), and on FortiOS with `diagnose sys link-monitor status`.
+     */
+    probes?: Record<string, Probe<F>>;
 };

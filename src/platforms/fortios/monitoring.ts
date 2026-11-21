@@ -1,12 +1,20 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Secret, Severity, SnmpTrapTarget } from "../../model";
+import type { Device, Finding, Secret, Severity, SnmpTrapTarget } from "../../model";
 import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
 
-/** SNMP, its communities and traps, syslog, and NetFlow. */
+/** SNMP, its communities and traps, syslog, NetFlow, and probes. */
 export class FortiOsMonitoring {
+    /** How often a link monitor may probe, in seconds: the platform takes 500 to 3600000 milliseconds. */
+    static readonly PROBE_INTERVAL = { min: 1, max: 3600 } as const;
+
+    /** The longest link monitor name the platform takes (6.2.2). */
+    private static readonly PROBE_NAME_CHARS = 35;
+
+    private static readonly MS_PER_SECOND = 1000;
+
     /** The SNMP trap port (RFC 3417), the platform's default. */
     private static readonly TRAP_PORT = 162;
 
@@ -34,6 +42,24 @@ export class FortiOsMonitoring {
         info: "information",
         debug: "debug",
     };
+
+    /** The collector levels that take a dynamic pool's log of its blocks. The device logs each block given and taken back at notice, log IDs 22015 and 22016 (FortiOS 6.2 log message reference). */
+    private static readonly BLOCK_LOG_LEVELS: readonly Severity[] = ["notice", "info", "debug"];
+
+    /** A dynamic pool names a subscriber only in its block log, so a warning when no collector keeps it. */
+    static blockLogs(device: Device): Finding[] {
+        const pools = (device.firewall?.nat?.source ?? []).flatMap((rule) =>
+            "to_pool" in rule && rule.port_allocation === "dynamic" ? [rule.to_pool] : []
+        );
+        const collectors = (device.monitoring?.syslog ?? []).slice(0, FortiOsMonitoring.COLLECTORS);
+        if (collectors.some((collector) => FortiOsMonitoring.BLOCK_LOG_LEVELS.includes(collector.level))) return [];
+
+        return [...new Set(pools)].map((pool) => ({
+            level: "warning",
+            device: device.name,
+            message: `firewall.nat.source, to_pool ${pool}: the device logs each block of ports it gives and takes back at notice, and only that log finds the subscriber behind a pool address and port. No collector in monitoring.syslog takes notice: write one with level "notice" or "info".`,
+        }));
+    }
 
     static snmp(root: FortiOsNode, device: Device): void {
         const snmp = device.monitoring?.snmp;
@@ -163,5 +189,38 @@ export class FortiOsMonitoring {
                 block.set("active-flow-timeout", flow.active_timeout / FortiOsMonitoring.SECONDS_PER_MINUTE);
             if (flow.idle_timeout && flow.idle_timeout !== inactive.default) block.set("inactive-flow-timeout", flow.idle_timeout);
         }
+    }
+
+    /**
+     * Each probe is a link monitor in the root VDOM that only pings. Without `srcintf` it follows the routing table, and the platform turns off what a failure would change, `update-cascade-interface` and `update-static-route` (TRAPS.md).
+     */
+    static probes(section: FortiOsNode, device: Device): void {
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const ipv6 = Address.family(probe.target) === "ipv6";
+            const entry = section.entry(name);
+            if (ipv6) entry.set("addr-mode", "ipv6");
+            entry.set("server", FortiOsTree.quote(Address.canonical(probe.target)));
+            if (ipv6) entry.set("protocol", "ping6");
+            if (probe.source_address) entry.set(ipv6 ? "source-ip6" : "source-ip", Address.canonical(probe.source_address));
+            entry.set("interval", probe.interval * FortiOsMonitoring.MS_PER_SECOND);
+            entry.set("update-cascade-interface", "disable");
+            entry.set("update-static-route", "disable");
+        }
+    }
+
+    static probeGaps(device: Device): string[] {
+        const found: string[] = [];
+        const { min, max } = FortiOsMonitoring.PROBE_INTERVAL;
+
+        for (const [name, probe] of Object.entries(device.monitoring?.probes ?? {})) {
+            const where = `monitoring.probes.${name}`;
+            if (name.length > FortiOsMonitoring.PROBE_NAME_CHARS)
+                found.push(`${where}, the platform takes a link monitor name of ${FortiOsMonitoring.PROBE_NAME_CHARS} characters at most`);
+            if (probe.vrf) found.push(`${where}.vrf, the platform's link monitor has no VRF setting: it probes in the main table`);
+            if (probe.interval < min || probe.interval > max)
+                found.push(`${where}.interval ${probe.interval}, from ${min} to ${max} seconds`);
+        }
+
+        return found;
     }
 }

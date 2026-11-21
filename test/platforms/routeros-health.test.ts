@@ -5,6 +5,7 @@ import { Platforms } from "../../src/platforms";
 import type { Device, Port } from "../../src/model";
 import { Fixtures } from "../fixtures";
 import { FakeSshDevice } from "./fake-ssh";
+import { RouterOsExport } from "../../src/platforms/routeros/export";
 
 const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
@@ -32,7 +33,7 @@ let advertisementReads: string[][];
 
 const fake = new FakeSshDevice(["operator", "operator+ct300w"], (command) => {
     if (command === ":put [/system resource get version]") return "7.23.5\n";
-    if (command === "/export") return `# 2026-10-23 10:00:00 by RouterOS 7.23.5\n${running}`;
+    if (command === RouterOsExport.READ) return `# 2026-10-23 10:00:00 by RouterOS 7.23.5\n${running}${RouterOsExport.END}\n`;
     if (
         command === "/user export" ||
         command.startsWith(":foreach c in=[/certificate find]") ||

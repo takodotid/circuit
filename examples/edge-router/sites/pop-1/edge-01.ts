@@ -151,6 +151,8 @@ export default as64500.device({
         address_sets: {
             management: ["10.0.0.0/24"],
             "bgp-neighbors": bgpNeighbors(),
+            "voice-carrier": ["203.0.113.64/28"],
+            "backup-servers": ["198.51.100.40", "2001:db8:100::40"],
         },
         filter: {
             input: {
@@ -180,10 +182,61 @@ export default as64500.device({
                     if: { src: "100.64.0.0/22", out_interface_set: "uplinks" },
                     then: "snat",
                     to_pool: "198.51.100.0/27",
+                    port_allocation: "deterministic",
                     port_set_size: 2016,
                 },
             ],
         },
         // #endregion cgnat
     },
+
+    // #region marking
+    // Our DiffServ domain begins at the transit and the exchange (RFC 2475): a DSCP set by another network is not ours to trust. Calls with our voice carrier get EF, and their signaling CS5, as RFC 4594 gives them. The first rule that matches marks a packet.
+    qos: {
+        marking: [
+            {
+                description: "Calls from the voice carrier",
+                if: {
+                    in_interface_set: "uplinks",
+                    src_address_set: "voice-carrier",
+                    protocol: "udp",
+                    src_port: { min: 16384, max: 32767 },
+                },
+                then: { dscp: "ef" },
+            },
+            {
+                description: "Calls to the voice carrier",
+                if: {
+                    out_interface_set: "uplinks",
+                    dst_address_set: "voice-carrier",
+                    protocol: "udp",
+                    dst_port: { min: 16384, max: 32767 },
+                },
+                then: { dscp: "ef" },
+            },
+            {
+                description: "Call signaling",
+                if: { dst_address_set: "voice-carrier", protocol: "tcp", dst_port: 5061 },
+                then: { dscp: "cs5" },
+            },
+            { description: "Everything else from outside", if: { in_interface_set: "uplinks" }, then: { dscp: "cs0" } },
+            // The off-site copies go over IPv6 alone, below best effort (RFC 8622), so they never slow the subscribers down.
+            {
+                description: "Off-site backups",
+                if: { family: "ipv6", src_address_set: "backup-servers", out_interface: "transit" },
+                then: { dscp: "le" },
+            },
+            {
+                description: "Monitoring of our devices",
+                if: { in_interface: "1g-1", dst: as64500.prefixes.ours.v4 },
+                then: { dscp: "cs2" },
+            },
+            {
+                description: "Only our routers send network control",
+                if: { src: "100.64.0.0/22", dscp: ["cs6", "cs7"] },
+                then: { dscp: "cs0" },
+            },
+        ],
+    },
+    // #endregion marking
 });

@@ -5,6 +5,7 @@ import { Platforms } from "../../src/platforms";
 import type { Device } from "../../src/model";
 import { Fixtures } from "../fixtures";
 import { FakeSshDevice } from "./fake-ssh";
+import { RouterOsExport } from "../../src/platforms/routeros/export";
 
 const platform = Platforms.get("routeros");
 const options = { secrets: false, rollback: 10 };
@@ -24,7 +25,7 @@ let running = platform.render(before);
 /** Any command that is not a read, a dry parse, or the rollback guard changes the device to the desired config. */
 const fake = new FakeSshDevice("operator", (command) => {
     if (command === ":put [/system resource get version]") return `${version}\n`;
-    if (command === "/export") return `# 2026-10-23 10:00:00 by RouterOS ${version}\n${running}`;
+    if (command === RouterOsExport.READ) return `# 2026-10-23 10:00:00 by RouterOS ${version}\n${running}${RouterOsExport.END}\n`;
     if (
         command === "/user export" ||
         command.startsWith(":foreach c in=[/certificate find]") ||

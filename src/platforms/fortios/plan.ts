@@ -244,9 +244,12 @@ export class FortiOsPlan {
         "system snmp community": { "query-v2c-port": "161" },
         "system snmp user": { "query-port": "161" },
         "system dhcp server": { "dns-service": "specify" },
+        // A new tunnel takes any peer, and prints it. One with certificates takes this CA's peer, and doesn't print it.
+        "vpn ipsec phase1-interface": { peertype: "peer" },
         "router ospf": FortiOsPlan.OSPF_DEFAULTS,
         "router ospf6": FortiOsPlan.OSPF_DEFAULTS,
         "router isis": { "is-type": "level-1-2" },
+        "firewall ippool": { "block-size": "128", "num-blocks-per-user": "8" },
         "firewall policy": FortiOsPlan.DENY,
         "firewall policy6": FortiOsPlan.DENY,
         "firewall local-in-policy": FortiOsPlan.DENY,
