@@ -75,7 +75,7 @@ export class RouterOsQueues {
     }
 
     /** A rate as the platform prints it, in the largest unit that keeps a whole number: `1500M` for `1.5G` (TRAPS.md). */
-    private static rate(bits: number): string {
+    static rate(bits: number): string {
         const units = Object.entries(Derive.RATE_UNITS).reverse();
         const [unit, scale] = units.find(([, each]) => Number.isInteger(bits / each)) ?? ["", 1];
         return `${bits / scale}${unit}`;
