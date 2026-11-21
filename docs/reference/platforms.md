@@ -139,6 +139,7 @@ A note in a cell means "works, with this limit".
 | NAT                                | ✅                         | ❌                    | ❌                         | ❌                       | IPv4                                            |
 | CGNAT pool, deterministic          | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
 | CGNAT pool, dynamic                | ❌                         | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
+| NAT64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
 | TCP MSS clamp                      | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DSCP and PCP marking               | ✅ not with fast path      | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
 | Classes and schedulers             | ✅ not with fast path      | ❌                    | ❌                         | ❌                       | ❌                                              |
@@ -153,6 +154,7 @@ A note in a cell means "works, with this limit".
 | SLAAC on a PPPoE session           | ✅ from a pool or RADIUS   | ❌                    | ❌                         | ❌                       | ❌                                              |
 | PPPoE sessions in an interface set | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DNS server                         | ✅                         | ❌                    | ❌                         | ❌                       | ✅                                              |
+| DNS64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 with NAT64's prefix                          |
 | NTP client                         | ✅                         | ✅                    | ✅                         | ✅                       | ✅                                              |
 | NTP server                         | ✅                         | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
 
@@ -162,6 +164,14 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 - **FortiOS.** A DSCP is set for a whole session, in the firewall policy or the shaping policy the session takes. A session takes one shaping policy, and rate limits already use them.
 - **VRP.** Marking is Huawei's MQC: an ACL and a traffic classifier for each rule, and a traffic policy for each family, applied to all the switch receives. Huawei's reference has `remark dscp` work only on what the switch routes, as marking means. `remark 8021p` works only on what it switches, so VRP refuses `pcp`. A CE6855 took the policies on a spare port, but no packet was seen marked, so marking stays experimental.
 - **Raisecom ROS.** Not built yet.
+
+NAT64 and DNS64 are built on FortiOS only:
+
+- **FortiOS.** NAT64 is on for the whole VDOM, with one NAT64 prefix, a /96, which DNS64 uses too. Each rule is a NAT64 policy, which also lets its traffic through: FortiOS checks NAT64 traffic against NAT64 policies alone, not against the forward chain, and `validate` warns when the forward chain has rules. Its DNS server is DNS64 whenever NAT64 is on, so beside a `nat64` rule, `dns_server` needs `dns64`. Both are experimental: a FG-3700D took the config, but no traffic crossed it.
+- **RouterOS.** MikroTik's NAT page says RouterOS does not support NAT64, and its DNS server has no DNS64.
+- **Junos.** A QFX5100 has no NAT: Juniper's Feature Explorer lists none for it on 21.4. NAT64 runs on SRX firewalls and on MX routers with a services card.
+- **VRP.** Circuit builds no NAT there. Huawei's FAQ on NAT in CloudEngine switches gives it to the CE12800 with a firewall card only, and Huawei builds NAT64 on NE routers with a CGN board.
+- **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.
 
 A scheduler on RouterOS needs its `rate`, and each strict queue its `max`. RouterOS queues with HTB, which gives each queue the rate it keeps for it first, then lends what is left by priority. So a strict queue keeps its `max` and goes first, and a weighted queue keeps its share of the rate less the strict queues' `max`. A scheduler is refused on a switched port, whose routed packets leave through the VLAN interface. It is refused beside a `fast_path` rule, and with `system.hardware_offload` unless on a VLAN interface with `hardware_offload: false`, as packets there skip the queues. Junos, FortiOS, VRP, and Raisecom ROS don't build classes and schedulers yet.
 

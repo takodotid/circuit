@@ -6,17 +6,17 @@ description: Every rule in Circuit has the same shape, if this then that, for ro
 
 Every rule has the same shape: **if** this, **then** that. A rule with no `if` applies to everything. Most rules can also have a `description`.
 
-| Rule                                                                       | Kind           | What it does                                                                                                                                                              |
-| -------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `{ if: { protocol: "icmp" }, then: "accept" }`                             | Firewall       | `then` is `accept`, `drop`, or `reject`. With `fast_path: true`, the rest of the flow skips the rules.                                                                    |
-| `{ if: { src: "...", out_interface_set: "uplinks" }, then: "masquerade" }` | NAT            | `then` is `masquerade`, `snat`, or `dnat`. `snat` and `dnat` need a `to_address`, and can have a `to_port`. A source `snat` can take a [pool](#shared-addresses) instead. |
-| `{ if: { vlan: "...", src: "..." }, then: "drop" }`                        | Switch ACL     | `then` is `accept` or `drop`. A `rate` drops accepted traffic over that rate.                                                                                             |
-| `{ if: { prefix_set: "ours" }, then: "reject" }`                           | Route policy   | `then` is `accept` or `reject`, and the policy ends for that route.                                                                                                       |
-| `{ if: { ... }, set: { local_pref: 200 } }`                                | Route policy   | If a rule has no `then`, Circuit changes the route and goes to the next rule.                                                                                             |
-| `{ call: "common-import" }`                                                | Route policy   | Runs another policy. If that policy accepts or rejects the route, it stops there.                                                                                         |
-| `{ communities: "import" }`                                                | Route policy   | Your [community scheme](/guide/communities)'s rules.                                                                                                                      |
-| `{ match: { src: "..." }, routing_table: "..." }`                          | Policy routing | Matching traffic uses that routing table.                                                                                                                                 |
-| `{ if: { dscp: "af11" }, then: { dscp: "cs1" } }`                          | Marking        | `then` is the DSCP, the PCP, or both, that a packet the device routes leaves with. See [Marking](#marking).                                                               |
+| Rule                                                                       | Kind           | What it does                                                                                                                                                                                           |
+| -------------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `{ if: { protocol: "icmp" }, then: "accept" }`                             | Firewall       | `then` is `accept`, `drop`, or `reject`. With `fast_path: true`, the rest of the flow skips the rules.                                                                                                 |
+| `{ if: { src: "...", out_interface_set: "uplinks" }, then: "masquerade" }` | NAT            | `then` is `masquerade`, `snat`, `dnat`, or [`nat64`](#nat64-and-dns64). `snat` and `dnat` need a `to_address`, and can have a `to_port`. A source `snat` can take a [pool](#shared-addresses) instead. |
+| `{ if: { vlan: "...", src: "..." }, then: "drop" }`                        | Switch ACL     | `then` is `accept` or `drop`. A `rate` drops accepted traffic over that rate.                                                                                                                          |
+| `{ if: { prefix_set: "ours" }, then: "reject" }`                           | Route policy   | `then` is `accept` or `reject`, and the policy ends for that route.                                                                                                                                    |
+| `{ if: { ... }, set: { local_pref: 200 } }`                                | Route policy   | If a rule has no `then`, Circuit changes the route and goes to the next rule.                                                                                                                          |
+| `{ call: "common-import" }`                                                | Route policy   | Runs another policy. If that policy accepts or rejects the route, it stops there.                                                                                                                      |
+| `{ communities: "import" }`                                                | Route policy   | Your [community scheme](/guide/communities)'s rules.                                                                                                                                                   |
+| `{ match: { src: "..." }, routing_table: "..." }`                          | Policy routing | Matching traffic uses that routing table.                                                                                                                                                              |
+| `{ if: { dscp: "af11" }, then: { dscp: "cs1" } }`                          | Marking        | `then` is the DSCP, the PCP, or both, that a packet the device routes leaves with. See [Marking](#marking).                                                                                            |
 
 ## Rule order
 
@@ -56,7 +56,36 @@ To find the subscriber behind an address and port, run `circuit nat lookup 198.5
 
 <<< @/../examples/backbone/sites/south/core-02.ts#cgnat-dynamic
 
-RouterOS builds deterministic pools, and FortiOS dynamic ones: see [Platforms](/reference/platforms). NAT64 is not built yet ([#227](https://github.com/takodotid/circuit/issues/227)).
+RouterOS builds deterministic pools, and FortiOS dynamic ones: see [Platforms](/reference/platforms).
+
+## NAT64 and DNS64
+
+A source rule with `then: "nat64"` lets hosts with IPv6 alone reach IPv4 servers (RFC 6146). Its `if.dst` is the NAT64 prefix: the well-known `64:ff9b::/96`, or a prefix of your own. A packet to an address in the prefix goes to the IPv4 address embedded there, the last 32 bits after a /96 (RFC 6052). It leaves from `to_address`, or from a `to_pool` that hands out blocks of ports, as a [dynamic pool](#shared-addresses) does.
+
+Hosts get these addresses from DNS64 (RFC 6147). With `services.dns64`, when a host asks the device's DNS server for the IPv6 addresses of a name that has IPv4 addresses alone, the server answers with each IPv4 address embedded in `prefix`. A name with IPv6 addresses gets those, so traffic to it stays IPv6.
+
+```ts
+firewall: {
+    nat: {
+        source: [
+            {
+                description: "IPv6-only subscribers to IPv4",
+                if: { src: "2001:db8:1000::/36", dst: "64:ff9b::/96", out_interface: "uplink" },
+                then: "nat64",
+                to_pool: "198.51.100.0/26",
+                port_allocation: "dynamic",
+                port_set_size: 512,
+                port_sets_per_subscriber: 4,
+            },
+        ],
+    },
+},
+services: { dns_server: true, dns64: { prefix: "64:ff9b::/96" } },
+```
+
+`circuit validate` checks each NAT64 prefix: a /32, /40, /48, /56, /64, or /96, with bits 64 to 71 zero (RFC 6052). The well-known prefix stands for public IPv4 addresses only. To reach private ones, such as RFC 1918 addresses, use a prefix of your own.
+
+FortiOS builds NAT64 and DNS64 behind `--experimental`, and the other platforms refuse them: see [Platforms](/reference/platforms).
 
 ## Marking
 
