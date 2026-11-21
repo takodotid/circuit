@@ -19,6 +19,7 @@ import { Derive } from "../../core/derive";
 import { FortiOsFirewall } from "./firewall";
 import { FortiOsIpsec } from "./ipsec";
 import { FortiOsMonitoring } from "./monitoring";
+import { FortiOsNat64 } from "./nat64";
 import { FortiOsShaping } from "./shaping";
 import { FortiOsNames } from "./names";
 import { FortiOsRouting } from "./routing";
@@ -119,7 +120,7 @@ export class FortiOsRender {
     ] as const;
 
     /** Sections rendered only when the config uses them, after every other, and read always, so what the device holds there is planned away when the config has none. */
-    static readonly OPTIONAL_SECTIONS = ["system proxy-arp"] as const;
+    static readonly OPTIONAL_SECTIONS = ["system proxy-arp", "system nat64", "firewall policy64"] as const;
 
     /** `show` prints a certificate without its text, and `show full-configuration` with it. */
     static readonly FULL: readonly string[] = ["vpn certificate local", "vpn certificate ca"];
@@ -349,6 +350,7 @@ export class FortiOsRender {
         FortiOsRender.managementVdom(root, device);
         if (Object.values(device.interfaces?.vlan_interface ?? {}).some((iface) => iface?.proxy_arp?.length))
             FortiOsRender.proxyArp(root.block("system proxy-arp"), device);
+        FortiOsNat64.render(root, device);
 
         return FortiOsTree.print(root);
     }

@@ -326,16 +326,30 @@ export type Isis<I extends string, P extends string = string> = {
     level2_to_level1?: IsisLevel2ToLevel1<P>;
 };
 
+/** LDP's label policies for one neighbor. `P` is the device's policies. */
+export type LdpNeighbor<P extends string = string> = {
+    /** The policy for the labels the device takes from this neighbor, from `routing.policies`, in place of `routing.mpls.ldp.import_policy`. Its rules match as that policy's do. */
+    import_policy?: P;
+    /** The policy for the labels the device gives this neighbor, from `routing.policies`, in place of `routing.mpls.ldp.export_policy`. Its rules match as that policy's do. */
+    export_policy?: P;
+};
+
 /** LDP (RFC 5036): the device gives a label to each route of its IGP and tells its LDP neighbors. `P` is the device's policies. */
 export type Ldp<I extends string, P extends string = string> = {
     /** The device's LSR ID, which other LDP routers know it by. LDP sessions run between LSR IDs, so it is the address of a loopback that OSPF or IS-IS announces. */
     lsr_id: IPv4;
     /** The ports and interfaces that forward MPLS and run LDP, each toward another LDP router. */
     interfaces: readonly I[];
+    /**
+     * Targeted LDP (RFC 5036, section 2.4.2): the LSR IDs of LDP routers to hold a session with across the core, such as a PE at another site. Write a target back at the far router, or it may ignore this one. A pseudowire sets up its own session to its peer, so it needs none here.
+     */
+    targets?: readonly IPv4[];
     /** The policy for the labels the device takes from its LDP neighbors, from `routing.policies`. It sees the prefix of each label, and the device keeps the labels it accepts. Its rules match `family`, `prefix`, `prefix_set`, and `prefix_length` only, and set nothing. Every label when absent. */
     import_policy?: P;
     /** The policy for the labels the device gives its LDP neighbors, from `routing.policies`, such as for its loopbacks only. It sees the prefix of each route LDP labels, and the device tells its neighbors the labels it accepts. Its rules match as `import_policy`'s do. Every label when absent. */
     export_policy?: P;
+    /** Label policies for some LDP neighbors, each by its LSR ID, such as `{ "192.0.2.3": { import_policy: "its-loopback" } }`. A neighbor's policy takes the place of `import_policy` or `export_policy` for its labels alone. */
+    neighbors?: Readonly<Record<IPv4, LdpNeighbor<P>>>;
 };
 
 /** MPLS (RFC 3031): packets cross the network by their labels. */

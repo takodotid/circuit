@@ -35,6 +35,7 @@ export class KeyPaths {
         "routing.isis.levels.2.authentication.key_id": "Junos only, with HMAC-SHA-1, where only `commit check` ran on a QFX5100",
         "interfaces.ethernet.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
         "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
+        "services.dns64": "FortiOS only, where no host asked its DNS server on the FG-3700D",
     };
 
     /** Whether `path` is a key of `EXPERIMENTAL_EVERYWHERE`, or inside one. */

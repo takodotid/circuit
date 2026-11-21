@@ -68,6 +68,7 @@ export class CrossChecks {
             ...CrossChecks.vrrp(holders),
             ...CrossChecks.tunnels(devices, owners),
             ...CrossChecks.pseudowires(devices),
+            ...CrossChecks.ldpTargets(devices),
             ...CrossChecks.virtualLinks(devices),
         ];
     }
@@ -368,14 +369,19 @@ export class CrossChecks {
         return findings;
     }
 
-    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). */
-    private static pseudowires(devices: readonly Device[]): Finding[] {
-        const byLsrId = new Map(
+    /** Each of our LDP routers by its LSR ID. */
+    private static byLsrId(devices: readonly Device[]): Map<string, Device> {
+        return new Map(
             devices.flatMap((device) => {
                 const lsrId = device.routing?.mpls?.ldp?.lsr_id;
                 return lsrId ? [[lsrId, device] as const] : [];
             })
         );
+    }
+
+    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). */
+    private static pseudowires(devices: readonly Device[]): Finding[] {
+        const byLsrId = CrossChecks.byLsrId(devices);
 
         return devices.flatMap((device) => {
             const own = device.routing?.mpls?.ldp?.lsr_id;
@@ -400,6 +406,27 @@ export class CrossChecks {
                         level: "error",
                         device: device.name,
                         message: `interfaces.pseudowire.${name}: ${pseudowire.peer} is ${far.name}'s LSR ID, and ${far.name} has no pseudowire to ${own} with pw_id ${pseudowire.pw_id}. Write one there, or fix peer and pw_id here`,
+                    },
+                ];
+            });
+        });
+    }
+
+    /** A target that is another of our routers has a target back there. A router may ignore targeted hellos from one it doesn't target (RFC 5036, section 2.4.2), as RouterOS does. */
+    private static ldpTargets(devices: readonly Device[]): Finding[] {
+        const byLsrId = CrossChecks.byLsrId(devices);
+
+        return devices.flatMap((device) => {
+            const ldp = device.routing?.mpls?.ldp;
+            if (!ldp) return [];
+            return (ldp.targets ?? []).flatMap((target): Finding[] => {
+                const far = byLsrId.get(target);
+                if (!far || far === device || far.routing?.mpls?.ldp?.targets?.includes(ldp.lsr_id)) return [];
+                return [
+                    {
+                        level: "error",
+                        device: device.name,
+                        message: `routing.mpls.ldp.targets ${target} is ${far.name}'s LSR ID, and ${far.name} has no target back to ${ldp.lsr_id}, so it may ignore this router's targeted hellos. Write ${ldp.lsr_id} in its routing.mpls.ldp.targets`,
                     },
                 ];
             });

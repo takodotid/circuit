@@ -60,7 +60,8 @@ Each RFC's status is as the RFC Editor listed it on 2026-11-01.
 | IS-IS level 2 routes leaked into level 1, with the up/down bit | RFC 5302; the names of OpenConfig `openconfig-isis` (`level2-to-level1`, `import-policy`)                                 | `routing.isis.level2_to_level1`                                      |
 | MPLS forwarding                                                | RFC 3031, RFC 3032                                                                                                        | `routing.mpls.ldp.interfaces`                                        |
 | LDP                                                            | RFC 5036                                                                                                                  | `routing.mpls.ldp`                                                   |
-| LDP label policies                                             | RFC 5036, section 1.2 (which labels an LSR advertises is its own decision)                                                | `routing.mpls.ldp.import_policy`, `export_policy`                    |
+| Targeted LDP                                                   | RFC 5036, section 2.4.2 (extended discovery); the names of OpenConfig `openconfig-mpls-ldp` (`targeted`, `targets`)       | `routing.mpls.ldp.targets`                                           |
+| LDP label policies                                             | RFC 5036, section 1.2 (which labels an LSR advertises is its own decision); OpenConfig's LDP `neighbors`                  | `routing.mpls.ldp.import_policy`, `export_policy`, `neighbors`       |
 | BGP/MPLS IP VPNs (L3VPN): route distinguishers, route targets  | RFC 4364, RFC 4360 (route targets), RFC 5668 (4-byte AS route targets)                                                    | VRF `route_distinguisher`, `route_targets`                           |
 | Which VPN routes a VRF takes and sends                         | RFC 4364, sections 4.3.1 and 4.3.2; OpenConfig network instance `import-policy` and `export-policy`                       | VRF `import_policy`, `export_policy`                                 |
 | VPN routes over BGP                                            | RFC 4364 (`vpnv4`), RFC 4659 (`vpnv6`)                                                                                    | neighbor `address_families`                                          |
@@ -130,6 +131,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | IPv6 prefixes delegated over PPPoE   | DHCPv6 (RFC 9915) over IPv6CP (RFC 5072); a /64 of the prefix for each interface, as RFC 7084 (Informational) has a home router do. A prefix RADIUS sends: RFC 4818. The length a client asks for: RFC 9915 §18.2.1, RFC 8168 | `prefix_delegation` of `services.pppoe_server` and `interfaces.pppoe_client` |
 | NTP client and server                | RFC 5905                                                                                                                                                                                                                      | `system.ntp`, `services.ntp_server`                                          |
 | DNS resolvers used and served        | STD 13 (RFC 1034, RFC 1035)                                                                                                                                                                                                   | `system.dns`, `services.dns_server`                                          |
+| DNS64                                | RFC 6147; the NAT64 prefix, RFC 6052                                                                                                                                                                                          | `services.dns64`                                                             |
 
 ## Firewall
 
@@ -144,6 +146,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Source-based blackholing                              | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`                                                       |
 | CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_allocation: "deterministic"`, `port_set_size`                       |
 | CGNAT that hands out blocks of ports, and logs each   | RFC 8512 port range allocation, `port-set-size`; a port limit per subscriber and less to log, BCP 127 (RFC 6888) REQ-4 and REQ-14    | `to_pool`, `port_allocation: "dynamic"`, `port_set_size`, `port_sets_per_subscriber` |
+| NAT64                                                 | RFC 6146; the NAT64 prefix and the IPv4 address in it, RFC 6052                                                                      | `then: "nat64"`, with the prefix in `if.dst`                                         |
 
 ## Quality of service
 

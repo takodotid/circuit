@@ -132,7 +132,7 @@ export const POLICY_RULE = { ...ROUTE_RULE, ...CALL_RULE, ...COMMUNITIES_IMPORT,
 /** What `then` may be in each kind of rule. */
 export const ACTIONS = {
     filter: ["accept", "drop", "reject"],
-    nat: ["masquerade", "snat", "dnat"],
+    nat: ["masquerade", "snat", "dnat", "nat64"],
     acl: ["accept", "drop"],
     policy: ["accept", "reject"],
 } as const;
@@ -412,6 +412,7 @@ export const DEVICE = {
             },
         },
         dns_server: 0,
+        dns64: { prefix: 0 },
         ntp_server: 0,
         upnp: { internal: 0, external: 0, external_address: 0 },
     },
@@ -471,7 +472,16 @@ export const DEVICE = {
             overload_bit: 0,
             level2_to_level1: { import_policy: 0 },
         },
-        mpls: { ldp: { lsr_id: 0, interfaces: 0, import_policy: 0, export_policy: 0 } },
+        mpls: {
+            ldp: {
+                lsr_id: 0,
+                interfaces: 0,
+                targets: 0,
+                import_policy: 0,
+                export_policy: 0,
+                neighbors: { "*": { import_policy: 0, export_policy: 0 } },
+            },
+        },
         bfd: { interval: 0, multiplier: 0 },
         rpki: [{ address: 0, port: 0, description: 0 }],
         policies: { "*": [POLICY_RULE] },
