@@ -258,6 +258,10 @@ export class AddressSpace {
                         prefix: Address.prefixOf(delegated),
                         what: `prefixes delegated by PPPoE server ${name} on ${device.name}`,
                     });
+
+                const sessions = server.slaac?.pool;
+                if (sessions && Address.isCidr(sessions))
+                    blocks.push({ prefix: Address.prefixOf(sessions), what: `sessions' /64s of PPPoE server ${name} on ${device.name}` });
             }
 
             // A pool and the subscribers it serves are both address space in use. A rule with no pool, such as masquerade, uses none.

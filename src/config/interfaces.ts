@@ -532,6 +532,8 @@ export type PppoeClient<Carrier extends string, I extends string> = {
     mtu?: number;
     /** Ask the server for an IPv6 prefix over the session. No IPv6 prefix when absent. */
     prefix_delegation?: ClientPrefixDelegation<I>;
+    /** Make an IPv6 address on the session from the /64 the server announces in its router advertisements (SLAAC, RFC 4862). The router takes the default route they carry too, as a host does (RFC 4861). The session takes it when it next comes up. No IPv6 address on the session when absent. */
+    slaac?: true;
 };
 
 /**

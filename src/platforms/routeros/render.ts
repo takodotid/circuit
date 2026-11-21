@@ -31,7 +31,15 @@ export class RouterOsRender {
     private static readonly NATIVE_LIST = "native";
 
     /** Interface lists an interface set can't be named: the render's own, and those every RouterOS has (MikroTik's manual, Interface lists). */
-    static readonly TAKEN_LISTS = [RouterOsRender.LLDP_LIST, RouterOsRender.NATIVE_LIST, "all", "none", "dynamic", "static"];
+    static readonly TAKEN_LISTS = [
+        RouterOsRender.LLDP_LIST,
+        RouterOsRender.NATIVE_LIST,
+        RouterOsPppoe.SLAAC_LIST,
+        "all",
+        "none",
+        "dynamic",
+        "static",
+    ];
 
     /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
     private static readonly ISOLATED_HORIZON = 1;
@@ -700,7 +708,7 @@ export class RouterOsRender {
         }
     }
 
-    /** The platform's default entry covers every interface, and sends router advertisements only where an address has `advertise=yes` (TRAPS.md). Once one interface sends its own, the default is turned off. A device that sends none keeps it. */
+    /** The platform's default entry covers every interface, and sends router advertisements only where an address has `advertise=yes` (TRAPS.md). Once one interface sends its own, the default is turned off. A device that sends none keeps it, and so does a PPPoE server: only the default entry announces a session's /64 (TRAPS.md). */
     private routerAdvertisements(): void {
         const sending = this.routed().flatMap(({ name, settings }) => {
             const ra = Derive.routerAdvertisement(settings);
@@ -708,7 +716,8 @@ export class RouterOsRender {
         });
         if (!sending.length) return;
 
-        this.add("/ipv6 nd", "set [ find default=yes ]", { disabled: "yes" });
+        const sessions = RouterOsSyntax.entries(this.device.services?.pppoe_server).length > 0;
+        if (!sessions) this.add("/ipv6 nd", "set [ find default=yes ]", { disabled: "yes" });
 
         for (const { name, ra } of sending) {
             const { interval, lifetime } = ra;

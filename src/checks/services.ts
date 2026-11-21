@@ -11,6 +11,8 @@ export class ServicesChecks {
     static readonly PPPOE_MTU = 1492;
     /** The smallest datagram every IPv4 host takes (RFC 791). */
     static readonly MIN_MTU = 576;
+    /** The length of a prefix hosts make their own addresses in (RFC 4862, with RFC 4291's 64-bit interface IDs). */
+    private static readonly SLAAC_PREFIX_LENGTH = 64;
     /** The shortest time RFC 2869 allows between interim accounting reports, in seconds. */
     private static readonly MIN_INTERIM_SECONDS = 60;
 
@@ -239,7 +241,25 @@ export class ServicesChecks {
             if (!server.radius.length) report(`${where}.radius is empty: write the RADIUS servers that check subscribers`);
             ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
             if (server.prefix_delegation) ServicesChecks.delegation(`${where}.prefix_delegation`, server.prefix_delegation, report);
+            if (server.slaac)
+                ServicesChecks.sessionPrefixes(`${where}.slaac.pool`, server.slaac.pool, server.prefix_delegation?.pool, report);
         }
+    }
+
+    /** The /64s of a PPPoE server's sessions: an IPv6 prefix shorter than a /64, written without bits past its length, apart from the prefixes it delegates. */
+    private static sessionPrefixes(at: string, pool: string, delegated: string | undefined, report: Report): void {
+        if (!Address.isCidr(pool) || Address.family(pool) !== "ipv6") {
+            report(`${at} '${pool}' is not an IPv6 prefix, such as 2001:db8:100:1000::/52`);
+            return;
+        }
+
+        const { len } = Address.split(pool);
+        if (Address.prefixOf(pool) !== Address.canonical(pool))
+            report(`${at} ${pool} has bits past its length: write ${Address.prefixOf(pool)}`);
+        if (len >= ServicesChecks.SLAAC_PREFIX_LENGTH)
+            report(`${at} ${pool} holds no more than one /64: write a shorter prefix, which holds a /64 for each session`);
+        if (delegated && Address.isCidr(delegated) && (Address.contains(pool, delegated) || Address.contains(delegated, pool)))
+            report(`${at} ${pool} overlaps prefix_delegation.pool ${delegated}: give each its own prefix`);
     }
 
     /** A DHCP or DHCPv6 server's RADIUS servers, and the interim interval, which needs them. */

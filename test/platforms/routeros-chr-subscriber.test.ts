@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots, the first linked to the others, and FreeRADIUS on the runner. edge-01 delegates prefixes by DHCPv6 to cpe-01 and host-01, asking RADIUS, which knows cpe-01 only. Then it is a PPPoE server whose sessions join an interface set its firewall matches, and cpe-01 logs in to it. Skipped without the CHRs and FreeRADIUS.
+// Three RouterOS CHRs, which the devices workflow boots, the first linked to the others, and FreeRADIUS on the runner. edge-01 delegates prefixes by DHCPv6 to cpe-01 and host-01, asking RADIUS, which knows cpe-01 only. Then it is a PPPoE server whose sessions join an interface set its firewall matches and take a /64 by SLAAC, and cpe-01 logs in to it. Skipped without the CHRs and FreeRADIUS.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -37,8 +37,12 @@ const DELEGATED_CPE = "2001:db8:100:8000::/50";
 const DELEGATED_HOST = "2001:db8:100:c000::/50";
 /** A prefix a DHCPv6 client holds, as RouterOS prints it. */
 const HELD_PREFIX = /status=bound[\s\S]*prefix=(2001:db8:100:[\da-f:]+\/\d+)/;
-/** edge-01's own address in every session. */
+/** edge-01's own address in every session, and its IPv6 address on its loopback. */
 const EDGE = "100.64.0.1";
+const EDGE_IPV6 = "2001:db8:100::1";
+/** Where each session's /64 comes from, and cpe-01's address in one, as RouterOS prints it. */
+const SLAAC_POOL = "2001:db8:100:1000::/52";
+const FROM_SLAAC = /address=(2001:db8:100:1[\da-f]{3}:[\da-f:]+)\/64/;
 /** An address from the pool, 100.64.0.2 to 100.64.63.254. */
 const FROM_POOL = /address=(100\.64\.\d+\.\d+)\//;
 
@@ -136,11 +140,14 @@ function writeEdgeDhcpv6(radius: boolean): void {
 }
 
 /** What edge-01's PPPoE server has besides its pool and RADIUS. */
-type Server = { interfaceSet?: boolean };
+type Server = { interfaceSet?: boolean; slaac?: boolean };
 
-/** edge-01: a PPPoE server for cpe-01. With `interfaceSet`, each session joins `subscribers`, from which the firewall drops pings to the router. */
+/**
+ * edge-01: a PPPoE server for cpe-01. With `interfaceSet`, each session joins `subscribers`, from which the firewall drops pings to the router. With `slaac`, each session gets a /64 of `SLAAC_POOL`. Its port toward host-01 sends router advertisements of its own, which turns the default ND entry off without a PPPoE server.
+ */
 function writeEdge(server: Server): void {
     const set = server.interfaceSet ? `interface_set: "subscribers",` : "";
+    const slaac = server.slaac ? `slaac: { pool: "${SLAAC_POOL}" },` : "";
     writeDevice(
         "edge-01",
         edgeChr!,
@@ -149,7 +156,9 @@ function writeEdge(server: Server): void {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["10.0.0.1/24"] },
             "virtual-2": { description: "Subscribers" },
+            "virtual-3": { description: "host-01", addresses: ["2001:db8:100:a::1/64"], ipv6_ra: true },
         },
+        loopback: { loopback: { addresses: ["${EDGE_IPV6}/128"] } },
     },
     services: {
         pppoe_server: {
@@ -161,6 +170,7 @@ function writeEdge(server: Server): void {
                 mtu: 1492,
                 radius: [{ address: "${RADIUS}", secret_key: secret("RADIUS_SECRET") }],
                 ${set}
+                ${slaac}
             },
         },
     },
@@ -177,8 +187,8 @@ function writeEdge(server: Server): void {
     );
 }
 
-/** cpe-01, a subscriber's router, with its PPPoE client or none. */
-function writeCpe(pppoe: boolean): void {
+/** cpe-01, a subscriber's router, with its PPPoE client or none. With `slaac`, the client makes its address on the session from the /64 edge-01 announces. */
+function writeCpe(pppoe: boolean, slaac = false): void {
     const client = `
         pppoe_client: {
             internet: {
@@ -188,6 +198,7 @@ function writeCpe(pppoe: boolean): void {
                 password: secret("SUBSCRIBER_PASSWORD"),
                 service_name: "as64500",
                 mtu: 1492,
+                ${slaac ? "slaac: true," : ""}
             },
         },`;
     writeDevice(
@@ -239,6 +250,17 @@ function sessionAddress(): string | undefined {
 async function redial(): Promise<void> {
     await typed(cpeRest!, "/interface pppoe-client disable internet; :delay 2s; /interface pppoe-client enable internet");
     expect(eventually(() => sessionAddress() !== undefined)).toBe(true);
+}
+
+/** cpe-01's address on its session from the /64 edge-01 announces, once it has one. */
+function slaacAddress(): string | undefined {
+    const printed = circuit("exec", "cpe-01", "/ipv6 address print terse where interface=internet").output;
+    return FROM_SLAAC.exec(printed)?.[1];
+}
+
+/** Whether edge-01 reaches `address` from its loopback. A new address answers only once it is sure no other host has it (RFC 4862), so this asks until it answers. */
+function edgeReaches(address: string): boolean {
+    return eventually(() => /received=[1-9]/.test(circuit("exec", "edge-01", `/ping ${address} src-address=${EDGE_IPV6} count=3`).output));
 }
 
 /** Whether cpe-01 reaches edge-01 through the session. */
@@ -357,6 +379,49 @@ describe.skipIf(!ready)("subscribers of a CHR's PPPoE server", () => {
             expect(circuit("diff", "edge-01").status).toBe(0);
             await redial();
             expect(pings()).toBe(false);
+        },
+        TEST_MS
+    );
+
+    test(
+        "a session gets a /64 of the pool, cpe-01 makes its address there by SLAAC, edge-01 reaches it, and the plans stay empty",
+        async () => {
+            writeEdge({ interfaceSet: true, slaac: true });
+            writeCpe(true, true);
+            for (const device of ["edge-01", "cpe-01"]) {
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            // The default ND entry stays on beside the port's own, as only it announces a session's /64.
+            expect(circuit("exec", "edge-01", "/ipv6 nd print detail where default").output).not.toMatch(/^\s*\d+\s+X/m);
+
+            await redial();
+            let address: string | undefined;
+            expect(eventually(() => (address = slaacAddress()) !== undefined)).toBe(true);
+            expect(Address.contains(SLAAC_POOL, address!)).toBe(true);
+            expect(edgeReaches(address!)).toBe(true);
+            circuit("exec", "cpe-01", "/ipv6 route print detail where dst-address=::/0");
+
+            for (const device of ["edge-01", "cpe-01"]) expect(circuit("diff", device).status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "apply has cpe-01 stop taking advertisements, and edge-01 stop giving /64s, once their configs drop them",
+        async () => {
+            writeCpe(true);
+            expect(circuit("diff", "cpe-01").output).toContain("accept-router-advertisements=yes-if-forwarding-disabled");
+            expect(circuit("apply", "cpe-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "cpe-01").status).toBe(0);
+            // The session keeps its address until it comes up again (TRAPS.md).
+            await redial();
+            expect(slaacAddress()).toBeUndefined();
+
+            writeEdge({ interfaceSet: true });
+            expect(circuit("diff", "edge-01").output).toContain("remote-ipv6-prefix-pool");
+            expect(circuit("apply", "edge-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "edge-01").status).toBe(0);
         },
         TEST_MS
     );

@@ -77,6 +77,12 @@ export type Upnp<I extends string> = {
     external_address?: IP;
 };
 
+/** The /64s a PPPoE server gives its sessions, one each. */
+export type SessionPrefixes = {
+    /** The prefix they come from, shorter than a /64, such as `2001:db8:100:1000::/52`. */
+    pool: Prefix;
+};
+
 /**
  * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, its IPv6 prefix from `prefix_delegation` unless RADIUS sends one, and its rate from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
  */
@@ -101,6 +107,8 @@ export type PppoeServer<I extends string, F extends string = string, IS extends 
     dynamic_authorization?: true;
     /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. A subscriber that RADIUS sends a prefix for (Delegated-IPv6-Prefix, RFC 4818) gets that one instead. When absent, only those subscribers get a prefix. */
     prefix_delegation?: PrefixDelegation;
+    /** A /64 for the subscriber's side of each session, which the server announces in router advertisements, so the subscriber's router makes its own address there (SLAAC, RFC 4862). A subscriber that RADIUS sends one for (Framed-IPv6-Prefix, RFC 3162) gets that one instead. When absent, only those subscribers get one. */
+    slaac?: SessionPrefixes;
     /** The interface set, from `firewall.interface_sets`, that each session's interface joins while it is up. A firewall rule with `in_interface_set` or `out_interface_set` then matches every subscriber, though the device names each session's interface only when it comes up. */
     interface_set?: IS;
 };

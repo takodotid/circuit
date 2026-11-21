@@ -123,6 +123,44 @@ test("RouterOS delegates a PPPoE server's prefixes from a pool its profile names
     expect(sent(desired, stray)).toEqual(['/ppp profile set *0 dhcpv6-pd-pool="" remote-ipv6-prefix-pool=""']);
 });
 
+test("RouterOS gives each session a /64 from a pool its profile names, announced by the default ND entry, which stays on", () => {
+    const slaac: PppoeServer = { ...OLT, slaac: { pool: "2001:db8:100:1000::/52" } };
+    const desired = routeros.render(withPppoe({}, { "olt-1": slaac }));
+
+    expect(desired).toContain("add name=olt-1-slaac prefix=2001:db8:100:1000::/52 prefix-length=64");
+    expect(desired).toContain("local-address=100.64.0.1 name=olt-1 remote-address=olt-1 remote-ipv6-prefix-pool=olt-1-slaac");
+    expect(sent(desired, desired)).toEqual([]);
+    // The example router's `servers` sends router advertisements of its own, which turns the default entry off without a PPPoE server.
+    expect(desired).not.toContain("set [ find default=yes ] disabled=yes");
+    expect(routeros.render(withPppoe({}))).toContain("set [ find default=yes ] disabled=yes");
+
+    const dropped = sent(routeros.render(withPppoe({}, { "olt-1": OLT })), desired);
+    expect(dropped).toContain('/ppp profile set [ find name=olt-1 ] remote-ipv6-prefix-pool=""');
+    expect(dropped).toContain("/ipv6 pool remove [ find name=olt-1-slaac ]");
+});
+
+test("RouterOS has a client take router advertisements on the session alone, and sets that back once the config drops it", () => {
+    const desired = routeros.render(withPppoe({ internet: { ...ISP, slaac: true } }));
+
+    expect(desired).toContain("add name=slaac");
+    expect(desired).toContain("add interface=internet list=slaac");
+    expect(desired).toContain("/ipv6 settings\nset accept-router-advertisements=yes accept-router-advertisements-on=slaac");
+    expect(sent(desired, desired)).toEqual([]);
+
+    // The export says the change waits for a restart, though a session takes it when it next comes up (CHR, 7.24.6).
+    const printed = desired.replace(
+        "/ipv6 settings\n",
+        "/ipv6 settings\n# ipv6 *accept router advertisements* configuration has changed, please restart device to apply settings\n"
+    );
+    expect(sent(desired, printed)).toEqual([]);
+
+    const dropped = sent(routeros.render(withPppoe({ internet: ISP })), desired);
+    expect(dropped).toContain(
+        "/ipv6 settings set accept-router-advertisements=yes-if-forwarding-disabled accept-router-advertisements-on=all"
+    );
+    expect(dropped).toContain("/interface list remove [ find name=slaac ]");
+});
+
 test("RouterOS refuses a client named as an IPv6 pool it writes", () => {
     const device = withPppoe({ "olt-1-pd": { ...ISP, interface: "1g-1" } }, { "olt-1": OLT });
     expect(routeros.unsupported(device)).toContain(
@@ -192,4 +230,20 @@ test("validate checks a PPPoE server's delegated prefixes as a DHCPv6 server's",
     expect(errors(device)).toContain(
         "services.pppoe_server.olt-1.prefix_delegation.prefix_length 48 is not a whole number from 50 to 128: each prefix delegated is a part of pool, a /49"
     );
+});
+
+test("validate wants the sessions' /64s from an IPv6 prefix shorter than a /64, apart from the delegated prefixes", () => {
+    const device = withPppoe(
+        {},
+        {
+            "olt-1": { ...OLT, slaac: { pool: "2001:db8:100:8000::/52" } },
+            "olt-2": { ...OLT, interfaces: ["guests"], slaac: { pool: "2001:db8:100:1001::/64" } },
+            "olt-3": { ...OLT, interfaces: ["25g-3"], slaac: { pool: "100.64.0.0/10" } },
+        }
+    );
+    expect(errors(device).filter((message) => message.includes(".slaac."))).toEqual([
+        "services.pppoe_server.olt-1.slaac.pool 2001:db8:100:8000::/52 overlaps prefix_delegation.pool 2001:db8:100:8000::/49: give each its own prefix",
+        "services.pppoe_server.olt-2.slaac.pool 2001:db8:100:1001::/64 holds no more than one /64: write a shorter prefix, which holds a /64 for each session",
+        "services.pppoe_server.olt-3.slaac.pool '100.64.0.0/10' is not an IPv6 prefix, such as 2001:db8:100:1000::/52",
+    ]);
 });

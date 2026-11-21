@@ -249,6 +249,19 @@ export class RouterOsExport {
         },
         // MikroTik's manual says 1700, but 7.24.6 listens on RFC 5176's 3799 (TRAPS.md).
         "/radius incoming": { accept: "no", port: "3799" },
+        // As a CHR on 7.24.6 printed them with `export verbose`, but the neighbor table's sizes, which follow the memory.
+        "/ipv6 settings": {
+            "accept-redirects": "yes-if-forwarding-disabled",
+            "accept-router-advertisements": "yes-if-forwarding-disabled",
+            "accept-router-advertisements-on": "all",
+            "allow-fast-path": "yes",
+            "disable-ipv6": "no",
+            "disable-link-local-address": "no",
+            forward: "yes",
+            "multipath-hash-policy": "l3",
+            "stale-neighbor-detect-interval": "30",
+            "stale-neighbor-timeout": "60",
+        },
         // As a CHR on 7.24.6 printed a queue with `export verbose`.
         "/queue simple": {
             "bucket-size": "0.1/0.1",

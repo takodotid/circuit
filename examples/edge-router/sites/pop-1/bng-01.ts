@@ -99,6 +99,8 @@ export default as64500.device({
                 acct_interim_interval: 300,
                 dynamic_authorization: true,
                 prefix_delegation: { pool: "2001:db8:100:4000::/50", prefix_length: 56 },
+                // A home router's own side of the session takes a /64 by SLAAC.
+                slaac: { pool: "2001:db8:100:1000::/52" },
                 interface_set: "homes",
             },
         },
