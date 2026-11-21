@@ -73,25 +73,27 @@ export class RouterOsDhcp {
     }
 
     static unsupported(device: Device): string[] {
+        // With `use-radius=yes`, a CHR on 7.24.6 gave a client that asked for an address none, and never asked RADIUS (TRAPS.md).
+        const addresses = RouterOsSyntax.entries(device.services?.dhcpv6_server)
+            .filter(([, server]) => server.radius && server.pool)
+            .map(
+                ([name]) =>
+                    `services.dhcpv6_server.${name}.radius beside pool: RouterOS asks RADIUS about delegated prefixes only, and gives no address while it asks. Leave out pool or radius`
+            );
+
         const [first, ...others] = RouterOsDhcp.withRadius(device);
-        if (!first) return [];
+        if (!first) return addresses;
 
         const [firstWhere, firstServer] = first;
         const shared = (server: DhcpServer | Dhcpv6Server) =>
             JSON.stringify([RouterOsSyntax.radiusServers(server.radius), server.acct_interim_interval]);
-        return others
+        const differ = others
             .filter(([, server]) => shared(server) !== shared(firstServer))
             .map(
                 ([where]) =>
                     `${where}, RouterOS has one RADIUS setting for all its DHCP and DHCPv6 servers: write the radius and acct_interim_interval of ${firstWhere}`
             );
-    }
-
-    /** A DHCPv6 server that asks RADIUS about the addresses it gives: a CHR on 7.24.6 was proven asking about delegated prefixes only. */
-    static untested(device: Device): string[] {
-        return RouterOsSyntax.entries(device.services?.dhcpv6_server)
-            .filter(([, server]) => server.radius && server.pool)
-            .map(([name]) => `services.dhcpv6_server.${name}.radius, beside pool`);
+        return [...differ, ...addresses];
     }
 
     /** The DHCP and DHCPv6 servers that ask RADIUS about each lease, each with where it is written. */

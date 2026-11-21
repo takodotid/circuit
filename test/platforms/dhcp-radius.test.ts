@@ -179,8 +179,10 @@ test("validate checks a DHCPv6 server's RADIUS servers and interim interval as a
     ]);
 });
 
-test("RouterOS builds a DHCPv6 server that asks RADIUS about the addresses it gives, but marks it experimental", () => {
+test("RouterOS refuses a DHCPv6 server that asks RADIUS beside the addresses it gives, which it then gives none of", () => {
     const device = servingV6({ "homes-v6": { ...HOMES_V6, pool: ["2001:db8:20::1000", "2001:db8:20::1fff"] } });
-    expect(routeros.experimental?.(device)).toContain("services.dhcpv6_server.homes-v6.radius, beside pool");
-    expect(routeros.experimental?.(servingV6({ "homes-v6": HOMES_V6 }))).toEqual([]);
+    expect(routeros.unsupported(device)).toContain(
+        "services.dhcpv6_server.homes-v6.radius beside pool: RouterOS asks RADIUS about delegated prefixes only, and gives no address while it asks. Leave out pool or radius"
+    );
+    expect(routeros.unsupported(servingV6({ "homes-v6": HOMES_V6 })).filter((path) => path.includes("dhcpv6"))).toEqual([]);
 });

@@ -246,7 +246,7 @@ export class RouterOs extends Platform {
                 ? urpf.setting.map(({ where }) => `${where}.urpf.ipv4 strict, beside VRFs or routing tables`)
                 : [];
         const lags = Derive.rateLimited(device).filter(({ kind }) => kind === "lag");
-        return [...strict, ...lags.map(({ where }) => `${where}.rate_limit`), ...RouterOsDhcp.untested(device)];
+        return [...strict, ...lags.map(({ where }) => `${where}.rate_limit`)];
     }
 
     override unsupported(device: Device): string[] {
