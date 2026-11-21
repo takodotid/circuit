@@ -58,7 +58,7 @@ Your AS in two regions, each a member AS of a BGP confederation with its own iBG
 
 ## An MPLS core
 
-Two provider edge routers, one in each point of presence. IS-IS carries their loopbacks, and LDP gives each loopback a label, so traffic between them crosses the core by label. The policies of LDP keep its labels to the loopbacks. A bank has an office at each router, in its VRF `bank`. The two VRFs share a route target, and iBGP between the loopbacks carries their routes as VPN routes (L3VPN, RFC 4364). The VRFs' policies let only the offices' networks cross. A clinic's two sites share one Ethernet segment: each site's port is in the VLAN `clinic` with a pseudowire to the other router (VPWS).
+Three provider edge routers in a row, one in each point of presence. IS-IS carries their loopbacks, and LDP gives each loopback a label, so traffic between them crosses the core by label. The policies of LDP keep its labels to the loopbacks. A bank has an office at `pe-01` and `pe-02`, in its VRF `bank`. The two VRFs share a route target, and iBGP between the loopbacks carries their routes as VPN routes (L3VPN, RFC 4364). The VRFs' policies let only the offices' networks cross. A clinic's two sites share one Ethernet segment: each site's port is in the VLAN `clinic` with a pseudowire to the other router (VPWS). `pe-01` and `pe-03` are no neighbors, so a targeted LDP session joins them across `pe-02`.
 
 ::: code-group
 
@@ -67,6 +67,8 @@ Two provider edge routers, one in each point of presence. IS-IS carries their lo
 <<< @/../examples/mpls-core/sites/pop-1/pe-01.ts
 
 <<< @/../examples/mpls-core/sites/pop-2/pe-02.ts
+
+<<< @/../examples/mpls-core/sites/pop-3/pe-03.ts
 
 :::
 

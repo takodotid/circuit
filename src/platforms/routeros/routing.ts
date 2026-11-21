@@ -803,6 +803,7 @@ export class RouterOsRouting {
         for (const iface of interfaces) this.render.add("/mpls interface", "add", { interface: iface });
         this.render.add("/mpls ldp", "add", { afi: "ip", "lsr-id": ldp.lsr_id, "transport-addresses": ldp.lsr_id });
         for (const iface of interfaces) this.render.add("/mpls ldp interface", "add", { interface: iface });
+        for (const target of ldp.targets ?? []) this.render.add("/mpls ldp neighbor", "add", { "send-targeted": "yes", transport: target });
         this.ldpFilters("/mpls ldp accept-filter", "accept", ldp.import_policy);
         this.ldpFilters("/mpls ldp advertise-filter", "advertise", ldp.export_policy);
     }

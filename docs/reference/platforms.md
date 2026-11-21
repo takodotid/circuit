@@ -105,6 +105,7 @@ A note in a cell means "works, with this limit".
 | IS-IS leaks into level 1     | ❌ leaks every route    | ✅                         | ❌                       | ❌ not yet            | ❌ not yet       |
 | BFD for IS-IS                | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌                         | ❌                       | 🧪                    | ❌               |
+| Targeted LDP                 | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |
 | LDP label policies           | ✅ /32 or prefix set    | ❌                         | ❌                       | ❌                    | ❌               |
 | L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌                         | ❌                       | ❌                    | ❌               |
 | VRF import/export policies   | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |

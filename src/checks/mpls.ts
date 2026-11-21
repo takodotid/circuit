@@ -15,6 +15,7 @@ export class MplsChecks {
         if (!ldp) return;
 
         MplsChecks.lsrId(device, ldp, report);
+        MplsChecks.targets(ldp, report);
         for (const way of ["import_policy", "export_policy"] as const) {
             const policy = ldp[way];
             if (policy) PrefixPolicyChecks.check(device, `routing.mpls.ldp.${way} ${policy}`, policy, MplsChecks.LABEL, report);
@@ -33,6 +34,20 @@ export class MplsChecks {
                 report(`${at} has no IPv4 address, which LDP needs to find its neighbors. Give it one, or remove it`);
             const vrf = "vrf" in settings ? settings.vrf : undefined;
             if (vrf) report(`${at} routes in VRF ${vrf}, and MPLS runs in the main table. Remove it`);
+        }
+    }
+
+    /** A targeted session runs to another router's LSR ID, once. */
+    private static targets(ldp: Mpls["ldp"], report: Report): void {
+        const seen = new Set<string>();
+        for (const target of ldp.targets ?? []) {
+            const at = `routing.mpls.ldp.targets ${target}`;
+            if (seen.has(target)) report(`${at} is listed twice. Remove one`);
+            seen.add(target);
+
+            if (!Address.isValid(target) || Address.family(target) !== "ipv4")
+                report(`${at} is not an IPv4 address. Write the far router's LSR ID, such as 192.0.2.2`);
+            else if (target === ldp.lsr_id) report(`${at} is this router's own LSR ID. Write the far router's`);
         }
     }
 

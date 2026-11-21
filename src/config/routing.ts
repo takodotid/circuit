@@ -306,6 +306,10 @@ export type Ldp<I extends string, P extends string = string> = {
     lsr_id: IPv4;
     /** The ports and interfaces that forward MPLS and run LDP, each toward another LDP router. */
     interfaces: readonly I[];
+    /**
+     * Targeted LDP (RFC 5036, section 2.4.2): the LSR IDs of LDP routers to hold a session with across the core, such as a PE at another site. Write a target back at the far router, or it may ignore this one. A pseudowire sets up its own session to its peer, so it needs none here.
+     */
+    targets?: readonly IPv4[];
     /** The policy for the labels the device takes from its LDP neighbors, from `routing.policies`. It sees the prefix of each label, and the device keeps the labels it accepts. Its rules match `family`, `prefix`, `prefix_set`, and `prefix_length` only, and set nothing. Every label when absent. */
     import_policy?: P;
     /** The policy for the labels the device gives its LDP neighbors, from `routing.policies`, such as for its loopbacks only. It sees the prefix of each route LDP labels, and the device tells its neighbors the labels it accepts. Its rules match as `import_policy`'s do. Every label when absent. */

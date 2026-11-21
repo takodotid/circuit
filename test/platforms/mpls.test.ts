@@ -1,6 +1,7 @@
 // MPLS with LDP. RouterOS 7.24.6 ran it on three CHRs (test/platforms/routeros-chr-mpls.test.ts). Junos 21.4R3 took the statements in a `commit check` on a QFX5100, nothing committed (TRAPS.md), so it is experimental there.
 
 import { expect, test } from "bun:test";
+import { Checks } from "../../src/checks";
 import { DeviceChecks } from "../../src/checks/device";
 import type { Device, Mpls, PolicyRule } from "../../src/model";
 import { Platforms } from "../../src/platforms";
@@ -133,6 +134,58 @@ test("an LDP interface is a link in the main table, with an IPv4 address, and li
     const switchDevice = withMpls("platforms--example-aggregation-switch", { ldp: { lsr_id: "203.0.113.65", interfaces: ["40g-1"] } });
     expect(errors(switchDevice)).toContain(
         "routing.mpls.ldp.interfaces 40g-1 has no IPv4 address, which LDP needs to find its neighbors. Give it one, or remove it"
+    );
+});
+
+test("a targeted LDP session runs to another router's LSR ID, listed once", () => {
+    expect(errors(withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, targets: ["192.0.2.2", "192.0.2.3"] } }))).toEqual([]);
+
+    const device = withMpls("platforms--example-router", {
+        ldp: { ...ROUTER.ldp, targets: ["192.0.2.2", "192.0.2.2", "192.0.2.255", "192.0.2.256"] },
+    });
+    expect(errors(device)).toEqual([
+        "routing.mpls.ldp.targets 192.0.2.2 is listed twice. Remove one",
+        "routing.mpls.ldp.targets 192.0.2.255 is this router's own LSR ID. Write the far router's",
+        "routing.mpls.ldp.targets 192.0.2.256 is not an IPv4 address. Write the far router's LSR ID, such as 192.0.2.2",
+    ]);
+});
+
+test("a target that is another of our routers has a target back there, which RouterOS needs before it answers", async () => {
+    const devices = await Fixtures.example("mpls-core");
+    const pe01 = devices["pe-01"]!;
+    const pe03 = devices["pe-03"]!;
+    const crossErrors = (network: Device[]) =>
+        Checks.run(network, undefined)
+            .filter((finding) => finding.level === "error")
+            .map((finding) => `${finding.device}: ${finding.message}`);
+    expect(crossErrors([pe01, devices["pe-02"]!, pe03])).toEqual([]);
+
+    const oneWay = { ...pe03, routing: { ...pe03.routing, mpls: { ldp: { ...pe03.routing!.mpls!.ldp, targets: [] } } } };
+    expect(crossErrors([pe01, devices["pe-02"]!, oneWay])).toEqual([
+        "pe-01: routing.mpls.ldp.targets 10.255.0.3 is pe-03's LSR ID, and pe-03 has no target back to 10.255.0.1, so it may ignore this router's targeted hellos. Write 10.255.0.1 in its routing.mpls.ldp.targets",
+    ]);
+});
+
+test("RouterOS writes each target as a static LDP neighbor that sends targeted hellos, and removes only those it wrote", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, targets: ["192.0.2.2"] } });
+    const desired = routeros.render(device);
+    const without = routeros.render(withMpls("platforms--example-router", ROUTER));
+
+    expect(desired).toContain("/mpls ldp neighbor\nadd send-targeted=yes transport=192.0.2.2\n");
+    expect(sent("routeros", desired, without)).toEqual(["/mpls ldp neighbor add send-targeted=yes transport=192.0.2.2"]);
+    // LDP lists the neighbors it finds beside those it was told, and refuses to remove one it found.
+    expect(sent("routeros", without, desired)).toEqual(["/mpls ldp neighbor remove [ find transport=192.0.2.2 and !dynamic ]"]);
+    expect(sent("routeros", desired, desired)).toEqual([]);
+});
+
+test("Junos refuses targeted LDP while its MPLS is experimental", () => {
+    const device = withMpls("platforms--example-aggregation-switch", {
+        ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"], targets: ["203.0.113.66"] },
+    });
+
+    expect(Platforms.get("junos").unsupported(device)).toContain(
+        "routing.mpls.ldp.targets, not built for Junos yet: its MPLS is experimental, untested on a router that runs it"
     );
 });
 
