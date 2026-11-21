@@ -1,4 +1,4 @@
-// NAT pools that hand out blocks of ports. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with central NAT off, between two loopbacks and on documentation addresses. A pool was made, set to the device's default block sizes, moved to other addresses, and removed, each plan empty after.
+// NAT pools that hand out blocks of ports. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with central NAT off, on documentation addresses. A pool was made, set to the default block sizes, moved, and removed. Its timeout was set to 120, 300, the default 30, and 3 seconds, then removed. Each plan was empty after.
 
 import { expect, test } from "bun:test";
 import type { Device, NatRule } from "../../src/model";
@@ -59,6 +59,21 @@ test("block sizes at the device's defaults, 128 ports and 8 blocks, which it doe
     expect(fortios.plan(desired, printed, options)).toEqual({ steps: [], problems: [] });
 });
 
+test("FortiOS writes a pool's timeout as pba-timeout, and nothing for 30 seconds, its default, which the device doesn't print", () => {
+    const pool = (port_set_timeout?: number) =>
+        fortios.render(withSourceNat("platforms--example-firewall", [{ ...POOL, port_set_timeout }]));
+    const longer = pool(120);
+
+    expect(longer).toContain("        set num-blocks-per-user 4\n        set pba-timeout 120\n    next");
+    expect(pool(30)).toEqual(pool());
+    expect(fortios.plan(longer, longer, options)).toEqual({ steps: [], problems: [] });
+
+    const back = fortios.plan(pool(30), longer, options).steps;
+    expect(back.map((step) => step.send)).toEqual([
+        ["config firewall ippool", 'edit "203.0.113.32/27"', "unset pba-timeout", "next", "end"],
+    ]);
+});
+
 test("a pool that moves is made first, the entry points to it, and the old pool goes last", () => {
     const current = fortios.render(withSourceNat("platforms--example-firewall", [POOL]));
     const desired = fortios.render(withSourceNat("platforms--example-firewall", [{ ...POOL, to_pool: "203.0.113.64/27" }]));
@@ -73,6 +88,8 @@ test("FortiOS refuses a deterministic pool, block sizes it doesn't take, and a s
         { ...POOL, port_allocation: "deterministic", port_set_size: 2016, port_sets_per_subscriber: undefined },
         { ...POOL, to_pool: "203.0.113.64/27", port_set_size: 32, port_sets_per_subscriber: 129 },
         { ...POOL, to_pool: "203.0.113.96/27", if: { ...POOL.if, protocol: "udp", src_port: 53 } },
+        { ...POOL, to_pool: "203.0.113.128/27", port_set_timeout: 2 },
+        { ...POOL, to_pool: "203.0.113.160/27", port_set_timeout: 301 },
     ]);
 
     expect(fortios.unsupported(device).filter((gap) => gap.startsWith("firewall.nat"))).toEqual([
@@ -80,16 +97,19 @@ test("FortiOS refuses a deterministic pool, block sizes it doesn't take, and a s
         "firewall.nat.source[1].port_set_size 32, the platform takes 64 to 4096 ports in a block",
         "firewall.nat.source[1].port_sets_per_subscriber 129, the platform takes 1 to 128 blocks",
         "firewall.nat.source[2].if.src_port, with a pool, which translates every source port",
+        "firewall.nat.source[3].port_set_timeout 2, the platform takes 3 to 300 seconds",
+        "firewall.nat.source[4].port_set_timeout 301, the platform takes 3 to 300 seconds",
     ]);
 });
 
-test("RouterOS refuses a dynamic pool", () => {
+test("RouterOS refuses a dynamic pool, and its timeout", () => {
     const router = Fixtures.device("platforms--example-router");
-    const device: Device = { ...router, firewall: { ...router.firewall, nat: { source: [{ ...POOL, if: { src: "100.64.0.0/22" } }] } } };
+    const rule = { ...POOL, if: { src: "100.64.0.0/22" }, port_set_timeout: 120 } as const;
+    const device: Device = { ...router, firewall: { ...router.firewall, nat: { source: [rule] } } };
+    const refused = Platforms.get("routeros").unsupported(device);
 
-    expect(Platforms.get("routeros").unsupported(device)).toContain(
-        "firewall.nat.source[0].port_allocation dynamic, RouterOS has no port block allocation: write deterministic"
-    );
+    expect(refused).toContain("firewall.nat.source[0].port_allocation dynamic, RouterOS has no port block allocation: write deterministic");
+    expect(refused).toContain("firewall.nat.source[0].port_set_timeout, RouterOS has no port block allocation");
 });
 
 test("FortiOS warns when no syslog collector keeps a dynamic pool's log of its blocks, written at notice", () => {

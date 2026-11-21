@@ -118,6 +118,7 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
           /** The ports in each subscriber's block. The subscribers on one pool address times this must fit in the ports from 1024 to 65535: 32 subscribers take 2016 ports each at most. */
           port_set_size: number;
           port_sets_per_subscriber?: never;
+          port_set_timeout?: never;
       }
     | {
           /**
@@ -133,13 +134,15 @@ export type NatRule<I extends string, AS extends string, IS extends string> = {
           /** The IPv4 addresses the subscribers in `if.src` leave as. Each subscriber leaves as one pool address, with blocks of TCP and UDP ports of its own. */
           to_pool: `${IPv4}/${number}`;
           /**
-           * `dynamic`: the device gives a subscriber a block of ports when it needs one, and takes it back once the block's last connection ends (RFC 8512's port range allocation). It logs each block it gives and takes back, with the subscriber, pool address, and ports. Only that log finds the subscriber behind an address and port, so send it to a `monitoring.syslog` collector.
+           * `dynamic`: the device gives a subscriber a block of ports when it needs one (RFC 8512's port range allocation). It takes the block back `port_set_timeout` seconds after the block's last connection ends. It logs each block it gives and takes back, with the subscriber, pool address, and ports. Only that log finds the subscriber behind an address and port, so send it to a `monitoring.syslog` collector.
            */
           port_allocation: "dynamic";
           /** The ports in each block. */
           port_set_size: number;
           /** The most blocks one subscriber holds at once. Its port limit (RFC 6888, REQ-4) is this times `port_set_size`. */
           port_sets_per_subscriber: number;
+          /** Seconds a subscriber keeps a block that no connection uses, RFC 8512's `port-set-timeout`. Its next connections leave from the same address and ports, with no new log line. The device's own time when absent. */
+          port_set_timeout?: number;
       }
 );
 

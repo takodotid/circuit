@@ -145,6 +145,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Source-based blackholing                              | Practice: RFC 5635 (Informational)                                                                                                   | a blackhole route, with `urpf`                                                       |
 | CGNAT with a fixed block of ports for each subscriber | Practice: RFC 7422 (Informational); a port limit per subscriber, BCP 127 (RFC 6888) REQ-4                                            | `to_pool`, `port_allocation: "deterministic"`, `port_set_size`                       |
 | CGNAT that hands out blocks of ports, and logs each   | RFC 8512 port range allocation, `port-set-size`; a port limit per subscriber and less to log, BCP 127 (RFC 6888) REQ-4 and REQ-14    | `to_pool`, `port_allocation: "dynamic"`, `port_set_size`, `port_sets_per_subscriber` |
+| How long a subscriber keeps a block it doesn't use    | RFC 8512 `port-set-timeout`                                                                                                          | `port_set_timeout`                                                                   |
 | NAT64                                                 | RFC 6146; the NAT64 prefix and the IPv4 address in it, RFC 6052                                                                      | `then: "nat64"`, with the prefix in `if.dst`                                         |
 
 ## Quality of service

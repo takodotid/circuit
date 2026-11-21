@@ -77,6 +77,8 @@ export class RouterOsFirewall {
                 );
             if (rule.port_sets_per_subscriber !== undefined)
                 found.push(`firewall.nat.source[${index}].port_sets_per_subscriber, as a RouterOS pool gives each subscriber one block`);
+            if (rule.port_set_timeout !== undefined)
+                found.push(`firewall.nat.source[${index}].port_set_timeout, RouterOS has no port block allocation`);
         });
 
         return found;
