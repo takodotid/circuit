@@ -8,7 +8,7 @@ import { Fixtures } from "../fixtures";
 
 const options = { secrets: false, rollback: 10 };
 
-/** A fixture's device with VRFs `netflix` and `services`, a loopback in each, and these imports, each policy accepting one prefix. */
+/** A fixture's device with VRFs `terramix` and `services`, a loopback in each, and these imports, each policy accepting one prefix. */
 function withImports(fixture: string, imports: { from: string; to: string; policy: string }[]): Device {
     const device = Fixtures.device(fixture);
     const accepting = (prefix: Prefix): PolicyRule[] => [{ if: { prefix }, then: "accept" }, { then: "reject" }];
@@ -18,32 +18,32 @@ function withImports(fixture: string, imports: { from: string; to: string; polic
             ...device.interfaces,
             loopback: {
                 ...device.interfaces?.loopback,
-                "netflix-loopback": { addresses: ["10.20.0.1/32"], vrf: "netflix" },
+                "terramix-loopback": { addresses: ["10.20.0.1/32"], vrf: "terramix" },
                 "services-loopback": { addresses: ["10.0.5.1/24"], vrf: "services" },
             },
         },
         routing: {
             ...device.routing,
-            vrfs: { netflix: {}, services: {} },
+            vrfs: { terramix: {}, services: {} },
             vrf_imports: imports,
             policies: {
                 ...device.routing!.policies,
                 "management-network": accepting("10.0.0.0/24"),
                 "monitoring-network": accepting("10.0.5.0/24"),
-                "netflix-private-network": accepting("10.20.0.1/32"),
+                "terramix-private-network": accepting("10.20.0.1/32"),
             },
         },
     };
 }
 
 const BOTH_WAYS = [
-    { from: "services", to: "netflix", policy: "monitoring-network" },
-    { from: "netflix", to: "services", policy: "netflix-private-network" },
+    { from: "services", to: "terramix", policy: "monitoring-network" },
+    { from: "terramix", to: "services", policy: "terramix-private-network" },
 ];
 
 const WITH_MAIN = [
-    { from: "main", to: "netflix", policy: "management-network" },
-    { from: "netflix", to: "main", policy: "netflix-private-network" },
+    { from: "main", to: "terramix", policy: "management-network" },
+    { from: "terramix", to: "main", policy: "terramix-private-network" },
 ];
 
 test("RouterOS hands routes over through the BGP VPN table, and plans nothing against how the router prints its entries", () => {
@@ -51,9 +51,9 @@ test("RouterOS hands routes over through the BGP VPN table, and plans nothing ag
     const desired = routeros.render(withImports("edge-router--edge-01", BOTH_WAYS));
 
     expect(desired).toContain(`/routing bgp vpn
-add export.filter-chain=monitoring-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=services-to-netflix route-distinguisher=64500:1 vrf=services
-add export.filter-chain=netflix-private-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=netflix-to-services route-distinguisher=64500:2 vrf=netflix
-add import.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=netflix route-distinguisher=64500:3 vrf=netflix
+add export.filter-chain=monitoring-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=services-to-terramix route-distinguisher=64500:1 vrf=services
+add export.filter-chain=terramix-private-network-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=terramix-to-services route-distinguisher=64500:2 vrf=terramix
+add import.route-targets=64500:1 instance=default label-allocation-policy=per-vrf name=terramix route-distinguisher=64500:3 vrf=terramix
 add import.route-targets=64500:2 instance=default label-allocation-policy=per-vrf name=services route-distinguisher=64500:4 vrf=services
 `);
     // One chain takes both families, since an entry has one.
@@ -89,16 +89,16 @@ test("Junos imports into each table through one policy, whose terms match the in
 
     for (const line of [
         "set routing-options instance-import circuit-vrf-import-main",
-        "set routing-instances netflix routing-options instance-import circuit-vrf-import-netflix",
-        "set policy-options policy-statement circuit-vrf-import-netflix term main from instance master",
-        "set policy-options policy-statement circuit-vrf-import-netflix term main from policy management-network",
-        "set policy-options policy-statement circuit-vrf-import-netflix term main then accept",
-        "set policy-options policy-statement circuit-vrf-import-netflix term others then reject",
-        "set policy-options policy-statement circuit-vrf-import-main term netflix from instance netflix",
-        "set policy-options policy-statement circuit-vrf-import-main term netflix from policy netflix-private-network",
+        "set routing-instances terramix routing-options instance-import circuit-vrf-import-terramix",
+        "set policy-options policy-statement circuit-vrf-import-terramix term main from instance master",
+        "set policy-options policy-statement circuit-vrf-import-terramix term main from policy management-network",
+        "set policy-options policy-statement circuit-vrf-import-terramix term main then accept",
+        "set policy-options policy-statement circuit-vrf-import-terramix term others then reject",
+        "set policy-options policy-statement circuit-vrf-import-main term terramix from instance terramix",
+        "set policy-options policy-statement circuit-vrf-import-main term terramix from policy terramix-private-network",
     ])
         expect(desired).toContain(line);
-    expect(desired).toContain("set policy-options policy-statement netflix-private-network term");
+    expect(desired).toContain("set policy-options policy-statement terramix-private-network term");
     expect(junos.experimental?.(device)).toEqual(["routing.vrf_imports"]);
 });
 
@@ -115,14 +115,14 @@ test("FortiOS, VRP, and Raisecom ROS refuse imports between tables", () => {
 
 test("a table that takes from itself, or two imports between the same tables, are refused", () => {
     const device = withImports("edge-router--edge-01", [
-        { from: "netflix", to: "netflix", policy: "management-network" },
-        { from: "main", to: "netflix", policy: "management-network" },
-        { from: "main", to: "netflix", policy: "netflix-private-network" },
+        { from: "terramix", to: "terramix", policy: "management-network" },
+        { from: "main", to: "terramix", policy: "management-network" },
+        { from: "main", to: "terramix", policy: "terramix-private-network" },
     ]);
     const messages = Checks.run([device], undefined).map((finding) => finding.message);
 
-    expect(messages).toContain("routing.vrf_imports[0] takes routes from netflix into netflix; give another table in to");
+    expect(messages).toContain("routing.vrf_imports[0] takes routes from terramix into terramix; give another table in to");
     expect(messages).toContain(
-        "routing.vrf_imports[2] takes routes from main into netflix, as routing.vrf_imports[1] does; write one import, and put the rules of both policies in its policy"
+        "routing.vrf_imports[2] takes routes from main into terramix, as routing.vrf_imports[1] does; write one import, and put the rules of both policies in its policy"
     );
 });

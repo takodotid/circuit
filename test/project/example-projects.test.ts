@@ -49,16 +49,16 @@ describe("colocation with no tenant", () => {
     const folder = join(scratch, "colocation-no-tenant");
     cpSync(join(examples, "colocation"), folder, { recursive: true });
     const index = join(folder, "tenants", "index.ts");
-    const withNetflix = readFileSync(index, "utf8");
-    const withoutNetflix = withNetflix
-        .replace('import { netflix } from "./netflix";\n\n', "")
-        .replace("merge([empty, netflix])", "merge([empty])");
-    writeFileSync(index, withoutNetflix);
+    const withTerramix = readFileSync(index, "utf8");
+    const withoutTerramix = withTerramix
+        .replace('import { terramix } from "./terramix";\n\n', "")
+        .replace("merge([empty, terramix])", "merge([empty])");
+    writeFileSync(index, withoutTerramix);
     EditorTypes.write(folder);
     writeFileSync(join(folder, "tsconfig.json"), EditorTypes.TSCONFIG);
 
     test("the editor's types take it", () => {
-        expect(withoutNetflix).not.toContain("netflix");
+        expect(withoutTerramix).not.toContain("terramix");
 
         const run = spawnSync("bun", [join(root, "node_modules", "typescript", "bin", "tsc"), "--noEmit", "-p", folder], {
             encoding: "utf8",
@@ -71,7 +71,7 @@ describe("colocation with no tenant", () => {
         const findings = read.networks.flatMap((network) => Checks.run(Object.values(network.devices), network.settings.checks));
 
         expect(findings).toEqual([]);
-        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("netflix");
+        expect(JSON.stringify(read.networks[0]!.devices)).not.toContain("terramix");
     });
 });
 

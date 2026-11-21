@@ -1,4 +1,4 @@
-// The router of hall 2, a CloudEngine switch. edge-01 reflects our routes to it, and it hands edge-01 the routes of the hall's transit customer, AS64501, which announces its own block over BGP.
+// The router of hall 2, a CloudEngine switch. edge-01 reflects our routes to it, and it hands edge-01 the routes of the hall's transit customer, Aluxis (AS402237), which announces its own block over BGP.
 
 import { as64500 } from "../../circuit";
 import { dc_1 } from "./site";
@@ -21,21 +21,21 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "40g-1": { description: "edge-01, routers of halls 2 and 3", access_vlan: "core" },
-            "10g-1": { description: "AS64501", access_vlan: "as64501", ingress_acl: "as64501-in" },
+            "10g-1": { description: "Aluxis, AS402237", access_vlan: "aluxis", ingress_acl: "aluxis-in" },
         },
         vlan_interface: {
             core: { vlan: "core", addresses: ["10.0.1.2/29"] },
-            as64501: { vlan: "as64501", description: "AS64501", addresses: ["198.51.100.249/30"] },
+            aluxis: { vlan: "aluxis", description: "Aluxis, AS402237", addresses: ["198.51.100.249/30"] },
         },
     },
     switching: {
         vlans: {
             core: { id: 10, description: "edge-01 and the halls' routers" },
-            as64501: { id: 101, description: "AS64501, a transit customer" },
+            aluxis: { id: 101, description: "Aluxis, AS402237, a transit customer" },
         },
-        // Source address validation (BCP 38, RFC 2827): AS64501 sends from the block we gave it and its end of the link, nothing else.
+        // Source address validation (BCP 38, RFC 2827): Aluxis sends from the block we gave it and its end of the link, nothing else.
         acls: {
-            "as64501-in": [
+            "aluxis-in": [
                 { description: "Its own addresses", if: { src: ["198.51.100.128/26", "198.51.100.250/32"] }, then: "accept" },
                 { description: "Any other source", then: "drop" },
             ],
@@ -55,14 +55,14 @@ export default as64500.device({
                     import_policy: "from-edge",
                     export_policy: "to-edge",
                 },
-                as64501: {
+                aluxis: {
                     address: "198.51.100.250",
-                    remote_as: 64501,
-                    description: "AS64501, a transit customer",
-                    password: secret("AS64501_BGP_KEY"),
+                    remote_as: 402237,
+                    description: "Aluxis, AS402237, a transit customer",
+                    password: secret("ALUXIS_BGP_KEY"),
                     max_prefixes: 10,
-                    import_policy: "as64501-import",
-                    export_policy: "as64501-export",
+                    import_policy: "aluxis-import",
+                    export_policy: "aluxis-export",
                 },
             },
         },
@@ -70,17 +70,17 @@ export default as64500.device({
             ours: { prefixes: as64500.prefixes.ours },
         },
         policies: {
-            // AS64501 announces the block we gave it itself, or for one of its own customers, AS64502 to AS64505. Its routes are tagged as a customer's.
-            "as64501-import": [
+            // Aluxis announces the block we gave it, and nothing else. Its routes are tagged as a customer's.
+            "aluxis-import": [
                 {
                     description: "The block we gave it",
-                    if: { prefix: "198.51.100.128/26", origin_as: [64501, { min: 64502, max: 64505 }] },
+                    if: { prefix: "198.51.100.128/26", origin_as: [402237] },
                     set: { add_standard_communities: ["64500:300"] },
                     then: "accept",
                 },
                 { then: "reject" },
             ],
-            "as64501-export": [{ description: "Our own space", if: { prefix_set: "ours" }, then: "accept" }, { then: "reject" }],
+            "aluxis-export": [{ description: "Our own space", if: { prefix_set: "ours" }, then: "accept" }, { then: "reject" }],
             "from-edge": [{ description: "Our own space", if: { prefix_set: "ours" }, then: "accept" }, { then: "reject" }],
             // Only a customer's routes go to edge-01, by their tag.
             "to-edge": [{ description: "Customers' routes", if: { standard_community: "64500:300" }, then: "accept" }, { then: "reject" }],

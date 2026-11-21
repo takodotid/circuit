@@ -422,7 +422,7 @@ describe("samples", () => {
             [64496, 65551],
             [4200000000, 4294967295],
         ];
-        // Real networks the samples name, as RIPEstat gave their holders on 2026-11-18.
+        // Real networks the samples name, as RIPEstat gave their holders on 2026-11-20. The customers are listed in docs/license.md.
         const NETWORKS: Record<number, string> = {
             174: "Cogent",
             701: "Verizon",
@@ -436,10 +436,17 @@ describe("samples", () => {
             15169: "Google",
             17557: "Pakistan Telecom",
             20940: "Akamai",
+            27776: "El Boldo",
             33154: "DQE",
+            34165: "Novaram",
             36561: "YouTube",
+            43023: "iGP Tech",
             54113: "Fastly",
+            135975: "Sea Gem",
+            274016: "Terramix",
+            329604: "Elemech",
             396531: "Allegheny",
+            402237: "Aluxis",
         };
         // Where an AS number is written: AS6939, as6939, remote_as: 6939, peer-as 6939, and the first part of a community, 6939:666.
         const ASN = [
@@ -478,6 +485,57 @@ describe("samples", () => {
                     ? `${file}:${index + 1}: AS${asn} is ${NETWORKS[asn]}'s. Write the name next to it once in this file.`
                     : `${file}:${index + 1}: AS${asn} is no documentation or private AS number. Use AS64500 for your network, or one from AS64496 to AS64511 (RFC 5398) for another. For a real network, write its name next to it and add both to NETWORKS in test/repo.test.ts.`
             );
+
+        expect(wrong).toEqual([]);
+    });
+
+    // AGENTS.md: a content provider is only a peer. This sees the tenants' files and paths to them, and a neighbor whose own object says role "customer" and remote_as. It can't see a customer in prose or in a widget's data, or a role taken from a neighbor group.
+    test("a content provider is a peer, never a customer or a tenant", () => {
+        const CONTENT: Record<number, string> = {
+            2906: "Netflix",
+            8075: "Microsoft",
+            13335: "Cloudflare",
+            15169: "Google",
+            16509: "Amazon",
+            20940: "Akamai",
+            32934: "Meta",
+            36561: "YouTube",
+            54113: "Fastly",
+            396986: "ByteDance",
+        };
+        const FIX = "A content provider is only a peer: name a little-known network instead, and list it in docs/license.md.";
+        const names = Object.values(CONTENT).join("|");
+        const inTenant = new RegExp(`\\b(?:${names})\\b|\\bremote_as:\\s*(?:${Object.keys(CONTENT).join("|")})\\b`, "gi");
+        const tenantPath = new RegExp(`\\btenants/(?:${names})\\.ts\\b`, "gi");
+
+        /** The object literal around `at` in `text`, from its `{` to its `}`. */
+        const objectAround = (text: string, at: number) => {
+            let start = at;
+            for (let depth = 0; start > 0; start--) {
+                if (text[start] === "}") depth++;
+                if (text[start] === "{" && depth-- === 0) break;
+            }
+            let end = at;
+            for (let depth = 0; end < text.length; end++) {
+                if (text[end] === "{") depth++;
+                if (text[end] === "}" && depth-- === 0) break;
+            }
+            return text.slice(start, end + 1);
+        };
+        const lineOf = (text: string, at: number) => text.slice(0, at).split("\n").length;
+
+        const wrong = samples.flatMap(({ file, lines }) => {
+            const text = lines.join("\n");
+            const tenants = /^examples\/[^/]+\/tenants\//.test(file) ? [...text.matchAll(inTenant)] : [];
+            const asTenant = [...tenants, ...text.matchAll(tenantPath)].map(
+                (match) => `${file}:${lineOf(text, match.index)}: ${match[0]} is a tenant. ${FIX}`
+            );
+            const asCustomer = [...text.matchAll(/\brole:\s*["']customer["']/g)].flatMap((match) => {
+                const asn = Number(/\bremote_as:\s*(\d+)/.exec(objectAround(text, match.index))?.[1]);
+                return CONTENT[asn] ? [`${file}:${lineOf(text, match.index)}: ${CONTENT[asn]}, AS${asn}, is a BGP customer. ${FIX}`] : [];
+            });
+            return [...asTenant, ...asCustomer];
+        });
 
         expect(wrong).toEqual([]);
     });
