@@ -305,6 +305,7 @@ export class RaisecomRosUnsupported {
         if (system.dns || system.logging?.local || system.release_channel || system.banner || services.dns_server) {
             found.push("system.dns, system.logging.local, system.release_channel, system.banner and services.dns_server");
         }
+        if (services.dns64) found.push("services.dns64, which needs services.dns_server");
         // The switch answers time queries while it takes time from servers. Its one other way, `ntp refclock-master`, serves its own clock and refuses servers beside it.
         if (services.ntp_server && !system.ntp?.servers.length)
             found.push("services.ntp_server without system.ntp, the switch answers time queries only while it takes time from servers");

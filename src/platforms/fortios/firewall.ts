@@ -57,9 +57,10 @@ class Objects {
         return name;
     }
 
-    /** A pool of one address, for source NAT to it. */
-    pool(address: string): void {
+    /** A pool of one address, for source NAT to it, named after the address. */
+    pool(address: string): string {
         this.root.block("firewall ippool").entry(address).set("startip", address).set("endip", address);
+        return address;
     }
 
     /** A pool that gives each subscriber blocks of ports as it needs them, and logs each block, named after its prefix. */
@@ -123,10 +124,15 @@ export class FortiOsFirewall {
         return device.management?.[service];
     }
 
-    /** NAT rules of both directions, which central NAT needs turned on. */
+    /** NAT rules of both directions that central NAT translates, which need it turned on. A NAT64 policy translates on its own. */
     static natRules(device: Device): NatRule[] {
         const nat = device.firewall?.nat;
-        return [...(nat?.source ?? []), ...(nat?.destination ?? [])];
+        return [...(nat?.source ?? []), ...(nat?.destination ?? [])].filter((rule) => rule.then !== "nat64");
+    }
+
+    /** The address objects, groups, services and pools a rule names, each created once in its table. */
+    static objects(root: FortiOsNode, device: Device): Objects {
+        return new Objects(root, device);
     }
 
     /** Which families a rule applies to: its own, its addresses', or both. */
@@ -253,9 +259,12 @@ export class FortiOsFirewall {
             }
         }
 
-        (fw?.nat?.source ?? []).forEach((rule, index) =>
-            FortiOsFirewall.sourceNat(root.block("firewall central-snat-map").entry(index + 1), objects, device, rule)
-        );
+        // NAT64 rules are NAT64 policies (FortiOsNat64).
+        (fw?.nat?.source ?? [])
+            .filter((rule) => rule.then !== "nat64")
+            .forEach((rule, index) =>
+                FortiOsFirewall.sourceNat(root.block("firewall central-snat-map").entry(index + 1), objects, device, rule)
+            );
         (fw?.nat?.destination ?? []).forEach((rule, index) =>
             FortiOsFirewall.destinationNat(root.block("firewall vip").entry(`dnat-${index + 1}`), device, rule)
         );
@@ -309,7 +318,7 @@ export class FortiOsFirewall {
         }
     }
 
-    private static interfaceOf(device: Device, name: string | undefined): string {
+    static interfaceOf(device: Device, name: string | undefined): string {
         return FortiOsTree.quote(name ? FortiOsNames.of(device, name) : "any");
     }
 

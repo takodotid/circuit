@@ -266,15 +266,7 @@ export class RouterOs extends Platform {
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
-        (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
-            if (!("to_pool" in rule)) return;
-            if (rule.port_allocation === "dynamic")
-                found.push(
-                    `firewall.nat.source[${index}].port_allocation dynamic, RouterOS has no port block allocation: write deterministic`
-                );
-            if (rule.port_sets_per_subscriber !== undefined)
-                found.push(`firewall.nat.source[${index}].port_sets_per_subscriber, as a RouterOS pool gives each subscriber one block`);
-        });
+        found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")

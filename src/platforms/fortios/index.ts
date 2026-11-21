@@ -15,6 +15,7 @@ import { FortiOsBgpSessions } from "./bgp-sessions";
 import { FortiOsCli } from "./cli";
 import type { Guard } from "./cli";
 import { FortiOsMonitoring } from "./monitoring";
+import { FortiOsNat64 } from "./nat64";
 import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
 import { FortiOsRender } from "./render";
@@ -92,6 +93,7 @@ export class FortiOs extends Platform {
         return [
             ...FortiOsVdoms.problems(device).map((message): Finding => ({ level: "error", device: device.name, message })),
             ...FortiOsMonitoring.blockLogs(device),
+            ...FortiOsNat64.warnings(device),
         ];
     }
 
@@ -105,6 +107,7 @@ export class FortiOs extends Platform {
     override experimental(device: Device): string[] {
         const check = FortiOsRender.sourceCheck(device);
         const found = check.strict ? [...check.setting] : [];
+        found.push(...FortiOsNat64.experimental(device));
 
         (device.monitoring?.syslog ?? []).forEach((collector, index) => {
             if (collector.transport_security) found.push(`monitoring.syslog[${index}].transport_security`);
