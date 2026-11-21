@@ -546,7 +546,7 @@ test("an IPsec tunnel's endpoints are of one family, a cbc encryption takes inte
     );
 });
 
-test("an IPsec tunnel authenticates one way, with a certificate that has its key and a CA that has none, and checks liveness in whole numbers", () => {
+test("an IPsec tunnel authenticates one way, with a certificate that has its key and a CA that has none, and checks liveness and sends NAT keepalives in whole numbers", () => {
     const tunnel = {
         local_address: "192.0.2.1",
         remote_address: "192.0.2.2",
@@ -567,7 +567,13 @@ test("an IPsec tunnel authenticates one way, with a certificate that has its key
                 both: loose({ ...tunnel, pre_shared_key: { secret: "IPSEC_KEY" }, certificate: "web", ca_certificate: "ca" }),
                 none: loose(tunnel),
                 alone: loose({ ...tunnel, certificate: "web" }),
-                swapped: { ...tunnel, certificate: "ca", ca_certificate: "web", liveness_check: { interval: 0, retries: 2.5 } },
+                swapped: {
+                    ...tunnel,
+                    certificate: "ca",
+                    ca_certificate: "web",
+                    liveness_check: { interval: 0, retries: 2.5 },
+                    nat_keepalive: 0.5,
+                },
             },
         },
     };
@@ -581,6 +587,7 @@ test("an IPsec tunnel authenticates one way, with a certificate that has its key
             "interfaces.ipsec.swapped.ca_certificate web has a private key: write the CA's certificate alone, which the device only trusts",
             "interfaces.ipsec.swapped.liveness_check.interval 0 is not a whole number of seconds above 0",
             "interfaces.ipsec.swapped.liveness_check.retries 2.5 is not a whole number above 0",
+            "interfaces.ipsec.swapped.nat_keepalive 0.5 is not a whole number of seconds above 0",
         ])
     );
 });

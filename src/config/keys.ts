@@ -340,6 +340,7 @@ export const DEVICE = {
                 esp: { encryption: 0, integrity: 0, pfs_group: 0, lifetime: 0 },
                 liveness_check: { interval: 0, retries: 0 },
                 nat_traversal: 0,
+                nat_keepalive: 0,
             },
         },
         wireguard: {
