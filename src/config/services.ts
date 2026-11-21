@@ -41,8 +41,8 @@ export type PrefixDelegation = {
     prefix_length: number;
 };
 
-/** A DHCPv6 server on one interface (RFC 9915). Without `pool` and `prefix_delegation`, it gives hosts only its other settings, such as DNS servers (stateless DHCPv6). */
-export type Dhcpv6Server<I extends string> = {
+/** A DHCPv6 server on one interface (RFC 9915). Without `pool` and `prefix_delegation`, it gives hosts only its other settings, such as DNS servers (stateless DHCPv6). `F` is the device's VRFs. */
+export type Dhcpv6Server<I extends string, F extends string = string> = {
     /** The port or interface it answers on. */
     interface: I;
     /** First and last address given to hosts (IA_NA), in an IPv6 network of `interface`. Hosts ask for one when `ipv6_ra` has `managed: true`. */
@@ -53,6 +53,10 @@ export type Dhcpv6Server<I extends string> = {
     dns?: readonly IPv6[];
     /** Seconds an address or prefix lasts. */
     lease_time?: number;
+    /** RADIUS servers, in order, as `dhcp_server` writes them. A client gets an address or a prefix only once they accept it (RFC 2865), asked by the MAC address in its DUID. They get the accounting of each (RFC 2866). A client that RADIUS sends a prefix for (Delegated-IPv6-Prefix, RFC 4818) gets that one in place of one from `prefix_delegation`. Every client gets one when absent. */
+    radius?: readonly RadiusServer<F>[];
+    /** Seconds between reports of each lease's use to the RADIUS servers (RFC 2869). Only at the start and the end of a lease when absent. Only with `radius`. */
+    acct_interim_interval?: number;
 };
 
 /** Forward DHCP requests heard on an interface to servers elsewhere. */
@@ -106,7 +110,7 @@ export type Services<I extends string, F extends string = string, IS extends str
     /** DHCP servers, keyed by name, one per network. */
     dhcp_server?: Record<string, DhcpServer<I, F>>;
     /** DHCPv6 servers, keyed by name, one per interface. */
-    dhcpv6_server?: Record<string, Dhcpv6Server<I>>;
+    dhcpv6_server?: Record<string, Dhcpv6Server<I, F>>;
     /** DHCP relays, keyed by name. */
     dhcp_relay?: Record<string, DhcpRelay<I>>;
     /** PPPoE servers for subscribers, keyed by name. */

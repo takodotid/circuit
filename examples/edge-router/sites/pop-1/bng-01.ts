@@ -1,6 +1,26 @@
-// The broadband gateway: homes behind the OLT log in with PPPoE, and the billing system's RADIUS servers check each one and set its rate. A home router that asks gets an IPv6 prefix for its own networks. Homes on the second PON port take their address by DHCP instead (IPoE), and the same servers check each one by its MAC address. It reaches the internet through edge-01.
+// The broadband gateway: homes behind the OLT log in with PPPoE, and the billing system's RADIUS servers check each one and set its rate. A home router that asks gets an IPv6 prefix for its own networks. Homes on the second PON port take their address by DHCP instead (IPoE), and their prefix by DHCPv6, and the same servers check each one by its MAC address. It reaches the internet through edge-01.
 
 import { as64500 } from "../../circuit";
+
+// The billing system's RADIUS servers, which every service here asks. They are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
+const radius = literal([
+    {
+        address: "10.0.0.11",
+        secret_key: secret("RADIUS_KEY"),
+        source_address: "10.0.0.2",
+        vrf: "management",
+        auth_port: 1645,
+        acct_port: 1646,
+    },
+    {
+        address: "10.0.0.12",
+        secret_key: secret("RADIUS_KEY"),
+        source_address: "10.0.0.2",
+        vrf: "management",
+        auth_port: 1645,
+        acct_port: 1646,
+    },
+]);
 
 export default as64500.device({
     name: "bng-01",
@@ -34,7 +54,7 @@ export default as64500.device({
         },
         vlan_interface: {
             "vlan-olt-1": { vlan: "olt-1" },
-            "vlan-olt-2": { vlan: "olt-2", addresses: ["100.64.64.1/18"] },
+            "vlan-olt-2": { vlan: "olt-2", addresses: ["100.64.64.1/18", "2001:db8:100:10::1/64"], ipv6_ra: true },
         },
     },
     switching: {
@@ -44,7 +64,7 @@ export default as64500.device({
         },
     },
 
-    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT, and the billing system may send a home its own /56 instead. The RADIUS servers are older ones, on the ports used before RFC 2865 assigned 1812 and 1813.
+    // Each home gets a shared address (RFC 6598), and source NAT gives it the router's own on the way out. Its router may ask for a /56 of our IPv6 space too, which needs no NAT, and the billing system may send a home its own /56 instead.
     services: {
         // A home on the second PON port gets a lease only once the RADIUS servers accept its MAC address.
         dhcp_server: {
@@ -54,24 +74,16 @@ export default as64500.device({
                 gateway: "100.64.64.1",
                 dns: ["198.51.100.53", "198.51.100.54"],
                 pool: ["100.64.64.2", "100.64.127.254"],
-                radius: [
-                    {
-                        address: "10.0.0.11",
-                        secret_key: secret("RADIUS_KEY"),
-                        source_address: "10.0.0.2",
-                        vrf: "management",
-                        auth_port: 1645,
-                        acct_port: 1646,
-                    },
-                    {
-                        address: "10.0.0.12",
-                        secret_key: secret("RADIUS_KEY"),
-                        source_address: "10.0.0.2",
-                        vrf: "management",
-                        auth_port: 1645,
-                        acct_port: 1646,
-                    },
-                ],
+                radius,
+                acct_interim_interval: 300,
+            },
+        },
+        // A home router there asks for a /56 by DHCPv6, and gets it once the same servers accept the MAC address in its DUID.
+        dhcpv6_server: {
+            "olt-2": {
+                interface: "vlan-olt-2",
+                prefix_delegation: { pool: "2001:db8:100:2000::/51", prefix_length: 56 },
+                radius,
                 acct_interim_interval: 300,
             },
         },
@@ -83,24 +95,7 @@ export default as64500.device({
                 pool: ["100.64.0.2", "100.64.63.254"],
                 dns: ["198.51.100.53", "198.51.100.54"],
                 mtu: 1492,
-                radius: [
-                    {
-                        address: "10.0.0.11",
-                        secret_key: secret("RADIUS_KEY"),
-                        source_address: "10.0.0.2",
-                        vrf: "management",
-                        auth_port: 1645,
-                        acct_port: 1646,
-                    },
-                    {
-                        address: "10.0.0.12",
-                        secret_key: secret("RADIUS_KEY"),
-                        source_address: "10.0.0.2",
-                        vrf: "management",
-                        auth_port: 1645,
-                        acct_port: 1646,
-                    },
-                ],
+                radius,
                 acct_interim_interval: 300,
                 dynamic_authorization: true,
                 prefix_delegation: { pool: "2001:db8:100:4000::/50", prefix_length: 56 },

@@ -274,8 +274,14 @@ export class RouterOsExport {
             priority: "8",
             queue: "default-small",
         },
-        // As a CCR2216 on 7.24.6 printed a server set back to them.
-        "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
+        // As a CCR2216 on 7.24.6 printed a server set back to them. `use-radius` as MikroTik's manual gives it.
+        "/ipv6 dhcp-server": {
+            "address-pool": "static-only",
+            "prefix-pool": "static-only",
+            "lease-time": "3d",
+            "dhcp-option": "",
+            "use-radius": "no",
+        },
         // As a CHR on 7.24.6 printed a client made with its interface, `request=prefix`, and `pool-name`, with `export verbose`, and the distance `print detail` showed once it added a default route.
         "/ipv6 dhcp-client": {
             "accept-prefix-without-address": "yes",

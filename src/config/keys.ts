@@ -391,7 +391,15 @@ export const DEVICE = {
             },
         },
         dhcpv6_server: {
-            "*": { interface: 0, pool: 0, prefix_delegation: { pool: 0, prefix_length: 0 }, dns: 0, lease_time: 0 },
+            "*": {
+                interface: 0,
+                pool: 0,
+                prefix_delegation: { pool: 0, prefix_length: 0 },
+                dns: 0,
+                lease_time: 0,
+                radius: [RADIUS_SERVER],
+                acct_interim_interval: 0,
+            },
         },
         dhcp_relay: { "*": { interface: 0, servers: 0 } },
         pppoe_server: {

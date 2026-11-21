@@ -1,6 +1,6 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, Finding, IP, PrefixDelegation } from "../model";
+import type { Device, DhcpServer, Dhcpv6Server, Finding, IP, PrefixDelegation } from "../model";
 
 type Report = (message: string) => void;
 type Checker = (where: string, value: string) => void;
@@ -73,13 +73,7 @@ export class ServicesChecks {
     static check(device: Device, report: Report, cidr: Checker, ip: Checker): void {
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             const where = `services.dhcp_server.${name}`;
-            if (server.radius) {
-                if (!server.radius.length)
-                    report(`${where}.radius is empty: write the RADIUS servers that check each lease, or leave it out`);
-                ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
-            } else if (server.acct_interim_interval !== undefined)
-                report(`${where}.acct_interim_interval without radius: write the RADIUS servers that get the reports, or leave it out`);
-            ServicesChecks.interim(`${where}.acct_interim_interval`, server.acct_interim_interval, report);
+            ServicesChecks.leaseRadius(where, server, report, ip);
 
             cidr(where, server.network);
             if (!Address.isCidr(server.network)) continue;
@@ -97,6 +91,8 @@ export class ServicesChecks {
         }
 
         ServicesChecks.dhcpv6(device, report);
+        for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {}))
+            ServicesChecks.leaseRadius(`services.dhcpv6_server.${name}`, server, report, ip);
         ServicesChecks.pppoe(device, report, ip);
 
         // `management.allow` may be an address set's addresses, and a set holds an address alone too.
@@ -244,6 +240,16 @@ export class ServicesChecks {
             ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
             if (server.prefix_delegation) ServicesChecks.delegation(`${where}.prefix_delegation`, server.prefix_delegation, report);
         }
+    }
+
+    /** A DHCP or DHCPv6 server's RADIUS servers, and the interim interval, which needs them. */
+    private static leaseRadius(where: string, server: DhcpServer | Dhcpv6Server, report: Report, ip: Checker): void {
+        if (server.radius) {
+            if (!server.radius.length) report(`${where}.radius is empty: write the RADIUS servers that check each lease, or leave it out`);
+            ServicesChecks.servers(`${where}.radius`, server.radius, report, ip);
+        } else if (server.acct_interim_interval !== undefined)
+            report(`${where}.acct_interim_interval without radius: write the RADIUS servers that get the reports, or leave it out`);
+        ServicesChecks.interim(`${where}.acct_interim_interval`, server.acct_interim_interval, report);
     }
 
     /** Seconds between interim accounting reports, as RFC 2869 allows them. */
