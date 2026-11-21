@@ -68,7 +68,10 @@ export class RouterOs extends Platform {
     private static readonly NO_VPNV6 =
         "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
 
-    /** The largest MTU of a VLAN interface on a bridge where a pseudowire runs: the pseudowire's L2MTU, 1500, less a VLAN tag (TRAPS.md). */
+    /** A pseudowire's L2MTU, the MTU it tells the far PE, when its `mtu` is left out, and the least `mtu` Circuit writes. */
+    private static readonly PSEUDOWIRE_MTU = 1500;
+
+    /** The largest MTU of a VLAN interface on a bridge where a pseudowire runs: `PSEUDOWIRE_MTU` less a VLAN tag (TRAPS.md). */
     private static readonly PSEUDOWIRE_VLAN_MTU = 1496;
 
     /** Version 6 has another BGP and filter language. */
@@ -255,11 +258,17 @@ export class RouterOs extends Platform {
         // MikroTik's changelog adds it in 7.25, which no device here runs yet.
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
         const pseudowires = RouterOsSyntax.entries(device.interfaces?.pseudowire);
-        for (const [name, pseudowire] of pseudowires)
+        for (const [name, pseudowire] of pseudowires) {
             if (device.switching?.vlans?.[pseudowire.access_vlan]?.private_vlan)
                 found.push(
                     `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a private VLAN, not built for a pseudowire yet`
                 );
+            // A lower MTU would lower the bridge's VLAN interfaces with it, before which RouterOS refuses it (TRAPS.md).
+            if (pseudowire.mtu !== undefined && pseudowire.mtu < RouterOs.PSEUDOWIRE_MTU)
+                found.push(
+                    `interfaces.pseudowire.${name}.mtu ${pseudowire.mtu}: RouterOS refuses a pseudowire MTU below a VLAN interface's on its bridge with a tag, and the plan does not lower those first. Write ${RouterOs.PSEUDOWIRE_MTU} or more`
+                );
+        }
         // A running pseudowire's L2MTU is the bridge's, so each VLAN interface on the bridge is lowered to it less a tag (TRAPS.md).
         for (const [name, iface] of pseudowires.length ? RouterOsSyntax.entries(device.interfaces?.vlan_interface) : [])
             if (iface.mtu === undefined || iface.mtu > RouterOs.PSEUDOWIRE_VLAN_MTU)

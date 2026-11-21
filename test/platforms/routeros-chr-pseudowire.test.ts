@@ -1,4 +1,4 @@
-// Ethernet pseudowires on the three CHRs of the devices workflow. OSPF carries the loopbacks and LDP labels them, as in routeros-chr-mpls.test.ts. First a pseudowire joins one VLAN of the second and the third (VPWS), then all three join another VLAN with a pseudowire to each other (VPLS). Each VLAN has an interface with an address on each router. Skipped without the three CHRs.
+// Ethernet pseudowires on the three CHRs of the devices workflow. OSPF carries the loopbacks and LDP labels them, as in routeros-chr-mpls.test.ts. A pseudowire joins one VLAN of the second and the third (VPWS), then with an MTU of its own and the control word. Then all three join another VLAN with a pseudowire to each other (VPLS). Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -25,6 +25,14 @@ const POLL_MS = 3000;
 
 /** The MTU of a VLAN interface on a bridge where a pseudowire runs, which RouterOS lowers it to (TRAPS.md). */
 const VLAN_MTU = 1496;
+
+/** An MTU of the VPWS's own, above the 1500 RouterOS tells the far PE when it has none, and the control word. */
+const SIGNALED = { mtu: 1508, control_word: true };
+
+/**
+ * The PWid FEC element (RFC 8077, section 5.2) with `SIGNALED`, as `/mpls ldp remote-mapping` prints it in hex. It is type 0x80, the control word bit on Ethernet's PW type 0x0005, 8 bytes of interface parameters, and group ID 0. Then come PW ID 201 and the interface MTU sub-TLV with 1508.
+ */
+const SIGNALED_FEC = "8080050800000000000000C9010405E4";
 
 /** The VPWS's VLAN and PW ID, and the VPLS's. */
 const VPWS = { id: 201, pw: 201 };
@@ -97,8 +105,11 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** A router of the lab, with the VPWS when `vpws` and the VPLS when `vpls`, each where it has an address for it. */
-function writeRouter(router: Router, vpws: boolean, vpls: boolean): void {
+/** What a VPWS's pseudowire may set beside its peer and PW ID. */
+type Signaled = { mtu?: number; control_word?: boolean };
+
+/** A router of the lab, with the VPWS when `vpws` and the VPLS when `vpls`, each where it has an address for it. The VPWS's pseudowire has `signaled`. */
+function writeRouter(router: Router, vpws: boolean, vpls: boolean, signaled: Signaled = {}): void {
     const [host, port] = router.chr.split(":");
     const ports = Object.entries(router.links)
         .map(([link, address]) => `"${link}": { description: "lab link", addresses: ["${address}/30"] },`)
@@ -114,7 +125,10 @@ function writeRouter(router: Router, vpws: boolean, vpls: boolean): void {
         const far = router === FIRST_PE ? SECOND_PE : FIRST_PE;
         vlans.push(`vpws: { id: ${VPWS.id} }`);
         vlanInterfaces.push(`"vlan-vpws": { vlan: "vpws", mtu: ${VLAN_MTU}, addresses: ["${router.vpws}/26"] }`);
-        pseudowires.push(`"pw-vpws": { peer: "${far.loopback}", pw_id: ${VPWS.pw}, access_vlan: "vpws" }`);
+        const settings = Object.entries(signaled)
+            .map(([key, value]) => `, ${key}: ${String(value)}`)
+            .join("");
+        pseudowires.push(`"pw-vpws": { peer: "${far.loopback}", pw_id: ${VPWS.pw}, access_vlan: "vpws"${settings} }`);
     }
     if (vpls && router.vpls) {
         vlans.push(`vpls: { id: ${VPLS.id} }`);
@@ -155,9 +169,9 @@ export default lab.device({
     );
 }
 
-/** The three routers. */
-function writeLab(vpws: boolean, vpls: boolean): void {
-    for (const router of ROUTERS) writeRouter(router, vpws, vpls);
+/** The three routers, the VPWS's pseudowire with `signaled`. */
+function writeLab(vpws: boolean, vpls: boolean, signaled: Signaled = {}): void {
+    for (const router of ROUTERS) writeRouter(router, vpws, vpls, signaled);
 }
 
 /** What `exec` printed for `commands` on `device`. */
@@ -176,6 +190,14 @@ function running(device: string): string[] {
             return row && row[1]!.includes("R") ? [row[2]!] : [];
         })
         .sort();
+}
+
+/** What `device` holds of the PWid FECs the far PE sent it, as `/mpls ldp remote-mapping print detail` prints them: `pw-fec=80...`. */
+function farFec(device: string): string {
+    return exec(device, "/mpls ldp remote-mapping print detail without-paging")
+        .split("\n")
+        .flatMap((line) => /\bpw-fec=([0-9A-F]+)/.exec(line)?.[1] ?? [])
+        .join(",");
 }
 
 /** Whether `device` reaches `address`. */
@@ -223,6 +245,25 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("pseudowires between three
             expect(eventually(() => pings("pe-01", SECOND_PE.vpws!))).toBe(true);
 
             // LDP's state and the MAC each VPLS interface made up change nothing to plan.
+            for (const { name } of ROUTERS) expect(circuit("diff", name).status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "a pseudowire with an MTU of its own and the control word at both ends tells each far end both, and carries frames",
+        () => {
+            writeLab(true, false, SIGNALED);
+            for (const { name } of [FIRST_PE, SECOND_PE]) {
+                expect(circuit("apply", name, "--confirm").status).toBe(0);
+                expect(circuit("diff", name).status).toBe(0);
+            }
+            const signaled = eventually(() => [FIRST_PE, SECOND_PE].every(({ name }) => farFec(name).includes(SIGNALED_FEC)));
+            const up = eventually(() => running("pe-01").includes("pw-vpws") && running("pe-02").includes("pw-vpws"));
+            logPseudowires();
+            expect(signaled).toBe(true);
+            expect(up).toBe(true);
+            expect(eventually(() => pings("pe-01", SECOND_PE.vpws!))).toBe(true);
             for (const { name } of ROUTERS) expect(circuit("diff", name).status).toBe(0);
         },
         TEST_MS

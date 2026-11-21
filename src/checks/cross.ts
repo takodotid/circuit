@@ -357,7 +357,7 @@ export class CrossChecks {
         return findings;
     }
 
-    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` (RFC 8077). */
+    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). */
     private static pseudowires(devices: readonly Device[]): Finding[] {
         const byLsrId = new Map(
             devices.flatMap((device) => {
@@ -372,9 +372,17 @@ export class CrossChecks {
                 const far = pseudowire && own ? byLsrId.get(pseudowire.peer) : undefined;
                 if (!pseudowire || !far || far === device) return [];
 
-                const back = Object.values(far.interfaces?.pseudowire ?? {}).some(
+                const back = Object.values(far.interfaces?.pseudowire ?? {}).find(
                     (other) => other?.peer === own && other?.pw_id === pseudowire.pw_id
                 );
+                if (back && back.mtu !== pseudowire.mtu)
+                    return [
+                        {
+                            level: "error",
+                            device: device.name,
+                            message: `interfaces.pseudowire.${name}.mtu is ${pseudowire.mtu ?? "left out"}, and ${far.name}'s pseudowire back has ${back.mtu ?? "none"}: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`,
+                        },
+                    ];
                 if (back) return [];
                 return [
                     {

@@ -8,6 +8,9 @@ export class PseudowireChecks {
     /** A PW ID is a non-zero 32-bit number (RFC 8077, section 5.2). */
     private static readonly MAX_PW_ID = 4_294_967_295;
 
+    /** The MTU a pseudowire tells the far PE takes 2 bytes (RFC 8077, section 6.4). */
+    private static readonly MAX_MTU = 65_535;
+
     static check(device: Device, report: Report): void {
         const lsrId = device.routing?.mpls?.ldp?.lsr_id;
         const seen = new Map<string, string>();
@@ -15,7 +18,7 @@ export class PseudowireChecks {
         for (const [name, pseudowire] of Object.entries(device.interfaces?.pseudowire ?? {})) {
             if (!pseudowire) continue;
             const at = `interfaces.pseudowire.${name}`;
-            const { peer, pw_id: id } = pseudowire;
+            const { peer, pw_id: id, mtu } = pseudowire;
 
             if (!lsrId)
                 report(
@@ -28,6 +31,9 @@ export class PseudowireChecks {
 
             if (!Number.isInteger(id) || id < 1 || id > PseudowireChecks.MAX_PW_ID)
                 report(`${at}.pw_id ${id}: write a whole number from 1 to ${PseudowireChecks.MAX_PW_ID}, the same at both ends`);
+
+            if (mtu !== undefined && (!Number.isInteger(mtu) || mtu < 1 || mtu > PseudowireChecks.MAX_MTU))
+                report(`${at}.mtu ${mtu}: write a whole number of bytes from 1 to ${PseudowireChecks.MAX_MTU}, the same at both ends`);
 
             const key = `${peer} ${id}`;
             const other = seen.get(key);

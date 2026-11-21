@@ -23,9 +23,16 @@ export default as64500.device({
             "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.2/32"] } },
-        // The clinic's frames cross the core to pe-01 on this pseudowire, which has the same pw_id there.
+        // The clinic's frames cross the core to pe-01 on this pseudowire, which has the same pw_id, MTU, and control word there.
         pseudowire: {
-            "pw-clinic": { description: "Clinic, to site 1 at pe-01", peer: "10.255.0.1", pw_id: 201, access_vlan: "clinic" },
+            "pw-clinic": {
+                description: "Clinic, to site 1 at pe-01",
+                peer: "10.255.0.1",
+                pw_id: 201,
+                access_vlan: "clinic",
+                mtu: 1500,
+                control_word: true,
+            },
         },
     },
 

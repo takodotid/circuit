@@ -37,7 +37,7 @@ test("RouterOS makes a pseudowire a VPLS interface with its PW ID, a port of its
     const desired = routeros.render(pe01);
 
     expect(desired).toContain(
-        '/interface vpls\nadd cisco-static-id=201 comment="Clinic, to site 2 at pe-02" disabled=no name=pw-clinic peer=10.255.0.2\n'
+        '/interface vpls\nadd cisco-static-id=201 comment="Clinic, to site 2 at pe-02" disabled=no name=pw-clinic peer=10.255.0.2 pw-control-word=enabled pw-l2mtu=1500\n'
     );
     expect(desired).toContain(
         "add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged horizon=2 interface=pw-clinic pvid=201\n"
@@ -68,7 +68,7 @@ test("RouterOS changes a pseudowire's peer and PW ID in place", () => {
     const desired = routeros.render(pe01);
     const moved = routeros.render(
         withPseudowires(pe01, {
-            "pw-clinic": { peer: "10.255.0.3", pw_id: 202, access_vlan: "clinic", description: "Clinic, to site 2 at pe-02" },
+            "pw-clinic": { ...pe01.interfaces!.pseudowire!["pw-clinic"]!, peer: "10.255.0.3", pw_id: 202 },
         })
     );
     expect(sent(moved, desired)).toEqual(["/interface vpls set [ find name=pw-clinic ] cisco-static-id=202 peer=10.255.0.3"]);
@@ -115,6 +115,37 @@ test("RouterOS wants each VLAN interface beside a pseudowire at an MTU of 1496 o
         "interfaces.vlan_interface.vlan-clinic.mtu left out, 1500 beside a pseudowire: RouterOS lowers it to 1496 once the pseudowire runs, and refuses more. Write mtu: 1496 or less",
     ]);
     expect(routeros.unsupported(withPseudowires(vlanInterface(1500), {}))).toEqual([]);
+});
+
+test("a pseudowire's MTU is a whole number of bytes, the same at both ends", () => {
+    const near = pe01.interfaces!.pseudowire!["pw-clinic"]!;
+    const far = pe02.interfaces!.pseudowire!["pw-clinic"]!;
+
+    expect(errors(withPseudowires(pe01, { "pw-clinic": { ...near, mtu: 70_000 } }))).toContain(
+        "interfaces.pseudowire.pw-clinic.mtu 70000: write a whole number of bytes from 1 to 65535, the same at both ends"
+    );
+
+    const larger = withPseudowires(pe02, { "pw-clinic": { ...far, mtu: 1508 } });
+    expect(Checks.run([pe01, larger], undefined).map((finding) => finding.message)).toEqual(
+        expect.arrayContaining([
+            `interfaces.pseudowire.pw-clinic.mtu is ${near.mtu}, and pe-02's pseudowire back has 1508: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`,
+            `interfaces.pseudowire.pw-clinic.mtu is 1508, and pe-01's pseudowire back has ${near.mtu}: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`,
+        ])
+    );
+});
+
+test("RouterOS writes a pseudowire's MTU and control word, and sets each back to the device's own when it goes", () => {
+    const pseudowire = pe01.interfaces!.pseudowire!["pw-clinic"]!;
+    const desired = routeros.render(withPseudowires(pe01, { "pw-clinic": { ...pseudowire, mtu: 1508, control_word: true } }));
+    const without = routeros.render(withPseudowires(pe01, { "pw-clinic": { ...pseudowire, mtu: undefined, control_word: undefined } }));
+
+    expect(desired).toContain("name=pw-clinic peer=10.255.0.2 pw-control-word=enabled pw-l2mtu=1508\n");
+    expect(sent(without, desired)).toEqual(["/interface vpls set [ find name=pw-clinic ] pw-control-word=default pw-l2mtu=1500"]);
+
+    // A lower MTU would have to lower each VLAN interface on the bridge first (TRAPS.md).
+    expect(routeros.unsupported(withPseudowires(pe01, { "pw-clinic": { ...pseudowire, mtu: 1400 } }))).toEqual([
+        "interfaces.pseudowire.pw-clinic.mtu 1400: RouterOS refuses a pseudowire MTU below a VLAN interface's on its bridge with a tag, and the plan does not lower those first. Write 1500 or more",
+    ]);
 });
 
 test("Junos, FortiOS, VRP, and Raisecom ROS refuse a pseudowire, each saying why", () => {
