@@ -1,5 +1,5 @@
 ---
-description: Six whole projects to copy from, tested on every change to Circuit.
+description: Seven whole projects to copy from, tested on every change to Circuit.
 ---
 
 # Example projects
@@ -67,6 +67,20 @@ Two provider edge routers, one in each point of presence. IS-IS carries their lo
 <<< @/../examples/mpls-core/sites/pop-1/pe-01.ts
 
 <<< @/../examples/mpls-core/sites/pop-2/pe-02.ts
+
+:::
+
+## A campus on OSPF
+
+A core router and a building's router on private addresses, running OSPF without BGP. The core router is the backbone's designated router: the building's router joins the backbone VLAN with priority 0. The building's router is the border router of the library's area: it announces the library to the backbone as one range, and hides the archive. A radio link to two stations that don't hear each other is point-to-multipoint, and a carrier's line that carries no multicast is NBMA, with its neighbor written out.
+
+::: code-group
+
+<<< @/../examples/campus/circuit.ts
+
+<<< @/../examples/campus/sites/data-center/core-01.ts
+
+<<< @/../examples/campus/sites/library/library-01.ts
 
 :::
 

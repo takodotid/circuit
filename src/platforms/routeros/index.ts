@@ -456,6 +456,9 @@ export class RouterOs extends Platform {
                 "vrf-imports",
                 "rate-limit",
                 "marking",
+                "ospf-ranges",
+                "ospf-priority",
+                "ospf-unicast-links",
             ])
         );
 
