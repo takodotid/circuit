@@ -26,7 +26,7 @@ function routers(): [Device, Device] {
                 "100g-1": { addresses: [`10.0.0.${n}/30`], link: { device: `r${3 - n}`, port: "100g-1" } },
                 "25g-1": { trunk_vlans: ["mgmt"], link: { device: `r${3 - n}`, port: "25g-1" } },
             },
-            loopback: { lo: { addresses: [`10.255.0.${n}/32`] } },
+            loopback: { loopback: { addresses: [`10.255.0.${n}/32`] } },
             vlan_interface: { mgmt: { vlan: "mgmt", addresses: [`10.0.10.${n}/24`], vrrp: [{ id: 1, address: "10.0.10.254" }] } },
             gre: { gre: { local_address: `10.255.0.${n}`, remote_address: `10.255.0.${3 - n}` } },
             vxlan: { vxlan: { vni: 100, local_address: `10.255.0.${n}`, remote_address: `10.255.0.${3 - n}` } },
@@ -63,9 +63,9 @@ test("an address on two devices is an error, and on two loopbacks a warning, for
     const clash = findings(r1, withInterfaces(r2, "vlan_interface", { mgmt: { vlan: "mgmt", addresses: ["10.0.10.1/24"] } }));
     expect(clash).toContain("error r2: 10.0.10.1 on interfaces.vlan_interface.mgmt is also on r1 interfaces.vlan_interface.mgmt");
 
-    const anycast = findings(r1, withInterfaces(r2, "loopback", { lo: { addresses: ["10.255.0.1/32"] } }));
+    const anycast = findings(r1, withInterfaces(r2, "loopback", { loopback: { addresses: ["10.255.0.1/32"] } }));
     expect(anycast).toContain(
-        "warning r2: 10.255.0.1 on interfaces.loopback.lo is also on r1 interfaces.loopback.lo, which is right only for anycast"
+        "warning r2: 10.255.0.1 on interfaces.loopback.loopback is also on r1 interfaces.loopback.loopback, which is right only for anycast"
     );
 });
 
@@ -253,7 +253,9 @@ test("a session expects a confederation's identifier from outside it, and the me
 test("a session per family is matched to the session back of its own family", () => {
     const dualStack = (n: 1 | 2): Device => {
         const [own, far] = [n, 3 - n];
-        const router = withInterfaces(routers()[n - 1]!, "loopback", { lo: { addresses: [`10.255.0.${own}/32`, `2001:db8::${own}/128`] } });
+        const router = withInterfaces(routers()[n - 1]!, "loopback", {
+            loopback: { addresses: [`10.255.0.${own}/32`, `2001:db8::${own}/128`] },
+        });
 
         return {
             ...router,

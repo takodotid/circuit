@@ -772,3 +772,20 @@ test("RouterOS sends one AS more than a prepend asks for, and refuses 16", () =>
     expect(routeros.unsupported(withPrepend(15)).filter((field) => field.includes("prepend"))).toEqual([]);
     expect(routeros.unsupported(withPrepend(16)).filter((field) => field.includes("prepend"))).toHaveLength(1);
 });
+
+// Seen on a CHR with RouterOS 7.24.6: `/interface bridge add name=lo` was refused, `already have interface with name lo`.
+test("an interface named lo is refused on RouterOS, which has a loopback of its own by that name", () => {
+    const withLoopbacks = (...names: string[]): Device => ({
+        ...router,
+        interfaces: { ...router.interfaces, loopback: Object.fromEntries(names.map((name) => [name, { addresses: ["192.0.2.1/32"] }])) },
+    });
+    const named = (device: Device) =>
+        Platforms.get("routeros")
+            .unsupported(device)
+            .filter((field) => field.includes("own loopback"));
+
+    expect(named(withLoopbacks("lo"))).toEqual([
+        "interfaces.loopback.lo, the name of RouterOS's own loopback interface: write another name, such as loopback",
+    ]);
+    expect(named(withLoopbacks("loopback", "lo0"))).toEqual([]);
+});

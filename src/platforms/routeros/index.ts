@@ -70,6 +70,9 @@ export class RouterOs extends Platform {
     private static readonly NO_VPNV6 =
         "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
 
+    /** RouterOS 7 has a loopback interface of its own by this name, and refuses another interface by it (TRAPS.md). */
+    private static readonly OWN_LOOPBACK = "lo";
+
     /** Version 6 has another BGP and filter language. */
     private static readonly SUPPORTED_MAJOR = 7;
 
@@ -251,6 +254,11 @@ export class RouterOs extends Platform {
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
+        for (const { name, kind } of Derive.interfaces(device))
+            if (name === RouterOs.OWN_LOOPBACK)
+                found.push(
+                    `interfaces.${kind}.${name}, the name of RouterOS's own loopback interface: write another name${kind === "loopback" ? ", such as loopback" : ""}`
+                );
         // MikroTik's changelog adds it in 7.25, which no device here runs yet.
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
         found.push(...RouterOsPseudowire.unsupported(device));
