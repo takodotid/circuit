@@ -142,6 +142,7 @@ A note in a cell means "works, with this limit".
 | NAT                                | ✅                       | ❌                    | ❌                         | ❌                       | IPv4                                            |
 | CGNAT pool, deterministic          | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
 | CGNAT pool, dynamic                | ❌                       | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
+| CGNAT pool, block timeout          | ❌                       | ❌                    | ❌                         | ❌                       | ✅ 3 to 300 seconds                             |
 | NAT64                              | ❌                       | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
 | TCP MSS clamp                      | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DSCP and PCP marking               | ✅ not with fast path    | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
