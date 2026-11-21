@@ -43,6 +43,8 @@ export default as64500.device({
                 targets: ["10.255.0.1"],
                 import_policy: "loopbacks",
                 export_policy: "loopbacks",
+                // Over the session with pe-01, only the two loopbacks' own labels, as pe-01 gives.
+                neighbors: { "10.255.0.1": { import_policy: "pe-01-loopback", export_policy: "own-loopback" } },
             },
         },
         prefix_sets: {
@@ -50,6 +52,8 @@ export default as64500.device({
         },
         policies: {
             loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
+            "own-loopback": [{ if: { prefix: "10.255.0.3/32" }, then: "accept" }, { then: "reject" }],
+            "pe-01-loopback": [{ if: { prefix: "10.255.0.1/32" }, then: "accept" }, { then: "reject" }],
         },
     },
 });

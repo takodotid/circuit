@@ -16,10 +16,18 @@ export class MplsChecks {
 
         MplsChecks.lsrId(device, ldp, report);
         MplsChecks.targets(ldp, report);
-        for (const way of ["import_policy", "export_policy"] as const) {
-            const policy = ldp[way];
-            if (policy) PrefixPolicyChecks.check(device, `routing.mpls.ldp.${way} ${policy}`, policy, MplsChecks.LABEL, report);
-        }
+        MplsChecks.neighbors(ldp, report);
+        const policies = [
+            ...(["import_policy", "export_policy"] as const).map((way) => ({ at: `routing.mpls.ldp.${way}`, policy: ldp[way] })),
+            ...Object.entries(ldp.neighbors ?? {}).flatMap(([lsrId, neighbor]) =>
+                (["import_policy", "export_policy"] as const).map((way) => ({
+                    at: `routing.mpls.ldp.neighbors.${lsrId}.${way}`,
+                    policy: neighbor?.[way],
+                }))
+            ),
+        ];
+        for (const { at, policy } of policies)
+            if (policy) PrefixPolicyChecks.check(device, `${at} ${policy}`, policy, MplsChecks.LABEL, report);
 
         const seen = new Set<string>();
         for (const name of ldp.interfaces) {
@@ -48,6 +56,18 @@ export class MplsChecks {
             if (!Address.isValid(target) || Address.family(target) !== "ipv4")
                 report(`${at} is not an IPv4 address. Write the far router's LSR ID, such as 192.0.2.2`);
             else if (target === ldp.lsr_id) report(`${at} is this router's own LSR ID. Write the far router's`);
+        }
+    }
+
+    /** A neighbor's policies are for another router, by its LSR ID, and it has one at least. */
+    private static neighbors(ldp: Mpls["ldp"], report: Report): void {
+        for (const [lsrId, neighbor] of Object.entries(ldp.neighbors ?? {})) {
+            const at = `routing.mpls.ldp.neighbors.${lsrId}`;
+            if (!Address.isValid(lsrId) || Address.family(lsrId) !== "ipv4")
+                report(`${at}: ${lsrId} is not an IPv4 address. Write the neighbor's LSR ID, such as 192.0.2.2`);
+            else if (lsrId === ldp.lsr_id) report(`${at}: ${lsrId} is this router's own LSR ID. Write a neighbor's`);
+            if (!neighbor?.import_policy && !neighbor?.export_policy)
+                report(`${at} has no policy. Write import_policy or export_policy, or remove it`);
         }
     }
 

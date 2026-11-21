@@ -213,7 +213,8 @@ export class RouterOsRouting {
     static ldpGaps(device: Device): string[] {
         const ldp = device.routing?.mpls?.ldp;
         const policies = device.routing?.policies ?? {};
-        const pending = [...new Set([ldp?.import_policy, ldp?.export_policy].filter((policy) => policy !== undefined))];
+        const named = [ldp, ...Object.values(ldp?.neighbors ?? {})].flatMap((holder) => [holder?.import_policy, holder?.export_policy]);
+        const pending = [...new Set(named.filter((policy) => policy !== undefined))];
         const found: string[] = [];
 
         // A policy called on the way is looked at once, after those LDP names.
@@ -804,20 +805,25 @@ export class RouterOsRouting {
         this.render.add("/mpls ldp", "add", { afi: "ip", "lsr-id": ldp.lsr_id, "transport-addresses": ldp.lsr_id });
         for (const iface of interfaces) this.render.add("/mpls ldp interface", "add", { interface: iface });
         for (const target of ldp.targets ?? []) this.render.add("/mpls ldp neighbor", "add", { "send-targeted": "yes", transport: target });
+        // The first filter that holds a label's prefix decides, so a neighbor's own come before the device's (TRAPS.md).
+        const neighbors = Object.entries(ldp.neighbors ?? {});
+        for (const [lsrId, neighbor] of neighbors) this.ldpFilters("/mpls ldp accept-filter", "accept", neighbor?.import_policy, lsrId);
         this.ldpFilters("/mpls ldp accept-filter", "accept", ldp.import_policy);
+        for (const [lsrId, neighbor] of neighbors)
+            this.ldpFilters("/mpls ldp advertise-filter", "advertise", neighbor?.export_policy, lsrId);
         this.ldpFilters("/mpls ldp advertise-filter", "advertise", ldp.export_policy);
     }
 
     /**
-     * An LDP policy as label filters, in its order: an entry for each prefix a rule matches, with the rule's decision. A filter matches its prefix and every prefix inside it, as `prefix_set` does. With no entry matching, RouterOS takes the label, so the filters end in one that rejects every prefix, unless the last already decides for all.
+     * An LDP policy as label filters, in its order: an entry for each prefix a rule matches, with the rule's decision. A filter matches its prefix and every prefix inside it, as `prefix_set` does. With no entry matching, RouterOS takes the label, so the filters end in one that rejects every prefix, unless the last already decides for all. A neighbor's policy holds each entry to its LSR ID.
      */
-    private ldpFilters(menu: string, decision: "accept" | "advertise", policy: string | undefined): void {
+    private ldpFilters(menu: string, decision: "accept" | "advertise", policy: string | undefined, neighbor?: string): void {
         if (!policy) return;
 
         const entries = this.ldpEntries(policy, []);
         if (entries.at(-1)?.prefix !== RouterOsRouting.EVERY_IPV4) entries.push({ prefix: RouterOsRouting.EVERY_IPV4, then: "reject" });
         for (const { prefix, then } of entries)
-            this.render.add(menu, "add", { [decision]: RouterOsSyntax.yesNo(then === "accept"), prefix });
+            this.render.add(menu, "add", { [decision]: RouterOsSyntax.yesNo(then === "accept"), neighbor, prefix });
     }
 
     /** The prefixes a policy's rules match, each with the rule's decision, and in place of a call, those of the policy it calls. LDP labels IPv4 routes only, so a rule or a prefix of IPv6 has none. */

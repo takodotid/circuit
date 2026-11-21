@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. OSPF carries each router's loopback, and LDP runs between the loopbacks over both links: traffic from pe-01 to pe-02 crosses p-01 by its label (RFC 3031, RFC 5036). Then policies limit LDP's labels, and the PEs hold a targeted session. The tests run in order. Skipped without the three CHRs.
+// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. OSPF carries each router's loopback, and LDP runs between the loopbacks over both links: traffic from pe-01 to pe-02 crosses p-01 by its label (RFC 3031, RFC 5036). Then policies limit LDP's labels, the PEs hold a targeted session, and pe-01 has policies per neighbor. The tests run in order.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -78,8 +78,16 @@ function write(path: string, text: string): void {
 /** A policy LDP uses: which of LDP's policies it is, and its one rule for the prefixes of `PREFIXES`, before the rule for every other label. */
 type LdpPolicy = { way: "import_policy" | "export_policy"; prefixes: keyof typeof PREFIXES; then: "accept" | "reject" };
 
-/** What LDP runs with on a router of the lab, beside its links: one of its policies, and the LSR IDs it holds a targeted session with. */
-type Ldp = { policy?: LdpPolicy; targets?: string[] };
+/** What LDP runs with on a router of the lab, beside its links. `targets` are LSR IDs, and `neighbors` puts `NEIGHBOR_POLICIES` in. */
+type Ldp = { policy?: LdpPolicy; targets?: string[]; neighbors?: boolean };
+
+/** pe-01's policies per neighbor: it takes only pe-02's loopback's label from pe-02, and gives p-01 none for its management network. */
+const NEIGHBOR_POLICIES = {
+    neighbors: `neighbors: { "${LOOPBACK.secondPe}": { import_policy: "pe-02-loopback" }, "${LOOPBACK.p}": { export_policy: "no-management" } }`,
+    policies: `"pe-02-loopback": [{ if: { prefix: "${LOOPBACK.secondPe}/32" }, then: "accept" }, { then: "reject" }],
+            "no-management": [{ if: { prefix_set: "management" }, then: "reject" }, { then: "accept" }],`,
+    prefixSets: `management: { prefixes: ["${FIRST_MANAGEMENT}"] },`,
+};
 
 /** A router of the lab: its loopback and links in OSPF, and LDP on its links when `ldp` is given. */
 function writeRouter(name: string, chr: string, management: string, loopback: string, links: Record<string, string>, ldp?: Ldp): void {
@@ -92,13 +100,21 @@ function writeRouter(name: string, chr: string, management: string, loopback: st
         .join(" ");
     const policy = ldp?.policy;
     const other = policy?.then === "accept" ? "reject" : "accept";
-    const policies = policy
-        ? `prefix_sets: { ${policy.prefixes}: { prefixes: ["${PREFIXES[policy.prefixes]}"] } },
-        policies: { labels: [{ if: { prefix_set: "${policy.prefixes}" }, then: "${policy.then}" }, { then: "${other}" }] },`
-        : "";
-    const targets = ldp?.targets ? `, targets: ${JSON.stringify(ldp.targets)}` : "";
+    const perNeighbor = ldp?.neighbors ? NEIGHBOR_POLICIES : { neighbors: "", policies: "", prefixSets: "" };
+    const prefixSets = policy ? `${policy.prefixes}: { prefixes: ["${PREFIXES[policy.prefixes]}"] },` : "";
+    const labels = policy ? `labels: [{ if: { prefix_set: "${policy.prefixes}" }, then: "${policy.then}" }, { then: "${other}" }],` : "";
+    const policies =
+        policy || ldp?.neighbors
+            ? `prefix_sets: { ${prefixSets} ${perNeighbor.prefixSets} },
+        policies: { ${labels} ${perNeighbor.policies} },`
+            : "";
+    const settings = [
+        ldp?.targets ? `targets: ${JSON.stringify(ldp.targets)}` : "",
+        policy ? `${policy.way}: "labels"` : "",
+        perNeighbor.neighbors,
+    ].filter((setting) => setting !== "");
     const mpls = ldp
-        ? `mpls: { ldp: { lsr_id: "${loopback}", interfaces: ${JSON.stringify(Object.keys(links))}${targets}${policy ? `, ${policy.way}: "labels"` : ""} } },
+        ? `mpls: { ldp: { lsr_id: "${loopback}", interfaces: ${JSON.stringify(Object.keys(links))}${settings.map((setting) => `, ${setting}`).join("")} } },
         ${policies}`
         : "";
     write(
@@ -130,18 +146,22 @@ export default lab.device({
     );
 }
 
-/** What the lab runs beside LDP on its links. With `policies`, pe-01 gives labels for the loopbacks only, and p-01 takes none for the links. `targets` are the routers that hold a targeted session with each other. */
-type Lab = { policies?: boolean; targets?: Router[] };
+/** What the lab runs beside LDP on its links. With `policies`, pe-01 gives labels for the loopbacks only, and p-01 takes none for the links. `targets` are the routers that hold a targeted session with each other. With `neighbors`, pe-01 has `NEIGHBOR_POLICIES`. */
+type Lab = { policies?: boolean; targets?: Router[]; neighbors?: boolean };
 
 /** The three routers, with LDP or without. */
-function writeLab(mpls: boolean, { policies = false, targets = [] }: Lab = {}): void {
+function writeLab(mpls: boolean, { policies = false, targets = [], neighbors = false }: Lab = {}): void {
     const pPolicy: LdpPolicy = { way: "import_policy", prefixes: "links", then: "reject" };
     const pePolicy: LdpPolicy = { way: "export_policy", prefixes: "loopbacks", then: "accept" };
     /** LDP on a router: the LSR IDs of the other routers in `targets`, when it is one of them. */
     const ldp = (router: Router, policy?: LdpPolicy): Ldp | undefined => {
         if (!mpls) return undefined;
         const others = targets.includes(router) ? targets.filter((other) => other !== router).map((other) => LSR_ID[other]) : [];
-        return { policy: policies ? policy : undefined, targets: others.length ? others : undefined };
+        return {
+            policy: policies ? policy : undefined,
+            targets: others.length ? others : undefined,
+            neighbors: neighbors && router === "pe-01",
+        };
     };
     writeRouter("p-01", pChr!, "10.0.0", LOOPBACK.p, { "virtual-2": FIRST_LINK.p, "virtual-3": SECOND_LINK.p }, ldp("p-01", pPolicy));
     writeRouter("pe-01", firstPeChr!, "10.0.1", LOOPBACK.firstPe, { "virtual-2": FIRST_LINK.pe }, ldp("pe-01", pePolicy));
@@ -322,6 +342,40 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("LDP between three CHRs", 
             );
             logMpls();
             expect(gone).toBe(true);
+        },
+        TEST_MS
+    );
+
+    test(
+        "label policies per neighbor: pe-01 takes only pe-02's loopback's label from pe-02 over their targeted session, and gives p-01 no label for its management network, while pe-02 still gets one",
+        () => {
+            writeLab(true, { targets: ["pe-01", "pe-02"], neighbors: true });
+            for (const device of ["pe-01", "pe-02"]) {
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            const filtered = eventually(() => {
+                const fromSecond = labelsFrom(LOOPBACK.secondPe, "pe-01");
+                const atP = labelsFrom(LOOPBACK.firstPe);
+                return (
+                    fromSecond.join() === LOOPBACK.secondPe &&
+                    labelsFrom(LOOPBACK.p, "pe-01").includes(SECOND_LINK_PREFIX) &&
+                    atP.includes(LOOPBACK.firstPe) &&
+                    !atP.includes(FIRST_MANAGEMENT) &&
+                    labelsFrom(LOOPBACK.firstPe, "pe-02").includes(FIRST_MANAGEMENT)
+                );
+            });
+            logMpls();
+            expect(filtered).toBe(true);
+            expect(eventually(() => tracedLabels()[FIRST_LINK.p] !== undefined)).toBe(true);
+
+            // Without them, and without the targets, LDP gives and takes every label on the links again.
+            writeLab(true);
+            for (const device of ["pe-01", "pe-02"]) {
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            expect(eventually(() => labelsFrom(LOOPBACK.firstPe).includes(FIRST_MANAGEMENT))).toBe(true);
         },
         TEST_MS
     );

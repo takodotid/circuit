@@ -190,7 +190,10 @@ test("Junos refuses targeted LDP while its MPLS is experimental", () => {
 });
 
 /** The example router with LDP's policies, and the policies and prefix sets they use beside its own. */
-function withLdpPolicies(ldp: Pick<Mpls["ldp"], "import_policy" | "export_policy">, policies: Record<string, PolicyRule[]>): Device {
+function withLdpPolicies(
+    ldp: Pick<Mpls["ldp"], "import_policy" | "export_policy" | "neighbors">,
+    policies: Record<string, PolicyRule[]>
+): Device {
     const device = withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, ...ldp } });
     const routing = device.routing!;
     return {
@@ -271,15 +274,74 @@ test("RouterOS refuses an LDP policy's rule that a label filter can't hold", () 
 
 test("Junos refuses LDP's policies while its MPLS is experimental", () => {
     const device = withMpls("platforms--example-aggregation-switch", {
-        ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"], import_policy: "labels", export_policy: "labels" },
+        ldp: {
+            lsr_id: "203.0.113.65",
+            interfaces: ["10g-48"],
+            import_policy: "labels",
+            export_policy: "labels",
+            neighbors: { "203.0.113.66": { import_policy: "labels" } },
+        },
     });
 
     expect(Platforms.get("junos").unsupported(device)).toEqual(
         expect.arrayContaining([
             "routing.mpls.ldp.import_policy, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
             "routing.mpls.ldp.export_policy, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
+            "routing.mpls.ldp.neighbors, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
         ])
     );
+});
+
+test("a neighbor's label policies are for another router's LSR ID, at least one, and match a label's prefix only", () => {
+    const fine = withLdpPolicies(
+        { import_policy: "loopbacks", neighbors: { "192.0.2.2": { import_policy: "own", export_policy: "own" } } },
+        LOOPBACKS
+    );
+    expect(errors(fine)).toEqual([]);
+
+    const device = withLdpPolicies(
+        {
+            neighbors: {
+                "192.0.2.255": { import_policy: "loopbacks" },
+                "192.0.2.256": { export_policy: "loopbacks" },
+                "192.0.2.3": {},
+                "192.0.2.4": { export_policy: "set" },
+            },
+        },
+        { ...LOOPBACKS, set: [{ set: { local_pref: 200 }, then: "accept" }] }
+    );
+    expect(errors(device)).toEqual([
+        "routing.mpls.ldp.neighbors.192.0.2.255: 192.0.2.255 is this router's own LSR ID. Write a neighbor's",
+        "routing.mpls.ldp.neighbors.192.0.2.256: 192.0.2.256 is not an IPv4 address. Write the neighbor's LSR ID, such as 192.0.2.2",
+        "routing.mpls.ldp.neighbors.192.0.2.3 has no policy. Write import_policy or export_policy, or remove it",
+        'routing.mpls.ldp.neighbors.192.0.2.4.export_policy set: routing.policies.set[0].set, and an LDP label has nothing to set. Remove set, and write then: "accept" or "reject"',
+    ]);
+});
+
+test("RouterOS writes a neighbor's label policy as filters held to its LSR ID, before the device's, which then decide for every other neighbor", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withLdpPolicies(
+        { import_policy: "loopbacks", export_policy: "loopbacks", neighbors: { "192.0.2.2": { import_policy: "own" } } },
+        LOOPBACKS
+    );
+    expect(ldpGaps(device)).toEqual([]);
+
+    const desired = routeros.render(device);
+    expect(desired).toContain(
+        "/mpls ldp accept-filter\nadd accept=yes neighbor=192.0.2.2 prefix=192.0.2.255/32\nadd accept=yes neighbor=192.0.2.2 prefix=192.0.2.0/24\nadd accept=no neighbor=192.0.2.2 prefix=0.0.0.0/0\nadd accept=yes prefix=192.0.2.0/24\nadd accept=no prefix=0.0.0.0/0\n"
+    );
+    expect(desired).toContain("/mpls ldp advertise-filter\nadd advertise=yes prefix=192.0.2.0/24\nadd advertise=no prefix=0.0.0.0/0\n");
+    // As a CHR printed them.
+    expect(routeros.plan(desired, desired, options).steps).toEqual([]);
+
+    // A neighbor's policy that RouterOS can't hold is refused as the device's is.
+    const wide = withLdpPolicies(
+        { neighbors: { "192.0.2.2": { export_policy: "wide" } } },
+        { wide: [{ if: { prefix: "192.0.2.0/24" }, then: "accept" }] }
+    );
+    expect(ldpGaps(wide)).toEqual([
+        "routing.policies.wide[0].if.prefix 192.0.2.0/24 in an LDP policy: a RouterOS label filter matches the prefixes inside it too. Write a prefix set, which matches so",
+    ]);
 });
 
 test("RouterOS rewrites the label filters in order, then restarts LDP so its sessions take them, and leaves it running when they don't change", () => {
