@@ -358,6 +358,20 @@ test("RouterOS refuses the overload bit and BFD, which its IS-IS has neither of"
     );
 });
 
+test("validate warns that RouterOS on both levels leaks every level 2 route into level 1, as no setting holds one back", () => {
+    const warnings = (isis: Isis) =>
+        Checks.run([withIsis("platforms--example-router", isis)], undefined)
+            .filter((finding) => finding.level === "warning" && finding.message.startsWith("routing.isis"))
+            .map((finding) => finding.message);
+
+    expect(warnings(both("uplink"))).toEqual([
+        "routing.isis.level_capability is level-1-2: on RouterOS 7.24, a router on both levels leaks every level 2 route into level 1, and nothing holds one back. The level 1 routers of its area learn every route of level 2, and no default route from it",
+    ]);
+    expect(warnings(core({ passive: true }, "uplink"))).toEqual([]);
+    // With `level2_to_level1`, RouterOS refuses the leak itself, which says the same.
+    expect(warnings({ ...both("uplink"), level2_to_level1: { import_policy: "loopbacks" } })).toEqual([]);
+});
+
 test("FortiOS sets the overload bit, and refuses BFD, which its IS-IS has none of", () => {
     const fortios = Platforms.get("fortios");
     const section = /^config router isis\n[\s\S]*?^end\n/m;
