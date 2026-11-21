@@ -14,6 +14,10 @@ export class RouterOsPlan {
 
     private static readonly ETHERNET = "/interface ethernet";
 
+    private static readonly BONDING = "/interface bonding";
+
+    private static readonly BRIDGE_PORT = "/interface bridge port";
+
     /** Dependency order. A menu not listed sorts after all of these. The longest matching prefix decides. */
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
@@ -74,6 +78,8 @@ export class RouterOsPlan {
         "/routing ospf area range",
         "/routing ospf interface-template",
         "/routing ospf static-neighbor",
+        // A virtual link names the backbone and its transit area.
+        "/routing ospf interface",
         "/routing isis instance",
         "/routing isis interface-template",
         // LDP runs on interfaces that forward MPLS.
@@ -113,6 +119,8 @@ export class RouterOsPlan {
         "/ipv6 firewall raw",
         "/ip dhcp-server lease",
         "/interface bridge vlan",
+        // A template makes an OSPF interface for each interface it matches.
+        "/routing ospf interface",
         // An address that advertises its network makes its prefix's entry.
         "/ipv6 nd prefix",
         // A PPP or hotspot user's rate limit is a simple queue.
@@ -181,6 +189,14 @@ export class RouterOsPlan {
         const owned = (command: Command) => !(command.menu.endsWith("address-list") && want.generated.has(command.attrs.list ?? ""));
         const wantedByMenu = RouterOsPlan.byMenu([...want.commands.filter(owned), ...RouterOsPlan.unnamedPorts(want, have)]);
         const existingByMenu = RouterOsPlan.byMenu(have.commands.filter(owned));
+        // Bridge ports a LAG takes go in a step of their own, before the LAG, and not again with the rest of their menu.
+        const bridgePorts = existingByMenu.get(RouterOsPlan.BRIDGE_PORT) ?? [];
+        const joining = RouterOsPlan.joiningLag(wantedByMenu, bridgePorts);
+        if (joining.length)
+            existingByMenu.set(
+                RouterOsPlan.BRIDGE_PORT,
+                bridgePorts.filter((port) => !joining.includes(port))
+            );
 
         const menus = [...new Set([...wantedByMenu.keys(), ...existingByMenu.keys()])].sort(
             (a, b) => RouterOsPlan.rank(a) - RouterOsPlan.rank(b) || a.localeCompare(b)
@@ -201,6 +217,7 @@ export class RouterOsPlan {
                 if (settings) menuPlan.first.unshift(settings);
             }
 
+            if (menu === RouterOsPlan.BONDING && joining.length) first.push(RouterOsPlan.leavingBridge(joining));
             first.push(...menuPlan.first);
             // Removals run in reverse dependency order, so a menu's are prepended.
             last.unshift(...menuPlan.last);
@@ -222,6 +239,24 @@ export class RouterOsPlan {
             .map((port) => RouterOsSyntax.port(port))
             .filter((selector) => !stated.has(selector))
             .map((selector): Command => ({ menu: RouterOsPlan.ETHERNET, verb: "set", selector, flags: [], attrs: { disabled: "yes" } }));
+    }
+
+    /**
+     * The bridge ports whose interface a LAG of the render takes. RouterOS refuses a LAG member that is a bridge port, `ether3 already in bridge`, so they are removed before the LAG is added or changed. A port that leaves a LAG for the bridge needs nothing: the bridge takes it at once, inactive until the LAG lets it go (TRAPS.md).
+     */
+    private static joiningLag(wanted: Map<string, Command[]>, bridgePorts: Command[]): Command[] {
+        const members = new Set((wanted.get(RouterOsPlan.BONDING) ?? []).flatMap((lag) => (lag.attrs.slaves ?? "").split(",")));
+        return bridgePorts.filter((port) => members.has(port.attrs.interface ?? ""));
+    }
+
+    /** A step that removes these bridge ports. */
+    private static leavingBridge(ports: Command[]): Step {
+        const menu = RouterOsPlan.BRIDGE_PORT;
+        return {
+            title: menu,
+            show: ports.map((port) => `- ${RouterOsExport.canonical(port)}`),
+            send: ports.map((port) => `${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(port))}`),
+        };
     }
 
     private static rank(menu: string): number {
@@ -522,7 +557,7 @@ export class RouterOsPlan {
             removeStep.send.push(`${menu} remove [ find list=${RouterOsPlan.quote(list)} and !dynamic ]`);
         }
 
-        for (const entry of removed) {
+        for (const entry of RouterOsPlan.onOthersFirst(menu, removed)) {
             if (wholeLists.has(entry.attrs.list ?? "")) continue;
 
             removeStep.show.push(`- ${RouterOsExport.canonical(entry)}`);
@@ -532,6 +567,21 @@ export class RouterOsPlan {
         if (changeStep.send.length) result.first.push(changeStep);
         if (removeStep.send.length) result.last.push(removeStep);
         return result;
+    }
+
+    /** VLAN interfaces on a removed VLAN interface go before it: RouterOS removes one that another is on, and leaves that one on nothing (TRAPS.md). */
+    private static onOthersFirst(menu: string, removed: Command[]): Command[] {
+        if (menu !== "/interface vlan") return removed;
+
+        const parentOf = new Map(removed.map((entry) => [entry.attrs.name, entry.attrs.interface]));
+        const depth = (entry: Command): number => {
+            let count = 0;
+            // Each step goes one VLAN interface down, so there are no more steps than entries.
+            for (let on = entry.attrs.interface; on !== undefined && parentOf.has(on) && count < removed.length; on = parentOf.get(on))
+                count++;
+            return count;
+        };
+        return [...removed].sort((a, b) => depth(b) - depth(a));
     }
 
     /**

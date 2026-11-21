@@ -11,7 +11,7 @@ export class OspfChecks {
     /** The backbone area, which every other area attaches to (RFC 2328). */
     private static readonly BACKBONE = "0.0.0.0";
     /** The largest metric of a summary LSA; 16777215 is LSInfinity (RFC 2328). */
-    private static readonly MAX_DEFAULT_COST = 16_777_214;
+    private static readonly MAX_SUMMARY_COST = 16_777_214;
     /** A hello or dead interval, in seconds, that every platform takes. */
     private static readonly MAX_INTERVAL = 65_535;
     /** The hello interval every platform uses when the config states none, in seconds. */
@@ -41,12 +41,13 @@ export class OspfChecks {
                 if (area[key] !== undefined && !area.type)
                     report(`${where} has ${key} without type: only a stub area or an NSSA takes it. Write type, or remove ${key}`);
             }
-            if (area.stub_default_cost !== undefined && !OspfChecks.within(area.stub_default_cost, 1, OspfChecks.MAX_DEFAULT_COST))
+            if (area.stub_default_cost !== undefined && !OspfChecks.within(area.stub_default_cost, 1, OspfChecks.MAX_SUMMARY_COST))
                 report(
-                    `${where}.stub_default_cost is ${area.stub_default_cost}: write a whole number from 1 to ${OspfChecks.MAX_DEFAULT_COST}`
+                    `${where}.stub_default_cost is ${area.stub_default_cost}: write a whole number from 1 to ${OspfChecks.MAX_SUMMARY_COST}`
                 );
 
             OspfChecks.ranges(device, ospf, areaId, area, report);
+            OspfChecks.virtualLinks(device, ospf, areaId, area, report);
             for (const [name, settings] of Object.entries(area.interfaces))
                 if (settings) OspfChecks.iface(device, ospf, `${where}.interfaces.${name}`, name, settings, report);
         }
@@ -55,7 +56,10 @@ export class OspfChecks {
     /** What platforms do differently when the config leaves it out: a border router's default route into a stub area or an NSSA, and a dead interval beside a hello interval. */
     static warnings(device: Device): Finding[] {
         const areas = device.routing?.ospf?.areas ?? {};
-        const backbone = Object.values(areas[OspfChecks.BACKBONE]?.interfaces ?? {}).some(Boolean);
+        // A virtual link joins the device to the backbone, as an interface there does.
+        const backbone =
+            Object.values(areas[OspfChecks.BACKBONE]?.interfaces ?? {}).some(Boolean) ||
+            Boolean(areas[OspfChecks.BACKBONE]?.virtual_links?.length);
         const warn = (message: string): Finding => ({ level: "warning", device: device.name, message });
         const found: Finding[] = [];
 
@@ -94,7 +98,12 @@ export class OspfChecks {
         const where = `routing.ospf.areas.${areaId}`;
         const families = ospf.address_families ?? ["ipv4"];
         const seen = new Set<string>();
-        ranges.forEach(({ prefix }, index) => {
+        ranges.forEach(({ prefix, advertise, cost }, index) => {
+            if (cost !== undefined && !OspfChecks.within(cost, 0, OspfChecks.MAX_SUMMARY_COST))
+                report(`${where}.ranges[${index}].cost is ${cost}: write a whole number from 0 to ${OspfChecks.MAX_SUMMARY_COST}`);
+            if (cost !== undefined && !advertise)
+                report(`${where}.ranges[${index}].cost: a range with advertise false is announced at no cost. Remove cost`);
+
             const at = `${where}.ranges[${index}].prefix`;
             if (!Address.isCidr(prefix)) {
                 report(`${at}: '${prefix}' is not an address with a length, such as 10.1.0.0/16`);
@@ -114,11 +123,63 @@ export class OspfChecks {
             seen.add(network);
         });
 
-        const inAreas = Object.values(ospf.areas).filter((other) => Object.values(other.interfaces).some(Boolean));
-        if (inAreas.length < 2)
+        if (OspfChecks.inAreas(ospf).length < 2)
             report(
                 `${where}.ranges: ${device.name} is in one area only, so it is no border router and announces no summary. Remove ranges, or write them on the border router`
             );
+    }
+
+    /** The areas the device has an interface in. */
+    private static inAreas(ospf: Ospf): string[] {
+        return Object.entries(ospf.areas)
+            .filter(([, area]) => Object.values(area.interfaces).some(Boolean))
+            .map(([areaId]) => areaId);
+    }
+
+    /** Each virtual link is in the backbone of a border router, across a normal area the device is in, to another router (RFC 2328, section 15). */
+    private static virtualLinks(device: Device, ospf: Ospf, areaId: string, area: OspfArea, report: Report): void {
+        const links = area.virtual_links ?? [];
+        if (!links.length) return;
+
+        const where = `routing.ospf.areas.${areaId}.virtual_links`;
+        if (areaId !== OspfChecks.BACKBONE) {
+            report(`${where}: a virtual link is part of the backbone. Move it to routing.ospf.areas.${OspfChecks.BACKBONE}`);
+            return;
+        }
+        const inAreas = OspfChecks.inAreas(ospf);
+        if (inAreas.length < 2)
+            report(
+                `${where}: ${device.name} is in one area only, so it is no border router, and a virtual link joins two border routers. Remove virtual_links, or write them on a border router`
+            );
+        const own = device.routing?.router_id;
+        if (!own)
+            report(`${where}: the far end knows this device by its router ID. Write routing.router_id, such as the loopback's address`);
+
+        const seen = new Set<string>();
+        links.forEach(({ transit_area_id: transit, router_id: far }, index) => {
+            const at = `${where}[${index}]`;
+            const transitArea = ospf.areas[transit];
+            if (transit === OspfChecks.BACKBONE)
+                report(
+                    `${at}.transit_area_id: a virtual link crosses an area other than the backbone. Write the area both border routers are in`
+                );
+            else if (!transitArea || !inAreas.includes(transit))
+                report(
+                    `${at}.transit_area_id ${transit}: ${device.name} has no interface in that area. Write an area of routing.ospf.areas that both border routers have interfaces in`
+                );
+            else if (transitArea.type)
+                report(
+                    `${at}.transit_area_id ${transit} is ${transitArea.type === "stub" ? "a stub area" : "an NSSA"}, which carries no virtual link (RFC 2328, RFC 3101). Write a normal area`
+                );
+
+            if (!Address.isValid(far) || Address.family(far) !== "ipv4")
+                report(`${at}.router_id: '${far}' is not an IPv4 address. Write the far border router's router ID`);
+            else if (far === own) report(`${at}.router_id ${far} is ${device.name}'s own. Write the far border router's router ID`);
+
+            const link = `${transit} ${far}`;
+            if (seen.has(link)) report(`${at}: the virtual link across ${transit} to ${far} is in ${where} twice. Remove one`);
+            seen.add(link);
+        });
     }
 
     /** One interface's settings: its timers, key, priority, and the neighbors it sends its hellos to. */

@@ -92,8 +92,8 @@ export default as64500.device({
             address_families: ["ipv4"],
             // A key per level. Both are core-01's key, since the point-to-point link to it sends one hello for both levels.
             levels: {
-                1: { authentication: { key: secret("ISIS_KEY") } },
-                2: { authentication: { key: secret("ISIS_KEY") } },
+                1: { authentication: { algorithm: "hmac-md5", key: secret("ISIS_KEY") } },
+                2: { authentication: { algorithm: "hmac-md5", key: secret("ISIS_KEY") } },
             },
             interfaces: {
                 // FortiOS has no passive interface, and a loopback forms no adjacency anyway.

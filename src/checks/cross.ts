@@ -17,6 +17,8 @@ type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan" | "ipsec
 export class CrossChecks {
     /** An interface's MTU when the config gives none. */
     private static readonly ETHERNET_MTU = 1500;
+    /** The TPID of a port's tags when the config gives none: 802.1Q's customer tag. */
+    private static readonly TPID = "0x8100";
     /** IANA's VXLAN port (RFC 7348), when the config gives none. */
     private static readonly VXLAN_PORT = 4789;
 
@@ -66,6 +68,7 @@ export class CrossChecks {
             ...CrossChecks.vrrp(holders),
             ...CrossChecks.tunnels(devices, owners),
             ...CrossChecks.pseudowires(devices),
+            ...CrossChecks.virtualLinks(devices),
         ];
     }
 
@@ -191,6 +194,14 @@ export class CrossChecks {
                         `${near.where} carries ${CrossChecks.describeCarried(here)}, and ${link.device} ${away.where} carries ${CrossChecks.describeCarried(there)}`
                     );
                 }
+
+                // A tag of another TPID counts as no tag, so each end would take the other's tagged frames as untagged.
+                const tpid = near.settings.tpid ?? CrossChecks.TPID;
+                const farTpid = away.settings.tpid ?? CrossChecks.TPID;
+                if (!qinq && tpid !== farTpid)
+                    report(
+                        `${near.where} tags with TPID ${tpid}, and ${link.device} ${away.where} with ${farTpid}: write the same tpid at both ends`
+                    );
 
                 if (port.speed && farPort.speed && port.speed !== farPort.speed) {
                     report(`speed ${port.speed}, and ${farPortWhere} is ${farPort.speed}`);
@@ -389,6 +400,33 @@ export class CrossChecks {
                         level: "error",
                         device: device.name,
                         message: `interfaces.pseudowire.${name}: ${pseudowire.peer} is ${far.name}'s LSR ID, and ${far.name} has no pseudowire to ${own} with pw_id ${pseudowire.pw_id}. Write one there, or fix peer and pw_id here`,
+                    },
+                ];
+            });
+        });
+    }
+
+    /** An OSPF virtual link to the router ID of another of our devices has one back there, across the same area (RFC 2328, section 15). */
+    private static virtualLinks(devices: readonly Device[]): Finding[] {
+        const backbone = (device: Device) => device.routing?.ospf?.areas["0.0.0.0"]?.virtual_links ?? [];
+        const byRouterId = new Map(
+            devices.flatMap((device) => {
+                const routerId = device.routing?.router_id;
+                return routerId ? [[routerId, device] as const] : [];
+            })
+        );
+
+        return devices.flatMap((device) => {
+            const own = device.routing?.router_id;
+            return backbone(device).flatMap((link, index): Finding[] => {
+                const far = own ? byRouterId.get(link.router_id) : undefined;
+                if (!far || far === device) return [];
+                if (backbone(far).some((back) => back.router_id === own && back.transit_area_id === link.transit_area_id)) return [];
+                return [
+                    {
+                        level: "error",
+                        device: device.name,
+                        message: `routing.ospf.areas.0.0.0.0.virtual_links[${index}]: ${link.router_id} is ${far.name}'s router ID, and ${far.name} has no virtual link across ${link.transit_area_id} to ${own}. Write one there, or fix router_id and transit_area_id here`,
                     },
                 ];
             });

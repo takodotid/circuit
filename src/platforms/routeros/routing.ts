@@ -129,8 +129,13 @@ export class RouterOsRouting {
         return found;
     }
 
+    /** What `validate` reports about the device's routing that it may not report on other platforms. */
+    static findings(device: Device): Finding[] {
+        return [...RouterOsRouting.passiveWithoutAddress(device), ...RouterOsRouting.isisLeaks(device)];
+    }
+
     /** A passive multihop neighbor without `local_address`: the router listens for it only on one address it picks itself, which may not be the one the neighbor connects to (TRAPS.md). */
-    static passiveWithoutAddress(device: Device): Finding[] {
+    private static passiveWithoutAddress(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
 
         return Object.entries(bgp?.neighbors ?? {}).flatMap(([name, neighbor]): Finding[] => {
@@ -183,6 +188,21 @@ export class RouterOsRouting {
         return found;
     }
 
+    /** A router on both IS-IS levels leaks every level 2 route into level 1, holds none back, and sends no default route into level 1 (TRAPS.md). With `level2_to_level1`, `isisGaps` refuses it instead. */
+    private static isisLeaks(device: Device): Finding[] {
+        const isis = device.routing?.isis;
+        if (isis?.level_capability !== "level-1-2" || isis.level2_to_level1) return [];
+
+        return [
+            {
+                level: "warning",
+                device: device.name,
+                message:
+                    "routing.isis.level_capability is level-1-2: on RouterOS 7.24, a router on both levels leaks every level 2 route into level 1, and nothing holds one back. The level 1 routers of its area learn every route of level 2, and no default route from it",
+            },
+        ];
+    }
+
     /** What RouterOS 7.24's IS-IS has no setting for (TRAPS.md), and a metric on a passive interface, which it refuses. */
     static isisGaps(device: Device): string[] {
         const isis = device.routing?.isis;
@@ -207,6 +227,16 @@ export class RouterOsRouting {
                 found.push(`${where}.metric with passive, RouterOS refuses a metric on a passive interface`);
         }
         return found;
+    }
+
+    /** Virtual links for both OSPF versions: RouterOS 7.24 takes the two to one router as duplicates, and runs neither (TRAPS.md). */
+    static ospfGaps(device: Device): string[] {
+        const ospf = device.routing?.ospf;
+        const families = ospf?.address_families ?? ["ipv4"];
+        if (!ospf?.areas["0.0.0.0"]?.virtual_links?.length || families.length < 2) return [];
+        return [
+            "routing.ospf.areas.0.0.0.0.virtual_links with OSPF for IPv4 and IPv6, RouterOS 7.24 runs neither the OSPFv2 nor the OSPFv3 virtual link when it has both. Run OSPF for one family on this router",
+        ];
     }
 
     /** What a label filter can't match: a prefix but not those inside it, a length, or a prefix and a prefix set at once. A set from a registry, whose prefixes `validate` never fetches, would be a filter for each. */
@@ -671,7 +701,7 @@ export class RouterOsRouting {
         }
     }
 
-    /** One instance per OSPF version, an area per area and instance with its ranges of the version's family, a template per interface, and the neighbors of a link without multicast. */
+    /** One instance per OSPF version, and an area per area and instance with its ranges of the version's family. Then a template per interface, the neighbors of a link without multicast, and an interface per virtual link. */
     private ospf(): void {
         const ospf = this.device.routing?.ospf;
         if (!ospf) return;
@@ -704,6 +734,7 @@ export class RouterOsRouting {
                     this.render.add("/routing ospf area range", "add", {
                         advertise: range.advertise ? "yes" : "no",
                         area: `${instance}-${areaId}`,
+                        cost: range.cost,
                         prefix: Address.prefixOf(range.prefix),
                     });
                 }
@@ -712,6 +743,16 @@ export class RouterOsRouting {
             for (const [areaId, area] of Object.entries(ospf.areas))
                 for (const [iface, settings] of Object.entries(area.interfaces))
                     this.ospfTemplate(`${instance}-${areaId}`, iface, settings ?? {});
+
+            // A virtual link is an OSPF interface of its own, not a template, which refuses `type=virtual-link` (TRAPS.md).
+            for (const [areaId, area] of Object.entries(ospf.areas))
+                for (const link of area.virtual_links ?? [])
+                    this.render.add("/routing ospf interface", "add", {
+                        area: `${instance}-${areaId}`,
+                        type: "virtual-link",
+                        "vlink-neighbor-id": link.router_id,
+                        "vlink-transit-area": `${instance}-${link.transit_area_id}`,
+                    });
         }
     }
 

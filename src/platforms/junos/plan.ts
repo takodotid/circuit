@@ -15,6 +15,9 @@ export class JunosPlan {
         [/^set snmp (community|trap-group) (?:"[^"]*"|\S+)/, "set snmp $1 <secret>"],
     ];
 
+    /** A value the device prints with more than it was given, in the form both sides share. A key chain's start time gets the switch's time zone: `"2001-1-1.00:00:00 +0700"`. */
+    private static readonly PRINTED_FORMS: [RegExp, string][] = [[/ start-time "([^" ]+) [+-]\d{4}"/, " start-time $1"]];
+
     /** Lists whose entries are named: a delete cannot stop at the list, `delete interfaces xe-0/0/1 unit`, only at an entry, `unit 0`. A leaf-list such as `vlan members` or `ciphers` can go whole. */
     private static readonly NAMED_LISTS = new Set([
         "address",
@@ -229,7 +232,8 @@ export class JunosPlan {
     /** A statement in the form both sides compare in: its words, secrets as one marker, quotes dropped. */
     private static keyOf(statement: string): string[] {
         let canonical = statement;
-        for (const [pattern, replacement] of JunosPlan.SECRETS) canonical = canonical.replace(pattern, replacement);
+        for (const [pattern, replacement] of [...JunosPlan.SECRETS, ...JunosPlan.PRINTED_FORMS])
+            canonical = canonical.replace(pattern, replacement);
 
         return JunosPlan.wordsOf(canonical).slice(1).map(JunosPlan.bare);
     }

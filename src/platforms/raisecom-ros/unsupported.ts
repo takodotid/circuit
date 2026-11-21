@@ -238,6 +238,8 @@ export class RaisecomRosUnsupported {
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${RaisecomRosUnsupported.RA_GUARD}`);
             if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         }
+        const { tpid, innerVlans } = Derive.stackedTags(device);
+        for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
 
         return found;
     }

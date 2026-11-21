@@ -228,9 +228,9 @@ export class DeviceChecks {
 
         const qinq = new Set(Derive.switchedHolders(device).flatMap(({ settings }) => (settings.qinq_vlan ? [settings.qinq_vlan] : [])));
         for (const [iface, settings] of Object.entries(device.interfaces?.vlan_interface ?? {}))
-            if (settings && qinq.has(settings.vlan))
+            if (settings && qinq.has(settings.vlan) && settings.inner_vlan_id === undefined)
                 report(
-                    `interfaces.vlan_interface.${iface} is on ${settings.vlan}, which carries customers' frames as a QinQ VLAN: route on another VLAN`
+                    `interfaces.vlan_interface.${iface} is on ${settings.vlan}, which carries customers' frames as a QinQ VLAN: route on another VLAN, or end one VLAN inside it with inner_vlan_id`
                 );
     }
 

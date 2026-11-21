@@ -32,11 +32,14 @@ import { Derive } from "../../core/derive";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
+import { RouterOsPseudowire } from "./pseudowire";
 import { RouterOsQueues } from "./queues";
 import { RouterOsSchedulers } from "./schedulers";
+import { RouterOsShapes } from "./shapes";
 import { RouterOsRender } from "./render";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSyntax } from "./syntax";
+import { RouterOsVlanTags } from "./vlan-tags";
 
 /** An SSH session or the console. Commands run one at a time, and each returns what it printed. */
 type Session = {
@@ -69,11 +72,8 @@ export class RouterOs extends Platform {
     private static readonly NO_VPNV6 =
         "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
 
-    /** A pseudowire's L2MTU, the MTU it tells the far PE, when its `mtu` is left out, and the least `mtu` Circuit writes. */
-    private static readonly PSEUDOWIRE_MTU = 1500;
-
-    /** The largest MTU of a VLAN interface on a bridge where a pseudowire runs: `PSEUDOWIRE_MTU` less a VLAN tag (TRAPS.md). */
-    private static readonly PSEUDOWIRE_VLAN_MTU = 1496;
+    /** RouterOS 7 has a loopback interface of its own by this name, and refuses another interface by it (TRAPS.md). */
+    private static readonly OWN_LOOPBACK = "lo";
 
     /** Version 6 has another BGP and filter language. */
     private static readonly SUPPORTED_MAJOR = 7;
@@ -187,12 +187,12 @@ export class RouterOs extends Platform {
     override readonly console = RouterOs.CONSOLE;
 
     /**
-     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning.
+     * A BGP session with a `routing_table` announces only what that table has a route for (TRAPS.md). A session left with nothing to announce is an error. A prefix missing from its table is a warning, since its export may not announce it anyway. A passive multihop session needs `local_address`. A NAT pool larger than the largest proven is a warning, and so is IS-IS on both levels.
      */
     override checks(device: Device): Finding[] {
         const bgp = device.routing?.bgp;
         const statics = device.routing?.static_routes ?? [];
-        const findings: Finding[] = [...RouterOsRouting.passiveWithoutAddress(device), ...RouterOsFirewall.largePools(device)];
+        const findings: Finding[] = [...RouterOsRouting.findings(device), ...RouterOsFirewall.largePools(device)];
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -256,35 +256,18 @@ export class RouterOs extends Platform {
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.bridge)) {
             found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
         }
+        for (const { name, kind } of Derive.interfaces(device))
+            if (name === RouterOs.OWN_LOOPBACK)
+                found.push(
+                    `interfaces.${kind}.${name}, the name of RouterOS's own loopback interface: write another name${kind === "loopback" ? ", such as loopback" : ""}`
+                );
         // MikroTik's changelog adds it in 7.25, which no device here runs yet.
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
-        const pseudowires = RouterOsSyntax.entries(device.interfaces?.pseudowire);
-        for (const [name, pseudowire] of pseudowires) {
-            if (device.switching?.vlans?.[pseudowire.access_vlan]?.private_vlan)
-                found.push(
-                    `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a private VLAN, not built for a pseudowire yet`
-                );
-            // A lower MTU would lower the bridge's VLAN interfaces with it, before which RouterOS refuses it (TRAPS.md).
-            if (pseudowire.mtu !== undefined && pseudowire.mtu < RouterOs.PSEUDOWIRE_MTU)
-                found.push(
-                    `interfaces.pseudowire.${name}.mtu ${pseudowire.mtu}: RouterOS refuses a pseudowire MTU below a VLAN interface's on its bridge with a tag, and the plan does not lower those first. Write ${RouterOs.PSEUDOWIRE_MTU} or more`
-                );
-        }
-        // A running pseudowire's L2MTU is the bridge's, so each VLAN interface on the bridge is lowered to it less a tag (TRAPS.md).
-        for (const [name, iface] of pseudowires.length ? RouterOsSyntax.entries(device.interfaces?.vlan_interface) : [])
-            if (iface.mtu === undefined || iface.mtu > RouterOs.PSEUDOWIRE_VLAN_MTU)
-                found.push(
-                    `interfaces.vlan_interface.${name}.mtu ${iface.mtu ?? "left out, 1500"} beside a pseudowire: RouterOS lowers it to ${RouterOs.PSEUDOWIRE_VLAN_MTU} once the pseudowire runs, and refuses more. Write mtu: ${RouterOs.PSEUDOWIRE_VLAN_MTU} or less`
-                );
+        found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
         found.push(...RouterOsFirewall.natGaps(device));
-        for (const field of ["dhcp_snooping", "ra_guard"] as const)
-            for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
-                if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
-        // A switch rule changes a VLAN ID as a frame comes in only, and exactly between two ports only.
-        for (const { where, settings } of Derive.switchedHolders(device))
-            if (settings.vlan_translation) found.push(`${where}.vlan_translation, RouterOS changes a VLAN ID only as a frame comes in`);
+        found.push(...RouterOsVlanTags.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
@@ -345,7 +328,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
-        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device));
+        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device), ...RouterOsRouting.ospfGaps(device));
 
         const bgp = device.routing?.bgp;
 
@@ -439,7 +422,7 @@ export class RouterOs extends Platform {
             );
         });
 
-        found.push(...RouterOs.unsupportedShapes(device));
+        found.push(...RouterOsShapes.unsupported(device));
         found.push(...RouterOsQueues.unsupported(device));
         found.push(...RouterOsSchedulers.unsupported(device));
         found.push(...RouterOsFirewall.markingGaps(device));
@@ -464,6 +447,8 @@ export class RouterOs extends Platform {
                 "ospf-ranges",
                 "ospf-priority",
                 "ospf-unicast-links",
+                "ospf-range-cost",
+                "ospf-virtual-links",
             ])
         );
 
@@ -478,51 +463,6 @@ export class RouterOs extends Platform {
                 "routing-tables",
             ])
         );
-
-        return found;
-    }
-
-    /** What the model allows and the render does not write. */
-    private static unsupportedShapes(device: Device): string[] {
-        const found: string[] = [];
-        const firewall = device.firewall;
-        const list = (value: unknown) => Array.isArray(value) && value.length > 1;
-
-        if (firewall?.interface_sets) found.push("firewall.interface_sets, which the platform does not build yet");
-
-        const chains = (["input", "forward", "output"] as const).map(
-            (chain) => [`firewall.filter.${chain}.rules`, firewall?.filter?.[chain]?.rules] as const
-        );
-        const others = [
-            ["firewall.nat.source", firewall?.nat?.source],
-            ["firewall.nat.destination", firewall?.nat?.destination],
-            ["qos.marking", device.qos?.marking],
-        ] as const;
-
-        for (const [where, rules] of [...chains, ...others]) {
-            (rules ?? []).forEach((rule, index) => {
-                for (const field of ["src", "dst", "in_interface", "out_interface"] as const) {
-                    if (list(rule.if?.[field])) found.push(`${where}[${index}].if.${field}, a list: write one rule for each`);
-                }
-
-                for (const field of ["in_interface_set", "out_interface_set"] as const) {
-                    if (rule.if?.[field] !== undefined) found.push(`${where}[${index}].if.${field}, which the platform does not build yet`);
-                }
-            });
-        }
-
-        for (const [name, rules] of RouterOsSyntax.entries(device.switching?.acls)) {
-            rules.forEach((rule, index) => {
-                for (const field of ["src", "dst", "vlan"] as const) {
-                    if (list(rule.if?.[field])) found.push(`switching.acls.${name}[${index}].if.${field}, a list: write one rule for each`);
-                }
-            });
-        }
-
-        const allow = device.management?.allow;
-        if (typeof allow === "string") found.push(`management.allow ${allow}, an address set by name: write its prefixes`);
-
-        found.push(...RouterOsRouting.policyGaps(device));
 
         return found;
     }

@@ -26,7 +26,7 @@ A home, an office, or an internal network. It has a router, a switch, three VLAN
 
 ## An edge router
 
-Your own AS with two edge routers, a broadband gateway, and the router of an office of yours. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, or with DHCP on a second PON port (IPoE), and RADIUS checks each home. A home router that asks gets an IPv6 prefix. The office router logs in to the gateway as a home does, asks for a /56, and gives the office a /64 of it.
+Your own AS with two edge routers, a broadband gateway, and the router of an office of yours. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, or with DHCP on a second PON port (IPoE), and RADIUS checks each home. The OLT tags with 802.1ad's service tag, and a business on a third PON port ends in a VLAN of its own inside the port's (QinQ). A home router that asks gets an IPv6 prefix. The office router logs in to the gateway as a home does, asks for a /56, and gives the office a /64 of it.
 
 ::: code-group
 
@@ -72,7 +72,7 @@ Two provider edge routers, one in each point of presence. IS-IS carries their lo
 
 ## A campus on OSPF
 
-Three routers on private IPv4 addresses and the campus's own IPv6 prefix, running OSPF without BGP. The core router is the backbone's designated router, with BFD on the backbone VLAN, and announces a static route to the labs into OSPF. The library's router joins the backbone with priority 0, and is the border router of a totally stubby area. It announces the area to the backbone as one range for each family, and hides the archive. In that area, the field station's router runs IPv4 only. Its radio to two stations that don't hear each other is point-to-multipoint, with a key. Its carrier's line carries no multicast, so it is NBMA, with its neighbor written out. It says hello less often there.
+Five routers on private IPv4 addresses and the campus's own IPv6 prefix, running OSPF without BGP. The core router is the backbone's designated router, with BFD on the backbone VLAN, and announces a static route to the labs into OSPF. The library's router joins the backbone with priority 0, and is the border router of a totally stubby area. It announces the area to the backbone as one range for each family, and hides the archive. In that area, the field station's router runs IPv4 only. Its radio to two stations that don't hear each other is point-to-multipoint, with a key. Its carrier's line carries no multicast, so it is NBMA, with its neighbor written out. It says hello less often there. The museum runs IPv4 only. Its router is on the backbone VLAN, and a fiber leads to the galleries' router, in an area between them. The galleries' router has no link into the backbone, so a virtual link to the museum's router, across that area, joins it. It announces the galleries' area as one range, at a cost of its own.
 
 ::: code-group
 
@@ -83,6 +83,10 @@ Three routers on private IPv4 addresses and the campus's own IPv6 prefix, runnin
 <<< @/../examples/campus/sites/library/library-01.ts
 
 <<< @/../examples/campus/sites/field-station/field-01.ts
+
+<<< @/../examples/campus/sites/museum/museum-01.ts
+
+<<< @/../examples/campus/sites/museum/museum-02.ts
 
 :::
 

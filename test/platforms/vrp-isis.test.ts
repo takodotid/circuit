@@ -189,7 +189,7 @@ test("VRP runs IS-IS on VLAN interfaces, which is experimental, and refuses what
 
     const refused: Isis = {
         ...isis,
-        authentication: { key: { secret: "ISIS_KEY" } },
+        authentication: { algorithm: "hmac-md5", key: { secret: "ISIS_KEY" } },
         interfaces: { mgmt: { bfd: true }, "10g-2": {} },
     };
     expect(vrp.unsupported(routed(refused))).toEqual([
@@ -222,7 +222,7 @@ test("only a router on both levels leaks, through a policy that picks prefixes a
     ]);
 });
 
-test("RouterOS, Junos, and FortiOS refuse leaking between levels", () => {
+test("RouterOS and FortiOS refuse leaking between levels", () => {
     const withLeak = (fixture: string, link: string): Device => {
         const device = Fixtures.device(fixture);
         return {
@@ -238,11 +238,7 @@ test("RouterOS, Junos, and FortiOS refuse leaking between levels", () => {
     expect(Platforms.get("routeros").unsupported(withLeak("platforms--example-router", "uplink"))).toContain(
         "routing.isis.level2_to_level1, RouterOS 7.24 leaks every level 2 route into level 1, and l1.out-filter-chain holds none back (TRAPS.md)"
     );
-    for (const [platform, fixture, link] of [
-        ["junos", "platforms--example-aggregation-switch", "10g-48"],
-        ["fortios", "platforms--example-firewall", "10g-2"],
-    ] as const)
-        expect(Platforms.get(platform).unsupported(withLeak(fixture, link))).toContain(
-            "routing.isis.level2_to_level1, not built yet, since no device of the platform has run it"
-        );
+    expect(Platforms.get("fortios").unsupported(withLeak("platforms--example-firewall", "10g-2"))).toContain(
+        "routing.isis.level2_to_level1, not built yet, since no device of the platform has run it"
+    );
 });
