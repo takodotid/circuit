@@ -1,6 +1,7 @@
 // MPLS with LDP. RouterOS 7.24.6 ran it on three CHRs (test/platforms/routeros-chr-mpls.test.ts). Junos 21.4R3 took the statements in a `commit check` on a QFX5100, nothing committed (TRAPS.md), so it is experimental there.
 
 import { expect, test } from "bun:test";
+import { Checks } from "../../src/checks";
 import { DeviceChecks } from "../../src/checks/device";
 import type { Device, Mpls, PolicyRule } from "../../src/model";
 import { Platforms } from "../../src/platforms";
@@ -136,8 +137,63 @@ test("an LDP interface is a link in the main table, with an IPv4 address, and li
     );
 });
 
+test("a targeted LDP session runs to another router's LSR ID, listed once", () => {
+    expect(errors(withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, targets: ["192.0.2.2", "192.0.2.3"] } }))).toEqual([]);
+
+    const device = withMpls("platforms--example-router", {
+        ldp: { ...ROUTER.ldp, targets: ["192.0.2.2", "192.0.2.2", "192.0.2.255", "192.0.2.256"] },
+    });
+    expect(errors(device)).toEqual([
+        "routing.mpls.ldp.targets 192.0.2.2 is listed twice. Remove one",
+        "routing.mpls.ldp.targets 192.0.2.255 is this router's own LSR ID. Write the far router's",
+        "routing.mpls.ldp.targets 192.0.2.256 is not an IPv4 address. Write the far router's LSR ID, such as 192.0.2.2",
+    ]);
+});
+
+test("a target that is another of our routers has a target back there, which RouterOS needs before it answers", async () => {
+    const devices = await Fixtures.example("mpls-core");
+    const pe01 = devices["pe-01"]!;
+    const pe03 = devices["pe-03"]!;
+    const crossErrors = (network: Device[]) =>
+        Checks.run(network, undefined)
+            .filter((finding) => finding.level === "error")
+            .map((finding) => `${finding.device}: ${finding.message}`);
+    expect(crossErrors([pe01, devices["pe-02"]!, pe03])).toEqual([]);
+
+    const oneWay = { ...pe03, routing: { ...pe03.routing, mpls: { ldp: { ...pe03.routing!.mpls!.ldp, targets: [] } } } };
+    expect(crossErrors([pe01, devices["pe-02"]!, oneWay])).toEqual([
+        "pe-01: routing.mpls.ldp.targets 10.255.0.3 is pe-03's LSR ID, and pe-03 has no target back to 10.255.0.1, so it may ignore this router's targeted hellos. Write 10.255.0.1 in its routing.mpls.ldp.targets",
+    ]);
+});
+
+test("RouterOS writes each target as a static LDP neighbor that sends targeted hellos, and removes only those it wrote", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, targets: ["192.0.2.2"] } });
+    const desired = routeros.render(device);
+    const without = routeros.render(withMpls("platforms--example-router", ROUTER));
+
+    expect(desired).toContain("/mpls ldp neighbor\nadd send-targeted=yes transport=192.0.2.2\n");
+    expect(sent("routeros", desired, without)).toEqual(["/mpls ldp neighbor add send-targeted=yes transport=192.0.2.2"]);
+    // LDP lists the neighbors it finds beside those it was told, and refuses to remove one it found.
+    expect(sent("routeros", without, desired)).toEqual(["/mpls ldp neighbor remove [ find transport=192.0.2.2 and !dynamic ]"]);
+    expect(sent("routeros", desired, desired)).toEqual([]);
+});
+
+test("Junos refuses targeted LDP while its MPLS is experimental", () => {
+    const device = withMpls("platforms--example-aggregation-switch", {
+        ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"], targets: ["203.0.113.66"] },
+    });
+
+    expect(Platforms.get("junos").unsupported(device)).toContain(
+        "routing.mpls.ldp.targets, not built for Junos yet: its MPLS is experimental, untested on a router that runs it"
+    );
+});
+
 /** The example router with LDP's policies, and the policies and prefix sets they use beside its own. */
-function withLdpPolicies(ldp: Pick<Mpls["ldp"], "import_policy" | "export_policy">, policies: Record<string, PolicyRule[]>): Device {
+function withLdpPolicies(
+    ldp: Pick<Mpls["ldp"], "import_policy" | "export_policy" | "neighbors">,
+    policies: Record<string, PolicyRule[]>
+): Device {
     const device = withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, ...ldp } });
     const routing = device.routing!;
     return {
@@ -218,15 +274,74 @@ test("RouterOS refuses an LDP policy's rule that a label filter can't hold", () 
 
 test("Junos refuses LDP's policies while its MPLS is experimental", () => {
     const device = withMpls("platforms--example-aggregation-switch", {
-        ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"], import_policy: "labels", export_policy: "labels" },
+        ldp: {
+            lsr_id: "203.0.113.65",
+            interfaces: ["10g-48"],
+            import_policy: "labels",
+            export_policy: "labels",
+            neighbors: { "203.0.113.66": { import_policy: "labels" } },
+        },
     });
 
     expect(Platforms.get("junos").unsupported(device)).toEqual(
         expect.arrayContaining([
             "routing.mpls.ldp.import_policy, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
             "routing.mpls.ldp.export_policy, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
+            "routing.mpls.ldp.neighbors, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
         ])
     );
+});
+
+test("a neighbor's label policies are for another router's LSR ID, at least one, and match a label's prefix only", () => {
+    const fine = withLdpPolicies(
+        { import_policy: "loopbacks", neighbors: { "192.0.2.2": { import_policy: "own", export_policy: "own" } } },
+        LOOPBACKS
+    );
+    expect(errors(fine)).toEqual([]);
+
+    const device = withLdpPolicies(
+        {
+            neighbors: {
+                "192.0.2.255": { import_policy: "loopbacks" },
+                "192.0.2.256": { export_policy: "loopbacks" },
+                "192.0.2.3": {},
+                "192.0.2.4": { export_policy: "set" },
+            },
+        },
+        { ...LOOPBACKS, set: [{ set: { local_pref: 200 }, then: "accept" }] }
+    );
+    expect(errors(device)).toEqual([
+        "routing.mpls.ldp.neighbors.192.0.2.255: 192.0.2.255 is this router's own LSR ID. Write a neighbor's",
+        "routing.mpls.ldp.neighbors.192.0.2.256: 192.0.2.256 is not an IPv4 address. Write the neighbor's LSR ID, such as 192.0.2.2",
+        "routing.mpls.ldp.neighbors.192.0.2.3 has no policy. Write import_policy or export_policy, or remove it",
+        'routing.mpls.ldp.neighbors.192.0.2.4.export_policy set: routing.policies.set[0].set, and an LDP label has nothing to set. Remove set, and write then: "accept" or "reject"',
+    ]);
+});
+
+test("RouterOS writes a neighbor's label policy as filters held to its LSR ID, before the device's, which then decide for every other neighbor", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withLdpPolicies(
+        { import_policy: "loopbacks", export_policy: "loopbacks", neighbors: { "192.0.2.2": { import_policy: "own" } } },
+        LOOPBACKS
+    );
+    expect(ldpGaps(device)).toEqual([]);
+
+    const desired = routeros.render(device);
+    expect(desired).toContain(
+        "/mpls ldp accept-filter\nadd accept=yes neighbor=192.0.2.2 prefix=192.0.2.255/32\nadd accept=yes neighbor=192.0.2.2 prefix=192.0.2.0/24\nadd accept=no neighbor=192.0.2.2 prefix=0.0.0.0/0\nadd accept=yes prefix=192.0.2.0/24\nadd accept=no prefix=0.0.0.0/0\n"
+    );
+    expect(desired).toContain("/mpls ldp advertise-filter\nadd advertise=yes prefix=192.0.2.0/24\nadd advertise=no prefix=0.0.0.0/0\n");
+    // As a CHR printed them.
+    expect(routeros.plan(desired, desired, options).steps).toEqual([]);
+
+    // A neighbor's policy that RouterOS can't hold is refused as the device's is.
+    const wide = withLdpPolicies(
+        { neighbors: { "192.0.2.2": { export_policy: "wide" } } },
+        { wide: [{ if: { prefix: "192.0.2.0/24" }, then: "accept" }] }
+    );
+    expect(ldpGaps(wide)).toEqual([
+        "routing.policies.wide[0].if.prefix 192.0.2.0/24 in an LDP policy: a RouterOS label filter matches the prefixes inside it too. Write a prefix set, which matches so",
+    ]);
 });
 
 test("RouterOS rewrites the label filters in order, then restarts LDP so its sessions take them, and leaves it running when they don't change", () => {

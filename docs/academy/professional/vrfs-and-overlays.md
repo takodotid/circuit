@@ -212,7 +212,7 @@ pseudowire: {
 },
 ```
 
-`pe-02` writes one back, with `peer: "192.0.2.1"` and the same `pw_id`. The two PEs also tell each other the largest frame the pseudowire carries, its `mtu`, and both must say the same. One pseudowire between two sites is called a VPWS. Several in one VLAN, one to each other PE, join many sites into one LAN, a VPLS. There, a frame that arrives over one pseudowire never leaves over another, so the PEs make no loop.
+`pe-02` writes one back, with `peer: "192.0.2.1"` and the same `pw_id`. LDP finds its neighbors on its links, and sets up a session to each pseudowire's far PE by itself, even across the core. For a session with another router that isn't a neighbor, list its loopback in `routing.mpls.ldp.targets`, at both ends: a targeted session. The two PEs also tell each other the largest frame the pseudowire carries, its `mtu`, and both must say the same. One pseudowire between two sites is called a VPWS. Several in one VLAN, one to each other PE, join many sites into one LAN, a VPLS. There, a frame that arrives over one pseudowire never leaves over another, so the PEs make no loop.
 
 Circuit doesn't do the rest of this lesson: **no EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
 

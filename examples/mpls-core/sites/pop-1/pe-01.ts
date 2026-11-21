@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP labels each loopback, so traffic between the two crosses the core by label. iBGP carries the routes of the bank's VRF to pe-02 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP labels each loopback, so traffic between the two crosses the core by label. iBGP carries the routes of the bank's VRF to pe-02 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS). A targeted LDP session joins it to pe-03, across pe-02.
 
 import { as64500 } from "../../circuit";
 
@@ -65,8 +65,18 @@ export default as64500.device({
                 "100g-1": { network: "point-to-point", metric: 10 },
             },
         },
-        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-02, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
-        mpls: { ldp: { lsr_id: "10.255.0.1", interfaces: ["100g-1"], import_policy: "loopbacks", export_policy: "loopbacks" } },
+        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-02, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link. pe-03 is no neighbor, so LDP holds a targeted session with it, and pe-03 has one back.
+        mpls: {
+            ldp: {
+                lsr_id: "10.255.0.1",
+                interfaces: ["100g-1"],
+                targets: ["10.255.0.3"],
+                import_policy: "loopbacks",
+                export_policy: "loopbacks",
+                // Traffic between pe-01 and pe-03 goes by pe-02's labels, so over their session the two give each other only their own loopback's.
+                neighbors: { "10.255.0.3": { import_policy: "pe-03-loopback", export_policy: "own-loopback" } },
+            },
+        },
         // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
         bgp: {
             neighbors: {
@@ -86,6 +96,8 @@ export default as64500.device({
         policies: {
             "bank-offices": [{ if: { prefix_set: "bank-offices" }, then: "accept" }, { then: "reject" }],
             loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
+            "own-loopback": [{ if: { prefix: "10.255.0.1/32" }, then: "accept" }, { then: "reject" }],
+            "pe-03-loopback": [{ if: { prefix: "10.255.0.3/32" }, then: "accept" }, { then: "reject" }],
         },
     },
 });
