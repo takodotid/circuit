@@ -149,7 +149,8 @@ export default as64500.device({
         // #region cgnat-dynamic
         // The branch offices reach the internet through Cogent from a pool of our addresses. A host gets blocks of 512 ports as it
         // needs them, 4 at most, and the device logs each block it gives and takes back. Only that log says which host had a pool
-        // address and port at the time of an abuse report.
+        // address and port at the time of an abuse report. A host keeps a block two minutes after its last connection ends, so a
+        // host that connects again soon leaves from the same address and ports, with no new log line.
         nat: {
             source: [
                 {
@@ -160,6 +161,7 @@ export default as64500.device({
                     port_allocation: "dynamic",
                     port_set_size: 512,
                     port_sets_per_subscriber: 4,
+                    port_set_timeout: 120,
                 },
             ],
         },
