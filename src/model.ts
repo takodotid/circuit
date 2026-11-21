@@ -19,6 +19,7 @@ export type {
     IPv6,
     IpsecEncryption,
     IpsecEsp,
+    IpsecIdentity,
     IpsecIke,
     IpsecIntegrity,
     Limit,

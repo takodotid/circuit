@@ -23,6 +23,7 @@ function withTunnels(fixture: string, ipsec: Record<string, Ipsec>): Device {
 }
 
 const fortios = Platforms.get("fortios");
+const options = { secrets: false, rollback: 10 };
 
 test("FortiOS writes a phase 1, a phase 2 named after it, and the tunnel's interface, and plans nothing against its own render", () => {
     const desired = fortios.render(withTunnels("platforms--example-firewall", { "ipsec-branch-1": TUNNEL }));
@@ -184,6 +185,100 @@ test("FortiOS carries IPv6 in a second phase 2 when the tunnel has an IPv6 addre
     // Without an IPv6 address, the tunnel has one phase 2.
     expect(fortios.render(withTunnels("platforms--example-firewall", { "ipsec-branch-1": TUNNEL }))).not.toContain(
         `edit "ipsec-branch-1-v6"`
+    );
+});
+
+/** A tunnel with certificates, from the firewall fixture, and its CA, `branch-ca`. */
+function withCertificates(ipsec: Record<string, Ipsec>, vdoms = false): Device {
+    const device = withTunnels("platforms--example-firewall", ipsec);
+    const certificates = { ...device.system?.certificates, "branch-ca": { certificate_file: "platforms--example-firewall.web.pem" } };
+    const management = vdoms ? { vdoms: { management: { name: "mgmt", interfaces: ["1g-1"] } } } : {};
+    return { ...device, system: { ...device.system, certificates, ...management } };
+}
+
+const CERTIFIED: Ipsec = { ...TUNNEL, pre_shared_key: undefined, certificate: "web", ca_certificate: "branch-ca" };
+
+// Tested on the FG-3700D on 6.2.2, in a test VDOM: a subject added, changed, taken away, and added again with the tunnel removed, each plan empty after. No IKE peer sent a certificate, so it is experimental.
+test("FortiOS takes only the peer's certificate with the subject written, through a user peer of the tunnel's own and an exact match", () => {
+    const anyCertificate = fortios.render(withCertificates({ "ipsec-branch-1": CERTIFIED }));
+    const identity = { distinguished_name: "CN=branch-1,O=Example" };
+    const device = withCertificates({ "ipsec-branch-1": { ...CERTIFIED, remote_identity: identity } });
+    const desired = fortios.render(device);
+
+    expect(fortios.unsupported(device)).toEqual([]);
+    expect(fortios.experimental!(device)).toContain("interfaces.ipsec.ipsec-branch-1.remote_identity");
+    expect(desired).toContain(`config vpn certificate setting
+    set subject-match value
+end
+config user peer
+    edit "ipsec-branch-1"
+        set ca "branch-ca"
+        set subject "CN=branch-1,O=Example"
+    next
+end`);
+    expect(desired).toContain('        set certificate "web"\n        set peer "ipsec-branch-1"\n');
+    // The device doesn't print the peer a tunnel with certificates takes (TRAPS.md).
+    const shown = desired.replace("        set peertype peer\n", "");
+    expect(fortios.plan(desired, shown, options)).toEqual({ steps: [], problems: [] });
+
+    const added = fortios.plan(desired, anyCertificate, options).steps;
+    expect(added.map((step) => step.title)).toEqual([
+        "vpn certificate setting",
+        "user peer",
+        "vpn ipsec phase1-interface",
+        "user peer, removed",
+    ]);
+    expect(added[0]?.send).toEqual(["config vpn certificate setting", "set subject-match value", "end"]);
+    expect(added.at(-1)?.send).toEqual(["config user peer", 'delete "branch-ca"', "end"]);
+
+    const removed = fortios.plan(anyCertificate, desired, options).steps;
+    expect(removed[0]?.send).toEqual(["config vpn certificate setting", "unset subject-match", "end"]);
+    expect(removed.at(-1)?.send).toEqual(["config user peer", 'delete "ipsec-branch-1"', "end"]);
+});
+
+test("in multi-VDOM mode, the exact match is root's, as the tunnels are", () => {
+    const device = withCertificates({ "ipsec-branch-1": { ...CERTIFIED, remote_identity: { distinguished_name: "CN=branch-1" } } }, true);
+    const current = fortios.render(withCertificates({ "ipsec-branch-1": CERTIFIED }, true));
+    const steps = fortios.plan(fortios.render(device), current, options).steps;
+
+    expect(steps[0]?.title).toBe("root: vpn certificate setting");
+    expect(steps[0]?.send).toEqual([
+        "config vdom",
+        "edit root",
+        "config vpn certificate setting",
+        "set subject-match value",
+        "end",
+        "next",
+        "end",
+    ]);
+});
+
+test("FortiOS refuses an identity it would look for in the certificate's subject alternative names, and a tunnel named after another tunnel's CA", () => {
+    const device = withCertificates({
+        "ipsec-branch-1": { ...CERTIFIED, remote_identity: { fqdn: "branch-1.example.net" } },
+        "ipsec-branch-2": { ...CERTIFIED, remote_address: "192.0.2.30", remote_identity: { email: "noc@example.net" } },
+        "ipsec-branch-3": { ...CERTIFIED, remote_address: "192.0.2.40", remote_identity: { address: "192.0.2.40" } },
+        "branch-ca": { ...CERTIFIED, remote_address: "192.0.2.50", remote_identity: { distinguished_name: "CN=branch-5" } },
+    });
+    const refused = fortios.unsupported(device);
+    const alternative = (name: string, kind: string) =>
+        `interfaces.ipsec.${name}.remote_identity.${kind}, which RFC 4945 finds in a certificate's subject alternative names: the platform matches the subject alone, so write distinguished_name`;
+
+    expect(refused).toEqual(
+        expect.arrayContaining([
+            alternative("ipsec-branch-1", "fqdn"),
+            alternative("ipsec-branch-2", "email"),
+            alternative("ipsec-branch-3", "address"),
+        ])
+    );
+    expect(refused).not.toContainEqual(expect.stringContaining("interfaces.ipsec.branch-ca.remote_identity"));
+
+    const shared = withCertificates({
+        "ipsec-branch-1": CERTIFIED,
+        "branch-ca": { ...CERTIFIED, remote_address: "192.0.2.50", remote_identity: { distinguished_name: "CN=branch-5" } },
+    });
+    expect(fortios.unsupported(shared)).toContain(
+        "interfaces.ipsec.branch-ca.remote_identity, as the tunnel's user peer, named branch-ca, is the one of the CA branch-ca too: rename the tunnel"
     );
 });
 
