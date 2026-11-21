@@ -17,6 +17,8 @@ type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan" | "ipsec
 export class CrossChecks {
     /** An interface's MTU when the config gives none. */
     private static readonly ETHERNET_MTU = 1500;
+    /** The TPID of a port's tags when the config gives none: 802.1Q's customer tag. */
+    private static readonly TPID = "0x8100";
     /** IANA's VXLAN port (RFC 7348), when the config gives none. */
     private static readonly VXLAN_PORT = 4789;
 
@@ -192,6 +194,14 @@ export class CrossChecks {
                         `${near.where} carries ${CrossChecks.describeCarried(here)}, and ${link.device} ${away.where} carries ${CrossChecks.describeCarried(there)}`
                     );
                 }
+
+                // A tag of another TPID counts as no tag, so each end would take the other's tagged frames as untagged.
+                const tpid = near.settings.tpid ?? CrossChecks.TPID;
+                const farTpid = away.settings.tpid ?? CrossChecks.TPID;
+                if (!qinq && tpid !== farTpid)
+                    report(
+                        `${near.where} tags with TPID ${tpid}, and ${link.device} ${away.where} with ${farTpid}: write the same tpid at both ends`
+                    );
 
                 if (port.speed && farPort.speed && port.speed !== farPort.speed) {
                     report(`speed ${port.speed}, and ${farPortWhere} is ${farPort.speed}`);
