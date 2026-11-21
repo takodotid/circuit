@@ -67,6 +67,14 @@ Area 0 is the <Term means="The OSPF area that every other area must connect to, 
 
 An area at the edge, such as a branch office with one way out, needs few routes. As a **stub area**, it takes no routes that were redistributed into OSPF, and its border router announces a default route into it instead. An **NSSA** (not-so-stubby area) is a stub area that may still redistribute routes of its own, such as a customer's static routes. With no summaries, the area doesn't take the other areas' routes either, only the default route.
 
+A border router can also sum an area up. It announces a **range**, such as `10.1.0.0/17`, in place of each network of the area inside it. The other areas then keep one route instead of many, and a VLAN added or removed inside the range changes nothing for them. A range can be hidden instead, so the other areas don't reach those networks at all.
+
+## Links with more routers
+
+On a link with more than two routers, such as a VLAN that every building's router joins, the routers don't each exchange maps with all the others. They elect a <Term means="The router on a shared link that every other router there exchanges its map with, so each needs one neighbor there instead of all of them.">designated router</Term> (DR) and a backup, and exchange maps with those two only. The router with the highest **priority** wins, and a router with priority 0 is never elected. Give the router built for it the highest priority, and the others 0.
+
+Two other kinds of link are rarer. On a radio link, two stations may each hear the router but not each other, so they can't agree on a DR. As **point-to-multipoint**, OSPF treats the link as a point-to-point link to each station. Some carriers' lines carry no multicast, so OSPF can't find its neighbors there. As **NBMA** (non-broadcast multi-access), you write each neighbor's address, and OSPF sends its hellos to each one.
+
 ## OSPF in Circuit
 
 OSPF is `routing.ospf`. Each area, under its ID, lists the interfaces that OSPF runs on:
@@ -149,6 +157,37 @@ routing: {
 | `hello_interval`, `dead_interval` | Seconds between hellos, and without a hello before the neighbor is down. Both ends of a link write the same.                                   |
 | `authentication`                  | Sign each packet with a key both ends share, so no other device can join. MD5 keys are 16 characters at most. OSPF for IPv6 takes no key here. |
 
+This building's router joins the backbone VLAN with priority 0, so it never becomes the DR there. It sums its area into one range and hides a second, and runs its radio link as point-to-multipoint and a carrier's line as NBMA:
+
+```ts
+routing: {
+    ospf: {
+        areas: {
+            "0.0.0.0": {
+                interfaces: { "25g-1": { priority: 0 } },
+            },
+            "0.0.0.1": {
+                ranges: [
+                    { prefix: "10.1.0.0/17", advertise: true },
+                    { prefix: "10.1.128.0/17", advertise: false },
+                ],
+                interfaces: {
+                    "25g-2": { network: "point-to-multipoint" },
+                    "25g-3": { network: "non-broadcast", neighbors: ["10.1.3.2"] },
+                },
+            },
+        },
+    },
+},
+```
+
+| Field                                   | What it does                                                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `ranges`                                | On the area's border router: announce each `prefix` as one route, or with `advertise: false`, announce none of it. |
+| `priority`                              | 0 to 255. On a shared link, the highest becomes the DR, and 0 never does.                                          |
+| `network: "point-to-multipoint"`        | For a radio link where the stations don't all hear each other. No DR is elected.                                   |
+| `network: "non-broadcast"`, `neighbors` | For a link that carries no multicast: write each neighbor's address on the link. Both kinds of link are IPv4 only. |
+
 <Quiz
   question="Your router runs OSPF on its cable to another router. You add a guests VLAN, where only phones and laptops are. How should it appear in the OSPF area?"
   :choices="['With passive: true', 'Not at all', 'With network: point-to-point']"
@@ -167,5 +206,5 @@ OSPF runs directly on IP. It uses neither TCP nor UDP. If the router's [input fi
 To see which routers become neighbors before you apply anything, open the OSPF layer of the graph in `circuit studio`.
 
 ::: warning Not every platform runs every part
-VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. Junos and FortiOS don't run it in a VRF. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
+VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. Junos and FortiOS don't run it in a VRF. Ranges, priorities, and point-to-multipoint and NBMA links run on RouterOS only, for now. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
 :::

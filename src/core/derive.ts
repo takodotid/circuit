@@ -96,7 +96,10 @@ export type BuiltFeature =
     | "urpf"
     | "vrf-imports"
     | "rate-limit"
-    | "marking";
+    | "marking"
+    | "ospf-ranges"
+    | "ospf-priority"
+    | "ospf-unicast-links";
 
 export class Derive {
     /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
@@ -615,7 +618,39 @@ export class Derive {
         if (!has("rate-limit")) for (const { where } of Derive.rateLimited(device)) found.push(`${where}.rate_limit, ${notBuilt}`);
         if (device.qos?.marking && !has("marking")) found.push(`qos.marking, ${notBuilt}`);
 
+        found.push(...Derive.unbuiltOspf(device, has));
         return found;
+    }
+
+    /** OSPF's area ranges, router priority, and point-to-multipoint and NBMA links, which a platform builds once a device of it has run them. */
+    private static unbuiltOspf(device: Device, has: (feature: BuiltFeature) => boolean): string[] {
+        const found: string[] = [];
+        const untried = "not built yet, since no device of the platform has run it";
+
+        for (const [areaId, area] of Object.entries(device.routing?.ospf?.areas ?? {})) {
+            const where = `routing.ospf.areas.${areaId}`;
+            if (area.ranges && !has("ospf-ranges")) found.push(`${where}.ranges, ${untried}`);
+
+            for (const [name, settings] of Object.entries(area.interfaces)) {
+                const at = `${where}.interfaces.${name}`;
+                if (settings?.priority !== undefined && !has("ospf-priority")) found.push(`${at}.priority, ${untried}`);
+                if (has("ospf-unicast-links")) continue;
+                if (settings?.network === "point-to-multipoint" || settings?.network === "non-broadcast")
+                    found.push(`${at}.network ${settings.network}, ${untried}`);
+                if (settings?.neighbors) found.push(`${at}.neighbors, ${untried}`);
+            }
+        }
+
+        return found;
+    }
+
+    /** Where each DHCP server asks RADIUS about its leases, `radius` and `acct_interim_interval`, for a platform that doesn't build it. */
+    static radiusLeases(device: Device): string[] {
+        return Object.entries(device.services?.dhcp_server ?? {}).flatMap(([name, server]) =>
+            (["radius", "acct_interim_interval"] as const)
+                .filter((key) => server[key] !== undefined)
+                .map((key) => `services.dhcp_server.${name}.${key}`)
+        );
     }
 
     /** Each VRF a service of the device itself names, with where: a management service, SNMP, NTP, DNS, a syslog collector, or a RADIUS server. */

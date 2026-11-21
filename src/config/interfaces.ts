@@ -499,6 +499,8 @@ export type Bridge<VlanInterface extends string, Vrf extends string> = Omit<Base
  * An IPv6 prefix a PPPoE client asks its server for (DHCPv6 prefix delegation, RFC 9915), as a home router does (RFC 7084). The router gives each of `interfaces` a /64 of it, so a /64 delegated serves one.
  */
 export type ClientPrefixDelegation<I extends string> = {
+    /** The length of the prefix it asks for, such as 56: a prefix-length hint (RFC 8168). The server may give another length, and the router takes it. No length is asked for when absent. */
+    prefix_length?: number;
     /** The ports and interfaces that each take a /64 of the delegated prefix, with the router's address in it written by its last 64 bits, such as `{ home: "::1" }`. One with `ipv6_ra` announces its /64, so hosts there make their own addresses. */
     interfaces: Named<I, IPv6>;
 };

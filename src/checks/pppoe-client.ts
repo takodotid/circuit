@@ -30,6 +30,7 @@ export class PppoeClientChecks {
             const at = `${where}.prefix_delegation.interfaces`;
             const lans = Object.entries(delegation.interfaces);
             if (!lans.length) report(`${at} is empty: write the interfaces that each take a /64 of the prefix, such as { home: "::1" }`);
+            PppoeClientChecks.hint(`${where}.prefix_delegation.prefix_length`, delegation.prefix_length, lans.length, report);
 
             for (const [lan, address] of lans) {
                 if (lan === name || lan === client.interface)
@@ -48,6 +49,16 @@ export class PppoeClientChecks {
                     );
             }
         }
+    }
+
+    /** A length the prefix may have: a /64 at most, and short enough to hold a /64 for each interface that takes one. */
+    private static hint(where: string, length: number | undefined, interfaces: number, report: Report): void {
+        if (length === undefined) return;
+        const most = Number(PppoeClientChecks.INTERFACE_ID_BITS) - Math.ceil(Math.log2(Math.max(interfaces, 1)));
+        if (!Number.isInteger(length) || length < 1 || length > most)
+            report(
+                `${where} ${length} is not a whole number from 1 to ${most}, the longest prefix that holds a /64 for each interface listed`
+            );
     }
 
     /** A routed port, LAG, or VLAN interface: on a switched one, the switch would take the session's frames. A port in a LAG carries it as the LAG. */

@@ -11,8 +11,8 @@ export type Reservation = {
     description?: string;
 };
 
-/** A DHCP server for one IPv4 network. */
-export type DhcpServer<I extends string> = {
+/** A DHCP server for one IPv4 network. `F` is the device's VRFs. */
+export type DhcpServer<I extends string, F extends string = string> = {
     /** The port or interface it answers on. */
     interface: I;
     /** The IPv4 network it serves. An IPv6 network is served by `dhcpv6_server`. */
@@ -27,6 +27,10 @@ export type DhcpServer<I extends string> = {
     lease_time?: number;
     /** Addresses fixed to a MAC. */
     reservations?: readonly Reservation[];
+    /** RADIUS servers, in order, as `pppoe_server` writes them. A client gets a lease only once they accept it (RFC 2865), asked by its MAC address. They get the accounting of each lease (RFC 2866). Every client gets a lease when absent. */
+    radius?: readonly RadiusServer<F>[];
+    /** Seconds between reports of each lease's use to the RADIUS servers (RFC 2869). Only at the start and the end of a lease when absent. Only with `radius`. */
+    acct_interim_interval?: number;
 };
 
 /** Prefixes a DHCPv6 server delegates to routers that ask, such as a customer's router (IA_PD, RFC 9915). */
@@ -70,7 +74,7 @@ export type Upnp<I extends string> = {
 };
 
 /**
- * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, and its rate comes from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
+ * A PPPoE server (RFC 2516) for subscribers, such as the homes behind an OLT. The RADIUS servers check each subscriber's name and password (RFC 2865) and get its accounting (RFC 2866). A subscriber's address comes from `pool` unless RADIUS sends one, its IPv6 prefix from `prefix_delegation` unless RADIUS sends one, and its rate from RADIUS. Subscribers live in RADIUS: Circuit writes no local users or rates, and removes those it finds.
  */
 export type PppoeServer<I extends string, F extends string = string> = {
     /** The ports and interfaces subscribers connect on. */
@@ -91,14 +95,14 @@ export type PppoeServer<I extends string, F extends string = string> = {
     acct_interim_interval?: number;
     /** Let the RADIUS servers end a session or change it, such as its rate, on UDP port 3799 (RFC 5176). Off when absent. */
     dynamic_authorization?: true;
-    /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. No IPv6 prefix when absent. */
+    /** IPv6 prefixes delegated to subscribers' routers that ask over their session (DHCPv6 over IPv6CP, RFC 5072), as `dhcpv6_server` delegates them. A subscriber that RADIUS sends a prefix for (Delegated-IPv6-Prefix, RFC 4818) gets that one instead. When absent, only those subscribers get a prefix. */
     prefix_delegation?: PrefixDelegation;
 };
 
 /** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs. */
 export type Services<I extends string, F extends string = string> = {
     /** DHCP servers, keyed by name, one per network. */
-    dhcp_server?: Record<string, DhcpServer<I>>;
+    dhcp_server?: Record<string, DhcpServer<I, F>>;
     /** DHCPv6 servers, keyed by name, one per interface. */
     dhcpv6_server?: Record<string, Dhcpv6Server<I>>;
     /** DHCP relays, keyed by name. */

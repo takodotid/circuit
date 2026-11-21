@@ -165,7 +165,17 @@ export class RouterOsExport {
         "/routing bgp instance": { "cluster-id": "" },
         "/routing ospf instance": { version: "2" },
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
-        "/routing ospf interface-template": { "hello-interval": "10s", "dead-interval": "40s", auth: "", "auth-id": "" },
+        // `unset` refuses a range's `advertise` and a template's `priority`, so the plan sets them back to these (TRAPS.md).
+        "/routing ospf area range": { advertise: "yes" },
+        "/routing ospf interface-template": {
+            "hello-interval": "10s",
+            "dead-interval": "40s",
+            auth: "",
+            "auth-id": "",
+            priority: "128",
+            type: "broadcast",
+        },
+        "/routing ospf static-neighbor": { "poll-interval": "2m", "instance-id": "0" },
         // A metric never set prints nothing, and the interface then runs at 20.
         "/routing isis interface-template": Object.fromEntries(RouterOsExport.ISIS_METRICS.map((property) => [property, ""])),
         // TTLs never set send 255 and accept any. They, `connect`, and `listen` cannot be unset (TRAPS.md).
@@ -195,7 +205,9 @@ export class RouterOsExport {
         },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
-        "/ip dhcp-server": { "lease-time": "30m" },
+        "/ip dhcp-server": { "lease-time": "30m", "use-radius": "no" },
+        // As a CHR on 7.24.6 printed them with `export verbose`.
+        "/ip dhcp-server config": { accounting: "yes", "interim-update": "0s", "radius-password": "empty", "store-leases-disk": "5m" },
         // As a CHR on 7.24.6 printed them with `export verbose`. A PPPoE server is added disabled.
         "/interface pppoe-server server": {
             disabled: "yes",
@@ -455,7 +467,9 @@ export class RouterOsExport {
         // Two VRFs may each have a neighbor at one address.
         "/routing bgp connection": ["remote.address", "vrf"],
         "/routing rpki": ["address"],
+        "/routing ospf area range": ["area", "prefix"],
         "/routing ospf interface-template": ["area", "interfaces"],
+        "/routing ospf static-neighbor": ["area", "address"],
         "/routing isis interface-template": ["instance", "interfaces"],
         "/routing bfd configuration": ["interfaces"],
         "/mpls interface": ["interface"],

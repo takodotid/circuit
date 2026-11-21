@@ -70,7 +70,10 @@ export class RouterOsPlan {
         "/routing bgp vpn",
         "/routing ospf instance",
         "/routing ospf area",
+        // A range and a static neighbor name their area.
+        "/routing ospf area range",
         "/routing ospf interface-template",
+        "/routing ospf static-neighbor",
         "/routing isis instance",
         "/routing isis interface-template",
         // LDP runs on interfaces that forward MPLS.

@@ -401,6 +401,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsPppoe.unsupported(device));
+        found.push(...RouterOsDhcp.unsupported(device));
 
         const management = device.management;
 
@@ -465,6 +466,9 @@ export class RouterOs extends Platform {
                 "vrf-imports",
                 "rate-limit",
                 "marking",
+                "ospf-ranges",
+                "ospf-priority",
+                "ospf-unicast-links",
             ])
         );
 

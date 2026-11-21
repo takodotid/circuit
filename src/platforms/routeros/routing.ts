@@ -13,6 +13,7 @@ import type {
     Neighbor,
     NeighborSettings,
     OspfAuthentication,
+    OspfInterface,
     PolicyRule,
     RouteRule,
 } from "../../model";
@@ -71,6 +72,14 @@ export class RouterOsRouting {
         "hmac-sha-384": "sha384",
         "hmac-sha-512": "sha512",
     } as const satisfies Record<OspfAuthentication["algorithm"], string>;
+
+    /** An interface template's `type` for each network type. A broadcast link is the template's own type on Ethernet, so it writes none. */
+    private static readonly OSPF_NETWORK = {
+        broadcast: undefined,
+        "point-to-point": "ptp",
+        "point-to-multipoint": "ptmp",
+        "non-broadcast": "nbma",
+    } as const satisfies Record<NonNullable<OspfInterface["network"]>, string | undefined>;
 
     /** The one IS-IS instance. */
     private static readonly ISIS_INSTANCE = "isis";
@@ -658,7 +667,7 @@ export class RouterOsRouting {
         }
     }
 
-    /** One instance per OSPF version, an area per area and instance, and a template per interface. */
+    /** One instance per OSPF version, an area per area and instance with its ranges of the version's family, a template per interface, and the neighbors of a link without multicast. */
     private ospf(): void {
         const ospf = this.device.routing?.ospf;
         if (!ospf) return;
@@ -675,35 +684,55 @@ export class RouterOsRouting {
             });
 
             for (const [areaId, area] of Object.entries(ospf.areas)) {
-                const areaName = `${instance}-${areaId}`;
                 // `no-summaries` is a flag, written without a value.
                 this.render.add("/routing ospf area", area.no_summaries ? "add no-summaries" : "add", {
                     "area-id": areaId,
                     "default-cost": area.stub_default_cost,
                     instance,
-                    name: areaName,
+                    name: `${instance}-${areaId}`,
                     type: area.type,
                 });
+            }
 
-                for (const [iface, settings] of Object.entries(area.interfaces)) {
-                    // `passive` is a flag, written without a value.
-                    const verb = settings?.passive ? "add passive" : "add";
-                    const authentication = settings?.authentication;
-                    this.render.add("/routing ospf interface-template", verb, {
-                        area: areaName,
-                        auth: authentication && RouterOsRouting.OSPF_AUTH[authentication.algorithm],
-                        "auth-id": authentication?.key_id,
-                        "auth-key": authentication && Secrets.marker(authentication.key),
-                        cost: settings?.cost,
-                        "dead-interval": settings?.dead_interval && RouterOsSyntax.duration(settings.dead_interval),
-                        "hello-interval": settings?.hello_interval && RouterOsSyntax.duration(settings.hello_interval),
-                        interfaces: this.render.name(iface),
-                        type: settings?.network === "point-to-point" ? "ptp" : undefined,
-                        "use-bfd": settings?.bfd ? "yes" : undefined,
+            for (const [areaId, area] of Object.entries(ospf.areas)) {
+                for (const range of area.ranges ?? []) {
+                    if (Address.family(range.prefix) !== family) continue;
+                    this.render.add("/routing ospf area range", "add", {
+                        advertise: range.advertise ? "yes" : "no",
+                        area: `${instance}-${areaId}`,
+                        prefix: Address.prefixOf(range.prefix),
                     });
                 }
             }
+
+            for (const [areaId, area] of Object.entries(ospf.areas))
+                for (const [iface, settings] of Object.entries(area.interfaces))
+                    this.ospfTemplate(`${instance}-${areaId}`, iface, settings ?? {});
         }
+    }
+
+    /** One interface's template, then a static neighbor for each neighbor it writes, at its address on the interface. */
+    private ospfTemplate(areaName: string, iface: string, settings: OspfInterface): void {
+        const name = this.render.name(iface);
+        // `passive` is a flag, written without a value.
+        const verb = settings.passive ? "add passive" : "add";
+        const authentication = settings.authentication;
+        this.render.add("/routing ospf interface-template", verb, {
+            area: areaName,
+            auth: authentication && RouterOsRouting.OSPF_AUTH[authentication.algorithm],
+            "auth-id": authentication?.key_id,
+            "auth-key": authentication && Secrets.marker(authentication.key),
+            cost: settings.cost,
+            "dead-interval": settings.dead_interval && RouterOsSyntax.duration(settings.dead_interval),
+            "hello-interval": settings.hello_interval && RouterOsSyntax.duration(settings.hello_interval),
+            interfaces: name,
+            priority: settings.priority,
+            type: settings.network && RouterOsRouting.OSPF_NETWORK[settings.network],
+            "use-bfd": settings.bfd ? "yes" : undefined,
+        });
+
+        for (const neighbor of settings.neighbors ?? [])
+            this.render.add("/routing ospf static-neighbor", "add", { address: `${neighbor}%${name}`, area: areaName });
     }
 
     /** One instance, whose areas and system ID come from the NET, and a template per interface. A template's metric is under `ptp` or `bcast`, by its link type. */

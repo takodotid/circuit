@@ -121,7 +121,7 @@
         "routing.bgp.neighbors.*.routing_table",
         "routing.bgp.neighbors.*.communities.blackhole",
         "routing.bgp.neighbors.*.neighbor_group",
-        "routing.ospf",
+        "routing.ospf.vrf",
         "routing.bfd",
         "routing.rpki",
         "routing.policies.*[].if.as_path_length.max",

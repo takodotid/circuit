@@ -17,7 +17,8 @@ description: The device operating systems Circuit works with, their versions, an
 - **Only the models it was tested on.** Another model needs its port list added. See [Contributing](/contributing).
 - **Model limits.** On the CCR2216, a LAG holds at most 8 ports, and the hardware ACLs hold about 5 different port ranges. `circuit validate` checks both. The RB5009 has no serial console, so Circuit refuses `connection.console` on it.
 - **CHR.** MikroTik's Cloud Hosted Router is RouterOS in a virtual machine. Its ports are the machine's network adapters, as many as it has: `virtual-1` is `ether1`, and so on. Circuit disables every adapter the config leaves out.
-- **A RouterOS PPPoE server.** Subscribers live in RADIUS. Before the first `apply` on a router that already serves PPPoE, move every subscriber from `/ppp secret` to RADIUS: the plan removes each local secret, PPP profile, and PPPoE server that `services.pppoe_server` doesn't write, and sets the profiles `default` and `default-encryption` back to RouterOS's defaults.
+- **A RouterOS PPPoE server.** Subscribers live in RADIUS. Before the first `apply` on a router that already serves PPPoE, move every subscriber from `/ppp secret` to RADIUS: the plan removes each local secret, PPP profile, and PPPoE server that `services.pppoe_server` doesn't write, and sets the profiles `default` and `default-encryption` back to RouterOS's defaults. A prefix RADIUS sends (`Delegated-IPv6-Prefix`) needs no setting: the session delegates it, with or without `prefix_delegation`.
+- **A RouterOS DHCP server with `radius`.** RouterOS asks RADIUS with the client's MAC address in capitals as `User-Name`, such as `52:54:00:00:0B:02`, and an empty password, so the RADIUS server lets a client in by its MAC address alone. A lease lasts the `Session-Timeout` of the server's accept when it has one. All the DHCP servers that have `radius` share one list of RADIUS servers and one `acct_interim_interval`.
 - **VRP.** A CloudEngine filters with ACLs on its ports, so write hardware ACLs. Circuit refuses the firewall's chains there: the switch's traffic filter checks what it switches as well as what it routes, V200R005 filters traffic to the switch only with a blacklist, and nothing filters what the switch sends. A DHCP server is an address pool, and nothing on the switch ties it to its interface.
 - **Raisecom ROS.** The switch answers time queries whenever it takes time from `system.ntp`, and nothing stops it, so write `services.ntp_server`, or `validate` warns. BPDU guard is one setting for the whole switch, and the switch finds edge ports by itself: with `bpdu_guard`, write `edge` on each port that runs spanning tree. Raisecom's guide doesn't say how an ACL rule matches a TCP or UDP port, and a switch's SSH key belongs to no user, so hardware ACLs and SSH keys wait.
 
@@ -67,7 +68,7 @@ A note in a cell means "works, with this limit".
 | IPsec liveness, NAT-T      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                               |
 | IPsec with certificates    | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                               |
 | WireGuard                  | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
-| PPPoE client               | ✅ with a delegated IPv6 prefix                                                            | ❌                | ❌                                  | ❌                                                                         | ❌ not built yet                 |
+| PPPoE client               | ✅ with a delegated IPv6 prefix and a length hint                                          | ❌                | ❌                                  | ❌                                                                         | ❌ not built yet                 |
 | EoIP                       | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
 | Round-robin LAG, ARP check | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
 | Shaping (CAKE)             | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                               |
@@ -92,6 +93,9 @@ A note in a cell means "works, with this limit".
 | OSPF stub and NSSA areas     | ✅                      | 🧪                         | ❌                       | ✅                    | ✅               |
 | OSPF hello and dead timers   | ✅                      | 🧪                         | ❌                       | ✅                    | ✅               |
 | OSPF authentication          | ✅                      | 🧪                         | ❌                       | MD5                   | MD5              |
+| OSPF area ranges             | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF router priority         | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF NBMA and P2MP links     | ✅ OSPFv2               | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric    | ❌                         | ❌                       | ✅                    | ✅ no passive    |
 | IS-IS multi-topology         | ❌                      | ❌                         | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
@@ -121,23 +125,24 @@ A note in a cell means "works, with this limit".
 
 ### Firewall and services
 
-| Feature                            | RouterOS              | VRP                   | Raisecom ROS               | Junos                    | FortiOS                                         |
-| ---------------------------------- | --------------------- | --------------------- | -------------------------- | ------------------------ | ----------------------------------------------- |
-| Firewall filter                    | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                              |
-| NAT                                | ✅                    | ❌                    | ❌                         | ❌                       | IPv4                                            |
-| CGNAT pool, deterministic          | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
-| CGNAT pool, dynamic                | ❌                    | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
-| TCP MSS clamp                      | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DSCP and PCP marking               | ✅ not with fast path | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DHCP server                        | ✅                    | 🧪                    | ❌                         | ✅                       | ✅                                              |
-| DHCPv6 server                      | ✅ pool is a prefix   | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
-| DHCP relay                         | ✅                    | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
-| DHCP server in a VRF               | ✅                    | 🧪                    | ❌                         | 🧪                       | 🧪                                              |
-| PPPoE server                       | ✅ one RADIUS setting | ❌                    | ❌                         | ❌                       | ❌                                              |
-| Delegated IPv6 prefixes over PPPoE | ✅                    | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DNS server                         | ✅                    | ❌                    | ❌                         | ❌                       | ✅                                              |
-| NTP client                         | ✅                    | ✅                    | ✅                         | ✅                       | ✅                                              |
-| NTP server                         | ✅                    | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
+| Feature                            | RouterOS                 | VRP                   | Raisecom ROS               | Junos                    | FortiOS                                         |
+| ---------------------------------- | ------------------------ | --------------------- | -------------------------- | ------------------------ | ----------------------------------------------- |
+| Firewall filter                    | ✅                       | ❌                    | ❌                         | ❌                       | ✅                                              |
+| NAT                                | ✅                       | ❌                    | ❌                         | ❌                       | IPv4                                            |
+| CGNAT pool, deterministic          | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| CGNAT pool, dynamic                | ❌                       | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
+| TCP MSS clamp                      | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DSCP and PCP marking               | ✅ not with fast path    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DHCP server                        | ✅                       | 🧪                    | ❌                         | ✅                       | ✅                                              |
+| DHCPv6 server                      | ✅ pool is a prefix      | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
+| DHCP relay                         | ✅                       | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
+| DHCP server in a VRF               | ✅                       | 🧪                    | ❌                         | 🧪                       | 🧪                                              |
+| DHCP leases checked by RADIUS      | ✅ one RADIUS setting    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| PPPoE server                       | ✅ one RADIUS setting    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Delegated IPv6 prefixes over PPPoE | ✅ from a pool or RADIUS | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DNS server                         | ✅                       | ❌                    | ❌                         | ❌                       | ✅                                              |
+| NTP client                         | ✅                       | ✅                    | ✅                         | ✅                       | ✅                                              |
+| NTP server                         | ✅                       | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
 
 Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardware_offload` unless the rule matches a VLAN interface with `hardware_offload: false` in `in_interface` or `out_interface`: traffic on the fast path or offloaded skips it. The other platforms don't build marking:
 

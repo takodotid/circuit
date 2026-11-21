@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { Device } from "../../model";
+import type { DhcpServer, Device } from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -14,8 +14,12 @@ export class RouterOsDhcp {
     /** The DHCPv6 option that lists DNS servers (RFC 3646). */
     private static readonly DNS_SERVERS_OPTION = 23;
 
+    /** The RADIUS servers' service for DHCP leases. */
+    private static readonly SERVICE = "dhcp";
+
     static render(render: RouterOsRender, device: Device): void {
         RouterOsDhcp.servers(render, device);
+        RouterOsDhcp.radius(render, device);
         RouterOsDhcp.relays(render, device);
         RouterOsDhcp.ipv6Servers(render, device);
     }
@@ -37,6 +41,7 @@ export class RouterOsDhcp {
                 interface: render.name(server.interface),
                 "lease-time": server.lease_time ? RouterOsSyntax.duration(server.lease_time) : undefined,
                 name,
+                "use-radius": server.radius && "yes",
             });
             render.add("/ip dhcp-server network", "add", {
                 address: server.network,
@@ -53,6 +58,37 @@ export class RouterOsDhcp {
                 });
             }
         }
+    }
+
+    /** One setting for every DHCP server of the router that asks RADIUS: unsupported() refuses servers that differ. */
+    private static radius(render: RouterOsRender, device: Device): void {
+        const [first] = RouterOsDhcp.withRadius(device);
+        if (!first) return;
+
+        const [, shared] = first;
+        render.radius(shared.radius ?? [], RouterOsDhcp.SERVICE);
+        // Accounting is on as RouterOS ships: each lease's start and end, and its interim reports at this interval (CHR, 7.24.6).
+        if (shared.acct_interim_interval !== undefined)
+            render.add("/ip dhcp-server config", "set", { "interim-update": RouterOsSyntax.duration(shared.acct_interim_interval) });
+    }
+
+    static unsupported(device: Device): string[] {
+        const [first, ...others] = RouterOsDhcp.withRadius(device);
+        if (!first) return [];
+
+        const [firstName, firstServer] = first;
+        const shared = (server: DhcpServer) => JSON.stringify([RouterOsSyntax.radiusServers(server.radius), server.acct_interim_interval]);
+        return others
+            .filter(([, server]) => shared(server) !== shared(firstServer))
+            .map(
+                ([name]) =>
+                    `services.dhcp_server.${name}, RouterOS has one RADIUS setting for all its DHCP servers: write the radius and acct_interim_interval of services.dhcp_server.${firstName}`
+            );
+    }
+
+    /** The DHCP servers that ask RADIUS about each lease. */
+    private static withRadius(device: Device): [string, DhcpServer][] {
+        return RouterOsSyntax.entries(device.services?.dhcp_server).filter(([, server]) => server.radius);
     }
 
     /** A relay with servers of both families is a relay in each menu, by one name. */

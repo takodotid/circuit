@@ -1,4 +1,4 @@
-// Every key of a device is, on each platform, rendered or refused by its unsupported(): none is skipped without a word. Each key is tried on the devices of the examples and of Circuit 0.x (test/fixtures.ts): removed, or given another value written for it. The render or the refusals must change. The keys not reached yet are in test/key-gaps.json, a list that may only shrink.
+// Every key of a device is, on each platform, rendered, refused by unsupported(), or named by experimental(): none is skipped without a word. Each key is tried on the devices of the examples and of Circuit 0.x (test/fixtures.ts): removed, or given another value written for it. The render or the refusals must change. The keys not reached yet are in test/key-gaps.json, a list that may only shrink.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -153,7 +153,7 @@ function* grafts(base: Device, source: Device, held: Held): Generator<[Device, S
     }
 }
 
-/** What the platform makes of a device: its render and its refusals, or the error each throws. */
+/** What the platform makes of a device: its render, and the keys it refuses or names as experimental, or the error each throws. An experimental key is rendered behind `--experimental`, so naming it is a word too. */
 function observe(platform: Platform, device: Device): { render: string; refused: string[] } {
     const attempt = <T>(run: () => T, failed: (message: string) => T): T => {
         try {
@@ -168,7 +168,7 @@ function observe(platform: Platform, device: Device): { render: string; refused:
             (message) => message
         ),
         refused: attempt(
-            () => platform.unsupported(device),
+            () => [...platform.unsupported(device), ...(platform.experimental?.(device) ?? [])],
             (message) => [message]
         ),
     };
