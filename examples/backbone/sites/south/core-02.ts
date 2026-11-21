@@ -36,9 +36,10 @@ export default as64500.device({
         // When a branch stops answering the liveness checks, its tunnel goes down, and so does the static route through it.
         ipsec: {
             // The office sits behind its ISP's NAT, whose address this is. IKE finds the NAT and moves the tunnel into UDP on its own.
+            // The tunnel carries IPv6 too, since it has an IPv6 address.
             "ipsec-branch-1": {
                 description: "Branch office 1",
-                addresses: [{ address: "10.255.12.1/30", peer_address: "10.255.12.2" }],
+                addresses: [{ address: "10.255.12.1/30", peer_address: "10.255.12.2" }, "2001:db8:100:1201::1/64"],
                 local_address: "203.0.113.6",
                 remote_address: "192.0.2.20",
                 certificate: "core-02",
@@ -81,6 +82,7 @@ export default as64500.device({
         static_routes: [
             { prefix: as64500.prefixes.ours.v4, blackhole: true },
             { prefix: "10.21.0.0/16", interface: "ipsec-branch-1", description: "Branch office 1" },
+            { prefix: "2001:db8:100:2100::/56", interface: "ipsec-branch-1", description: "Branch office 1" },
             { prefix: "10.22.0.0/16", interface: "ipsec-branch-2", description: "Branch office 2" },
             { prefix: "192.0.2.40/32", next_hop: "192.168.10.1", description: "The jump host, over the office line" },
         ],

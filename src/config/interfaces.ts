@@ -435,7 +435,7 @@ export type IpsecAuthentication<C extends string> =
       };
 
 /**
- * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. IKEv2 (RFC 7296) authenticates the peer, with a key both ends share or with certificates, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
+ * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. It carries IPv4, and IPv6 too once one of its `addresses` is IPv6. IKEv2 (RFC 7296) authenticates the peer, with a key both ends share or with certificates, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
  */
 export type Ipsec<C extends string = string> = Pick<Base<never>, "description" | "addresses"> & {
     /** Our tunnel endpoint, alone or with its length. */

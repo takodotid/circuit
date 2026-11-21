@@ -1,4 +1,4 @@
-// A route-based IPsec tunnel is a phase 1 and a phase 2 of one name. The phase 1 makes the tunnel's interface, on the interface that holds its local address. The phase 2 encrypts everything routed into the tunnel's interface.
+// A route-based IPsec tunnel is a phase 1 and a phase 2 of one name. The phase 1 makes the tunnel's interface, on the interface that holds its local address. The phase 2 encrypts all IPv4 routed into the tunnel's interface. A phase 2 carries one family, so a tunnel with an IPv6 address has a second one for IPv6, named after the tunnel with `-v6`.
 
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
@@ -32,6 +32,9 @@ export class FortiOsIpsec {
 
     /** A liveness check's interval and retries when nothing says, which `show` doesn't print, and the most it takes, `dpd-retryinterval` and `dpd-retrycount`. */
     private static readonly LIVENESS = { interval: 20, retries: 3, maxInterval: 3600, maxRetries: 10 } as const;
+
+    /** What the phase 2 for IPv6 adds to the tunnel's name, as other entries of one family do. */
+    private static readonly IPV6_SUFFIX = "-v6";
 
     /** The NAT keepalive interval when nothing says, which `show` doesn't print, and the fewest and most seconds `keepalive` takes. */
     private static readonly KEEPALIVE = { interval: 10, min: 10, max: 900 } as const;
@@ -74,15 +77,38 @@ export class FortiOsIpsec {
             if (check && check.retries !== FortiOsIpsec.LIVENESS.retries) entry.set("dpd-retrycount", check.retries);
             if (check && check.interval !== FortiOsIpsec.LIVENESS.interval) entry.set("dpd-retryinterval", check.interval);
 
-            const child = phase2.entry(name).set("phase1name", FortiOsTree.quote(name)).set("proposal", FortiOsIpsec.espProposal(esp));
-            if (esp.pfs_group) child.set("dhgrp", esp.pfs_group);
-            else child.set("pfs", "disable");
-            if (esp.lifetime !== FortiOsIpsec.DEFAULT_LIFETIME.esp) child.set("keylifeseconds", esp.lifetime);
+            FortiOsIpsec.child(phase2.entry(name), name, esp);
+            // Its selectors are every IPv6 address both ways, `::/0`, which `show` doesn't print.
+            if (FortiOsIpsec.carriesIpv6(tunnel))
+                FortiOsIpsec.child(phase2.entry(`${name}${FortiOsIpsec.IPV6_SUFFIX}`), name, esp)
+                    .set("src-addr-type", "subnet6")
+                    .set("dst-addr-type", "subnet6");
         }
     }
 
+    /** A phase 2 of the phase 1 `name`, with the ESP SA's algorithms. */
+    private static child(entry: FortiOsNode, name: string, esp: IpsecEsp): FortiOsNode {
+        entry.set("phase1name", FortiOsTree.quote(name)).set("proposal", FortiOsIpsec.espProposal(esp));
+        if (esp.pfs_group) entry.set("dhgrp", esp.pfs_group);
+        else entry.set("pfs", "disable");
+        if (esp.lifetime !== FortiOsIpsec.DEFAULT_LIFETIME.esp) entry.set("keylifeseconds", esp.lifetime);
+        return entry;
+    }
+
+    /** A tunnel carries IPv6 when its interface has an IPv6 address. */
+    private static carriesIpv6(tunnel: Ipsec): boolean {
+        return FortiOsIpsec.ofFamily(tunnel, "ipv6").length > 0;
+    }
+
+    /** The tunnel's addresses of one family. */
+    private static ofFamily(tunnel: Ipsec, family: "ipv4" | "ipv6"): NonNullable<Ipsec["addresses"]>[number][] {
+        return (tunnel.addresses ?? []).filter(
+            (entry) => Address.family(Address.host(typeof entry === "string" ? entry : entry.address)) === family
+        );
+    }
+
     /**
-     * What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. A liveness check waits up to 3600 seconds and retries up to 10 times. A NAT keepalive goes every 10 to 900 seconds, never with NAT traversal forced. The tunnel's interface holds one IPv4 address, with its peer.
+     * What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. A liveness check waits up to 3600 seconds and retries up to 10 times. A NAT keepalive goes every 10 to 900 seconds, never with NAT traversal forced. The tunnel's interface holds one IPv4 address, with its peer, and one IPv6 address.
      */
     static gaps(device: Device): string[] {
         const found: string[] = [];
@@ -121,12 +147,14 @@ export class FortiOsIpsec {
                     `${where}.nat_keepalive with nat_traversal always: the platform has no keepalive interval while ESP always goes in UDP`
                 );
 
-            const addresses = tunnel.addresses ?? [];
-            const ipv4 = addresses.filter((entry) => Address.family(typeof entry === "string" ? entry : entry.address) === "ipv4");
+            const ipv4 = FortiOsIpsec.ofFamily(tunnel, "ipv4");
+            const ipv6 = FortiOsIpsec.ofFamily(tunnel, "ipv6");
             if (ipv4.some((entry) => typeof entry === "string"))
                 found.push(`${where}.addresses, an IPv4 address on a tunnel takes its peer`);
             if (ipv4.length > 1) found.push(`${where}.addresses, one IPv4 address`);
-            if (ipv4.length < addresses.length) found.push(`${where}.addresses, IPv6 in the tunnel, which is not built yet`);
+            // The tunnel's interface has no IPv6 peer, `remote-ip6`.
+            if (ipv6.some((entry) => typeof entry !== "string")) found.push(`${where}.addresses, a peer on an IPv6 address`);
+            if (ipv6.length > 1) found.push(`${where}.addresses, one IPv6 address`);
         }
 
         return found;

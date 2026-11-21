@@ -1,4 +1,4 @@
-// Route-based IPsec tunnels. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with tunnels between documentation addresses. Tunnels with IPv4 and IPv6 endpoints, AES-GCM and AES-CBC, a key and certificates, were made, changed both ways, and removed, each plan empty after. So were liveness checks on and off, NAT traversal, and a NAT keepalive interval.
+// Route-based IPsec tunnels. FortiOS was tested on a FG-3700D with FortiOS 6.2.2 in multi-VDOM mode, with tunnels between documentation addresses. Tunnels with IPv4 and IPv6 endpoints, AES-GCM and AES-CBC, a key and certificates, were made, changed both ways, and removed, each plan empty after. So were liveness checks on and off, NAT traversal, a NAT keepalive interval, and IPv6 inside.
 
 import { expect, test } from "bun:test";
 import type { Device, Ipsec } from "../../src/model";
@@ -161,6 +161,32 @@ set keepalive 30
 next`);
 });
 
+test("FortiOS carries IPv6 in a second phase 2 when the tunnel has an IPv6 address, and plans nothing against its own render", () => {
+    const desired = fortios.render(
+        withTunnels("platforms--example-firewall", {
+            "ipsec-branch-1": { ...TUNNEL, addresses: [...(TUNNEL.addresses ?? []), "2001:db8:ffee::1/64"] },
+        })
+    );
+
+    expect(desired).toContain(`    edit "ipsec-branch-1-v6"
+        set phase1name "ipsec-branch-1"
+        set proposal aes256gcm
+        set dhgrp 19
+        set keylifeseconds 3600
+        set src-addr-type subnet6
+        set dst-addr-type subnet6
+    next`);
+    expect(desired).toMatch(
+        /set remote-ip 10\.255\.12\.2 255\.255\.255\.252\n(.*\n)* {8}config ipv6\n {12}set ip6-address 2001:db8:ffee::1\/64\n/
+    );
+    expect(fortios.plan(desired, desired, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
+
+    // Without an IPv6 address, the tunnel has one phase 2.
+    expect(fortios.render(withTunnels("platforms--example-firewall", { "ipsec-branch-1": TUNNEL }))).not.toContain(
+        `edit "ipsec-branch-1-v6"`
+    );
+});
+
 test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the global steps set it", () => {
     const device = withTunnels("platforms--example-firewall", {});
     const vdoms = { ...device, system: { ...device.system, vdoms: { management: { name: "mgmt", interfaces: ["1g-1"] } } } };
@@ -182,7 +208,7 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
     const device = withTunnels("platforms--example-firewall", {
         "ipsec-branch-1": {
             ...TUNNEL,
-            addresses: ["10.255.12.1/30", "2001:db8:ffee::1/64"],
+            addresses: ["10.255.12.1/30", "2001:db8:ffee::1/64", "2001:db8:ffef::1/64"],
             local_address: "203.0.113.99",
             ike: { encryption: "aes-256-cbc", integrity: "hmac-sha2-256-128", prf: "hmac-sha2-512", dh_group: 14, lifetime: 60 },
             liveness_check: { interval: 3601, retries: 11 },
@@ -190,6 +216,7 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
         },
         "ipsec-branch-2": {
             ...TUNNEL,
+            addresses: [{ address: "2001:db8:ffee::1/64", peer_address: "2001:db8:fff0::2" }],
             nat_traversal: "always",
             nat_keepalive: 9,
         },
@@ -204,9 +231,10 @@ test("FortiOS refuses one hash for integrity and another for the pseudorandom fu
             "interfaces.ipsec.ipsec-branch-1.liveness_check.retries 11, the platform takes up to 10",
             "interfaces.ipsec.ipsec-branch-1.nat_keepalive 901, the platform takes 10 to 900",
             "interfaces.ipsec.ipsec-branch-1.addresses, an IPv4 address on a tunnel takes its peer",
-            "interfaces.ipsec.ipsec-branch-1.addresses, IPv6 in the tunnel, which is not built yet",
+            "interfaces.ipsec.ipsec-branch-1.addresses, one IPv6 address",
             "interfaces.ipsec.ipsec-branch-2.nat_keepalive 9, the platform takes 10 to 900",
             "interfaces.ipsec.ipsec-branch-2.nat_keepalive with nat_traversal always: the platform has no keepalive interval while ESP always goes in UDP",
+            "interfaces.ipsec.ipsec-branch-2.addresses, a peer on an IPv6 address",
         ])
     );
 });
