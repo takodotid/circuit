@@ -50,17 +50,26 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.0.2/24"], vrf: "management" },
             "25g-1": { description: "edge-01", addresses: ["198.51.100.2/30", "2001:db8:100:ffff::2/64"] },
-            "25g-2": { description: "OLT", trunk_vlans: ["olt-1", "olt-2"] },
+            // The OLT tags with IEEE 802.1ad's service tag: the homes of a PON port share a VLAN, and each business has a VLAN of its own inside olt-3.
+            "25g-2": { description: "OLT", trunk_vlans: ["olt-1", "olt-2", "olt-3"], tpid: "0x88a8" },
         },
         vlan_interface: {
             "vlan-olt-1": { vlan: "olt-1" },
             "vlan-olt-2": { vlan: "olt-2", addresses: ["100.64.64.1/18", "2001:db8:100:10::1/64"], ipv6_ra: true },
+            // A business on the third PON port, whose router has 198.51.100.106.
+            "biz-1001": {
+                vlan: "olt-3",
+                inner_vlan_id: 1001,
+                description: "Business on the OLT's third PON port",
+                addresses: ["198.51.100.105/30"],
+            },
         },
     },
     switching: {
         vlans: {
             "olt-1": { id: 101, description: "Homes on the OLT's first PON port" },
             "olt-2": { id: 102, description: "Homes on the OLT's second PON port" },
+            "olt-3": { id: 103, description: "Businesses on the OLT's third PON port, each in a VLAN of its own inside it" },
         },
     },
 

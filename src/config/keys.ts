@@ -185,6 +185,7 @@ const SWITCHED = {
     dhcp_trusted: 0,
     ra_trusted: 0,
     qinq_vlan: 0,
+    tpid: 0,
     vlan_translation: [{ from: 0, to: 0 }],
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
@@ -322,7 +323,7 @@ export const DEVICE = {
                 scheduler: 0,
             },
         },
-        vlan_interface: { "*": { ...BASE, vlan: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT, scheduler: 0 } },
+        vlan_interface: { "*": { ...BASE, vlan: 0, inner_vlan_id: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT, scheduler: 0 } },
         bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },

@@ -16,6 +16,7 @@ import { RouterOsQueues } from "./queues";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSchedulers } from "./schedulers";
 import { RouterOsSyntax } from "./syntax";
+import { RouterOsVlanTags } from "./vlan-tags";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */
 export type Value = string | number | undefined | false;
@@ -23,9 +24,6 @@ export type Value = string | number | undefined | false;
 type Speed = NonNullable<Port["speed"]>;
 
 export class RouterOsRender {
-    /** The bridge every switched port joins. One per device. */
-    private static readonly BRIDGE = "bridge";
-
     /** The interface lists of the ports LLDP runs on, and of those the platform's own client reaches over MAC. */
     private static readonly LLDP_LIST = "lldp";
     private static readonly NATIVE_LIST = "native";
@@ -146,11 +144,6 @@ export class RouterOsRender {
         return words.join(" ");
     }
 
-    /** The name of the VLAN interface under one with a MAC of its own, which takes the configured name itself. */
-    private static underMacvlan(name: string): string {
-        return `${name}-vlan`;
-    }
-
     /** The interface holding one VRRP group. */
     private static vrrpName(iface: string, id: number): string {
         return `${iface}-vrrp${id}`;
@@ -231,7 +224,7 @@ export class RouterOsRender {
         this.switchPorts();
         this.eoip();
         this.lags();
-        this.vlanInterfaces();
+        RouterOsVlanTags.render(this, this.device);
         this.tunnels();
         this.wireguard();
         RouterOsPppoe.clients(this, this.device);
@@ -252,14 +245,15 @@ export class RouterOsRender {
         this.add("/interface ethernet switch l3hw-settings", "set", { autorestart: on, "ipv6-hw": on });
     }
 
-    /** One VLAN-filtering bridge carries every switched port. A loopback is a bridge with no ports, the platform's idiom for one. */
+    /** One VLAN-filtering bridge carries every switched port, with their one TPID. A loopback is a bridge with no ports, the platform's idiom for one. */
     private bridge(): void {
         const { device } = this;
         if (this.switched().length > 0 || this.declaredVlanInterfaces().length > 0) {
             const stp = device.switching?.stp;
             this.add("/interface bridge", "add", {
                 "dhcp-snooping": RouterOsSyntax.yesWhen(device.switching?.dhcp_snooping),
-                name: RouterOsRender.BRIDGE,
+                "ether-type": RouterOsVlanTags.tpid(device),
+                name: RouterOsVlanTags.BRIDGE,
                 "protocol-mode": stp ? (stp.mode ?? "rstp") : "none",
                 priority: RouterOsSyntax.hex(stp?.priority),
                 "ra-guard": RouterOsSyntax.yesWhen(device.switching?.ra_guard),
@@ -385,35 +379,6 @@ export class RouterOsRender {
         return `${iface}-cake`;
     }
 
-    /**
-     * When the device offloads, a VLAN interface that opts out is routed in software, so the firewall applies. Every VLAN interface on the bridge has the bridge's MAC. One with a MAC of its own is a MACVLAN on the VLAN interface. The MACVLAN takes the configured name, so its addresses and the rules naming it land on it.
-     */
-    private vlanInterfaces(): void {
-        for (const [name, iface] of this.declaredVlanInterfaces()) {
-            const softwareOnly = this.device.system?.hardware_offload && iface.hardware_offload === false;
-            const vlanName = iface.mac ? RouterOsRender.underMacvlan(name) : name;
-
-            this.add("/interface vlan", "add", {
-                comment: iface.description,
-                interface: RouterOsRender.BRIDGE,
-                "l3-hw-offloading": softwareOnly ? "no" : undefined,
-                mtu: iface.mtu,
-                name: vlanName,
-                "vlan-id": this.vlanId(iface.vlan),
-            });
-
-            if (iface.mac) {
-                this.add("/interface macvlan", "add", {
-                    comment: iface.description,
-                    interface: vlanName,
-                    "mac-address": iface.mac.toUpperCase(),
-                    mtu: iface.mtu,
-                    name,
-                });
-            }
-        }
-    }
-
     private tunnels(): void {
         for (const [name, gre] of RouterOsSyntax.entries(this.device.interfaces?.gre)) {
             this.add("/interface gre", "add", {
@@ -536,7 +501,7 @@ export class RouterOsRender {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
             this.add("/interface bridge port", "add", {
                 "bpdu-guard": RouterOsSyntax.yesWhen(stp?.bpdu_guard),
-                bridge: RouterOsRender.BRIDGE,
+                bridge: RouterOsVlanTags.BRIDGE,
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
                 horizon: this.horizon(port, secondary?.type === "isolated"),
@@ -565,11 +530,11 @@ export class RouterOsRender {
             const trunks = this.switched()
                 .filter(([, settings]) => settings.trunk_vlans?.includes(vlanName))
                 .map(([port]) => this.name(port));
-            const tagged = [...(routedHere ? [RouterOsRender.BRIDGE] : []), ...trunks];
+            const tagged = [...(routedHere ? [RouterOsVlanTags.BRIDGE] : []), ...trunks];
             if (!tagged.length) continue;
 
             this.add("/interface bridge vlan", "add", {
-                bridge: RouterOsRender.BRIDGE,
+                bridge: RouterOsVlanTags.BRIDGE,
                 comment: vlan.description,
                 tagged: tagged.join(","),
                 "vlan-ids": vlan.id,
