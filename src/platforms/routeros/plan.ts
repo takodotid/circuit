@@ -135,6 +135,13 @@ export class RouterOsPlan {
 
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
+
+    /** LDP's label filters, which a running LDP applies only to the sessions it opens after they change (TRAPS.md). */
+    private static readonly LDP_FILTERS = ["/mpls ldp accept-filter", "/mpls ldp advertise-filter"];
+
+    /** How long the plan waits for LDP's neighbors to go once it turns LDP off. */
+    private static readonly LDP_CLOSE_SECONDS = 15;
+
     /**
      * Menus where the device makes an entry of its own from another menu, and keeps it a moment after it should go. An address that stops advertising keeps its dynamic `/ipv6 nd prefix` entry for about a second, and an entry added for the same prefix meanwhile is refused (TRAPS.md). An `add` there first waits, at most this many seconds, for that entry to go.
      */
@@ -195,6 +202,9 @@ export class RouterOsPlan {
             // Removals run in reverse dependency order, so a menu's are prepended.
             last.unshift(...menuPlan.last);
         }
+
+        const restart = RouterOsPlan.ldpRestart(want, first);
+        if (restart) first.push(restart);
 
         return { steps: [...first, ...last], problems: planner.problems };
     }
@@ -302,6 +312,25 @@ export class RouterOsPlan {
         const [address = ""] = (connection.attrs["remote.address"] ?? "").split("/");
         const open = `[:len [/routing bgp session find where remote.address=${RouterOsPlan.findValue("remote.address", address)}]] > 0`;
         return `:local waited 0; :while (${open} and $waited < ${RouterOsPlan.SESSION_CLOSE_SECONDS}) do={ :delay 1s; :set waited ($waited + 1) }`;
+    }
+
+    /** After a change to LDP's label filters, LDP in the main table restarts, so each session takes them: off until its neighbors are gone, then on. Not when the render has no LDP there. */
+    private static ldpRestart(want: Parsed, first: readonly Step[]): Step | undefined {
+        const changed = first.some((step) => RouterOsPlan.LDP_FILTERS.some((menu) => step.title.startsWith(`${menu},`)));
+        const kept = want.commands.some((command) => command.menu === "/mpls ldp" && (command.attrs.vrf ?? "main") === "main");
+        if (!changed || !kept) return undefined;
+
+        const instance = RouterOsPlan.find("/mpls ldp", { vrf: "main" });
+        const open = "[:len [/mpls ldp neighbor find where dynamic]] > 0";
+        return {
+            title: "/mpls ldp",
+            show: ["~ restart LDP, which takes new label filters only into new sessions: its labels and pseudowires go down for a moment"],
+            send: [
+                `/mpls ldp set ${instance} disabled=yes`,
+                `:local waited 0; :while (${open} and $waited < ${RouterOsPlan.LDP_CLOSE_SECONDS}) do={ :delay 1s; :set waited ($waited + 1) }`,
+                `/mpls ldp set ${instance} disabled=no`,
+            ],
+        };
     }
 
     private static describe(attrs: Record<string, string>): string {

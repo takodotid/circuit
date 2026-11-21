@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. OSPF carries each router's loopback, and LDP runs between the loopbacks over both links: traffic from pe-01 to pe-02 crosses p-01 by its label (RFC 3031, RFC 5036). The tests run in order on the same three routers. Skipped without the three CHRs.
+// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. OSPF carries each router's loopback, and LDP runs between the loopbacks over both links: traffic from pe-01 to pe-02 crosses p-01 by its label (RFC 3031, RFC 5036). Then policies limit the labels LDP gives and takes. The tests run in order on the same three routers. Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -29,6 +29,14 @@ const LOOPBACK = { p: "192.0.2.101", firstPe: "192.0.2.102", secondPe: "192.0.2.
 /** p-01's address on its link to each PE, and the PE's. */
 const FIRST_LINK = { p: "192.0.2.17", pe: "192.0.2.18" };
 const SECOND_LINK = { p: "192.0.2.21", pe: "192.0.2.22" };
+
+/** The prefixes LDP's policies tell apart: one holds the three loopbacks, the other both links. */
+const PREFIXES = { loopbacks: "192.0.2.96/27", links: "192.0.2.16/28" };
+
+/** Each PE's link to p-01, and pe-01's management network, as `/mpls ldp remote-mapping` prints them. */
+const FIRST_LINK_PREFIX = "192.0.2.16/30";
+const SECOND_LINK_PREFIX = "192.0.2.20/30";
+const FIRST_MANAGEMENT = "10.0.1.0/24";
 
 /** The lowest label LDP gives: 0 to 15 are reserved (RFC 3032). */
 const FIRST_DYNAMIC_LABEL = 16;
@@ -61,8 +69,19 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** A router of the lab: its loopback and links in OSPF, and LDP on its links when `mpls`. */
-function writeRouter(name: string, chr: string, management: string, loopback: string, links: Record<string, string>, mpls: boolean): void {
+/** A policy LDP uses: which of LDP's policies it is, and its one rule for the prefixes of `PREFIXES`, before the rule for every other label. */
+type LdpPolicy = { way: "import_policy" | "export_policy"; prefixes: keyof typeof PREFIXES; then: "accept" | "reject" };
+
+/** A router of the lab: its loopback and links in OSPF, and LDP on its links when `mpls`, with `policy` when given. */
+function writeRouter(
+    name: string,
+    chr: string,
+    management: string,
+    loopback: string,
+    links: Record<string, string>,
+    mpls: boolean,
+    policy?: LdpPolicy
+): void {
     const [host, port] = chr.split(":");
     const ports = Object.entries(links)
         .map(([link, address]) => `"${link}": { description: "lab link", addresses: ["${address}/30"] },`)
@@ -70,7 +89,15 @@ function writeRouter(name: string, chr: string, management: string, loopback: st
     const ospf = Object.keys(links)
         .map((link) => `"${link}": { network: "point-to-point" },`)
         .join(" ");
-    const ldp = mpls ? `mpls: { ldp: { lsr_id: "${loopback}", interfaces: ${JSON.stringify(Object.keys(links))} } },` : "";
+    const other = policy?.then === "accept" ? "reject" : "accept";
+    const policies = policy
+        ? `prefix_sets: { ${policy.prefixes}: { prefixes: ["${PREFIXES[policy.prefixes]}"] } },
+        policies: { labels: [{ if: { prefix_set: "${policy.prefixes}" }, then: "${policy.then}" }, { then: "${other}" }] },`
+        : "";
+    const ldp = mpls
+        ? `mpls: { ldp: { lsr_id: "${loopback}", interfaces: ${JSON.stringify(Object.keys(links))}${policy ? `, ${policy.way}: "labels"` : ""} } },
+        ${policies}`
+        : "";
     write(
         `sites/lab/${name}.ts`,
         `import { lab } from "../../circuit";
@@ -100,10 +127,20 @@ export default lab.device({
     );
 }
 
-/** The three routers, with LDP or without. */
-function writeLab(mpls: boolean): void {
-    writeRouter("p-01", pChr!, "10.0.0", LOOPBACK.p, { "virtual-2": FIRST_LINK.p, "virtual-3": SECOND_LINK.p }, mpls);
-    writeRouter("pe-01", firstPeChr!, "10.0.1", LOOPBACK.firstPe, { "virtual-2": FIRST_LINK.pe }, mpls);
+/** The three routers, with LDP or without. With `policies`, pe-01 gives labels for the loopbacks only, and p-01 takes none for the links. */
+function writeLab(mpls: boolean, policies = false): void {
+    const pPolicy: LdpPolicy = { way: "import_policy", prefixes: "links", then: "reject" };
+    const pePolicy: LdpPolicy = { way: "export_policy", prefixes: "loopbacks", then: "accept" };
+    writeRouter(
+        "p-01",
+        pChr!,
+        "10.0.0",
+        LOOPBACK.p,
+        { "virtual-2": FIRST_LINK.p, "virtual-3": SECOND_LINK.p },
+        mpls,
+        policies ? pPolicy : undefined
+    );
+    writeRouter("pe-01", firstPeChr!, "10.0.1", LOOPBACK.firstPe, { "virtual-2": FIRST_LINK.pe }, mpls, policies ? pePolicy : undefined);
     writeRouter("pe-02", secondPeChr!, "10.0.2", LOOPBACK.secondPe, { "virtual-2": SECOND_LINK.pe }, mpls);
 }
 
@@ -134,6 +171,16 @@ function tracedLabels(): Record<string, number> {
             return hop ? [[hop[1]!, Number(hop[2])]] : [];
         })
     );
+}
+
+/** The prefixes p-01 holds a label for from one LDP neighbor, by its LSR ID, as `/mpls ldp remote-mapping` prints them: a host route without its length. */
+function labelsFrom(lsrId: string): string[] {
+    return exec("p-01", "/mpls ldp remote-mapping print without-paging")
+        .split("\n")
+        .flatMap((line) => {
+            const row = /\bmain\s+(\S+)\s.*\s(\d+\.\d+\.\d+\.\d+):0\s*$/.exec(line);
+            return row && row[2] === lsrId ? [row[1]!] : [];
+        });
 }
 
 /** What each router holds of MPLS, for the job's log. */
@@ -182,6 +229,43 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("LDP between three CHRs", 
 
             // LDP's own state, which an export leaves out, changes nothing to plan.
             for (const device of ["p-01", "pe-01", "pe-02"]) expect(circuit("diff", device).status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "LDP's policies: pe-01 gives labels for the loopbacks only, p-01 takes none for the links, and labels still lead from loopback to loopback",
+        () => {
+            const fromFirst = () => labelsFrom(LOOPBACK.firstPe);
+            const fromSecond = () => labelsFrom(LOOPBACK.secondPe);
+
+            writeLab(true, true);
+            for (const device of ["p-01", "pe-01"]) {
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            const filtered = eventually(() => {
+                const first = fromFirst();
+                const second = fromSecond();
+                return (
+                    first.includes(LOOPBACK.firstPe) &&
+                    !first.includes(FIRST_LINK_PREFIX) &&
+                    !first.includes(FIRST_MANAGEMENT) &&
+                    second.includes(LOOPBACK.secondPe) &&
+                    !second.includes(SECOND_LINK_PREFIX)
+                );
+            });
+            logMpls();
+            expect(filtered).toBe(true);
+            expect(eventually(() => tracedLabels()[FIRST_LINK.p] !== undefined)).toBe(true);
+
+            // Without the policies, LDP gives and takes every label again.
+            writeLab(true);
+            for (const device of ["p-01", "pe-01"]) {
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            expect(eventually(() => fromFirst().includes(FIRST_MANAGEMENT) && fromSecond().includes(SECOND_LINK_PREFIX))).toBe(true);
         },
         TEST_MS
     );

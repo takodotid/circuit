@@ -42,6 +42,9 @@ export default as64500.device({
                 description: "Bank, offices 1 and 2",
                 route_distinguisher: "64500:101",
                 route_targets: { import: ["64500:101"], export: ["64500:101"] },
+                // Only the offices' networks cross the core, not the links to the bank's routers.
+                import_policy: "bank-offices",
+                export_policy: "bank-offices",
             },
         },
         static_routes: [{ prefix: "10.1.2.0/24", next_hop: "172.16.2.2", vrf: "bank", description: "Bank, office 2's network" }],
@@ -55,8 +58,8 @@ export default as64500.device({
                 "100g-1": { network: "point-to-point", metric: 10 },
             },
         },
-        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-01.
-        mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1"] } },
+        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-01, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
+        mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1"], import_policy: "loopbacks", export_policy: "loopbacks" } },
         // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
         bgp: {
             neighbors: {
@@ -68,6 +71,14 @@ export default as64500.device({
                     address_families: ["vpnv4"],
                 },
             },
+        },
+        prefix_sets: {
+            "bank-offices": { prefixes: ["10.1.0.0/16"] },
+            loopbacks: { prefixes: ["10.255.0.0/24"] },
+        },
+        policies: {
+            "bank-offices": [{ if: { prefix_set: "bank-offices" }, then: "accept" }, { then: "reject" }],
+            loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
         },
     },
 });

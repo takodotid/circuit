@@ -563,6 +563,8 @@ export class Project {
             need("table", r.routing_table, `routing.static_routes[${i}].routing_table`);
             need("VRF", r.vrf, `routing.static_routes[${i}].vrf`);
         });
+        for (const [v, vrf] of Object.entries<Json>(d.routing?.vrfs ?? {}))
+            for (const way of ["import_policy", "export_policy"]) need("policy", vrf?.[way], `routing.vrfs.${v}.${way}`);
         (d.routing?.vrf_imports ?? []).forEach((r: Json, i: number) => {
             need("VRF or main", r.from, `routing.vrf_imports[${i}].from`);
             need("VRF or main", r.to, `routing.vrf_imports[${i}].to`);
@@ -598,6 +600,7 @@ export class Project {
             need("interface", Project.keys(area.interfaces), `routing.ospf.areas.${a}.interfaces`);
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");
         need("interface", d.routing?.mpls?.ldp?.interfaces, "routing.mpls.ldp.interfaces");
+        for (const way of ["import_policy", "export_policy"]) need("policy", d.routing?.mpls?.ldp?.[way], `routing.mpls.ldp.${way}`);
 
         for (const [s, members] of Object.entries<Json>(d.firewall?.interface_sets ?? {}))
             need("interface", members, `firewall.interface_sets.${s}`, writtenAt(d.firewall.interface_sets, s, ["interface_sets", s]));

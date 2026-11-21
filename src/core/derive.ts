@@ -341,12 +341,13 @@ export class Derive {
         return (settings.address_families ?? []).filter((family) => family === "vpnv4" || family === "vpnv6");
     }
 
-    /** Where the device writes an L3VPN: each VRF's route distinguisher and route targets, and each neighbor or group that carries a VPN family. */
+    /** Where the device writes an L3VPN: each VRF's route distinguisher, route targets, and policies, and each neighbor or group that carries a VPN family. */
     static l3vpn(device: Device): string[] {
         const found: string[] = [];
         for (const [name, vrf] of Object.entries(device.routing?.vrfs ?? {})) {
             if (vrf?.route_distinguisher !== undefined) found.push(`routing.vrfs.${name}.route_distinguisher`);
             if (vrf?.route_targets) found.push(`routing.vrfs.${name}.route_targets`);
+            for (const way of ["import_policy", "export_policy"] as const) if (vrf?.[way]) found.push(`routing.vrfs.${name}.${way}`);
         }
 
         const bgp = device.routing?.bgp;

@@ -98,7 +98,9 @@ A note in a cell means "works, with this limit".
 | IS-IS overload bit           | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
 | BFD for IS-IS                | ❌                      | ❌                         | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌                         | ❌                       | 🧪                    | ❌               |
+| LDP label policies           | ✅ /32 or prefix set    | ❌                         | ❌                       | ❌                    | ❌               |
 | L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌                         | ❌                       | ❌                    | ❌               |
+| VRF import/export policies   | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |
 | Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌                         | ❌                       | ❌                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅                         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ✅ one family per session  | ❌                       | ✅                    | ✅               |

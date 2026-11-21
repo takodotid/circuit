@@ -343,7 +343,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
-        found.push(...RouterOsRouting.isisGaps(device));
+        found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device));
 
         const bgp = device.routing?.bgp;
 

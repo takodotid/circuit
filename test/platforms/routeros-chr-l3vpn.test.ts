@@ -1,4 +1,4 @@
-// An L3VPN (RFC 4364) on the three CHRs of the devices workflow. OSPF carries the loopbacks and LDP labels them, as in routeros-chr-mpls.test.ts. The second and third are PEs with a VRF bank each, and iBGP between their loopbacks carries the VRFs' routes and some ipv4 routes. The tests run in order on the same routers. Skipped without the three CHRs.
+// An L3VPN (RFC 4364) on the three CHRs of the devices workflow. OSPF carries the loopbacks and LDP labels them, as in routeros-chr-mpls.test.ts. The second and third are PEs with a VRF bank each. iBGP between their loopbacks carries the VRFs' routes, which the VRFs' policies then pick, and some ipv4 routes. The tests run in order. Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -32,6 +32,12 @@ const SECOND_LINK = { p: "192.0.2.21", pe: "192.0.2.22" };
 
 /** Each PE's address in the VRF bank, on a loopback there. */
 const BANK = { firstPe: "198.51.100.1", secondPe: "198.51.100.2" };
+
+/** pe-01's second address in the VRF bank, which the VRFs' policies tell apart from its first. */
+const FIRST_PE_OTHER = "198.51.100.129";
+
+/** The prefix sets the VRFs' policies accept: one holds `BANK.firstPe`, the other `FIRST_PE_OTHER`. */
+const BANK_HALVES = { low: "198.51.100.0/26", high: "198.51.100.128/26" };
 
 /** The ipv4 prefix each PE announces over the same session, from a blackhole route. */
 const ANNOUNCED = { firstPe: "203.0.113.64/26", secondPe: "203.0.113.128/26" };
@@ -70,8 +76,14 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** What a PE adds: its VRF bank with a loopback in it, and the session to the other PE, which carries VPN routes and `ANNOUNCED`. */
-type Pe = { bank: string; announced: string; peer: { name: string; address: string; announced: string }; exported: boolean };
+/** What a PE adds: its VRF bank with a loopback in it, and the session to the other PE, which carries VPN routes and `ANNOUNCED`. The VRF's policies, when written, accept one half of `BANK_HALVES`. */
+type Pe = {
+    bank: string[];
+    announced: string;
+    peer: { name: string; address: string; announced: string };
+    exported: boolean;
+    policies?: { import_policy?: keyof typeof BANK_HALVES; export_policy?: keyof typeof BANK_HALVES };
+};
 
 /** A router of the lab: its loopback and links in OSPF, LDP on its links, and the L3VPN when it is a PE in one. */
 function writeRouter(name: string, chr: string, management: string, loopback: string, links: Record<string, string>, pe?: Pe): void {
@@ -83,8 +95,14 @@ function writeRouter(name: string, chr: string, management: string, loopback: st
         .map((link) => `"${link}": { network: "point-to-point" },`)
         .join(" ");
     const exported = pe?.exported ? `, export: ["${BANK_TARGET}"]` : "";
+    const halves = [...new Set(Object.values(pe?.policies ?? {}))];
+    const vrfPolicies = Object.entries(pe?.policies ?? {})
+        .map(([way, half]) => `, ${way}: "bank-${half}"`)
+        .join("");
+    const prefixSets = halves.map((half) => `"bank-${half}": { prefixes: ["${BANK_HALVES[half]}"] }`).join(", ");
     const vpn = pe
-        ? `vrfs: { bank: { route_distinguisher: "${BANK_TARGET}", route_targets: { import: ["${BANK_TARGET}"]${exported} } } },
+        ? `vrfs: { bank: { route_distinguisher: "${BANK_TARGET}", route_targets: { import: ["${BANK_TARGET}"]${exported} }${vrfPolicies} } },
+        ${halves.length ? `prefix_sets: { ${prefixSets} },` : ""}
         static_routes: [{ prefix: "${pe.announced}", blackhole: true }],
         bgp: {
             originated_prefixes: ["${pe.announced}"],
@@ -102,9 +120,10 @@ function writeRouter(name: string, chr: string, management: string, loopback: st
         policies: {
             "from-pe": [{ if: { prefix: "${pe.peer.announced}" }, then: "accept" }, { then: "reject" }],
             "to-pe": [{ if: { prefix: "${pe.announced}" }, then: "accept" }, { then: "reject" }],
+            ${halves.map((half) => `"bank-${half}": [{ if: { prefix_set: "bank-${half}" }, then: "accept" }, { then: "reject" }],`).join(" ")}
         },`
         : "";
-    const bankLoopback = pe ? `"bank-lo": { addresses: ["${pe.bank}/32"], vrf: "bank" },` : "";
+    const bankLoopback = pe ? `"bank-lo": { addresses: ${JSON.stringify(pe.bank.map((address) => `${address}/32`))}, vrf: "bank" },` : "";
     write(
         `sites/lab/${name}.ts`,
         `import { lab } from "../../circuit";
@@ -135,8 +154,12 @@ export default lab.device({
     );
 }
 
-/** The three routers: the PEs with the L3VPN or without, and the first PE exporting its VRF's routes or not. */
-function writeLab(l3vpn: boolean, firstExports = true): void {
+/** The three routers: the PEs with the L3VPN or without, the first PE exporting its VRF's routes or not. The first PE's export policy and the second's import policy, when given, accept one half of `BANK_HALVES`. */
+function writeLab(
+    l3vpn: boolean,
+    firstExports = true,
+    policies: { firstExports?: "low" | "high"; secondImports?: "low" | "high" } = {}
+): void {
     writeRouter("p-01", pChr!, "10.0.0", LOOPBACK.p, { "virtual-2": FIRST_LINK.p, "virtual-3": SECOND_LINK.p });
     writeRouter(
         "pe-01",
@@ -146,10 +169,11 @@ function writeLab(l3vpn: boolean, firstExports = true): void {
         { "virtual-2": FIRST_LINK.pe },
         l3vpn
             ? {
-                  bank: BANK.firstPe,
+                  bank: [BANK.firstPe, FIRST_PE_OTHER],
                   announced: ANNOUNCED.firstPe,
                   peer: { name: "pe-02", address: LOOPBACK.secondPe, announced: ANNOUNCED.secondPe },
                   exported: firstExports,
+                  policies: policies.firstExports ? { export_policy: policies.firstExports } : undefined,
               }
             : undefined
     );
@@ -161,10 +185,11 @@ function writeLab(l3vpn: boolean, firstExports = true): void {
         { "virtual-2": SECOND_LINK.pe },
         l3vpn
             ? {
-                  bank: BANK.secondPe,
+                  bank: [BANK.secondPe],
                   announced: ANNOUNCED.secondPe,
                   peer: { name: "pe-01", address: LOOPBACK.firstPe, announced: ANNOUNCED.firstPe },
                   exported: true,
+                  policies: policies.secondImports ? { import_policy: policies.secondImports } : undefined,
               }
             : undefined
     );
@@ -182,6 +207,12 @@ function bankLabel(): number | undefined {
     const output = exec("pe-02", `/routing route print detail where routing-table=bank and dst-address=${BANK.firstPe}/32`);
     const label = /\blabel=(\d+)/.exec(output);
     return label ? Number(label[1]) : undefined;
+}
+
+/** Whether pe-02's VRF bank holds a route to one of pe-01's addresses there. */
+function secondBankHas(address: string): boolean {
+    const count = exec("pe-02", `/ip route print count-only where dst-address=${address}/32 and routing-table=bank`);
+    return count.trim().split("\n").at(-1)!.trim() !== "0";
 }
 
 /** Whether pe-01 reaches pe-02's address in the VRF bank, from its own. */
@@ -243,6 +274,38 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("an L3VPN between two CHRs
 
             // BGP's and LDP's own state, which an export leaves out, changes nothing to plan.
             for (const device of ["p-01", "pe-01", "pe-02"]) expect(circuit("diff", device).status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "a VRF's import policy takes only some of the VPN routes with its target, and its export policy sends only some of its routes",
+        () => {
+            const both = () => [secondBankHas(BANK.firstPe), secondBankHas(FIRST_PE_OTHER)].join();
+
+            // pe-02 takes the half with pe-01's first address.
+            writeLab(true, true, { secondImports: "low" });
+            expect(circuit("apply", "pe-02", "--confirm").status).toBe(0);
+            expect(circuit("diff", "pe-02").status).toBe(0);
+            const imported = eventually(() => both() === "true,false");
+            logL3vpn();
+            expect(imported).toBe(true);
+
+            // pe-01 sends the other half, and pe-02 takes all it gets.
+            writeLab(true, true, { firstExports: "high" });
+            for (const device of ["pe-01", "pe-02"]) {
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            const exported = eventually(() => both() === "false,true");
+            logL3vpn();
+            expect(exported).toBe(true);
+
+            // Without its policy, pe-01 sends both again.
+            writeLab(true);
+            expect(circuit("apply", "pe-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "pe-01").status).toBe(0);
+            expect(eventually(() => both() === "true,true")).toBe(true);
         },
         TEST_MS
     );

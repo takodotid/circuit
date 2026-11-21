@@ -274,18 +274,22 @@ export type Isis<I extends string> = {
     overload_bit?: boolean;
 };
 
-/** LDP (RFC 5036): the device gives a label to each route of its IGP and tells its LDP neighbors. */
-export type Ldp<I extends string> = {
+/** LDP (RFC 5036): the device gives a label to each route of its IGP and tells its LDP neighbors. `P` is the device's policies. */
+export type Ldp<I extends string, P extends string = string> = {
     /** The device's LSR ID, which other LDP routers know it by. LDP sessions run between LSR IDs, so it is the address of a loopback that OSPF or IS-IS announces. */
     lsr_id: IPv4;
     /** The ports and interfaces that forward MPLS and run LDP, each toward another LDP router. */
     interfaces: readonly I[];
+    /** The policy for the labels the device takes from its LDP neighbors, from `routing.policies`. It sees the prefix of each label, and the device keeps the labels it accepts. Its rules match `family`, `prefix`, `prefix_set`, and `prefix_length` only, and set nothing. Every label when absent. */
+    import_policy?: P;
+    /** The policy for the labels the device gives its LDP neighbors, from `routing.policies`, such as for its loopbacks only. It sees the prefix of each route LDP labels, and the device tells its neighbors the labels it accepts. Its rules match as `import_policy`'s do. Every label when absent. */
+    export_policy?: P;
 };
 
 /** MPLS (RFC 3031): packets cross the network by their labels. */
-export type Mpls<I extends string> = {
+export type Mpls<I extends string, P extends string = string> = {
     /** LDP gives the labels. */
-    ldp: Ldp<I>;
+    ldp: Ldp<I, P>;
 };
 
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
@@ -310,16 +314,20 @@ export type VrfRouteTargets = {
     export?: readonly RouteTarget[];
 };
 
-/** A separate routing table, with the interfaces that route in it. */
-export type Vrf = {
+/** A separate routing table, with the interfaces that route in it. `P` is the device's policies. */
+export type Vrf<P extends string = string> = {
     /** What the VRF is for. */
     description?: string;
     /** Keeps the VRF's routes apart from another VRF's with the same prefix among VPN routes, such as `64500:101`. Each VRF of the device has its own. Needed with `route_targets`. */
     route_distinguisher?: RouteDistinguisher;
     /**
-     * Makes the VRF part of an L3VPN (RFC 4364), such as `{ import: ["64500:101"], export: ["64500:101"] }`. Every route the VRF holds, connected, static, or learned from its OSPF or BGP, goes to the BGP neighbors that carry `vpnv4` or `vpnv6` with the `export` targets. The VRF takes the VPN routes that carry an `import` target. Needs `route_distinguisher`.
+     * Makes the VRF part of an L3VPN (RFC 4364), such as `{ import: ["64500:101"], export: ["64500:101"] }`. Every route the VRF holds, connected, static, or learned from its OSPF or BGP, goes to the BGP neighbors that carry `vpnv4` or `vpnv6` with the `export` targets. `export_policy` keeps back those it rejects. The VRF takes the VPN routes that carry an `import` target, but those `import_policy` rejects. Needs `route_distinguisher`.
      */
     route_targets?: VrfRouteTargets;
+    /** The policy for the VPN routes the VRF takes, from `routing.policies`, so it takes only some of the routes with its `import` targets. It sees each VPN route that carries one, and the VRF takes those it accepts. Needs `route_targets.import`. */
+    import_policy?: P;
+    /** The policy for the VRF's own routes that go out as VPN routes, from `routing.policies`. It sees every route the VRF holds, and those it accepts go out with the `export` targets. Needs `route_targets.export`. */
+    export_policy?: P;
 };
 
 /** Routes one table takes from another, through a policy. `F` is the device's VRFs, `P` its policies. */
@@ -573,7 +581,7 @@ export type Routing<
     /** Routing tables beside the main one, keyed by name. A name can't be `main` or the name of a VRF. */
     tables?: Named<T, RoutingTable>;
     /** Separate routing tables with the interfaces that route in them, keyed by name. */
-    vrfs?: Named<F, Vrf>;
+    vrfs?: Named<F, Vrf<NoInfer<P>>>;
     /** Routes a VRF or the main table takes from another, each through a policy. For example, a tenant's VRF takes the main table's default route, and main takes the tenant's prefixes. */
     vrf_imports?: readonly VrfImport<NoInfer<F>, NoInfer<P>>[];
     /** Rules in order that route the traffic they match by another table. For example, traffic from one address block can use its own transit's default route. The first rule that matches decides. The main table routes traffic that no rule matches. */
@@ -587,7 +595,7 @@ export type Routing<
     /** IS-IS, in the main table. */
     isis?: Isis<I>;
     /** MPLS, in the main table, such as `{ ldp: { lsr_id: "192.0.2.1", interfaces: ["100g-1", "100g-2"] } }`. */
-    mpls?: Mpls<I>;
+    mpls?: Mpls<I, NoInfer<P>>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */

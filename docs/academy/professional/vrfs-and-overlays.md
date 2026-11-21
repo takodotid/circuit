@@ -192,6 +192,8 @@ bgp: {
 
 `pe-02` writes the same two VRFs with the same route targets. Now office 2 of the bank, at `pe-02`, learns the network of office 1 with no static route for it at `pe-02`. The school's routes carry another tag, so they stay in the school's VRF. A new customer is a new VRF on the PEs it uses, and the P routers in between don't change.
 
+A VRF can also take only some of the routes with its tag, or send only some of its own. `import_policy` and `export_policy` name a route policy for each, as a BGP neighbor's do: the bank's VRF could send its offices' networks, and keep the link to its router to itself.
+
 The core needs MPLS for this, which `routing.mpls` runs with LDP. The [MPLS core example](/guide/examples#an-mpls-core) has it all, on two RouterOS routers. On other platforms, Circuit doesn't write an L3VPN yet: [Platforms](/reference/platforms) says which.
 
 ## Ethernet across the core

@@ -2,6 +2,7 @@
 
 import { beforeAll, expect, test } from "bun:test";
 import { DeviceChecks } from "../../src/checks/device";
+import type { VrfRouteTargets } from "../../src/config/routing";
 import type { Device, Neighbor, NeighborSettings } from "../../src/model";
 import { Platforms } from "../../src/platforms";
 import { Fixtures } from "../fixtures";
@@ -34,7 +35,17 @@ test("the example validates, and RouterOS renders the VRF's VPN entry and a VPN 
 
     const desired = routeros.render(pe01);
     expect(desired).toContain(
-        '/routing bgp vpn\nadd export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:101 import.route-targets=64500:101 instance=default label-allocation-policy=per-vrf name=bank route-distinguisher=64500:101 vrf=bank\n'
+        '/routing bgp vpn\nadd export.filter-chain=bank-offices-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:101 import.filter-chain=bank-offices-FROM-VPN import.route-targets=64500:101 instance=default label-allocation-policy=per-vrf name=bank route-distinguisher=64500:101 vrf=bank\n'
+    );
+    // A VRF hands its routes over as ipv4, and takes VPN routes as vpnv4, each with its prefix alone (TRAPS.md).
+    expect(desired).toContain(
+        'add chain=bank-offices-VRF rule="if (afi ipv4) { jump bank-offices-V4 }"\nadd chain=bank-offices-VRF rule="if (afi ipv6) { jump bank-offices-V6 }"\nadd chain=bank-offices-VRF rule=reject\n'
+    );
+    expect(desired).toContain(
+        'add chain=bank-offices-FROM-VPN rule="if (afi vpnv4) { jump bank-offices-V4 }"\nadd chain=bank-offices-FROM-VPN rule="if (afi vpnv6) { jump bank-offices-V6 }"\nadd chain=bank-offices-FROM-VPN rule=reject\n'
+    );
+    expect(desired).toContain(
+        'add chain=bank-offices-V4 rule="if (dst in bank-offices) { accept }"\nadd chain=bank-offices-V4 rule=reject\n'
     );
     expect(desired).toContain(
         'add afi=vpnv4 as=64500 comment="pe-02, VPN routes" input.filter=VPN instance=default local.address=10.255.0.1 local.role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 remote.as=64500'
@@ -49,10 +60,26 @@ test("the example validates, and RouterOS renders the VRF's VPN entry and a VPN 
             ".role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 .as=64500"
         )
         .replace(
-            'export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:101',
-            "export.redistribute=connected,static,ospf,bgp .route-targets=64500:101"
+            'export.filter-chain=bank-offices-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:101 import.filter-chain=bank-offices-FROM-VPN import.route-targets=64500:101',
+            "export.filter-chain=bank-offices-VRF .redistribute=connected,static,ospf,bgp .route-targets=64500:101 import.filter-chain=bank-offices-FROM-VPN .route-targets=64500:101"
         );
     expect(routeros.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test("RouterOS takes a VRF's policy out of its VPN entry with unset, since it prints an empty chain as written", () => {
+    const desired = routeros.render(pe01);
+    const bank = pe01.routing!.vrfs!.bank!;
+    const without: Device = {
+        ...pe01,
+        routing: { ...pe01.routing, vrfs: { bank: { ...bank, import_policy: undefined, export_policy: undefined } } },
+    };
+
+    expect(routeros.plan(routeros.render(without), desired, options).steps.flatMap((step) => step.send)).toEqual(
+        expect.arrayContaining([
+            "/routing bgp vpn unset [ find name=bank ] export.filter-chain",
+            "/routing bgp vpn unset [ find name=bank ] import.filter-chain",
+        ])
+    );
 });
 
 test("RouterOS hands a session's ipv4 routes on to its policy's chain once it has taken its VPN routes", () => {
@@ -80,6 +107,21 @@ test("RouterOS takes a route target out of a VPN entry with unset, since it prin
     expect(steps).toEqual([
         "/routing bgp vpn unset [ find name=bank ] export.redistribute",
         "/routing bgp vpn unset [ find name=bank ] export.route-targets",
+    ]);
+});
+
+test("a VRF's policies pick among its VPN routes, so each needs the route targets of its way", () => {
+    const bank = pe01.routing!.vrfs!.bank!;
+    const withTargets = (route_targets: VrfRouteTargets): Device => ({
+        ...pe01,
+        routing: { ...pe01.routing, vrfs: { bank: { ...bank, route_targets } } },
+    });
+
+    expect(errors(withTargets({ export: ["64500:101"] }))).toEqual([
+        "routing.vrfs.bank.import_policy bank-offices picks the VPN routes the VRF takes, and it takes none without import targets. Write route_targets.import, or remove import_policy",
+    ]);
+    expect(errors(withTargets({ import: ["64500:101"] }))).toEqual([
+        "routing.vrfs.bank.export_policy bank-offices picks the routes the VRF sends as VPN routes, and it sends none without export targets. Write route_targets.export, or remove export_policy",
     ]);
 });
 

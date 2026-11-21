@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { DeviceChecks } from "../../src/checks/device";
-import type { Device, Mpls } from "../../src/model";
+import type { Device, Mpls, PolicyRule } from "../../src/model";
 import { Platforms } from "../../src/platforms";
 import { Fixtures } from "../fixtures";
 
@@ -134,4 +134,125 @@ test("an LDP interface is a link in the main table, with an IPv4 address, and li
     expect(errors(switchDevice)).toContain(
         "routing.mpls.ldp.interfaces 40g-1 has no IPv4 address, which LDP needs to find its neighbors. Give it one, or remove it"
     );
+});
+
+/** The example router with LDP's policies, and the policies and prefix sets they use beside its own. */
+function withLdpPolicies(ldp: Pick<Mpls["ldp"], "import_policy" | "export_policy">, policies: Record<string, PolicyRule[]>): Device {
+    const device = withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, ...ldp } });
+    const routing = device.routing!;
+    return {
+        ...device,
+        routing: {
+            ...routing,
+            policies: { ...routing.policies, ...policies },
+            prefix_sets: { ...routing.prefix_sets, loopbacks: { prefixes: ["192.0.2.0/24", "2001:db8::/32"] } },
+        },
+    };
+}
+
+/** What RouterOS refuses of a device's policies that LDP uses, without what it refuses of the example router itself. */
+const ldpGaps = (device: Device) =>
+    Platforms.get("routeros")
+        .unsupported(device)
+        .filter((refused) => refused.includes("LDP"));
+
+/** Labels for the loopbacks, which a policy LDP calls holds. */
+const LOOPBACKS: Record<string, PolicyRule[]> = {
+    loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }],
+    own: [{ if: { prefix: "192.0.2.255/32" }, then: "accept" }, { call: "loopbacks" }, { if: { family: "ipv6" }, then: "accept" }],
+};
+
+test("an LDP policy matches a label's prefix only, and sets nothing, nor does a policy it calls", () => {
+    expect(errors(withLdpPolicies({ import_policy: "loopbacks", export_policy: "own" }, LOOPBACKS))).toEqual([]);
+
+    const device = withLdpPolicies(
+        { export_policy: "labels" },
+        {
+            labels: [{ if: { prefix_set: "loopbacks", as_path_length: { max: 2 } }, then: "accept" }, { call: "more" }],
+            more: [{ set: { local_pref: 200 }, then: "accept" }],
+        }
+    );
+    expect(errors(device)).toEqual([
+        "routing.mpls.ldp.export_policy labels: routing.policies.labels[0].if has as_path_length, and an LDP label has only a prefix. Match family, prefix, prefix_set, prefix_length",
+        'routing.mpls.ldp.export_policy labels: routing.policies.more[0].set, and an LDP label has nothing to set. Remove set, and write then: "accept" or "reject"',
+    ]);
+});
+
+test("RouterOS writes an LDP policy as label filters in its order, a called policy's in its place, and a last filter that rejects the rest", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withLdpPolicies({ import_policy: "loopbacks", export_policy: "own" }, LOOPBACKS);
+    expect(ldpGaps(device)).toEqual([]);
+
+    const desired = routeros.render(device);
+    // IPv6 has no labels: LDP runs for IPv4 only.
+    expect(desired).toContain("/mpls ldp accept-filter\nadd accept=yes prefix=192.0.2.0/24\nadd accept=no prefix=0.0.0.0/0\n");
+    expect(desired).toContain(
+        "/mpls ldp advertise-filter\nadd advertise=yes prefix=192.0.2.255/32\nadd advertise=yes prefix=192.0.2.0/24\nadd advertise=no prefix=0.0.0.0/0\n"
+    );
+
+    const decided = withLdpPolicies({ export_policy: "all" }, { all: [{ if: { family: "ipv4" }, then: "accept" }] });
+    expect(routeros.render(decided)).toContain("/mpls ldp advertise-filter\nadd advertise=yes prefix=0.0.0.0/0\n/");
+});
+
+test("RouterOS refuses an LDP policy's rule that a label filter can't hold", () => {
+    const device = withLdpPolicies(
+        { import_policy: "labels" },
+        {
+            labels: [
+                { if: { prefix: "192.0.2.0/24" }, then: "accept" },
+                { if: { prefix: "192.0.2.1/32", prefix_set: "loopbacks" }, then: "accept" },
+                { if: { prefix_length: { max: 32 } }, then: "accept" },
+                { call: "fetched" },
+            ],
+            fetched: [{ if: { prefix_set: "upstream-origins" }, then: "reject" }],
+        }
+    );
+
+    expect(ldpGaps(device)).toEqual([
+        "routing.policies.labels[0].if.prefix 192.0.2.0/24 in an LDP policy: a RouterOS label filter matches the prefixes inside it too. Write a prefix set, which matches so",
+        "routing.policies.labels[1].if, prefix and prefix_set at once in an LDP policy: a RouterOS label filter matches one prefix",
+        "routing.policies.labels[2].if.prefix_length in an LDP policy: a RouterOS label filter matches a prefix only",
+        "routing.policies.fetched[0].if.prefix_set upstream-origins, from a registry, in an LDP policy: RouterOS writes a label filter for each prefix. Write the prefixes",
+    ]);
+});
+
+test("Junos refuses LDP's policies while its MPLS is experimental", () => {
+    const device = withMpls("platforms--example-aggregation-switch", {
+        ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"], import_policy: "labels", export_policy: "labels" },
+    });
+
+    expect(Platforms.get("junos").unsupported(device)).toEqual(
+        expect.arrayContaining([
+            "routing.mpls.ldp.import_policy, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
+            "routing.mpls.ldp.export_policy, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
+        ])
+    );
+});
+
+test("RouterOS rewrites the label filters in order, then restarts LDP so its sessions take them, and leaves it running when they don't change", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withLdpPolicies({ export_policy: "own" }, LOOPBACKS);
+    const desired = routeros.render(device);
+    const without = routeros.render({ ...device, routing: { ...device.routing, mpls: { ldp: ROUTER.ldp } } });
+
+    const restart = [
+        "/mpls ldp set [ find (vrf=main or !vrf) ] disabled=yes",
+        ":local waited 0; :while ([:len [/mpls ldp neighbor find where dynamic]] > 0 and $waited < 15) do={ :delay 1s; :set waited ($waited + 1) }",
+        "/mpls ldp set [ find (vrf=main or !vrf) ] disabled=no",
+    ];
+    expect(sent("routeros", desired, without)).toEqual([
+        ":global frameworkOldRules [/mpls ldp advertise-filter find]",
+        "/mpls ldp advertise-filter add advertise=yes prefix=192.0.2.255/32",
+        "/mpls ldp advertise-filter add advertise=yes prefix=192.0.2.0/24",
+        "/mpls ldp advertise-filter add advertise=no prefix=0.0.0.0/0",
+        ':global frameworkOldRules; /mpls ldp advertise-filter remove $frameworkOldRules; /system script environment remove [find name="frameworkOldRules"]',
+        ...restart,
+    ]);
+    expect(sent("routeros", without, desired).slice(-restart.length)).toEqual(restart);
+
+    // As a CHR printed them, after a restart that left `disabled=no` on the instance.
+    const printed = desired.replace("add afi=ip lsr-id=", "add afi=ip disabled=no lsr-id=");
+    expect(sent("routeros", desired, printed)).toEqual([]);
+    const noMpls = routeros.render({ ...device, routing: { ...device.routing, mpls: undefined } });
+    expect(sent("routeros", noMpls, desired).filter((line) => line.includes("disabled="))).toEqual([]);
 });
