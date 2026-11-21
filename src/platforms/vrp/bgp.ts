@@ -34,18 +34,19 @@ export class VrpBgp {
     /** A node's header: removed once no session uses its policy. */
     private static readonly NODE = /^route-policy (\S+) (?:permit|deny) node (\d+)$/;
 
-    /** The prefix lists, filters, and route-policies the sessions use, then the BGP view. Nothing without `routing.bgp.asn`, which `unsupported()` names. */
-    static lines(device: Device): string[] {
+    /** The prefix lists, filters, and route-policies the sessions and `others` use, then the BGP view. No view without `routing.bgp.asn`, which `unsupported()` names. */
+    static lines(device: Device, others: readonly string[] = []): string[] {
         const bgp = device.routing?.bgp;
-        if (!bgp || bgp.asn === undefined) return VrpPolicies.lines(device, []);
+        if (!bgp || bgp.asn === undefined) return VrpPolicies.lines(device, [...new Set(others)].sort());
 
         const neighbors = Object.values(bgp.neighbors ?? {}).flatMap((neighbor) => (neighbor ? [neighbor] : []));
-        const used = new Set(
-            neighbors.flatMap((neighbor) => {
+        const used = new Set([
+            ...others,
+            ...neighbors.flatMap((neighbor) => {
                 const settings = VrpBgp.settingsOf(device, neighbor);
                 return [settings.import_policy ?? VrpPolicies.REJECT_ALL, settings.export_policy ?? VrpPolicies.REJECT_ALL];
-            })
-        );
+            }),
+        ]);
 
         return [...VrpPolicies.lines(device, [...used].sort()), ...VrpBgp.view(device, neighbors)];
     }

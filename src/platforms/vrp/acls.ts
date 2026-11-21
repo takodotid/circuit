@@ -177,7 +177,7 @@ export class VrpAcls {
     }
 
     /** What one rule matches in a family, one line for each combination of the values in its lists, or none when the rule is the other family's. */
-    private static matchesOf(rule: AclRule, family: Family): string[] {
+    static matchesOf(rule: AclRule, family: Family): string[] {
         const match = rule.if;
         if (match?.family && match.family !== family) return [];
 

@@ -166,7 +166,7 @@ ${["redistribute", "redistribute6"].flatMap((list) => redistributed.map((source)
     ]);
 });
 
-test("FortiOS refuses passive, and another link type on a loopback; VRP and Raisecom ROS refuse IS-IS", () => {
+test("FortiOS refuses passive, and another link type on a loopback; Raisecom ROS refuses IS-IS", () => {
     const fortios = withIsis("platforms--example-firewall", core({ passive: true, network: "point-to-point" }, "10g-2"));
     expect(Platforms.get("fortios").unsupported(fortios)).toEqual(
         expect.arrayContaining([
@@ -176,7 +176,6 @@ test("FortiOS refuses passive, and another link type on a loopback; VRP and Rais
     );
 
     const isis = core({}, "management");
-    expect(Platforms.get("vrp").unsupported(withIsis("platforms--example-switch", isis))).toContain("routing.isis");
     expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain("routing.isis");
 });
 
@@ -418,7 +417,7 @@ set protocols isis topologies ipv6-unicast
     ]);
 });
 
-test("RouterOS and FortiOS refuse multi-topology, VRP and Raisecom ROS refuse IS-IS, and IS-IS needs IPv6 for it", () => {
+test("RouterOS and FortiOS refuse multi-topology, Raisecom ROS refuses IS-IS, and IS-IS needs IPv6 for it", () => {
     const isis: Isis = { ...core({}, "uplink"), address_families: ["ipv4", "ipv6"], multi_topology: true };
     expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toContain(
         "routing.isis.multi_topology, RouterOS 7.24 routes IPv6 in IPv4's topology only"
@@ -427,7 +426,6 @@ test("RouterOS and FortiOS refuse multi-topology, VRP and Raisecom ROS refuse IS
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
         "routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only"
     );
-    expect(Platforms.get("vrp").unsupported(withIsis("platforms--example-switch", isis))).toContain("routing.isis");
     expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain("routing.isis");
 
     const ipv4Only = withIsis("platforms--example-router", { ...core({}, "uplink"), multi_topology: true });

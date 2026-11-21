@@ -8,6 +8,8 @@ import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
+import { VrpIsis } from "./isis";
+import { VrpMarking } from "./marking";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -131,6 +133,7 @@ export class VrpRender {
         this.snmpAcl();
         this.ethertypeAclBlocks();
         this.lines.push(...VrpAcls.blocks(device));
+        this.lines.push(...VrpMarking.lines(device));
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
@@ -156,7 +159,8 @@ export class VrpRender {
 
         this.staticRoutes();
         this.ospf();
-        this.lines.push(...VrpBgp.lines(device));
+        this.lines.push(...VrpBgp.lines(device, VrpIsis.policies(device)));
+        this.lines.push(...VrpIsis.lines(device));
         if (this.wantsBfd()) this.block("bfd", []);
         const relays = device.services?.dhcp_relay;
         const servers = device.services?.dhcp_server;
@@ -486,6 +490,7 @@ export class VrpRender {
             if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
         }
 
+        lines.push(...VrpIsis.interfaceLines(device, name));
         return lines;
     }
 

@@ -19,7 +19,8 @@ description: The device operating systems Circuit works with, their versions, an
 - **CHR.** MikroTik's Cloud Hosted Router is RouterOS in a virtual machine. Its ports are the machine's network adapters, as many as it has: `virtual-1` is `ether1`, and so on. Circuit disables every adapter the config leaves out.
 - **A RouterOS PPPoE server.** Subscribers live in RADIUS. Before the first `apply` on a router that already serves PPPoE, move every subscriber from `/ppp secret` to RADIUS: the plan removes each local secret, PPP profile, and PPPoE server that `services.pppoe_server` doesn't write, and sets the profiles `default` and `default-encryption` back to RouterOS's defaults. A prefix RADIUS sends (`Delegated-IPv6-Prefix`) needs no setting: the session delegates it, with or without `prefix_delegation`.
 - **A RouterOS DHCP server with `radius`.** RouterOS asks RADIUS with the client's MAC address in capitals as `User-Name`, such as `52:54:00:00:0B:02`, and an empty password, so the RADIUS server lets a client in by its MAC address alone. A lease lasts the `Session-Timeout` of the server's accept when it has one. All the DHCP servers that have `radius` share one list of RADIUS servers and one `acct_interim_interval`.
-- **VRP.** A CloudEngine filters with ACLs on its ports, so write hardware ACLs. Circuit refuses the firewall's chains there: the switch's traffic filter checks what it switches as well as what it routes, V200R005 filters traffic to the switch only with a blacklist, and nothing filters what the switch sends. A DHCP server is an address pool, and nothing on the switch ties it to its interface.
+- **VRP.** A CloudEngine filters with ACLs on its ports, so write hardware ACLs. Circuit refuses the firewall's chains there: the switch's traffic filter checks what it switches as well as what it routes, V200R005 filters traffic to the switch only with a blacklist, and nothing filters what the switch sends. A DHCP server is an address pool, and nothing on the switch ties it to its interface. IS-IS is one process, `isis 1`: a CE6855 committed it with a leak into level 1, the overload bit, and both topologies, but no VLAN interface ran it yet, so IS-IS on an interface is experimental.
+- **RouterOS IS-IS on both levels.** A router on both levels leaks every level 2 route into level 1, and its filter chain held none back, so Circuit refuses `level2_to_level1` there. The level 1 routers behind it got no default route from it either.
 - **Raisecom ROS.** The switch answers time queries whenever it takes time from `system.ntp`, and nothing stops it, so write `services.ntp_server`, or `validate` warns. BPDU guard is one setting for the whole switch, and the switch finds edge ports by itself: with `bpdu_guard`, write `edge` on each port that runs spanning tree. Raisecom's guide doesn't say how an ACL rule matches a TCP or UDP port, and a switch's SSH key belongs to no user, so hardware ACLs and SSH keys wait.
 
 ## Feature matrix
@@ -97,11 +98,12 @@ A note in a cell means "works, with this limit".
 | OSPF area ranges             | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | OSPF router priority         | ✅                      | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | OSPF NBMA and P2MP links     | ✅ OSPFv2               | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| IS-IS                        | ✅ no passive metric    | ❌                         | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS multi-topology         | ❌                      | ❌                         | ❌                       | 🧪                    | ❌               |
-| IS-IS authentication         | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
-| IS-IS overload bit           | ❌                      | ❌                         | ❌                       | ✅                    | ✅               |
-| BFD for IS-IS                | ❌                      | ❌                         | ❌                       | ✅                    | ❌               |
+| IS-IS                        | ✅ no passive metric    | 🧪 VLAN interfaces         | ❌                       | ✅                    | ✅ no passive    |
+| IS-IS multi-topology         | ❌                      | ✅                         | ❌                       | 🧪                    | ❌               |
+| IS-IS authentication         | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ✅               |
+| IS-IS overload bit           | ❌                      | ✅                         | ❌                       | ✅                    | ✅               |
+| IS-IS leaks into level 1     | ❌ leaks every route    | ✅                         | ❌                       | ❌ not yet            | ❌ not yet       |
+| BFD for IS-IS                | ❌                      | ❌ not yet                 | ❌                       | ✅                    | ❌               |
 | MPLS with LDP                | ✅                      | ❌                         | ❌                       | 🧪                    | ❌               |
 | LDP label policies           | ✅ /32 or prefix set    | ❌                         | ❌                       | ❌                    | ❌               |
 | L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌                         | ❌                       | ❌                    | ❌               |
@@ -133,7 +135,7 @@ A note in a cell means "works, with this limit".
 | CGNAT pool, deterministic          | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
 | CGNAT pool, dynamic                | ❌                       | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
 | TCP MSS clamp                      | ✅                       | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DSCP and PCP marking               | ✅ not with fast path    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DSCP and PCP marking               | ✅ not with fast path    | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
 | Classes and schedulers             | ✅ not with fast path    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DHCP server                        | ✅                       | 🧪                    | ❌                         | ✅                       | ✅                                              |
 | DHCPv6 server                      | ✅ pool is a prefix      | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
@@ -150,7 +152,8 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 
 - **Junos.** A QFX5100 marks in a filter on each interface where traffic arrives. That filter also marks what goes to the switch itself, can't match the interface a packet leaves through, and can't set a PCP.
 - **FortiOS.** A DSCP is set for a whole session, in the firewall policy or the shaping policy the session takes. A session takes one shaping policy, and rate limits already use them.
-- **VRP and Raisecom ROS.** Not built yet.
+- **VRP.** Marking is Huawei's MQC: an ACL and a traffic classifier for each rule, and a traffic policy for each family, applied to all the switch receives. Huawei's reference has `remark dscp` work only on what the switch routes, as marking means. `remark 8021p` works only on what it switches, so VRP refuses `pcp`. A CE6855 took the policies on a spare port, but no packet was seen marked, so marking stays experimental.
+- **Raisecom ROS.** Not built yet.
 
 A scheduler on RouterOS needs its `rate`, and each strict queue its `max`. RouterOS queues with HTB, which gives each queue the rate it keeps for it first, then lends what is left by priority. So a strict queue keeps its `max` and goes first, and a weighted queue keeps its share of the rate less the strict queues' `max`. A scheduler is refused on a switched port, whose routed packets leave through the VLAN interface. It is refused beside a `fast_path` rule, and with `system.hardware_offload` unless on a VLAN interface with `hardware_offload: false`, as packets there skip the queues. Junos, FortiOS, VRP, and Raisecom ROS don't build classes and schedulers yet.
 
