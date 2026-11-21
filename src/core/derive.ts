@@ -205,6 +205,17 @@ export class Derive {
         return [...Derive.ports(device).map(([name, settings]) => ({ where: `interfaces.ethernet.${name}`, settings })), ...lags];
     }
 
+    /** Where IEEE 802.1ad's TPID is set on a port or LAG, and where a VLAN interface ends an inner VLAN (QinQ): `interfaces.lag.uplink.tpid`. */
+    static stackedTags(device: Device): { tpid: string[]; innerVlans: string[] } {
+        const vlanInterfaces = Object.entries(device.interfaces?.vlan_interface ?? {});
+        return {
+            tpid: Derive.switchedHolders(device).flatMap(({ where, settings }) => (settings.tpid === "0x88a8" ? [`${where}.tpid`] : [])),
+            innerVlans: vlanInterfaces.flatMap(([name, iface]) =>
+                iface?.inner_vlan_id === undefined ? [] : [`interfaces.vlan_interface.${name}.inner_vlan_id`]
+            ),
+        };
+    }
+
     /** Each port, LAG, and VLAN interface with a rate limit. */
     static rateLimited(device: Device): RateLimited[] {
         const kinds = ["ethernet", "lag", "vlan_interface"] as const;

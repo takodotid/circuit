@@ -110,7 +110,7 @@ test("validate keeps a QinQ port to its one VLAN, and routes on another VLAN", (
         expect.arrayContaining([
             "interfaces.ethernet.10g-37 has qinq_vlan and access_vlan: write one of them",
             "interfaces.ethernet.10g-37.dhcp_trusted is on a QinQ port, whose frames carry the customer's own tags",
-            "interfaces.vlan_interface.gateway is on hall-2, which carries customers' frames as a QinQ VLAN: route on another VLAN",
+            "interfaces.vlan_interface.gateway is on hall-2, which carries customers' frames as a QinQ VLAN: route on another VLAN, or end one VLAN inside it with inner_vlan_id",
         ])
     );
 });

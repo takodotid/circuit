@@ -97,6 +97,7 @@ export class RouterOsExport {
             pvid: "1",
             "dhcp-snooping": "no",
             "ra-guard": "no",
+            "ether-type": "0x8100",
         },
         "/interface bridge port": {
             pvid: "1",
@@ -122,7 +123,7 @@ export class RouterOsExport {
             "limit-unknown-multicasts": "no",
             "limit-unknown-unicasts": "no",
         },
-        "/interface vlan": { "l3-hw-offloading": "yes", mtu: "1500" },
+        "/interface vlan": { "l3-hw-offloading": "yes", mtu: "1500", "use-service-tag": "no" },
         "/interface macvlan": { mode: "bridge", mtu: "1500" },
         "/interface vrrp": { priority: "100", "preemption-mode": "yes", interval: "1s", version: "3", "v3-protocol": "ipv4" },
         "/interface vxlan": { port: "4789" },
