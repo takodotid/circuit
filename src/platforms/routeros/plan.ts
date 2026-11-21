@@ -86,6 +86,7 @@ export class RouterOsPlan {
         "/mpls interface",
         "/mpls ldp",
         "/mpls ldp interface",
+        "/mpls ldp neighbor",
         "/ip",
         "/ipv6",
         "/routing",
@@ -125,6 +126,8 @@ export class RouterOsPlan {
         "/ipv6 nd prefix",
         // A PPP or hotspot user's rate limit is a simple queue.
         "/queue simple",
+        // LDP lists each neighbor it finds, and each pseudowire's peer, beside those it was told (TRAPS.md).
+        "/mpls ldp neighbor",
     ]);
 
     /**
