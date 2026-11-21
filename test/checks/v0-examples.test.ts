@@ -113,7 +113,7 @@ test("a field a platform renders nothing for is unsupported", () => {
         expect(unsupported(switchGaps(device))).toContain(
             device.platform === "vrp"
                 ? "system.users.operator.ssh_keys[0], not RSA: the platform takes RSA keys only"
-                : "system.users.operator.ssh_keys"
+                : "system.users.operator.ssh_keys, a key here belongs to no user, and one setting turns password logins off for all"
         );
     }
 

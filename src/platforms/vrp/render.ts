@@ -5,6 +5,9 @@ import type { Device, Lag, Limit, OspfArea, OspfAuthentication, Port, RateLimit,
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
+import { VrpAcls } from "./acls";
+import { VrpBgp } from "./bgp";
+import { VrpDhcp } from "./dhcp";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -127,9 +130,11 @@ export class VrpRender {
         this.managementAcl();
         this.snmpAcl();
         this.ethertypeAclBlocks();
+        this.lines.push(...VrpAcls.blocks(device));
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
+        this.lines.push(...VrpDhcp.blocks(device));
         this.carProfiles();
 
         for (const [name, lag] of Object.entries(this.lags)) {
@@ -151,10 +156,12 @@ export class VrpRender {
 
         this.staticRoutes();
         this.ospf();
+        this.lines.push(...VrpBgp.lines(device));
         if (this.wantsBfd()) this.block("bfd", []);
         const relays = device.services?.dhcp_relay;
+        const servers = device.services?.dhcp_server;
         const snooping = device.switching?.dhcp_snooping;
-        if (snooping || (relays && Object.keys(relays).length)) {
+        if (snooping || [relays, servers].some((each) => each && Object.keys(each).length)) {
             this.line("dhcp enable");
             if (snooping) this.line("dhcp snooping enable");
             this.separator();
@@ -499,6 +506,7 @@ export class VrpRender {
         if (settings.lldp === false) lines.push("lldp disable");
         if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
+        lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl));
 
         const flow = this.device.monitoring?.flow_export;
         const observed = flow?.protocol === "sflow" && (!flow.interfaces || flow.interfaces.includes(port));

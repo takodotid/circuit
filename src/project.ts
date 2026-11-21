@@ -460,6 +460,7 @@ export class Project {
             "wireguard",
             "eoip",
             "pseudowire",
+            "pppoe_client",
         ];
 
         // An interface's name is one interface: a rule or a route that uses it would otherwise not say which.
@@ -475,6 +476,7 @@ export class Project {
             VLAN: new Set(Project.keys(d.switching?.vlans)),
             interface: new Set(kinds.flatMap((k) => Project.keys(d.interfaces?.[k]))),
             LAG: new Set(Project.keys(d.interfaces?.lag)),
+            "port, LAG, or VLAN interface": new Set(["ethernet", "lag", "vlan_interface"].flatMap((k) => Project.keys(d.interfaces?.[k]))),
             "VLAN interface": new Set(Project.keys(d.interfaces?.vlan_interface)),
             ACL: new Set(Project.keys(d.switching?.acls)),
             policy: new Set(Project.keys(d.routing?.policies)),
@@ -513,6 +515,7 @@ export class Project {
             need("VRF", s.vrf, `monitoring.syslog[${n}].vrf`);
         });
         need("VRF", d.monitoring?.snmp?.vrf, "monitoring.snmp.vrf");
+        for (const [p, probe] of Object.entries<Json>(d.monitoring?.probes ?? {})) need("VRF", probe?.vrf, `monitoring.probes.${p}.vrf`);
         for (const [s, service] of Object.entries<Json>(d.management ?? {})) need("VRF", service?.vrf, `management.${s}.vrf`);
         for (const group of ["dns", "ntp"]) need("VRF", d.system?.[group]?.vrf, `system.${group}.vrf`);
         (d.system?.aaa?.radius ?? []).forEach((s: Json, n: number) => need("VRF", s.vrf, `system.aaa.radius[${n}].vrf`));
@@ -534,6 +537,9 @@ export class Project {
                 (x.dhcp_client?.default_routes ?? []).forEach((r: Json, n: number) =>
                     need("table", r.routing_table, `${at}.dhcp_client.default_routes[${n}].routing_table`, written)
                 );
+                if (kind !== "pppoe_client") continue;
+                need("port, LAG, or VLAN interface", x.interface, `${at}.interface`, written);
+                need("interface", Project.keys(x.prefix_delegation?.interfaces), `${at}.prefix_delegation.interfaces`, written);
             }
         if (typeof d.switching?.lldp === "object") need("interface", d.switching.lldp.interfaces, "switching.lldp.interfaces");
         for (const [a, rules] of Object.entries<Json>(d.switching?.acls ?? {}))
@@ -600,6 +606,7 @@ export class Project {
             ["firewall.nat.source", d.firewall?.nat?.source] as const,
             ["firewall.nat.destination", d.firewall?.nat?.destination] as const,
             ["firewall.tcp_mss", d.firewall?.tcp_mss] as const,
+            ["qos.marking", d.qos?.marking] as const,
         ];
         for (const [at, rules] of lists)
             (rules ?? []).forEach((r: Json, i: number) => {
@@ -667,6 +674,7 @@ export class Project {
                 ...(d.firewall?.nat?.source ?? []),
                 ...(d.firewall?.nat?.destination ?? []),
                 ...(d.firewall?.tcp_mss ?? []),
+                ...(d.qos?.marking ?? []),
             ];
             for (const rule of rules)
                 for (const way of ["in", "out"])
@@ -724,6 +732,13 @@ export class Project {
         return Project.combinations(rule, fields, ["in_interface", "out_interface", "in_interface_set", "out_interface_set", "src", "dst"]);
     }
 
+    /** A marking rule: as a filter rule, then one rule for each DSCP it matches. */
+    private static marking(rule: Json, sets: Record<string, string[]>): Json[] {
+        return Project.filter(rule, sets).flatMap((r) =>
+            Array.isArray(r.if?.dscp) && r.if.dscp.length ? r.if.dscp.map((dscp: string) => ({ ...r, if: { ...r.if, dscp } })) : [r]
+        );
+    }
+
     /** `192.0.2.1/32` as `192.0.2.1`. Anything else as it is. */
     private static alone(v: unknown): unknown {
         return typeof v === "string" ? v.replace(/\/\d+$/, "") : v;
@@ -768,8 +783,9 @@ export class Project {
         for (const set of Object.values<Json>(d.routing?.prefix_sets ?? {}))
             if (set.prefixes && !Array.isArray(set.prefixes)) set.prefixes = Object.values(set.prefixes);
 
+        const sets = d.firewall?.interface_sets ?? {};
+        if (d.qos?.marking) d.qos.marking = d.qos.marking.flatMap((r: Json) => Project.marking(r, sets));
         if (d.firewall) {
-            const sets = d.firewall.interface_sets ?? {};
             delete d.firewall.interface_sets;
             for (const chain of Object.values<Json>(d.firewall.filter ?? {}))
                 if (chain.rules) chain.rules = chain.rules.flatMap((r: Json) => Project.filter(r, sets));

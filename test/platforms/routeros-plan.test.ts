@@ -86,6 +86,7 @@ test("a pool jumps by subscribers to a chain for each pool address, which gives 
                         if: { src: "100.64.0.0/30", out_interface: "uplink" },
                         then: "snat",
                         to_pool: "198.51.100.0/31",
+                        port_allocation: "deterministic",
                         port_set_size: 32256,
                     },
                 ],
@@ -121,7 +122,7 @@ test("a pool jumps by subscribers to a chain for each pool address, which gives 
 // A /20 of subscribers, 8449 rules, took 89 s to apply on a CHR. A /18 took 340 s, and its export passed 2 MiB (7.24.6, #312).
 test("a pool with more subscribers than a /20 is a warning on RouterOS", () => {
     const pool = (src: Prefix, to_pool: `${number}.${number}.${number}.${number}/${number}`) =>
-        ({ if: { src }, then: "snat", to_pool, port_set_size: 1008 }) as const;
+        ({ if: { src }, then: "snat", to_pool, port_allocation: "deterministic", port_set_size: 1008 }) as const;
     const device: Device = {
         ...router,
         firewall: {

@@ -251,24 +251,33 @@ export class AddressSpace {
                 const local = `PPPoE server ${name} on ${device.name}`;
                 if (Address.isValid(server.local_address) && !take(server.local_address, local))
                     blocks.push({ prefix: `${server.local_address}/${Address.bits("ipv4")}`, what: local });
+
+                const delegated = server.prefix_delegation?.pool;
+                if (delegated && Address.isCidr(delegated))
+                    blocks.push({
+                        prefix: Address.prefixOf(delegated),
+                        what: `prefixes delegated by PPPoE server ${name} on ${device.name}`,
+                    });
             }
 
             // A pool and the subscribers it serves are both address space in use. A rule with no pool, such as masquerade, uses none.
             for (const rule of device.firewall?.nat?.source ?? []) {
                 if (!("to_pool" in rule) || !Address.isCidr(rule.to_pool)) continue;
 
-                const subscribers = [rule.if?.src].flat()[0];
+                // A deterministic pool's subscribers are one prefix, and a dynamic pool's any number.
+                const subscribers = [rule.if?.src].flat().filter((src) => src !== undefined);
                 const pool = AddressSpace.ends(rule.to_pool);
                 if (!claim(pool.first, pool.last, `NAT pool ${rule.to_pool} on ${device.name}`, rule.to_pool))
                     blocks.push({
                         prefix: Address.prefixOf(rule.to_pool),
-                        what: `NAT pool${subscribers ? ` for ${subscribers}` : ""} on ${device.name}`,
+                        what: `NAT pool${subscribers.length ? ` for ${subscribers.join(", ")}` : ""} on ${device.name}`,
                     });
 
-                if (!subscribers || !Address.isCidr(subscribers)) continue;
-                const each = AddressSpace.ends(subscribers);
-                const what = `subscribers of NAT pool ${rule.to_pool} on ${device.name}`;
-                if (!claim(each.first, each.last, what, subscribers)) blocks.push({ prefix: Address.prefixOf(subscribers), what });
+                for (const prefix of subscribers.filter((src) => Address.isCidr(src))) {
+                    const each = AddressSpace.ends(prefix);
+                    const what = `subscribers of NAT pool ${rule.to_pool} on ${device.name}`;
+                    if (!claim(each.first, each.last, what, prefix)) blocks.push({ prefix: Address.prefixOf(prefix), what });
+                }
             }
 
             for (const route of device.routing?.static_routes ?? []) {

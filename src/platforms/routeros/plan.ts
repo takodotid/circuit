@@ -18,8 +18,9 @@ export class RouterOsPlan {
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
         "/certificate",
-        // A PPP profile and a DHCP server name their pool.
+        // A PPP profile and a DHCP server name their pools.
         "/ip pool",
+        "/ipv6 pool",
         // A PPP client names its profile, and an interface kind not listed below goes before what names it, such as an interface list. An unlisted menu is removed first, which left a list member naming a removed PPPoE client (RB5009, 7.24.6).
         "/ppp",
         "/interface",
@@ -34,6 +35,8 @@ export class RouterOsPlan {
         "/interface vxlan",
         "/interface wireguard",
         "/interface vrrp",
+        // A PPPoE client runs over a port, LAG, or VLAN interface. Routes, VRFs, interface lists, and DHCPv6 clients point to it, and a client removed before them leaves them pointing to nothing (CHR, 7.24.6).
+        "/interface pppoe-client",
         // A PPPoE server names its interface and its profile, and a subscriber's static interface names the server's service.
         "/interface pppoe-server server",
         "/interface pppoe-server",
@@ -53,7 +56,6 @@ export class RouterOsPlan {
         "/ipv6 address",
         "/ip dhcp-server",
         // A DHCPv6 server names its pools and its options.
-        "/ipv6 pool",
         "/ipv6 dhcp-server option",
         "/ipv6 dhcp-server",
         "/ip firewall address-list",

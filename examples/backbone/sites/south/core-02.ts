@@ -21,6 +21,8 @@ export default as64500.device({
         },
     },
     management: { allow: ["10.0.0.0/16"], ssh: {} },
+    // The log server keeps the log of each block of ports the pool below gives and takes back.
+    monitoring: { syslog: [{ address: "10.0.0.10", level: "info" }] },
 
     interfaces: {
         ethernet: {
@@ -123,5 +125,26 @@ export default as64500.device({
                 { description: "Nothing else leaves", then: "reject" },
             ],
         },
+    },
+
+    firewall: {
+        // #region cgnat-dynamic
+        // The branch offices reach the internet through Cogent from a pool of our addresses. A host gets blocks of 512 ports as it
+        // needs them, 4 at most, and the device logs each block it gives and takes back. Only that log says which host had a pool
+        // address and port at the time of an abuse report.
+        nat: {
+            source: [
+                {
+                    description: "Branch offices to the internet",
+                    if: { src: "10.20.0.0/14", out_interface: "10g-1" },
+                    then: "snat",
+                    to_pool: "198.51.100.240/28",
+                    port_allocation: "dynamic",
+                    port_set_size: 512,
+                    port_sets_per_subscriber: 4,
+                },
+            ],
+        },
+        // #endregion cgnat-dynamic
     },
 });

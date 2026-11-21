@@ -36,6 +36,15 @@ export class JunosSwitching {
     static gaps(device: Device): string[] {
         const found: string[] = [];
         const qinq = JunosSwitching.qinqVlansOf(device);
+
+        // A trunk with a native VLAN passes `commit check` with translation, but with a warning that it shouldn't (TRAPS.md).
+        for (const { where, settings } of Derive.switchedHolders(device)) {
+            const translations = settings.vlan_translation ?? [];
+            if (translations.length && settings.native_vlan)
+                found.push(`${where}.vlan_translation beside native_vlan, which the switch warns a trunk should not have`);
+            for (const { to } of translations)
+                if (qinq.has(to)) found.push(`${where}.vlan_translation to ${to}, a QinQ VLAN, which a trunk joins on a unit of its own`);
+        }
         if (!qinq.size) return found;
 
         for (const { where, settings } of Derive.switchedHolders(device)) {

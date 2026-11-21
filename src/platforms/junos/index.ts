@@ -16,6 +16,7 @@ import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, P
 import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
 import { JunosBgpSessions } from "./bgp-sessions";
+import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosPlan } from "./plan";
@@ -116,8 +117,15 @@ export class Junos extends Platform {
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
         // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
         if (device.routing?.mpls) found.push("routing.mpls");
+        // IS-IS multi-topology passed `commit check` only, in a candidate that was never committed.
+        if (device.routing?.isis?.multi_topology) found.push("routing.isis.multi_topology");
+        // VLAN translation passed `commit check` only, and a QFX5100 on 17.4 was seen not to translate with it (TRAPS.md).
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
         // A port's policer passed `commit check`. A LAG's was not tried.
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
+        // RPM's tests passed `commit check` only, in a candidate that was never committed.
+        for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
         return found;
     }
 
@@ -136,6 +144,11 @@ export class Junos extends Platform {
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
+        for (const name of Object.keys(device.monitoring?.probes ?? {}))
+            if (name.length > JunosMonitoring.TEST_NAME_CHARS)
+                found.push(
+                    `monitoring.probes.${name}, the platform takes a test name of ${JunosMonitoring.TEST_NAME_CHARS} characters at most`
+                );
         // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
         for (const where of Derive.l3vpn(device))
             found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
@@ -270,6 +283,10 @@ export class Junos extends Platform {
             }
             if (kind === "ipsec") {
                 found.push(`${where}, IPsec: a QFX switch does not encrypt the traffic it forwards`);
+                continue;
+            }
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client: Junos runs one on SRX firewalls only, and a QFX switch has none`);
                 continue;
             }
 

@@ -232,7 +232,7 @@ export type IsisNet = `${string}.${string}.${string}.${string}.00`;
 
 /** IS-IS on one interface. */
 export type IsisInterface = {
-    /** Cost of sending through this interface, 1 to 16777214, at each level the device runs. Lower is preferred. The platform's own when absent, usually 10. */
+    /** Cost of sending through this interface, 1 to 16777214, at each level the device runs, for IPv4 and IPv6 alike. Lower is preferred. The platform's own when absent, usually 10. */
     metric?: number;
     /** Advertise the interface's networks but form no adjacency on it. */
     passive?: boolean;
@@ -260,8 +260,10 @@ export type Isis<I extends string> = {
     net: IsisNet;
     /** The levels the device runs: `level-1` inside its area, `level-2` between areas, or `level-1-2` for both. */
     level_capability: "level-1" | "level-2" | "level-1-2";
-    /** What IS-IS routes: `ipv4`, `ipv6`, or both. Both share one topology (RFC 5308), so each link between IS-IS routers needs both. */
+    /** What IS-IS routes: `ipv4`, `ipv6`, or both. Both share one topology (RFC 5308), so each link between IS-IS routers needs both, unless `multi_topology` is on. */
     address_families: readonly Family[];
+    /** Route IPv6 in a topology of its own (RFC 5120, MT ID 2). IPv6 then takes only links that run it. A router that routes IPv4 alone still forms adjacencies. Every router that routes IPv6 in IS-IS needs it too. Needs `ipv6` in `address_families`. */
+    multi_topology?: boolean;
     /** Sign every IS-IS packet with one key, at each level the device runs. For a key per level, write it in `levels` instead. */
     authentication?: IsisAuthentication;
     /** Settings of level 1 or level 2, such as `{ 2: { authentication: { key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. */

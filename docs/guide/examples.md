@@ -26,7 +26,7 @@ A home, an office, or an internal network. It has a router, a switch, three VLAN
 
 ## An edge router
 
-Your own AS with two edge routers and a broadband gateway. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, and RADIUS checks each home.
+Your own AS with two edge routers, a broadband gateway, and the router of an office of yours. The first edge router has IP transit from Hurricane Electric, peering at DE-CIX, filters both ways, BGP communities, and CGNAT for the access network's subscribers. The second, on Junos, peers at AMS-IX, sells transit to a customer that takes only a default route, and has a few servers. Both check the source of what arrives with uRPF. Behind the first, the broadband gateway serves homes on an OLT with PPPoE, and RADIUS checks each home. A home router that asks gets an IPv6 prefix. The office router logs in to the gateway as a home does, and gives the office a /64 of its prefix.
 
 ::: code-group
 
@@ -38,11 +38,13 @@ Your own AS with two edge routers and a broadband gateway. The first edge router
 
 <<< @/../examples/edge-router/sites/pop-1/bng-01.ts
 
+<<< @/../examples/edge-router/sites/office-1/cpe-01.ts
+
 :::
 
 ## A backbone in two regions
 
-Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks. Two branch offices reach the south region over IPsec tunnels.
+Your AS in two regions, each a member AS of a BGP confederation with its own iBGP. The core routers, one on Junos and one on FortiOS, run eBGP between the regions, and transit providers see only your AS. IS-IS carries the loopbacks. Two branch offices reach the south region over IPsec tunnels, and the internet from a pool of your addresses that hands out blocks of ports and logs each.
 
 ::: code-group
 
@@ -70,7 +72,7 @@ Two provider edge routers, one in each point of presence. IS-IS carries their lo
 
 ## Colocation with tenants
 
-A router and two top-of-rack switches. The router is managed in a VRF of its own, and reaches its time, name, and monitoring servers in another. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules, and a VRF that keeps its private network apart, with a BGP session over its private circuit. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a subnet on the second switch, in a private VLAN that keeps their servers apart, and its port guards keep each tenant from harming the others. A tenant's own VLANs reach its racks in another hall inside one VLAN, with QinQ.
+A router, two top-of-rack switches, the meet-me room's switch, and the router of hall 2, a VRP switch the router reflects routes to, whose transit customer announces its own block over BGP, and may send only from its own addresses. The router is managed in a VRF of its own, and reaches its time, name, and monitoring servers in another. Each tenant, here Netflix, has its own file with its VLANs, gateway, ports, and rules, and a VRF that keeps its private network apart, with a BGP session over its private circuit. Devices pull them in with `include`. See [Parts and merge](/guide/parts). Small tenants share a subnet on the second switch, in a private VLAN that keeps their servers apart, and its port guards keep each tenant from harming the others. A tenant's own VLANs reach its racks in another hall inside one VLAN, with QinQ. Carriers hand off on the meet-me room's Raisecom switch: each port toward another network stays out of the spanning tree or its root, limits what it floods, and a tenant's transit is held to the rate the tenant pays for.
 
 ::: code-group
 
@@ -87,6 +89,10 @@ A router and two top-of-rack switches. The router is managed in a VRF of its own
 <<< @/../examples/colocation/sites/dc-1/tor-01.ts
 
 <<< @/../examples/colocation/sites/dc-1/tor-02.ts
+
+<<< @/../examples/colocation/sites/dc-1/mmr-01.ts
+
+<<< @/../examples/colocation/sites/dc-1/hall-2.ts
 
 :::
 

@@ -179,6 +179,7 @@ export class RouterOsRouting {
         for (const [level, settings] of Object.entries(isis.levels ?? {}))
             if (settings?.authentication) found.push(`routing.isis.levels.${level}.authentication, ${noAuthentication}`);
         if (isis.overload_bit) found.push("routing.isis.overload_bit, RouterOS 7.24 has no IS-IS overload bit");
+        if (isis.multi_topology) found.push("routing.isis.multi_topology, RouterOS 7.24 routes IPv6 in IPv4's topology only");
 
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const where = `routing.isis.interfaces.${name}`;

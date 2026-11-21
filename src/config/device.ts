@@ -4,6 +4,7 @@ import type { Interfaces, Port } from "./interfaces";
 import type { Management } from "./management";
 import type { Monitoring } from "./monitoring";
 import type { AnyFacts, NetworkFacts } from "./network";
+import type { Qos } from "./qos";
 import type { Routing } from "./routing";
 import type { Services } from "./services";
 import type { Switching } from "./switching";
@@ -55,7 +56,7 @@ export type Names = {
     lag: string;
     /** Keys of `interfaces.vlan_interface`. */
     vlanInterface: string;
-    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.ipsec`, `.wireguard`, `.eoip`, and `.pseudowire`. */
+    /** Keys of `interfaces.bridge`, `.loopback`, `.gre`, `.vxlan`, `.ipsec`, `.wireguard`, `.eoip`, `.pseudowire`, and `.pppoe_client`. */
     interface: string;
     /** Keys of `switching.vlans`. */
     vlan: string;
@@ -91,9 +92,9 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     system?: System<N["user"], N["certificate"], NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>>;
     /** How people and tools log in, such as SSH, HTTPS, the API, the native protocol, and the console. */
     management?: Management<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["addressSet"]>, NoInfer<N["vrf"]>>;
-    /** What the device reports to collectors: SNMP, syslog, flow export, and optics. */
+    /** What the device reports to collectors: SNMP, syslog, flow export, and optics. And the ICMP probes it runs. */
     monitoring?: Monitoring<NoInfer<N["anyInterface"]>, NoInfer<N["certificate"]>, NoInfer<N["vrf"]>>;
-    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip, pseudowire. */
+    /** Every port and interface, by kind: ethernet, lag, vlan_interface, bridge, loopback, gre, vxlan, ipsec, wireguard, eoip, pseudowire, pppoe_client. */
     interfaces?: Interfaces<
         Ethernet,
         N["lag"],
@@ -102,7 +103,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
         NoInfer<N["vlan"]>,
         NoInfer<N["vrf"]>,
         NoInfer<N["table"]>,
-        NoInfer<N["certificate"]>
+        NoInfer<N["certificate"]>,
+        NoInfer<N["anyInterface"]>
     >;
     /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
@@ -112,6 +114,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
     /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, and connection-tracking helpers. */
     firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"]>;
+    /** How traffic is told apart by its class: marking. */
+    qos?: Qos<NoInfer<N["anyInterface"]>, NoInfer<N["addressSet"]>, NoInfer<N["interfaceSet"]>>;
 };
 
 /**

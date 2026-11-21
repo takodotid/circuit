@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, FilterRule, Gre, Lag, RadiusServer, VlanInterface, Vxlan } from "../../model";
+import type { AclRule, Device, FilterRule, Gre, Lag, PoolNatRule, RadiusServer, VlanInterface, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
@@ -253,6 +253,7 @@ export class FortiOsUnsupported {
                 "access_vlan",
                 "native_vlan",
                 "qinq_vlan",
+                "vlan_translation",
                 "stp",
                 "storm_control",
                 "dhcp_trusted",
@@ -290,6 +291,11 @@ export class FortiOsUnsupported {
                 found.push(`${where}, a pseudowire: FortiOS has no MPLS`);
                 continue;
             }
+            // FortiOS dials PPPoE on an interface with `set mode pppoe`, but no FortiGate could test it without touching a live firewall.
+            if (kind === "pppoe_client") {
+                found.push(`${where}, a PPPoE client, not built yet: no FortiGate was free to test it on`);
+                continue;
+            }
 
             if (name.length > FortiOsUnsupported.NAME_LENGTH.interface)
                 found.push(`${where}, a name longer than ${FortiOsUnsupported.NAME_LENGTH.interface} characters`);
@@ -305,6 +311,7 @@ export class FortiOsUnsupported {
                     "access_vlan",
                     "native_vlan",
                     "qinq_vlan",
+                    "vlan_translation",
                     "stp",
                     "storm_control",
                     "dhcp_trusted",
@@ -472,6 +479,27 @@ export class FortiOsUnsupported {
         return found;
     }
 
+    /** A pool that hands out blocks of ports, as `firewall ippool` takes it on 6.2.2. A deterministic one has no pool here: a fixed port range pool moves a session out of its block once the block is full (Fortinet's fixed port range algorithm). */
+    private static poolGaps(where: string, rule: PoolNatRule): string[] {
+        if (rule.port_allocation !== "dynamic")
+            return [
+                `${where}.port_allocation ${rule.port_allocation}: a fixed port range pool does not keep a subscriber's sessions in its block of ports. Write dynamic, whose blocks the device logs`,
+            ];
+
+        const { size, perSubscriber } = FortiOsFirewall.BLOCK_POOL;
+        const found: string[] = [];
+        const within = (value: number, range: { min: number; max: number }) => value >= range.min && value <= range.max;
+
+        if (!within(rule.port_set_size, size))
+            found.push(`${where}.port_set_size ${rule.port_set_size}, the platform takes ${size.min} to ${size.max} ports in a block`);
+        if (!within(rule.port_sets_per_subscriber, perSubscriber))
+            found.push(
+                `${where}.port_sets_per_subscriber ${rule.port_sets_per_subscriber}, the platform takes ${perSubscriber.min} to ${perSubscriber.max} blocks`
+            );
+        if (rule.if?.src_port !== undefined) found.push(`${where}.if.src_port, with a pool, which translates every source port`);
+        return found;
+    }
+
     private static firewallGaps(device: Device): string[] {
         const found: string[] = [];
         const fw = device.firewall;
@@ -502,15 +530,13 @@ export class FortiOsUnsupported {
 
             if (rule.then === "dnat") found.push(`${where}.then dnat, in source NAT`);
             if ("to_pool" in rule) {
-                found.push(`${where}, a pool: a fixed port range pool does not keep a subscriber's sessions in its block of ports`);
-                return;
+                found.push(...FortiOsUnsupported.poolGaps(where, rule));
+            } else if (rule.then === "snat") {
+                if (Address.family(rule.to_address) === "ipv6") found.push(`${where}.to_address, IPv6: central NAT translates IPv4`);
+                if (rule.to_port !== undefined && match?.src_port === undefined) found.push(`${where}.to_port, without if.src_port`);
             }
-            if (rule.then === "snat" && Address.family(rule.to_address) === "ipv6")
-                found.push(`${where}.to_address, IPv6: central NAT translates IPv4`);
             if (match?.dst_port !== undefined) found.push(`${where}.if.dst_port, central NAT matches the source port only`);
             if (Array.isArray(match?.src_port)) found.push(`${where}.if.src_port, one port or range`);
-            if (rule.then === "snat" && rule.to_port !== undefined && match?.src_port === undefined)
-                found.push(`${where}.to_port, without if.src_port`);
             if ((match?.src && match.src_address_set) || (match?.dst && match.dst_address_set))
                 found.push(`${where}.if, a prefix and a set on one side`);
             if (match?.connection_state || match?.tcp_flags) found.push(`${where}.if.connection_state and tcp_flags`);
@@ -643,6 +669,7 @@ export class FortiOsUnsupported {
         if (flow?.protocol === "sflow" && (flow.sampling === undefined || flow.sampling < 10 || flow.sampling > 99999)) {
             found.push("monitoring.flow_export.sampling, required and from 10 to 99999: the platform samples");
         }
+        found.push(...FortiOsMonitoring.probeGaps(device));
 
         return found;
     }

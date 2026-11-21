@@ -65,7 +65,7 @@ describe.skipIf(!chr)("a CHR", () => {
         // A CHR has no switch chip to hold an ACL. Its ports are its adapters: the management port is the first, and the example's 25G ports the next two.
         text = replaced(text, /\n\s*\/\/ #region edge-acl[\s\S]*?\/\/ #endregion edge-acl/, "");
         text = replaced(text, /, ingress_acl: "edge"/g, "");
-        text = replaced(text, '"1g-1"', '"virtual-1"');
+        text = replaced(text, /"1g-1"/g, '"virtual-1"');
         text = replaced(text, /"25g-(\d+)"/g, (_, n: string) => `"virtual-${Number(n) + 1}"`);
 
         example = text;

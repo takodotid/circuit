@@ -154,6 +154,7 @@ export class JunosRender {
         render.rateLimits();
         JunosBgp.render(render.out, device);
         JunosMonitoring.sflow(render.out, device, render.names);
+        JunosMonitoring.probes(render.out, device);
 
         return render.out.text();
     }
@@ -392,6 +393,9 @@ export class JunosRender {
 
             const members = new Set([...trunkVlans, ...(settings.native_vlan ? [settings.native_vlan] : [])]);
             for (const vlan of members) this.out.set(family, "vlan members", vlan);
+            // The translated VLAN stays a member, and the switch tags it the other way on the way out.
+            for (const { from, to } of settings.vlan_translation ?? [])
+                this.out.set(family, "vlan-rewrite translate", from, this.device.switching!.vlans![to]!.id);
 
             if (settings.native_vlan)
                 this.out.set(`interfaces ${physical} native-vlan-id`, this.device.switching!.vlans![settings.native_vlan]!.id);

@@ -4,6 +4,7 @@ import type { CommunityScheme, CommunitiesExport, CommunitiesImport } from "./co
 import type { AnyDevice } from "./device";
 import type { FilterRule, NatRule, TcpMssRule } from "./firewall";
 import type { Checks, Integrations, NetworkSecrets, NetworkSettings, Prefixes, Site } from "./network";
+import type { MarkingRule } from "./qos";
 import type { CallRule, PolicyRule, RouteMatch, RouteRule, RouteSet, RoutingRule } from "./routing";
 import type { AclRule } from "./switching";
 
@@ -66,10 +67,18 @@ export const NAT_RULE = {
     to_address: 0,
     to_port: 0,
     to_pool: 0,
+    port_allocation: 0,
     port_set_size: 0,
+    port_sets_per_subscriber: 0,
 } as const satisfies ShapeOf<NatRule<string, string, string>>;
 const { protocol: _protocol, tcp_flags: _tcpFlags, connection_state: _state, ...TCP_MSS_MATCH } = FILTER_MATCH;
 const TCP_MSS_RULE = { description: 0, if: TCP_MSS_MATCH, mss: 0 } as const satisfies ShapeOf<TcpMssRule<string, string, string>>;
+const { tcp_flags: _flags, connection_state: _connection, connection_nat_state: _nat, ...MARKING_MATCH } = FILTER_MATCH;
+const MARKING_RULE = {
+    description: 0,
+    if: { ...MARKING_MATCH, dscp: 0 },
+    then: { dscp: 0, pcp: 0 },
+} as const satisfies ShapeOf<MarkingRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,
     if: { family: 0, protocol: 0, src: 0, dst: 0, src_port: RANGE, dst_port: RANGE, vlan: 0 },
@@ -176,6 +185,7 @@ const SWITCHED = {
     dhcp_trusted: 0,
     ra_trusted: 0,
     qinq_vlan: 0,
+    vlan_translation: [{ from: 0, to: 0 }],
 } as const;
 const BASE = { ...ROUTED, description: 0, mtu: 0, shaping: { algorithm: 0, mbps: 0 } } as const;
 // No packet arrives on a loopback, and a bridge doesn't route what crosses it.
@@ -280,6 +290,7 @@ export const DEVICE = {
             idle_timeout: 0,
         },
         transceivers: 0,
+        probes: { "*": { target: 0, interval: 0, source_address: 0, vrf: 0 } },
     },
     interfaces: {
         ethernet: {
@@ -333,6 +344,17 @@ export const DEVICE = {
         },
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
         pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0 } },
+        pppoe_client: {
+            "*": {
+                interface: 0,
+                description: 0,
+                user: 0,
+                password: SECRET,
+                service_name: 0,
+                mtu: 0,
+                prefix_delegation: { interfaces: { "*": 0 } },
+            },
+        },
     },
     switching: {
         vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
@@ -370,6 +392,7 @@ export const DEVICE = {
                 radius: [RADIUS_SERVER],
                 acct_interim_interval: 0,
                 dynamic_authorization: 0,
+                prefix_delegation: { pool: 0, prefix_length: 0 },
             },
         },
         dns_server: 0,
@@ -419,6 +442,7 @@ export const DEVICE = {
             net: 0,
             level_capability: 0,
             address_families: 0,
+            multi_topology: 0,
             authentication: { key: SECRET },
             levels: { 1: { authentication: { key: SECRET } }, 2: { authentication: { key: SECRET } } },
             interfaces: { "*": { metric: 0, passive: 0, network: 0, bfd: 0 } },
@@ -439,6 +463,7 @@ export const DEVICE = {
         conntrack_helpers: 0,
         untracked: 0,
     },
+    qos: { marking: [MARKING_RULE] },
 } as const satisfies ShapeOf<AnyDevice>;
 
 const OPTION = { code: 0, description: 0 } as const;
@@ -487,6 +512,7 @@ true satisfies Same<typeof DEVICE, ShapeOf<AnyDevice>>;
 true satisfies Same<typeof FILTER_RULE, ShapeOf<FilterRule<string, string, string>>>;
 true satisfies Same<typeof NAT_RULE, ShapeOf<NatRule<string, string, string>>>;
 true satisfies Same<typeof ACL_RULE, ShapeOf<AclRule<string>>>;
+true satisfies Same<typeof MARKING_RULE, ShapeOf<MarkingRule<string, string, string>>>;
 true satisfies Same<typeof ROUTING_RULE, ShapeOf<RoutingRule<string, string>>>;
 true satisfies Same<typeof ROUTE_RULE, ShapeOf<RouteRule<string>>>;
 true satisfies Same<typeof CALL_RULE, ShapeOf<CallRule<string>>>;
