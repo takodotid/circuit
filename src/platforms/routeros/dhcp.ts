@@ -41,6 +41,7 @@ export class RouterOsDhcp {
                 interface: render.name(server.interface),
                 "lease-time": server.lease_time ? RouterOsSyntax.duration(server.lease_time) : undefined,
                 name,
+                relay: server.relay,
                 "use-radius": server.radius && "yes",
             });
             render.add("/ip dhcp-server network", "add", {
@@ -107,13 +108,21 @@ export class RouterOsDhcp {
         return servers.filter(([, server]) => server.radius);
     }
 
-    /** A relay with servers of both families is a relay in each menu, by one name. */
+    /** A relay with servers of both families is a relay in each menu, by one name. Option 82 is DHCP's, so only the IPv4 one adds it: the interface's MAC address as the circuit ID, and the client's as the remote ID (TRAPS.md). */
     private static relays(render: RouterOsRender, device: Device): void {
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
             const interfaceName = render.name(relay.interface);
             const ipv4 = relay.servers.filter((server) => Address.family(server) === "ipv4");
             const ipv6 = relay.servers.filter((server) => Address.family(server) === "ipv6");
-            if (ipv4.length) render.add("/ip dhcp-relay", "add", { "dhcp-server": ipv4.join(","), interface: interfaceName, name });
+            // A relay is added disabled unless told otherwise (CHR, 7.24.6).
+            if (ipv4.length)
+                render.add("/ip dhcp-relay", "add", {
+                    "add-relay-info": relay.relay_agent_information && "yes",
+                    "dhcp-server": ipv4.join(","),
+                    disabled: "no",
+                    interface: interfaceName,
+                    name,
+                });
             if (ipv6.length) render.add("/ipv6 dhcp-relay", "add", { "dhcp-server": ipv6.join(","), interface: interfaceName, name });
         }
     }
