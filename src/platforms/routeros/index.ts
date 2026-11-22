@@ -69,9 +69,13 @@ export class RouterOs extends Platform {
 
     private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
 
-    /** A far PE took no IPv6 route of a VRF into its own (TRAPS.md). */
-    private static readonly NO_VPNV6 =
-        "RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)";
+    /** Over an IPv4 session, a far PE took no IPv6 route of a VRF into its own (TRAPS.md). */
+    private static readonly NO_VPNV6_OVER_IPV4 =
+        "over a session to an IPv4 address: RouterOS 7.24 keeps the IPv6 VPN routes it learns there unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659). Carry vpnv6 on a session between the PEs' IPv6 transport addresses";
+
+    /** vpnv4 with an IPv6 next hop (RFC 8950) carried pings in a probe, but Circuit's tests don't run it (TRAPS.md). */
+    private static readonly NO_VPNV4_OVER_IPV6 =
+        "over a session to an IPv6 address, which Circuit's tests don't run on RouterOS. Carry vpnv4 on a session between the PEs' LSR IDs";
 
     /** RouterOS 7 has a loopback interface of its own by this name, and refuses another interface by it (TRAPS.md). */
     private static readonly OWN_LOOPBACK = "lo";
@@ -346,7 +350,11 @@ export class RouterOs extends Platform {
             if (Derive.unicastFamilies(settings, neighbor.address).length > 1)
                 found.push(`routing.bgp.neighbors.${name}.address_families, one of ipv4 and ipv6 per session`);
             const vpn = Derive.vpnFamilies(settings);
-            if (vpn.includes("vpnv6")) found.push(`routing.bgp.neighbors.${name}.address_families vpnv6, ${RouterOs.NO_VPNV6}`);
+            const overIpv6 = Address.isValid(neighbor.address) && Address.family(neighbor.address) === "ipv6";
+            if (vpn.includes("vpnv6") && !overIpv6)
+                found.push(`routing.bgp.neighbors.${name}.address_families vpnv6, ${RouterOs.NO_VPNV6_OVER_IPV4}`);
+            if (vpn.includes("vpnv4") && overIpv6)
+                found.push(`routing.bgp.neighbors.${name}.address_families vpnv4, ${RouterOs.NO_VPNV4_OVER_IPV6}`);
             if (vpn.length && settings.max_prefixes !== undefined)
                 found.push(`routing.bgp.neighbors.${name}.max_prefixes, with VPN routes: RouterOS limits only ipv4 and ipv6 routes`);
 

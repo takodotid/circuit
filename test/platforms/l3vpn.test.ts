@@ -35,7 +35,7 @@ test("the example validates, and RouterOS renders the VRF's VPN entry and a VPN 
 
     const desired = routeros.render(pe01);
     expect(desired).toContain(
-        '/routing bgp vpn\nadd export.filter-chain=bank-offices-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:101 import.filter-chain=bank-offices-FROM-VPN import.route-targets=64500:101 instance=default label-allocation-policy=per-vrf name=bank route-distinguisher=64500:101 vrf=bank\n'
+        '/routing bgp vpn\nadd export.filter-chain=bank-offices-VRF export.redistribute="connected,static,ospf,bgp" export.route-targets=64500:101 import.filter-chain=bank-offices-FROM-VPN import.route-targets=64500:101 instance=default label-allocation-policy=per-prefix name=bank route-distinguisher=64500:101 vrf=bank\n'
     );
     // A VRF hands its routes over as ipv4, and takes VPN routes as vpnv4, each with its prefix alone (TRAPS.md).
     expect(desired).toContain(
@@ -50,7 +50,13 @@ test("the example validates, and RouterOS renders the VRF's VPN entry and a VPN 
     expect(desired).toContain(
         'add afi=vpnv4 as=64500 comment="pe-02, VPN routes" input.filter=VPN instance=default local.address=10.255.0.1 local.role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 remote.as=64500'
     );
-    expect(desired).toContain('add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule=reject\n');
+    // Its IPv6 routes go between the IPv6 loopbacks, on a session of their own, which takes them through the same chain.
+    expect(desired).toContain(
+        'add afi=vpnv6 as=64500 comment="pe-02, IPv6 VPN routes" input.filter=VPN instance=default local.address=2001:db8:100:ffff::1 local.role=ibgp name=pe-02-v6 output.filter-chain=VPN remote.address=2001:db8:100:ffff::2/128 remote.as=64500'
+    );
+    expect(desired).toContain(
+        'add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule="if (afi vpnv6) { accept }"\nadd chain=VPN rule=reject\n'
+    );
     expect(desired).not.toContain("REJECT-ALL");
 
     // As the CHRs printed a connection and a VPN entry: `.role` and `.as` after a property of their group, and the VPN entry's properties in its own order.
@@ -125,9 +131,16 @@ test("a VRF's policies pick among its VPN routes, so each needs the route target
     ]);
 });
 
-test("RouterOS refuses IPv6 VPN routes, a limit beside VPN routes, and VRF imports beside an L3VPN", () => {
+test("RouterOS refuses vpnv6 over a session to an IPv4 address, vpnv4 to an IPv6 one, a limit beside VPN routes, and VRF imports beside an L3VPN", () => {
+    expect(
+        routeros.unsupported(
+            withSession({ address: "2001:db8:100:ffff::2", local_address: "2001:db8:100:ffff::1", address_families: ["vpnv4", "vpnv6"] })
+        )
+    ).toEqual([
+        "routing.bgp.neighbors.pe-02.address_families vpnv4, over a session to an IPv6 address, which Circuit's tests don't run on RouterOS. Carry vpnv4 on a session between the PEs' LSR IDs",
+    ]);
     expect(routeros.unsupported(withSession({ address_families: ["vpnv4", "vpnv6"] }))).toEqual([
-        "routing.bgp.neighbors.pe-02.address_families vpnv6, RouterOS 7.24 keeps the IPv6 VPN routes it learns unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659)",
+        "routing.bgp.neighbors.pe-02.address_families vpnv6, over a session to an IPv4 address: RouterOS 7.24 keeps the IPv6 VPN routes it learns there unreachable, since it does not resolve their IPv4-mapped next hop (RFC 4659). Carry vpnv6 on a session between the PEs' IPv6 transport addresses",
     ]);
     expect(routeros.unsupported(withSession({ max_prefixes: 1000 }))).toEqual([
         "routing.bgp.neighbors.pe-02.max_prefixes, with VPN routes: RouterOS limits only ipv4 and ipv6 routes",
