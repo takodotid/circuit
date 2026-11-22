@@ -8,6 +8,7 @@ import { FortiOsIpsec } from "./ipsec";
 import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
+import { FortiOsPppoe } from "./pppoe";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsShaping } from "./shaping";
@@ -39,6 +40,7 @@ export class FortiOsUnsupported {
         const { tpid, innerVlans } = Derive.stackedTags(device);
         for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
         found.push(...FortiOsIpsec.gaps(device));
+        found.push(...FortiOsPppoe.gaps(device));
         found.push(...FortiOsRender.sourceCheck(device).gaps);
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
@@ -295,16 +297,13 @@ export class FortiOsUnsupported {
                 found.push(`${where}, a pseudowire: FortiOS has no MPLS`);
                 continue;
             }
-            // FortiOS dials PPPoE on an interface with `set mode pppoe`, but no FortiGate could test it without touching a live firewall.
-            if (kind === "pppoe_client") {
-                found.push(`${where}, a PPPoE client, not built yet: no FortiGate was free to test it on`);
-                continue;
-            }
 
             if (name.length > FortiOsUnsupported.NAME_LENGTH.interface)
                 found.push(`${where}, a name longer than ${FortiOsUnsupported.NAME_LENGTH.interface} characters`);
             if (ports.has(name) || FortiOsUnsupported.RESERVED_INTERFACES.has(name))
                 found.push(`${where}, a name the platform gives a port of its own`);
+            // FortiOsPppoe.gaps checks the rest of a PPPoE client.
+            if (kind === "pppoe_client") continue;
             if (iface.hardware_offload !== undefined)
                 found.push(`${where}.hardware_offload, offload is decided per policy, which can match many interfaces`);
 

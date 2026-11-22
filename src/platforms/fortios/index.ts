@@ -18,6 +18,7 @@ import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
 import { FortiOsNames } from "./names";
 import { FortiOsPlan } from "./plan";
+import { FortiOsPppoe } from "./pppoe";
 import { FortiOsRender } from "./render";
 import { FortiOsTree } from "./tree";
 import type { FortiOsNode } from "./tree";
@@ -126,6 +127,8 @@ export class FortiOs extends Platform {
         // A tunnel takes the subject in the read back, but no IKE peer has sent a certificate to it.
         for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
             if (tunnel?.remote_identity) found.push(`interfaces.ipsec.${name}.remote_identity`);
+        // Applied, read back, changed, and removed, but no session came up: 6.2 has no PPPoE server to dial, and no other was in reach.
+        for (const [name] of FortiOsPppoe.clients(device)) found.push(`interfaces.pppoe_client.${name}`);
 
         return found;
     }
@@ -178,7 +181,9 @@ export class FortiOs extends Platform {
     }
 
     override plan(desired: string, current: string, options: ApplyOptions): Plan {
-        return FortiOsVdoms.plan(desired, current, (want, have) => FortiOsPlan.of(want, have, options));
+        const have = FortiOsTree.parse(current);
+        FortiOsPppoe.hideIpv6(FortiOsTree.parse(desired), have);
+        return FortiOsVdoms.plan(desired, FortiOsTree.print(have), (want, held) => FortiOsPlan.of(want, held, options));
     }
 
     override async apply(device: Device, network: readonly Device[], changes: Plan, options: ApplyOptions): Promise<void> {

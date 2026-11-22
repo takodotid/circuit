@@ -228,8 +228,8 @@ test("RouterOS refuses a client named as an IPv6 pool it writes", () => {
     );
 });
 
-test("the other platforms refuse a PPPoE client, each with its reason", () => {
-    for (const platform of ["junos", "vrp", "fortios", "raisecom-ros"]) {
+test("the other platforms but FortiOS refuse a PPPoE client, each with its reason", () => {
+    for (const platform of ["junos", "vrp", "raisecom-ros"]) {
         const [fixture] = Fixtures.ofPlatform(platform);
         const device = structuredClone(Fixtures.device(fixture ?? ""));
         const port = Object.keys(device.interfaces?.ethernet ?? {})[0]!;

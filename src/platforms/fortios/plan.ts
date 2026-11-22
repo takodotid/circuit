@@ -304,6 +304,7 @@ export class FortiOsPlan {
         "system interface",
         "system gre-tunnel",
         "system vxlan",
+        "system pppoe-interface",
         "vpn ipsec phase1-interface",
     ]);
 
