@@ -127,6 +127,9 @@ export class FortiOs extends Platform {
         // A tunnel takes the subject in the read back, but no IKE peer has sent a certificate to it.
         for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
             if (tunnel?.remote_identity) found.push(`interfaces.ipsec.${name}.remote_identity`);
+        // A tunnel's interface takes `vrf` as any interface does, in Fortinet's 6.2 reference and its FortiGate-6000 handbook, but no FortiGate has tried it.
+        for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
+            if (tunnel?.vrf) found.push(`interfaces.ipsec.${name}.vrf`);
         // Applied, read back, changed, and removed, but no session came up: 6.2 has no PPPoE server to dial, and no other was in reach.
         for (const [name] of FortiOsPppoe.clients(device)) found.push(`interfaces.pppoe_client.${name}`);
 

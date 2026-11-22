@@ -354,6 +354,7 @@ export const DEVICE = {
             "*": {
                 addresses: ROUTED.addresses,
                 description: 0,
+                vrf: 0,
                 ...IPSEC_TUNNEL,
                 remote_identity: { distinguished_name: 0, fqdn: 0, email: 0, address: 0 },
                 liveness_check: { interval: 0, retries: 0 },

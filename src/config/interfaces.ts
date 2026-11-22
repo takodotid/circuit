@@ -558,8 +558,10 @@ export type IpsecTunnel<C extends string = string, Identity = IpsecIdentity> = {
 /**
  * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. It carries IPv4, and IPv6 too once one of its `addresses` is IPv6. For a tunnel without an interface, see `firewall.ipsec`.
  */
-export type Ipsec<C extends string = string> = Pick<Base<never>, "description" | "addresses"> &
+export type Ipsec<C extends string = string, Vrf extends string = string> = Pick<Base<never>, "description" | "addresses"> &
     IpsecTunnel<C> & {
+        /** The VRF the tunnel's interface routes in, from `routing.vrfs`: its addresses, and the routes through it. IKE and ESP still leave from `local_address`, in the table that holds it. The main table when absent. */
+        vrf?: Vrf;
         /** Ask a silent peer whether it is still there, so a dead peer takes the tunnel down. With `false`, the device never asks. The device's own default when absent. */
         liveness_check?: false | IpsecLivenessCheck;
         /**
@@ -681,7 +683,7 @@ export type Interfaces<
     /** VXLANs, keyed by name: point-to-point tunnels, and segments that are ports of a VLAN, whose far VTEPs BGP EVPN finds. */
     vxlan?: Named<T, Vxlan<F> | EvpnVxlan<V>>;
     /** Route-based IPsec tunnels, keyed by name. */
-    ipsec?: Named<T, Ipsec<Certificate>>;
+    ipsec?: Named<T, Ipsec<Certificate, F>>;
     /** WireGuard interfaces, keyed by name. */
     wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */
