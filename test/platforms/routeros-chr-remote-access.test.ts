@@ -363,15 +363,17 @@ function writeLaptop(secret: string): void {
         }
     }`;
     const eap = `auth = eap-mschapv2\n            id = ${user}`;
-    const byCertificate = (name: string) => `auth = pubkey\n            certs = ${name}.pem\n            id = "CN=${name}"`;
+    // A user's identity is the email address of the certificate: RouterOS refuses its subject, which the certificate's email doesn't match (TRAPS.md).
+    const byCertificate = (name: string, email: string) => `auth = pubkey\n            certs = ${name}.pem\n            id = ${email}`;
+    const users: [string, string][] = [
+        ["alice", "alice@lab.example"],
+        [REVOKED, "alice@lab.example"],
+        [STRANGER, "mallory@lab.example"],
+    ];
     write(
         "laptop/swanctl.conf",
-        `connections {${connection("eap", eap)}${connection("outside", eap, `local_ts = ${OUTSIDE_POOL}/32\n                remote_ts = 198.51.100.0/24`)}${[
-            "alice",
-            REVOKED,
-            STRANGER,
-        ]
-            .map((name) => connection(name, byCertificate(name)))
+        `connections {${connection("eap", eap)}${connection("outside", eap, `local_ts = ${OUTSIDE_POOL}/32\n                remote_ts = 198.51.100.0/24`)}${users
+            .map(([name, email]) => connection(name, byCertificate(name, email)))
             .join("")}
 }
 secrets {
@@ -578,7 +580,7 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
                 expect(inPool(laptopAddress(), NO_DNS.pool)).toBe(true);
                 expect(dnsServers()).toEqual([]);
                 expect(reachesHost()).toBe(true);
-                expect(exec("vpn-01", "/ip ipsec active-peers print detail")).toContain('id="CN=alice"');
+                expect(exec("vpn-01", "/ip ipsec active-peers print detail")).toContain("alice@lab.example");
                 logOut();
 
                 for (const refused of [REVOKED, STRANGER]) {
