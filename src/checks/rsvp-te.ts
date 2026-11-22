@@ -7,6 +7,9 @@ type Report = (message: string) => void;
 
 /** RSVP-TE tunnels (RFC 3209) beside LDP, from the LSR ID, and the traffic engineering of OSPF (RFC 3630) that CSPF reads. */
 export class RsvpTeChecks {
+    /** RFC 3630's administrative group is 32 bits. */
+    private static readonly ADMIN_GROUP_BITS = 32;
+
     /** RFC 3209's priorities, 0 the highest. */
     private static readonly LOWEST_PRIORITY = 7;
 
@@ -16,6 +19,7 @@ export class RsvpTeChecks {
         const rsvpTe = device.routing?.mpls?.rsvp_te;
         if (!rsvpTe) return;
 
+        RsvpTeChecks.adminGroups(rsvpTe, report);
         RsvpTeChecks.interfaces(device, rsvpTe, report);
         const tunnels = Object.entries(rsvpTe.tunnels ?? {});
         for (const [name, tunnel] of tunnels) RsvpTeChecks.tunnel(device, `routing.mpls.rsvp_te.tunnels.${name}`, tunnel, report);
@@ -35,6 +39,22 @@ export class RsvpTeChecks {
             if (!(ospf?.address_families ?? ["ipv4"]).includes("ipv4"))
                 report(`${at} is OSPFv2's (RFC 3630), and routing.ospf.address_families has no ipv4. Add ipv4, or remove it`);
             if (ospf?.vrf) report(`${at} is in VRF ${ospf.vrf}, and MPLS runs in the main table. Remove it`);
+        }
+    }
+
+    /** Each admin group is one bit of RFC 3630's 32, and no two share one. */
+    private static adminGroups(rsvpTe: RsvpTe, report: Report): void {
+        const byBit = new Map<number, string>();
+        for (const [name, bit] of Object.entries(rsvpTe.admin_groups ?? {})) {
+            const at = `routing.mpls.rsvp_te.admin_groups.${name}`;
+            const value: unknown = bit;
+            if (!(typeof value === "number" && Number.isInteger(value) && value >= 0 && value < RsvpTeChecks.ADMIN_GROUP_BITS)) {
+                report(`${at} ${JSON.stringify(value)} is not a bit from 0 to 31 (RFC 3630). Write one of them`);
+                continue;
+            }
+            const other = byBit.get(value);
+            if (other) report(`${at} is bit ${value}, as admin group ${other} is. Give each its own bit`);
+            else byBit.set(value, name);
         }
     }
 
@@ -77,7 +97,7 @@ export class RsvpTeChecks {
         RsvpTeChecks.priorities(at, tunnel, report);
     }
 
-    /** A path is the hops written out, or one CSPF computes from OSPF's traffic engineering. */
+    /** A path is the hops written out, or one CSPF computes from OSPF's traffic engineering, which alone keeps to links by their admin groups. */
     private static path(device: Device, at: string, tunnel: TunnelPath, report: Report): void {
         const path: unknown = tunnel.explicit_path;
         const cspf: unknown = tunnel.cspf;
@@ -89,6 +109,9 @@ export class RsvpTeChecks {
             report(
                 `${at}.cspf computes the path from each link's bandwidth, which OSPF tells the routers. Write traffic_engineering: true on the OSPF area of routing.mpls.rsvp_te.interfaces`
             );
+        const groups: unknown = tunnel.admin_groups;
+        if (groups !== undefined && cspf !== true)
+            report(`${at}.admin_groups keeps to links as CSPF computes the path. Write cspf: true in place of explicit_path`);
 
         if (path === undefined) return;
         if (!Array.isArray(path) || !path.length) {

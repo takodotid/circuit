@@ -1,4 +1,4 @@
-// What validate says of an RSVP-TE tunnel's options: its secondary paths, and its priorities (RFC 3209, section 4.7).
+// What validate says of an RSVP-TE tunnel's options: its secondary paths, priorities (RFC 3209, section 4.7), and admin groups (RFC 3630).
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -25,11 +25,13 @@ const errors = (device: Device) =>
 
 test("a tunnel with its options validates", () => {
     const device = withRsvpTe({
-        interfaces: { uplink: { bandwidth: "10G" } },
+        admin_groups: { red: 0, blue: 1 },
+        interfaces: { uplink: { bandwidth: "10G", admin_groups: ["red"] } },
         tunnels: {
             "pe-02": {
                 destination: "192.0.2.2",
                 cspf: true,
+                admin_groups: { exclude_group: ["red"] },
                 secondary_paths: {
                     "pe-02-around": { explicit_path: [{ address: "192.0.2.9", hop_type: "loose" }], standby: true },
                 },
@@ -73,6 +75,31 @@ test("a secondary path is a path, and has a name of its own on the device", () =
     ]);
 });
 
+test("each admin group is its own bit, from 0 to 31", () => {
+    const device = withRsvpTe({ admin_groups: { red: 0, blue: 0, green: 32 }, interfaces: { uplink: { bandwidth: "10G" } } });
+    expect(errors(device)).toEqual([
+        "routing.mpls.rsvp_te.admin_groups.blue is bit 0, as admin group red is. Give each its own bit",
+        "routing.mpls.rsvp_te.admin_groups.green 32 is not a bit from 0 to 31 (RFC 3630). Write one of them",
+    ]);
+});
+
+test("admin groups keep to links as CSPF computes, so an explicit path takes none", () => {
+    const device = withRsvpTe({
+        admin_groups: { red: 0 },
+        interfaces: { uplink: { bandwidth: "10G" } },
+        tunnels: {
+            "pe-02": {
+                destination: "192.0.2.2",
+                explicit_path: [{ address: "192.0.2.9", hop_type: "strict" }],
+                admin_groups: { exclude_group: ["red"] },
+            } as never,
+        },
+    });
+    expect(errors(device)).toEqual([
+        "routing.mpls.rsvp_te.tunnels.pe-02.admin_groups keeps to links as CSPF computes the path. Write cspf: true in place of explicit_path",
+    ]);
+});
+
 test("each router of ours a secondary path crosses runs RSVP-TE", async () => {
     const devices = Object.values(await Fixtures.example("metro-ring"));
     expect(Checks.run(devices, undefined).filter((finding) => finding.level === "error")).toEqual([]);
@@ -84,4 +111,23 @@ test("each router of ours a secondary path crosses runs RSVP-TE", async () => {
     expect(found).toContain(
         "routing.mpls.rsvp_te.tunnels.ring-03.secondary_paths.ring-03-around.explicit_path[0].address 10.1.12.2 is ring-02's, which runs no RSVP-TE, so the tunnel never comes up. Write routing.mpls.rsvp_te.interfaces on ring-02"
     );
+});
+
+test("an admin group is the same bit on every router", async () => {
+    const devices = Object.values(await Fixtures.example("metro-ring"));
+    const recolored = devices.map((device) => {
+        const rsvpTe = device.routing?.mpls?.rsvp_te;
+        if (device.name !== "ring-02" || !rsvpTe?.admin_groups) return device;
+        const admin_groups = { ...rsvpTe.admin_groups, wave: 7 };
+        return { ...device, routing: { ...device.routing, mpls: { ...device.routing!.mpls!, rsvp_te: { ...rsvpTe, admin_groups } } } };
+    });
+    const found = Checks.run(recolored, undefined).map((finding) => finding.message);
+    // Whichever router comes first holds the bit the others are held to.
+    expect(
+        found.some((message) =>
+            /^routing\.mpls\.rsvp_te\.admin_groups\.wave is bit [17], and bit [17] on ring-0\d\. Write the same bit on every router$/.test(
+                message
+            )
+        )
+    ).toBe(true);
 });

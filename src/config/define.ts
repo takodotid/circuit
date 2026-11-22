@@ -58,6 +58,7 @@ type Declared<
     C extends string,
     QC extends string,
     SC extends string,
+    AG extends string,
 > = {
     port: Pt;
     lag: L;
@@ -76,6 +77,7 @@ type Declared<
     certificate: C;
     qosClass: QC;
     scheduler: SC;
+    adminGroup: AG;
     anyInterface: Pt | L | VI | I;
 };
 
@@ -109,6 +111,9 @@ type NamesOf<D> = {
     certificate: KeysAt<D, "system", "certificates">;
     qosClass: KeysAt<D, "qos", "classes">;
     scheduler: KeysAt<D, "qos", "schedulers">;
+    adminGroup: D extends { readonly routing?: { readonly mpls?: { readonly rsvp_te?: { readonly admin_groups?: infer A } } } }
+        ? keyof A & string
+        : never;
     anyInterface: KeysAt<
         D,
         "interfaces",
@@ -182,6 +187,7 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
     const Certificates extends string = never,
     const QosClasses extends string = never,
     const Schedulers extends string = never,
+    const AdminGroups extends string = never,
 >(
     // `site` is checked on its own. Inside the device type, a wrong site in a network of one site would add an error at each port.
     device: {
@@ -212,7 +218,8 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                                 Users,
                                 Certificates,
                                 QosClasses,
-                                Schedulers
+                                Schedulers,
+                                AdminGroups
                             >,
                             PartsOf<Sources, Name>
                         >,
@@ -237,7 +244,8 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                                     Users,
                                     Certificates,
                                     QosClasses,
-                                    Schedulers
+                                    Schedulers,
+                                    AdminGroups
                                 >,
                                 PartsOf<Sources, Name>
                             >
@@ -268,7 +276,8 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                 Users,
                 Certificates,
                 QosClasses,
-                Schedulers
+                Schedulers,
+                AdminGroups
             >,
             PartsOf<Sources, Name>
         >,
@@ -293,7 +302,8 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
                     Users,
                     Certificates,
                     QosClasses,
-                    Schedulers
+                    Schedulers,
+                    AdminGroups
                 >,
                 PartsOf<Sources, Name>
             >
@@ -323,7 +333,8 @@ export type DeviceOf<Sites extends string, Net extends NetworkFacts> = <
             Users,
             Certificates,
             QosClasses,
-            Schedulers
+            Schedulers,
+            AdminGroups
         >,
         PartsOf<Sources, Name>
     >,

@@ -492,6 +492,7 @@ export class Project {
             "SNMP user": new Set(Project.keys(d.monitoring?.snmp?.users)),
             class: new Set(Project.keys(d.qos?.classes)),
             scheduler: new Set(Project.keys(d.qos?.schedulers)),
+            "admin group": new Set(Project.keys(d.routing?.mpls?.rsvp_te?.admin_groups)),
         };
         const need = (kind: string, value: unknown, where: string, written = "") => {
             for (const v of Project.list(value)) {
@@ -620,6 +621,20 @@ export class Project {
         need("policy", d.routing?.isis?.level2_to_level1?.import_policy, "routing.isis.level2_to_level1.import_policy");
         need("interface", d.routing?.mpls?.ldp?.interfaces, "routing.mpls.ldp.interfaces");
         need("interface", Project.keys(d.routing?.mpls?.rsvp_te?.interfaces), "routing.mpls.rsvp_te.interfaces");
+        for (const [i, x] of Object.entries<Json>(d.routing?.mpls?.rsvp_te?.interfaces ?? {}))
+            need("admin group", x?.admin_groups, `routing.mpls.rsvp_te.interfaces.${i}.admin_groups`);
+        for (const [t, tunnel] of Object.entries<Json>(d.routing?.mpls?.rsvp_te?.tunnels ?? {})) {
+            const paths: [string, Json][] = [
+                [`routing.mpls.rsvp_te.tunnels.${t}`, tunnel],
+                ...Object.entries<Json>(tunnel?.secondary_paths ?? {}).map(([s, x]): [string, Json] => [
+                    `routing.mpls.rsvp_te.tunnels.${t}.secondary_paths.${s}`,
+                    x,
+                ]),
+            ];
+            for (const [at, path] of paths)
+                for (const way of ["exclude_group", "include_all_group", "include_any_group"])
+                    need("admin group", path?.admin_groups?.[way], `${at}.admin_groups.${way}`);
+        }
         for (const way of ["import_policy", "export_policy"]) {
             need("policy", d.routing?.mpls?.ldp?.[way], `routing.mpls.ldp.${way}`);
             for (const [lsrId, neighbor] of Object.entries<Json>(d.routing?.mpls?.ldp?.neighbors ?? {}))

@@ -1,4 +1,4 @@
-// A metro router, a MikroTik CCR2216, linked to ring-01 and ring-03. It starts no tunnel, and runs RSVP-TE on both links for the tunnels that cross it, such as the one from ring-03 to ring-01.
+// A metro router, a MikroTik CCR2216, linked to ring-01 by a short span of dark fiber, and to ring-03 by a carrier's protected wave. It runs RSVP-TE on both links for the tunnels that cross it, such as the TV station's from ring-03 to ring-01. It starts the hospital's tunnel back to its main site at ring-01.
 
 import { as64500 } from "../../circuit";
 
@@ -18,6 +18,7 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.1.2.1/24"] },
+            "25g-1": { description: "Hospital, clinic", access_vlan: "hospital" },
             "100g-1": {
                 description: "ring-01 qsfp28-1-1",
                 addresses: ["10.1.12.2/30"],
@@ -30,6 +31,20 @@ export default as64500.device({
             },
         },
         loopback: { loopback: { addresses: ["10.255.1.2/32"] } },
+        pseudowire: {
+            "pw-hospital": {
+                description: "Hospital, to its main site at ring-01",
+                peer: "10.255.1.1",
+                pw_id: 402,
+                access_vlan: "hospital",
+            },
+        },
+    },
+
+    switching: {
+        vlans: {
+            hospital: { id: 402, description: "Hospital, main site and clinic" },
+        },
     },
 
     routing: {
@@ -48,7 +63,23 @@ export default as64500.device({
         },
         mpls: {
             ldp: { lsr_id: "10.255.1.2", interfaces: ["100g-1", "100g-2"] },
-            rsvp_te: { interfaces: { "100g-1": { bandwidth: "40G" }, "100g-2": { bandwidth: "40G" } } },
+            rsvp_te: {
+                admin_groups: { "dark-fiber": 0, wave: 1, protected: 2, "low-latency": 3 },
+                interfaces: {
+                    "100g-1": { bandwidth: "40G", admin_groups: ["dark-fiber", "low-latency"] },
+                    "100g-2": { bandwidth: "40G", admin_groups: ["wave", "protected"] },
+                },
+                tunnels: {
+                    // The way back keeps to links that are short or protected: the short span to ring-01.
+                    "ring-01": {
+                        description: "Hospital, to its main site",
+                        destination: "10.255.1.1",
+                        bandwidth: "2G",
+                        cspf: true,
+                        admin_groups: { include_any_group: ["low-latency", "protected"] },
+                    },
+                },
+            },
         },
     },
 });

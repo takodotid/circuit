@@ -1,4 +1,4 @@
-// An RSVP-TE tunnel's options on the three CHRs of the devices workflow, linked in a triangle. pe-01's tunnel to pe-02 carries a pseudowire through p-01, and moves to a secondary path while p-01's link to pe-02 is down. Then a tunnel of a higher priority takes the bandwidth of a lower one. The tests run in order.
+// An RSVP-TE tunnel's options on the three CHRs of the devices workflow, linked in a triangle. pe-01's tunnel to pe-02 carries a pseudowire through p-01, and moves to a secondary path while p-01's link to pe-02 is down. Then a tunnel of a higher priority takes the bandwidth of a lower one. Last, a tunnel keeps off the links of an admin group, or to them. The tests run in order.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -88,8 +88,15 @@ const THROUGH_P = [
 ];
 const STRAIGHT = [{ address: DIRECT, hop_type: "strict" }];
 
-/** What the lab runs: pe-01's tunnels, written as in a device file, and p-01's link to pe-02 down when `cut`. */
-type Lab = { tunnels?: string; cut?: boolean };
+/** The admin groups of the lab: the direct link to pe-02 is leased, and the two links through p-01 are the lab's own fiber. */
+const ADMIN_GROUPS = { leased: 0, fiber: 1 };
+const GROUPS: Record<string, Record<string, string[]>> = {
+    "pe-01": { "virtual-2": ["fiber"], "virtual-3": ["leased"] },
+    "p-01": { "virtual-3": ["fiber"] },
+};
+
+/** What the lab runs: pe-01's tunnels, written as in a device file, with the links in their admin groups when `groups`, and p-01's link to pe-02 down when `cut`. */
+type Lab = { tunnels?: string; groups?: boolean; cut?: boolean };
 
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
@@ -120,7 +127,7 @@ function write(path: string, text: string): void {
 }
 
 /** A router of the lab, as `lab` says. A link p-01 leaves out is a port Circuit disables. */
-function writeRouter(router: Router, { tunnels, cut }: Lab): void {
+function writeRouter(router: Router, { tunnels, groups, cut }: Lab): void {
     const [host, port] = router.chr.split(":");
     const links = Object.keys(router.links).filter((link) => !(cut && router === P && link === "virtual-3"));
     const ports = links
@@ -135,8 +142,13 @@ function writeRouter(router: Router, { tunnels, cut }: Lab): void {
         pseudowire: { "pw-vpws": { peer: "${far.loopback}", pw_id: ${VPWS.pw}, access_vlan: "vpws" } },`,
           }
         : { vlan: "", interfaces: "" };
+    const linkGroups = (link: string) => {
+        const names = groups ? GROUPS[router.name]?.[link] : undefined;
+        return names ? `, admin_groups: ${JSON.stringify(names)}` : "";
+    };
     const rsvpTe = `rsvp_te: {
-                interfaces: { ${links.map((link) => `"${link}": { bandwidth: "${LINK_BANDWIDTH}" }`).join(", ")} },
+                ${groups ? `admin_groups: ${JSON.stringify(ADMIN_GROUPS)},` : ""}
+                interfaces: { ${links.map((link) => `"${link}": { bandwidth: "${LINK_BANDWIDTH}"${linkGroups(link)} }`).join(", ")} },
                 ${router === FIRST_PE && tunnels ? `tunnels: ${tunnels},` : ""}
             },`;
     write(
@@ -237,6 +249,10 @@ const contending = (low: number, high: number) => `{
     "pe-02-video": { destination: "${SECOND_PE.loopback}", bandwidth: "${HALF_AND_MORE}", explicit_path: ${JSON.stringify(STRAIGHT)}, setup_priority: ${high}, hold_priority: ${high} },
 }`;
 
+/** A tunnel CSPF computes, which keeps to links as `constraints` says. */
+const computed = (constraints: string) =>
+    `{ "pe-02": { destination: "${SECOND_PE.loopback}", bandwidth: "${TUNNEL_BANDWIDTH}", cspf: true, ${constraints} } }`;
+
 describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options between three CHRs", () => {
     beforeAll(() => {
         write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked in a triangle." } } });\n`);
@@ -308,6 +324,31 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
     );
 
     test(
+        "a computed tunnel keeps off the leased link, or to the fiber, by the admin groups OSPF tells each router",
+        () => {
+            writeLab({ tunnels: computed(`admin_groups: { exclude_group: ["leased"] }`), groups: true });
+            apply();
+            const around = eventually(() => tunnel("pe-02").nextHop === VIA_P);
+            logTe();
+            expect(around).toBe(true);
+
+            writeLab({ tunnels: computed(`admin_groups: { include_any_group: ["leased"] }`), groups: true });
+            apply([FIRST_PE]);
+            const direct = eventually(() => tunnel("pe-02").nextHop === DIRECT);
+            logTe();
+            expect(direct).toBe(true);
+
+            // p-01's link to pe-02 is fiber too, which pe-01 learns from OSPF alone: without it, CSPF finds no path.
+            writeLab({ tunnels: computed(`admin_groups: { include_all_group: ["fiber"] }`), groups: true });
+            apply([FIRST_PE]);
+            const fiber = eventually(() => tunnel("pe-02").nextHop === VIA_P);
+            logTe();
+            expect(fiber).toBe(true);
+        },
+        TEST_MS
+    );
+
+    test(
         "without the options, each apply removes their paths and settings, and diff then finds nothing to change",
         () => {
             writeLab({ tunnels: `{ "pe-02": { destination: "${SECOND_PE.loopback}", explicit_path: ${JSON.stringify(THROUGH_P)} } }` });
@@ -315,7 +356,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
             expect(eventually(() => tunnel("pe-02").nextHop === VIA_P)).toBe(true);
             const exported = exec("pe-01", "/mpls traffic-eng export");
             logTe();
-            expect(exported).not.toMatch(/pe-02-direct|pe-02-video|secondary-paths|priority|record-route/);
+            expect(exported).not.toMatch(/pe-02-direct|pe-02-video|secondary-paths|affinity|priority|record-route|resource-class/);
         },
         TEST_MS
     );

@@ -97,6 +97,7 @@ export class CrossChecks {
             ...CrossChecks.vplsSites(devices),
             ...CrossChecks.ldpTargets(devices),
             ...CrossChecks.rsvpTeTunnels(devices, owners),
+            ...CrossChecks.adminGroups(devices),
             ...CrossChecks.virtualLinks(devices),
         ];
     }
@@ -540,6 +541,29 @@ export class CrossChecks {
                           ]
                         : []
                 );
+            })
+        );
+    }
+
+    /** An admin group is one bit on every router, which OSPF tells the others (RFC 3630): a name with another bit elsewhere keeps a path to links it never meant. */
+    private static adminGroups(devices: readonly Device[]): Finding[] {
+        const first = new Map<string, { device: string; bit: number }>();
+        return devices.flatMap((device) =>
+            Object.entries(device.routing?.mpls?.rsvp_te?.admin_groups ?? {}).flatMap(([name, bit]): Finding[] => {
+                if (bit === undefined) return [];
+                const seen = first.get(name);
+                if (!seen) {
+                    first.set(name, { device: device.name, bit });
+                    return [];
+                }
+                if (seen.bit === bit) return [];
+                return [
+                    {
+                        level: "error",
+                        device: device.name,
+                        message: `routing.mpls.rsvp_te.admin_groups.${name} is bit ${bit}, and bit ${seen.bit} on ${seen.device}. Write the same bit on every router`,
+                    },
+                ];
             })
         );
     }

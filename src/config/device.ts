@@ -84,6 +84,8 @@ export type Names = {
     qosClass: string;
     /** Keys of `qos.schedulers`. */
     scheduler: string;
+    /** Keys of `routing.mpls.rsvp_te.admin_groups`. */
+    adminGroup: string;
     /** Every port and interface: `port`, `lag`, `vlanInterface`, and `interface` together. */
     anyInterface: string;
 };
@@ -116,7 +118,17 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     /** What the device serves to hosts: DHCP server, DHCP relay, PPPoE server, DNS server, NTP server, and UPnP. */
     services?: Services<NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>, NoInfer<N["interfaceSet"]>>;
     /** Where packets go: routing tables, VRFs, policy routing, static routes, BGP, OSPF, BFD, RPKI, route policies, and prefix sets. */
-    routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
+    routing?: Routing<
+        N["policy"],
+        N["prefixSet"],
+        N["neighborGroup"],
+        N["table"],
+        N["vrf"],
+        NoInfer<N["anyInterface"]>,
+        N["adminGroup"],
+        Part,
+        Net
+    >;
     /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, connection-tracking helpers, and policy-based IPsec. */
     firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"], NoInfer<N["certificate"]>>;
     /** How traffic is told apart by its class, and how each class is sent: marking, classes, and schedulers. */

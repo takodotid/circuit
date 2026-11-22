@@ -1,4 +1,4 @@
-// A metro router, a MikroTik CCR2216, linked to ring-02 and ring-01. A pseudowire carries the TV station's frames from studio 2 back to studio 1 at ring-01, in a tunnel that takes the long way round the ring, through ring-02.
+// A metro router, a MikroTik CCR2216, linked to ring-02 by a carrier's protected wave, and to ring-01 by dark fiber. A pseudowire carries the TV station's frames from studio 2 back to studio 1 at ring-01, in a tunnel that takes the long way round the ring, through ring-02.
 
 import { as64500 } from "../../circuit";
 
@@ -58,9 +58,13 @@ export default as64500.device({
         },
         mpls: {
             ldp: { lsr_id: "10.255.1.3", interfaces: ["100g-1", "100g-2"] },
-            // The tunnel to ring-01 follows its hops: strict to ring-02 by its address on the link from here, then strict to ring-01 by its address on the link from ring-02. While that path is down, the tunnel takes the shortest path that has the bandwidth, the direct link.
+            // The tunnel to ring-01 follows its hops: strict to ring-02 by its address on the link from here, then strict to ring-01 by its address on the link from ring-02. While that path is down, the tunnel takes the dark fiber alone, and failing that, any fiber or protected wave.
             rsvp_te: {
-                interfaces: { "100g-1": { bandwidth: "40G" }, "100g-2": { bandwidth: "40G" } },
+                admin_groups: { "dark-fiber": 0, wave: 1, protected: 2, "low-latency": 3 },
+                interfaces: {
+                    "100g-1": { bandwidth: "40G", admin_groups: ["wave", "protected"] },
+                    "100g-2": { bandwidth: "40G", admin_groups: ["dark-fiber"] },
+                },
                 tunnels: {
                     "ring-01": {
                         description: "TV station, to studio 1",
@@ -70,7 +74,10 @@ export default as64500.device({
                             { address: "10.1.23.1", hop_type: "strict" },
                             { address: "10.1.12.1", hop_type: "strict" },
                         ],
-                        secondary_paths: { "ring-01-direct": { cspf: true } },
+                        secondary_paths: {
+                            "ring-01-fiber": { cspf: true, admin_groups: { include_all_group: ["dark-fiber"] } },
+                            "ring-01-protected": { cspf: true, admin_groups: { include_any_group: ["dark-fiber", "protected"] } },
+                        },
                     },
                 },
             },

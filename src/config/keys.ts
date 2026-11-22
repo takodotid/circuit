@@ -39,7 +39,11 @@ const RADIUS_SERVER = { address: 0, secret_key: SECRET, source_address: 0, vrf: 
 const ISIS_AUTHENTICATION = { algorithm: 0, key_id: 0, key: SECRET } as const satisfies ShapeOf<IsisAuthentication>;
 const LIMIT = { cir: 0, bc: 0 } as const;
 const RATE_LIMIT = { input: LIMIT, output: LIMIT, per_prefix: { ipv4: 0, ipv6: 0, input: 0, output: 0 } } as const;
-const TUNNEL_PATH = { explicit_path: [{ address: 0, hop_type: 0 }], cspf: 0 } as const satisfies ShapeOf<TunnelPath>;
+const TUNNEL_PATH = {
+    explicit_path: [{ address: 0, hop_type: 0 }],
+    cspf: 0,
+    admin_groups: { exclude_group: 0, include_all_group: 0, include_any_group: 0 },
+} as const satisfies ShapeOf<TunnelPath>;
 
 const FILTER_MATCH = {
     family: 0,
@@ -524,7 +528,8 @@ export const DEVICE = {
                 neighbors: { "*": { import_policy: 0, export_policy: 0 } },
             },
             rsvp_te: {
-                interfaces: { "*": { bandwidth: 0 } },
+                admin_groups: { "*": 0 },
+                interfaces: { "*": { bandwidth: 0, admin_groups: 0 } },
                 tunnels: {
                     "*": {
                         description: 0,
