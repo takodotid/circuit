@@ -1,4 +1,4 @@
-// An RSVP-TE tunnel's options on RouterOS: secondary paths and priorities. RouterOS 7.24.6 ran them on three CHRs (test/platforms/routeros-chr-rsvp-te-options.test.ts), and the lines it printed there are fed to the adapter here.
+// An RSVP-TE tunnel's options on RouterOS: secondary paths, priorities, and record route. RouterOS 7.24.6 ran them on three CHRs (test/platforms/routeros-chr-rsvp-te-options.test.ts), and the lines it printed there are fed to the adapter here.
 
 import { expect, test } from "bun:test";
 import type { Device, Mpls, RsvpTe } from "../../src/model";
@@ -10,7 +10,7 @@ const routeros = Platforms.get("routeros");
 
 const LDP: Mpls["ldp"] = { lsr_id: "192.0.2.255", interfaces: ["uplink"] };
 
-/** A tunnel CSPF computes, with a secondary path set up ahead and another CSPF computes, and its priorities. */
+/** A tunnel CSPF computes, with a secondary path set up ahead and another CSPF computes, its priorities, and record route. */
 const RSVP_TE: RsvpTe = {
     interfaces: { uplink: { bandwidth: "10G" } },
     tunnels: {
@@ -24,6 +24,7 @@ const RSVP_TE: RsvpTe = {
             },
             setup_priority: 4,
             hold_priority: 3,
+            record_route: true,
         },
     },
 };
@@ -43,14 +44,14 @@ const sent = (desired: string, current: string) => routeros.plan(desired, curren
 /** The tunnel of `RSVP_TE` with `changes`. */
 const tunnelWith = (changes: object): RsvpTe => ({ ...RSVP_TE, tunnels: { "pe-02": { ...RSVP_TE.tunnels!["pe-02"]!, ...changes } } });
 
-test("RouterOS writes a tunnel's priorities on each of its paths, and its secondary paths in order", () => {
+test("RouterOS writes a tunnel's priorities and record route on each of its paths, and its secondary paths in order", () => {
     const desired = routeros.render(withRsvpTe(RSVP_TE));
     expect(desired).toContain(
         [
             "/mpls traffic-eng path",
-            "add holding-priority=3 name=pe-02 setup-priority=4 use-cspf=yes",
-            "add holding-priority=3 hops=192.0.2.9/loose name=pe-02-around setup-priority=4",
-            "add holding-priority=3 name=pe-02-any setup-priority=4 use-cspf=yes",
+            "add holding-priority=3 name=pe-02 record-route=yes setup-priority=4 use-cspf=yes",
+            "add holding-priority=3 hops=192.0.2.9/loose name=pe-02-around record-route=yes setup-priority=4",
+            "add holding-priority=3 name=pe-02-any record-route=yes setup-priority=4 use-cspf=yes",
             "/mpls traffic-eng tunnel",
             'add bandwidth=1500M from-address=192.0.2.255 name=pe-02 primary-path=pe-02 secondary-paths="pe-02-around,pe-02-any" secondary-standby=yes to-address=192.0.2.2',
         ].join("\n")
@@ -64,13 +65,14 @@ test("RouterOS writes a tunnel's priorities on each of its paths, and its second
 test("RouterOS changes a tunnel's options in place, and clears each with unset", () => {
     const all = routeros.render(withRsvpTe(RSVP_TE));
     const bare = routeros.render(
-        withRsvpTe(tunnelWith({ secondary_paths: undefined, setup_priority: undefined, hold_priority: undefined }))
+        withRsvpTe(tunnelWith({ secondary_paths: undefined, setup_priority: undefined, hold_priority: undefined, record_route: undefined }))
     );
 
     // The tunnel lets go of its secondary paths before they go.
     expect(sent(bare, all)).toEqual([
         "/mpls traffic-eng path unset [ find name=pe-02 ] setup-priority",
         "/mpls traffic-eng path unset [ find name=pe-02 ] holding-priority",
+        "/mpls traffic-eng path unset [ find name=pe-02 ] record-route",
         "/mpls traffic-eng tunnel unset [ find name=pe-02 ] secondary-paths",
         "/mpls traffic-eng tunnel set [ find name=pe-02 ] secondary-standby=no",
         "/mpls traffic-eng path remove [ find name=pe-02-around ]",

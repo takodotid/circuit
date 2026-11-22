@@ -222,12 +222,13 @@ function apply(routers: readonly Router[] = ROUTERS): void {
     }
 }
 
-/** pe-01's tunnel through p-01, with a secondary path across the direct link that it sets up ahead. */
+/** pe-01's tunnel through p-01, which records its route, with a secondary path across the direct link that it sets up ahead. */
 const PROTECTED = `{ "pe-02": {
     destination: "${SECOND_PE.loopback}",
     bandwidth: "${TUNNEL_BANDWIDTH}",
     explicit_path: ${JSON.stringify(THROUGH_P)},
     secondary_paths: { "pe-02-direct": { explicit_path: ${JSON.stringify(STRAIGHT)}, standby: true } },
+    record_route: true,
 } }`;
 
 /** Two tunnels across the direct link that it can't hold together, the first with priorities `low`, the second with `high`. */
@@ -245,7 +246,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
     afterAll(() => rmSync(folder, { recursive: true, force: true }));
 
     test(
-        "pe-01's tunnel runs through p-01, with its secondary path set up ahead across the direct link",
+        "pe-01's tunnel runs through p-01 and records its route, with its secondary path set up ahead across the direct link",
         () => {
             apply();
             const up = eventually(() => tunnel("pe-02").nextHop === VIA_P);
@@ -254,6 +255,8 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
 
             const { detail } = tunnel("pe-02");
             expect(detail).toContain('secondary="Path=pe-02-direct');
+            // p-01's address toward pe-02 and its label, then pe-02's address and the label it gives last.
+            expect(detail.replace(/\s+/g, "")).toMatch(/RecRoute=\{192\.0\.2\.25,\*\d+\*,192\.0\.2\.26,\*0\*\}/);
             expect(eventually(() => pingAcross() >= ENOUGH_BACK)).toBe(true);
         },
         TEST_MS
@@ -312,7 +315,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
             expect(eventually(() => tunnel("pe-02").nextHop === VIA_P)).toBe(true);
             const exported = exec("pe-01", "/mpls traffic-eng export");
             logTe();
-            expect(exported).not.toMatch(/pe-02-direct|pe-02-video|secondary-paths|priority/);
+            expect(exported).not.toMatch(/pe-02-direct|pe-02-video|secondary-paths|priority|record-route/);
         },
         TEST_MS
     );

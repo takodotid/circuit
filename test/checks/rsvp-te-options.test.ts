@@ -35,6 +35,7 @@ test("a tunnel with its options validates", () => {
                 },
                 setup_priority: 4,
                 hold_priority: 3,
+                record_route: true,
             },
         },
     });

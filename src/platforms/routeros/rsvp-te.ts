@@ -40,13 +40,14 @@ export class RouterOsRsvpTe {
     }
 
     /**
-     * One path of a tunnel: its hops, or CSPF. The tunnel's priorities go on each of its paths, as RouterOS signals a path's and ignores the tunnel's own (TRAPS.md). A path without `use-cspf` follows its hops alone (TRAPS.md).
+     * One path of a tunnel: its hops, or CSPF. The tunnel's priorities and record route go on each of its paths, as RouterOS signals a path's and ignores the tunnel's own (TRAPS.md). A path without `use-cspf` follows its hops alone (TRAPS.md).
      */
     private static path(tunnel: RsvpTeTunnel, name: string, path: TunnelPath): Record<string, string | undefined> {
         return {
             "holding-priority": tunnel.hold_priority?.toString(),
             hops: path.explicit_path?.map((hop) => `${hop.address}/${hop.hop_type}`).join(","),
             name,
+            "record-route": tunnel.record_route ? "yes" : undefined,
             "setup-priority": tunnel.setup_priority?.toString(),
             "use-cspf": path.cspf ? "yes" : undefined,
         };

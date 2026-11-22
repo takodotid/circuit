@@ -76,7 +76,7 @@ Three provider edge routers in a row, one in each point of presence. IS-IS carri
 
 ## A metro ring with traffic engineering
 
-Three routers of a city's metro network in a ring, each one link away from the other two. OSPF carries their loopbacks, and tells every router how much bandwidth each link has left for tunnels (RFC 3630). LDP labels the loopbacks. A TV station's two studios, at `ring-01` and `ring-03`, share one Ethernet segment through a pseudowire, which crosses the ring in RSVP-TE tunnels that reserve 10G each way (RFC 3209). From `ring-01`, CSPF computes the tunnel's path: the direct link, while it has the bandwidth. The tunnel holds a path around the ring ready, and has the highest priority. The way back follows an explicit path the long way round, through `ring-02`, which starts no tunnel and runs RSVP-TE for the one that crosses it. While that path is down, the tunnel takes one CSPF computes.
+Three routers of a city's metro network in a ring, each one link away from the other two. OSPF carries their loopbacks, and tells every router how much bandwidth each link has left for tunnels (RFC 3630). LDP labels the loopbacks. A TV station's two studios, at `ring-01` and `ring-03`, share one Ethernet segment through a pseudowire, which crosses the ring in RSVP-TE tunnels that reserve 10G each way (RFC 3209). From `ring-01`, CSPF computes the tunnel's path: the direct link, while it has the bandwidth. The tunnel holds a path around the ring ready, records its route, and has the highest priority. The way back follows an explicit path the long way round, through `ring-02`, which starts no tunnel and runs RSVP-TE for the one that crosses it. While that path is down, the tunnel takes one CSPF computes.
 
 ::: code-group
 

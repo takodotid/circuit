@@ -418,6 +418,8 @@ export type RsvpTeTunnel = TunnelPath & {
     setup_priority?: TePriority;
     /** How the tunnel ranks for keeping its bandwidth: only a tunnel whose `setup_priority` is higher takes it. As high as `setup_priority`, or higher (RFC 3209, section 4.7.3). Write `setup_priority` beside it. */
     hold_priority?: TePriority;
+    /** Each router the tunnel crosses records its address and label in the tunnel's messages, so this router learns the path the tunnel took (RFC 3209, section 4.4). */
+    record_route?: true;
 };
 
 /** RSVP-TE (RFC 3209): tunnels across the core along paths of your choice, each with bandwidth reserved for it. */
