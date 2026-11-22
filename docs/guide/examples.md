@@ -74,6 +74,22 @@ Three provider edge routers in a row, one in each point of presence. IS-IS carri
 
 :::
 
+## A metro ring with traffic engineering
+
+Three routers of a city's metro network in a ring, each one link away from the other two. OSPF carries their loopbacks, and tells every router how much bandwidth each link has left for tunnels (RFC 3630). LDP labels the loopbacks. A TV station's two studios, at `ring-01` and `ring-03`, share one Ethernet segment through a pseudowire, which crosses the ring in RSVP-TE tunnels that reserve 10G each way (RFC 3209). From `ring-01`, CSPF computes the tunnel's path: the direct link, while it has the bandwidth. The way back follows an explicit path the long way round, through `ring-02`, which starts no tunnel and runs RSVP-TE for the one that crosses it.
+
+::: code-group
+
+<<< @/../examples/metro-ring/circuit.ts
+
+<<< @/../examples/metro-ring/sites/north/ring-01.ts
+
+<<< @/../examples/metro-ring/sites/east/ring-02.ts
+
+<<< @/../examples/metro-ring/sites/south/ring-03.ts
+
+:::
+
 ## A campus on OSPF
 
 Five routers on private IPv4 addresses and the campus's own IPv6 prefix, running OSPF without BGP. The core router is the backbone's designated router, with BFD on the backbone VLAN, and announces a static route to the labs into OSPF. The library's router joins the backbone with priority 0, and is the border router of a totally stubby area. It announces the area to the backbone as one range for each family, and hides the archive. It gives each visitor on its guest Wi-Fi a rate of its own. In that area, the field station's router runs IPv4 only. Its radio to two stations that don't hear each other is point-to-multipoint, with a key. Its carrier's line carries no multicast, so it is NBMA, with its neighbor written out. It says hello less often there. What the observatory and the farm send the data center crosses the radio and that line in two policy-based IPsec tunnels. One authenticates with a key, the other with certificates. The museum runs IPv4 only. Its router is on the backbone VLAN, and a fiber leads to the galleries' router, in an area between them. The galleries' router has no link into the backbone, so a virtual link to the museum's router, across that area, joins it. It announces the galleries' area as one range, at a cost of its own.

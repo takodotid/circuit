@@ -2,7 +2,9 @@
 
 import { createHash } from "node:crypto";
 import { Address } from "../../core/address";
+import { Derive } from "../../core/derive";
 import type { Device } from "../../model";
+import { RouterOsQueues } from "./queues";
 
 export type Command = {
     /** The menu the command belongs to, such as `/ip address`. */
@@ -165,7 +167,8 @@ export class RouterOsExport {
         "/ip route": { distance: "1", "pref-src": "" },
         "/ipv6 route": { distance: "1" },
         "/routing bgp instance": { "cluster-id": "" },
-        "/routing ospf instance": { version: "2" },
+        // Traffic engineering's area and router address print nothing until they are set (CHR, 7.24.6).
+        "/routing ospf instance": { version: "2", "mpls-te-address": "", "mpls-te-area": "" },
         "/routing ospf area": { "area-id": "0.0.0.0", type: "default", "default-cost": "" },
         // `unset` refuses a range's `advertise` and a template's `priority`, so the plan sets them back to these (TRAPS.md).
         "/routing ospf area range": { advertise: "yes", cost: "" },
@@ -211,6 +214,9 @@ export class RouterOsExport {
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
         // LDP prints no preferred family while none is set, and prefers IPv6 then, as RFC 7552 does (CHR, 7.24.6).
         "/mpls ldp": { "preferred-afi": "" },
+        // A path without `use-cspf` runs without CSPF, and a tunnel without `bandwidth` reserves none. Neither prints until set (CHR, 7.24.6).
+        "/mpls traffic-eng path": { hops: "", "use-cspf": "no" },
+        "/mpls traffic-eng tunnel": { bandwidth: "" },
         // A server without `relay` answers clients on its interface only. As a CHR on 7.24.6 printed a relay with `export verbose`: it is added disabled, and prints an empty `relay-info-remote-id` once it adds Option 82.
         "/ip dhcp-server": { "lease-time": "30m", relay: "0.0.0.0", "use-radius": "no" },
         "/ip dhcp-relay": { "add-relay-info": "no", disabled: "yes", "relay-info-remote-id": "" },
@@ -531,7 +537,10 @@ export class RouterOsExport {
             "import.filter-chain",
         ],
         "/routing ospf area": ["default-cost"],
+        "/routing ospf instance": ["mpls-te-address", "mpls-te-area"],
         "/mpls ldp": ["preferred-afi"],
+        "/mpls traffic-eng path": ["hops"],
+        "/mpls traffic-eng tunnel": ["bandwidth"],
         // Without a cost, a range takes the largest of the routes inside it (CHR, 7.24.6).
         "/routing ospf area range": ["cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],
@@ -581,6 +590,7 @@ export class RouterOsExport {
         "/mpls ldp": ["vrf"],
         "/mpls ldp interface": ["interface"],
         "/mpls ldp neighbor": ["transport"],
+        "/mpls traffic-eng interface": ["interface"],
         // Several routes to one prefix in one table are told apart by their gateway (TRAPS.md). A blackhole route has none.
         "/ip route": ["dst-address", "routing-table", "gateway"],
         "/ipv6 route": ["dst-address", "routing-table", "gateway"],
@@ -802,6 +812,7 @@ export class RouterOsExport {
     /** One property value in the form both sides compare in. */
     private static normalValue(command: Command, property: string, raw: string): string {
         if (property === "rule") return RouterOsExport.canonicalRule(raw);
+        if (property === "bandwidth" && command.menu.startsWith("/mpls traffic-eng")) return RouterOsExport.bandwidth(raw);
         // A list whose order means nothing.
         if (property === "tagged" || property === "untagged" || property === "slaves") return raw.split(",").sort().join(",");
 
@@ -819,6 +830,14 @@ export class RouterOsExport {
             .split(",")
             .map((item) => RouterOsExport.address(item, onInterface))
             .join(",");
+    }
+
+    /** A bandwidth of `/mpls traffic-eng` in the largest unit that keeps a whole number, as the render writes it. The device prints the unit it was given, with `bps`: `2500Mbps` and `1Gbps` alike (TRAPS.md). */
+    private static bandwidth(raw: string): string {
+        const match = /^(\d+(?:\.\d+)?)([kMG]?)(?:bps)?$/.exec(raw);
+        if (!match) return raw;
+        const scale = match[2] ? Derive.RATE_UNITS[match[2] as keyof typeof Derive.RATE_UNITS] : 1;
+        return RouterOsQueues.rate(Math.round(Number(match[1]) * scale));
     }
 
     /** One address in one spelling, so one spelled otherwise is not another entry. The device prints `::ffff:0:0/96` as `::ffff:0.0.0.0/96` (TRAPS.md). */

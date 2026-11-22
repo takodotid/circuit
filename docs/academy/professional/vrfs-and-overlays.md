@@ -249,6 +249,18 @@ museum: {
 
 Each PE announces its VPLS over iBGP, with `l2vpn-vpls` in the session's `address_families`, and sets up a pseudowire to each PE that announces the same target. A new site is then a change at its own PE alone. Write `vpls_id`, the same at every PE, in place of `site_id`, and BGP only finds the PEs, while LDP sets up the pseudowires, as some other vendors' routers expect.
 
+A pseudowire's frames follow the labels LDP gives, along the shortest path the IGP knows. A customer who pays for a bandwidth may need more: a path of your choice, with that bandwidth set aside on each link. An <Term means="RSVP-TE: a protocol that sets up a path of labels across the core, along links of your choice, and reserves bandwidth on each one.">RSVP-TE</Term> tunnel to the far PE gives both (RFC 3209), and the pseudowires to that PE cross the core in it:
+
+```ts
+// pe-01.ts, in routing.mpls
+rsvp_te: {
+    interfaces: { "100g-1": { bandwidth: "40G" } },
+    tunnels: { "pe-02": { destination: "192.0.2.2", bandwidth: "10G", cspf: true } },
+},
+```
+
+Each router the tunnel crosses, and the far PE, runs RSVP-TE on its links, with the bandwidth tunnels may reserve there. With `cspf`, the PE computes the shortest path whose links all have the bandwidth left. OSPF tells it what each link has left, with `traffic_engineering: true` on the area. With `explicit_path`, the tunnel crosses the routers you list, in order. A tunnel goes one way, so `pe-02` starts its own tunnel back. The [metro ring example](/guide/examples#a-metro-ring-with-traffic-engineering) has both kinds.
+
 ## EVPN in Circuit
 
 A VPLS needs a pseudowire from each PE to every other one, and each PE learns where a MAC address is by flooding. With EVPN over VXLAN, the PEs tell each other instead, over iBGP. Each announces that it is a VTEP of the customer's segment, in a type 3 route, so the others know where to send a copy of each broadcast. Each also announces the MAC addresses it learned on its ports, in type 2 routes, so the others send frames for them straight to it.

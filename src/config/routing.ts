@@ -1,4 +1,4 @@
-import type { Family, HostAddress, IP, IPv4, IPv6, Named, OneOrMore, Ordered, Prefix, Secret } from "./common";
+import type { Family, HostAddress, IP, IPv4, IPv6, Named, OneOrMore, Ordered, Prefix, Rate, Secret } from "./common";
 import type { CommunitiesRule, NeighborCommunities } from "./communities";
 import { ACTIONS, CALL_RULE, closest, COMMUNITIES_EXPORT, COMMUNITIES_IMPORT, ROUTE_MATCH, ROUTE_RULE, ROUTE_SET } from "./keys";
 import type { AnyFacts, NetworkFacts } from "./network";
@@ -241,6 +241,8 @@ export type OspfArea<I extends string> = {
     ranges?: readonly OspfRange[];
     /** In the backbone, `0.0.0.0`, only: links across another area to border routers in the backbone, for each OSPF version the device runs. For a border router with no link into the backbone, or a backbone cut in two. The device needs `routing.router_id`. */
     virtual_links?: readonly OspfVirtualLink[];
+    /** Tell the routers of the area how much bandwidth each link that runs RSVP-TE has left (RFC 3630). A tunnel with `cspf` finds its path by it. OSPFv2 only, in the main table. */
+    traffic_engineering?: true;
     /** The device's ports and interfaces in this area, each with its OSPF settings. */
     interfaces: Named<I, OspfInterface>;
 };
@@ -364,10 +366,57 @@ export type Ldp<I extends string, P extends string = string> = {
     neighbors?: Readonly<Record<IPv4, LdpNeighbor<P>>>;
 };
 
+/** RSVP-TE on one port or interface. */
+export type RsvpTeInterface = {
+    /** The bandwidth the tunnels that cross the link may reserve on it, all of them together, such as `"40G"`: RFC 3630's maximum reservable bandwidth. With `traffic_engineering` in OSPF, the other routers learn it, and CSPF counts it. */
+    bandwidth: Rate;
+};
+
+/** One hop of an explicit path (RFC 3209, section 4.3.3), with OpenConfig's names. */
+export type ExplicitHop = {
+    /** An address of the router the hop goes to. For a `strict` hop, its address on the link from the router before. */
+    address: IPv4;
+    /** `strict`: the router is the next one, across a link from the router before. `loose`: the tunnel may cross other routers on its way there, as the IGP routes it. */
+    hop_type: "strict" | "loose";
+};
+
+/** The path a tunnel takes: the hops written out, or one CSPF computes. */
+type TunnelPath =
+    | {
+          /** The routers the tunnel crosses, in order, the router it ends at last, such as `[{ address: "10.0.12.2", hop_type: "strict" }, { address: "10.0.23.2", hop_type: "strict" }]`. */
+          explicit_path: readonly ExplicitHop[];
+          cspf?: never;
+      }
+    | {
+          /** The router computes the path itself with CSPF: the shortest path whose links all have `bandwidth` left. Needs `traffic_engineering` on an OSPF area, which tells the routers each link's bandwidth. */
+          cspf: true;
+          explicit_path?: never;
+      };
+
+/** A tunnel this router starts (RFC 3209): a path of labels to another router, with bandwidth reserved on each link it crosses. */
+export type RsvpTeTunnel = TunnelPath & {
+    /** What the tunnel is for. */
+    description?: string;
+    /** The LSR ID of the router the tunnel ends at, such as `10.255.0.3`. It starts at this router's `routing.mpls.ldp.lsr_id`. */
+    destination: IPv4;
+    /** The bandwidth the tunnel reserves on each link it crosses, such as `"1G"`. A link without that much left takes no part in the path, and with no path left, the tunnel stays down. Nothing is reserved when absent. */
+    bandwidth?: Rate;
+};
+
+/** RSVP-TE (RFC 3209): tunnels across the core along paths of your choice, each with bandwidth reserved for it. */
+export type RsvpTe<I extends string> = {
+    /** The ports and interfaces that run RSVP-TE, each toward another RSVP-TE router, with the bandwidth tunnels may reserve on it, such as `{ "100g-1": { bandwidth: "40G" } }`. Every router a tunnel crosses, the last too, writes its links here. */
+    interfaces: Named<I, RsvpTeInterface>;
+    /** The tunnels this router starts, keyed by name, such as `{ "pe-03": { destination: "10.255.0.3", bandwidth: "1G", cspf: true } }`. Each pseudowire to a tunnel's `destination` crosses the core in it. */
+    tunnels?: Readonly<Record<string, RsvpTeTunnel>>;
+};
+
 /** MPLS (RFC 3031): packets cross the network by their labels. */
 export type Mpls<I extends string, P extends string = string> = {
     /** LDP gives the labels. */
     ldp: Ldp<I, P>;
+    /** RSVP-TE tunnels, beside LDP, such as one that reserves bandwidth for a pseudowire along a path of your choice. */
+    rsvp_te?: RsvpTe<I>;
 };
 
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
