@@ -113,7 +113,9 @@ export class RouterOsDhcp {
             const interfaceName = render.name(relay.interface);
             const ipv4 = relay.servers.filter((server) => Address.family(server) === "ipv4");
             const ipv6 = relay.servers.filter((server) => Address.family(server) === "ipv6");
-            if (ipv4.length) render.add("/ip dhcp-relay", "add", { "dhcp-server": ipv4.join(","), interface: interfaceName, name });
+            // A relay is added disabled unless told otherwise (CHR, 7.24.6).
+            if (ipv4.length)
+                render.add("/ip dhcp-relay", "add", { "dhcp-server": ipv4.join(","), disabled: "no", interface: interfaceName, name });
             if (ipv6.length) render.add("/ipv6 dhcp-relay", "add", { "dhcp-server": ipv6.join(","), interface: interfaceName, name });
         }
     }
