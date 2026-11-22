@@ -199,6 +199,7 @@ export class Vrp extends Platform {
         found.push(...VrpIsis.unsupported(device));
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
+        for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
         if (routing?.rpki) found.push("routing.rpki");
         // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
         if (routing?.ospf?.vrf) found.push("routing.ospf.vrf, not built yet");

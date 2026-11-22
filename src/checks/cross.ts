@@ -68,6 +68,7 @@ export class CrossChecks {
             ...CrossChecks.vrrp(holders),
             ...CrossChecks.tunnels(devices, owners),
             ...CrossChecks.pseudowires(devices),
+            ...CrossChecks.vplsSites(devices),
             ...CrossChecks.ldpTargets(devices),
             ...CrossChecks.virtualLinks(devices),
         ];
@@ -409,6 +410,37 @@ export class CrossChecks {
                     },
                 ];
             });
+        });
+    }
+
+    /**
+     * Two PEs of one VPLS, where one takes the routes of the other, set up its pseudowires alike. Each has a site ID of its own (RFC 4761, section 3.2.1), or each has the same VPLS-id (RFC 6074, section 3.2.1).
+     */
+    private static vplsSites(devices: readonly Device[]): Finding[] {
+        const vlans = devices.flatMap((device) =>
+            Object.entries(device.switching?.vlans ?? {}).flatMap(([name, vlan]) => (vlan?.vpls ? [{ device, name, vpls: vlan.vpls }] : []))
+        );
+
+        return vlans.flatMap(({ device, name, vpls }): Finding[] => {
+            const at = `switching.vlans.${name}.vpls`;
+            const problems = vlans.flatMap((far): string[] => {
+                const takes = far.vpls.route_targets.export?.some((target) => vpls.route_targets.import?.includes(target));
+                if (far.device === device || !takes) return [];
+
+                const there = `${far.device.name}'s VLAN ${far.name}, whose VPLS routes this VLAN takes`;
+                if ((vpls.site_id === undefined) !== (far.vpls.site_id === undefined))
+                    return [
+                        `${at} has ${vpls.site_id === undefined ? "vpls_id" : "site_id"}, and ${there}, has ${far.vpls.site_id === undefined ? "vpls_id" : "site_id"}: BGP and LDP set up no pseudowire between the two. Write the same one at every PE of the VPLS`,
+                    ];
+                if (vpls.site_id !== undefined && vpls.site_id === far.vpls.site_id)
+                    return [`${at}.site_id ${vpls.site_id} is also the site_id of ${there}. Give each PE of the VPLS its own site_id`];
+                if (vpls.vpls_id !== undefined && vpls.vpls_id !== far.vpls.vpls_id)
+                    return [
+                        `${at}.vpls_id ${vpls.vpls_id}, and ${there}, has ${far.vpls.vpls_id}: LDP sets up no pseudowire between the two. Write the same vpls_id at every PE of the VPLS`,
+                    ];
+                return [];
+            });
+            return problems.slice(0, 1).map((message) => ({ level: "error", device: device.name, message }));
         });
     }
 

@@ -73,25 +73,27 @@ test("each VRF in an L3VPN has a route distinguisher of its own and route target
     const withoutBgp: Device = { ...pe01, routing: { ...pe01.routing, bgp: undefined } };
     expect(errors(withoutBgp)).toEqual([
         "routing.vrfs.bank is in an L3VPN, and BGP carries its routes. Write routing.bgp, with a neighbor whose address_families has vpnv4 or vpnv6",
+        "switching.vlans.school.vpls: BGP finds the VPLS's other PEs, and no BGP neighbor carries l2vpn-vpls. Write a neighbor in routing.bgp whose address_families has l2vpn-vpls",
+        "switching.vlans.library.vpls: BGP finds the VPLS's other PEs, and no BGP neighbor carries l2vpn-vpls. Write a neighbor in routing.bgp whose address_families has l2vpn-vpls",
     ]);
 });
 
 test("a session that carries VPN routes is iBGP, in the main table, from the LSR ID, over MPLS", () => {
     expect(errors(withSession({ remote_as: 64501 }))).toContain(
-        "routing.bgp.neighbors.pe-02 carries vpnv4 to AS64501, another AS. Circuit carries VPN routes between the PEs of one AS: write them on an iBGP neighbor, remote_as 64500"
+        "routing.bgp.neighbors.pe-02 carries vpnv4 and l2vpn-vpls to AS64501, another AS. Circuit carries VPN routes between the PEs of one AS: write them on an iBGP neighbor, remote_as 64500"
     );
     expect(errors(withSession({ local_address: "10.0.12.1" }))).toEqual([
-        "routing.bgp.neighbors.pe-02 carries vpnv4 from 10.0.12.1, and the far PE sends the VRFs' traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: \"10.255.0.1\"",
+        "routing.bgp.neighbors.pe-02 carries vpnv4 and l2vpn-vpls from 10.0.12.1, and the far PE sends the VPN's traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: \"10.255.0.1\"",
     ]);
     expect(errors(withSession({ local_address: undefined }))).toEqual([
-        "routing.bgp.neighbors.pe-02 carries vpnv4 without local_address, and the far PE sends the VRFs' traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: \"10.255.0.1\"",
+        "routing.bgp.neighbors.pe-02 carries vpnv4 and l2vpn-vpls without local_address, and the far PE sends the VPN's traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: \"10.255.0.1\"",
     ]);
     expect(errors(withSession({ send_default_route: true }))).toEqual([
-        "routing.bgp.neighbors.pe-02 carries vpnv4 only, and send_default_route sends an ipv4 or ipv6 default route. Remove send_default_route",
+        "routing.bgp.neighbors.pe-02 carries vpnv4 and l2vpn-vpls only, and send_default_route sends an ipv4 or ipv6 default route. Remove send_default_route",
     ]);
 
     const withoutMpls: Device = { ...pe01, routing: { ...pe01.routing, mpls: undefined } };
     expect(errors(withoutMpls)).toContain(
-        "routing.bgp.neighbors.pe-02 carries vpnv4 without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp"
+        "routing.bgp.neighbors.pe-02 carries vpnv4 and l2vpn-vpls without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp"
     );
 });

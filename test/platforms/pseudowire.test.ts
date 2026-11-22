@@ -114,7 +114,9 @@ test("RouterOS wants each VLAN interface beside a pseudowire at an MTU of 1496 o
     expect(routeros.unsupported(vlanInterface())).toEqual([
         "interfaces.vlan_interface.vlan-clinic.mtu left out, 1500 beside a pseudowire: RouterOS lowers it to 1496 once the pseudowire runs, and refuses more. Write mtu: 1496 or less",
     ]);
-    expect(routeros.unsupported(withPseudowires(vlanInterface(1500), {}))).toEqual([]);
+    // Without a pseudowire, and without a VPLS that BGP sets up, nothing lowers it.
+    const alone = withPseudowires(vlanInterface(1500), {});
+    expect(routeros.unsupported({ ...alone, switching: { vlans: { clinic: pe01.switching!.vlans!.clinic! } } })).toEqual([]);
 });
 
 test("a pseudowire's MTU is a whole number of bytes, the same at both ends", () => {

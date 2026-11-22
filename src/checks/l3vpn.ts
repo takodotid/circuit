@@ -111,7 +111,7 @@ export class L3vpnChecks {
         }
     }
 
-    /** A session that carries VPN routes is iBGP, in the main table, from this router's LSR ID, over MPLS. */
+    /** A session that carries VPN routes, of an L3VPN or a VPLS, is iBGP, in the main table, from this router's LSR ID, over MPLS. */
     private static sessions(device: Device, report: Report): void {
         const routing = device.routing;
         const bgp = routing?.bgp;
@@ -148,7 +148,7 @@ export class L3vpnChecks {
             const local = settings.local_address && Address.host(settings.local_address);
             if (local !== lsrId)
                 report(
-                    `${carries} ${local ? `from ${local}` : "without local_address"}, and the far PE sends the VRFs' traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: "${lsrId}"`
+                    `${carries} ${local ? `from ${local}` : "without local_address"}, and the far PE sends the VPN's traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: "${lsrId}"`
                 );
         }
     }

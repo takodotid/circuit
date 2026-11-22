@@ -1,5 +1,6 @@
 import type { Family, Limit, Named, OneOrMore, Ordered, Prefix } from "./common";
 import type { Ports, Protocol } from "./firewall";
+import type { RouteDistinguisher, VrfRouteTargets } from "./routing";
 
 /** A secondary VLAN of a private VLAN (RFC 5517): its hosts are in the primary VLAN's subnet, but kept apart at layer 2. */
 export type PrivateVlan<V extends string> = {
@@ -8,6 +9,27 @@ export type PrivateVlan<V extends string> = {
     /** `isolated`: a host here reaches the promiscuous ports only. A primary VLAN has one isolated VLAN at most. `community`: a host here also reaches the other hosts of this VLAN. */
     type: "isolated" | "community";
 };
+
+/**
+ * A VPLS whose PEs BGP finds, with the names of OpenConfig's network instance. With `site_id`, BGP sets up the pseudowires too (RFC 4761). With `vpls_id`, LDP does (RFC 6074). Every PE of one VPLS writes the same one of the two.
+ */
+export type Vpls = {
+    /** Keeps the VPLS's BGP routes apart from another VPN's, such as `64500:300`. Each VRF and VPLS of the device has its own. */
+    route_distinguisher: RouteDistinguisher;
+    /** Which PEs the VLAN joins, such as `{ import: ["64500:300"], export: ["64500:300"] }`. The device sets up a pseudowire to each PE whose VPLS route carries an `import` target, and its own route carries the `export` targets. */
+    route_targets: VrfRouteTargets;
+} & (
+    | {
+          /** This PE's number in the VPLS, 1 to 65535: its VE ID (RFC 4761, section 3.2.1), OpenConfig's `site-id`. BGP then sets up the pseudowires too. Each PE of the VPLS has its own. */
+          site_id: number;
+          vpls_id?: never;
+      }
+    | {
+          /** The VPLS's ID, the same at each of its PEs, written as a route distinguisher is, such as `64500:300`: its VPLS-id (RFC 4762, section 6.1.1). BGP then only finds the PEs (RFC 6074), and LDP sets up each pseudowire with the generalized PWid FEC (RFC 8077, section 6.2). */
+          vpls_id: RouteDistinguisher;
+          site_id?: never;
+      }
+);
 
 /**
  * A VLAN. Its key in `switching.vlans` is its name. `Untrusted` is whether the network turns on the check `untrusted_vlans`, which `untrusted` needs. `V` is the device's VLAN names.
@@ -23,6 +45,10 @@ export type Vlan<Untrusted extends boolean = true, V extends string = string> = 
     untrusted?: Untrusted extends true ? true : "allowed only when circuit.ts turns on the check untrusted_vlans";
     /** Makes this a secondary VLAN of a private VLAN (RFC 5517). Only access ports may be in it: a trunk carries its primary VLAN, and the gateway's VLAN interface is on the primary VLAN too. */
     private_vlan?: PrivateVlan<V>;
+    /**
+     * Makes the VLAN a VPLS across the MPLS core whose PEs BGP finds, such as `{ route_distinguisher: "64500:300", route_targets: { import: ["64500:300"], export: ["64500:300"] }, site_id: 1 }`. The device sets up a pseudowire to each other PE of the VPLS by itself, where `interfaces.pseudowire` writes one per PE. Each is a port of the VLAN whose frames cross without the VLAN's tag, raw mode (RFC 4448), and a frame from one never leaves by another. Needs `routing.mpls`, and a BGP neighbor whose `address_families` has `l2vpn-vpls`.
+     */
+    vpls?: Vpls;
 };
 
 /**

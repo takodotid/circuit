@@ -173,6 +173,7 @@ export class RaisecomRosUnsupported {
         }
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
+        for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
 
         const ospf = routing?.ospf;
         if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");

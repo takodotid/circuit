@@ -49,8 +49,14 @@ export class RouterOsRouting {
     /** The chain of a session that carries VPN routes only. It takes them, which their route targets pick, and rejects the rest (TRAPS.md). */
     private static readonly VPN = "VPN";
 
-    /** A connection's `afi` for each family, in the order the device prints them. */
-    private static readonly AFI = { ipv4: "ip", ipv6: "ipv6", vpnv4: "vpnv4", vpnv6: "vpnv6" } as const satisfies Record<BgpFamily, string>;
+    /** A connection's `afi` for each family, in the order the device prints them. `l2vpn-vpls` is one AFI and SAFI, which RouterOS splits by its NLRI: `l2vpn` for RFC 4761, and `l2vpn-cisco` for RFC 6074 (TRAPS.md). */
+    private static readonly AFI = {
+        ipv4: "ip",
+        ipv6: "ipv6",
+        "l2vpn-vpls": "l2vpn,l2vpn-cisco",
+        vpnv4: "vpnv4",
+        vpnv6: "vpnv6",
+    } as const satisfies Record<BgpFamily, string>;
 
     /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
     private static readonly GTSM_TTL = 255;
@@ -604,7 +610,7 @@ export class RouterOsRouting {
 
     /** The chains of sessions that carry VPN routes: each takes them, then hands the rest to the session's own chain, or rejects them. */
     private vpnChains(): void {
-        const chains = new Map<string, string | undefined>();
+        const chains = new Map<string, { next: string | undefined; vpls: boolean }>();
         for (const neighbor of Object.values(this.device.routing!.bgp!.neighbors ?? {})) {
             const settings = this.settingsOf(neighbor);
             if (!Derive.vpnFamilies(settings).length) continue;
@@ -614,11 +620,19 @@ export class RouterOsRouting {
                 RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
                 RouterOsRouting.exportChain(settings, family),
             ];
-            for (const chain of own || [undefined]) chains.set(RouterOsRouting.sessionChain(chain, true)!, chain);
+            const vpls = Boolean(settings.address_families?.includes(Derive.VPLS_FAMILY));
+            for (const chain of own || [undefined]) {
+                const name = RouterOsRouting.sessionChain(chain, true)!;
+                chains.set(name, { next: chain, vpls: vpls || Boolean(chains.get(name)?.vpls) });
+            }
         }
 
-        for (const [chain, next] of [...chains].sort(([a], [b]) => a.localeCompare(b))) {
+        // A session's chains see its VPLS routes too, which an `afi` of their own matches (TRAPS.md).
+        const vplsAfis = RouterOsRouting.AFI[Derive.VPLS_FAMILY].split(",");
+        for (const [chain, { next, vpls }] of [...chains].sort(([a], [b]) => a.localeCompare(b))) {
             this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${RouterOsRouting.AFI.vpnv4}) { accept }` });
+            for (const afi of vpls ? vplsAfis : [])
+                this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${afi}) { accept }` });
             this.render.add("/routing filter rule", "add", { chain, rule: next ? `jump ${next}` : "reject" });
         }
     }

@@ -374,7 +374,15 @@ export const DEVICE = {
         },
     },
     switching: {
-        vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
+        vlans: {
+            "*": {
+                id: 0,
+                description: 0,
+                untrusted: 0,
+                private_vlan: { primary: 0, type: 0 },
+                vpls: { route_distinguisher: 0, route_targets: { import: 0, export: 0 }, site_id: 0, vpls_id: 0 },
+            },
+        },
         stp: { mode: 0, priority: 0 },
         dhcp_snooping: 0,
         arp_inspection: 0,

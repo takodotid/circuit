@@ -12,6 +12,7 @@ import { RouterOsDhcp } from "./dhcp";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
+import { RouterOsPseudowire } from "./pseudowire";
 import { RouterOsQueues } from "./queues";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSchedulers } from "./schedulers";
@@ -41,9 +42,6 @@ export class RouterOsRender {
 
     /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
     private static readonly ISOLATED_HORIZON = 1;
-
-    /** The split horizon of every pseudowire, so a frame from one never leaves by another (RFC 4762, section 4.4). */
-    private static readonly PSEUDOWIRE_HORIZON = 2;
 
     /** Destination of spanning tree BPDUs, so a filter can drop them on one port. */
     private static readonly BPDU_DESTINATION = "01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF";
@@ -109,6 +107,7 @@ export class RouterOsRender {
         RouterOsSchedulers.render(render, device);
         RouterOsFirewall.render(render, device);
         RouterOsRouting.render(render, device);
+        RouterOsPseudowire.render(render, device);
         render.management();
         render.system();
 
@@ -248,7 +247,7 @@ export class RouterOsRender {
     /** One VLAN-filtering bridge carries every switched port, with their one TPID. A loopback is a bridge with no ports, the platform's idiom for one. */
     private bridge(): void {
         const { device } = this;
-        if (this.switched().length > 0 || this.declaredVlanInterfaces().length > 0) {
+        if (this.switched().length > 0 || this.declaredVlanInterfaces().length > 0 || RouterOsPseudowire.vplsVlans(device).length > 0) {
             const stp = device.switching?.stp;
             this.add("/interface bridge", "add", {
                 "dhcp-snooping": RouterOsSyntax.yesWhen(device.switching?.dhcp_snooping),
@@ -520,7 +519,7 @@ export class RouterOsRender {
     /** The split horizon of a bridge port: an isolated port's, a pseudowire's, or none. */
     private horizon(port: string, isolated: boolean): number | undefined {
         if (isolated) return RouterOsRender.ISOLATED_HORIZON;
-        return this.device.interfaces?.pseudowire?.[port] ? RouterOsRender.PSEUDOWIRE_HORIZON : undefined;
+        return this.device.interfaces?.pseudowire?.[port] ? RouterOsPseudowire.HORIZON : undefined;
     }
 
     /** A VLAN is tagged on every trunk carrying it, and on the bridge itself when the router has an interface in it. */

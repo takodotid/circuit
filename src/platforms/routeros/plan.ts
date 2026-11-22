@@ -74,6 +74,8 @@ export class RouterOsPlan {
         "/routing bgp connection",
         // A VPN entry names its VRF, its instance, and its chains.
         "/routing bgp vpn",
+        // A BGP VPLS entry names the bridge its pseudowires join.
+        "/routing bgp vpls",
         "/routing ospf instance",
         "/routing ospf area",
         // A range and a static neighbor name their area.

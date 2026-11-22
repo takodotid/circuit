@@ -135,6 +135,8 @@ export class RouterOsVlanTags {
                 if (device.switching?.[field]) found.push(`switching.${field}, ${RouterOsVlanTags.UNTESTED}`);
             for (const name of Object.keys(device.interfaces?.pseudowire ?? {}))
                 found.push(`interfaces.pseudowire.${name}, ${RouterOsVlanTags.UNTESTED}`);
+            for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
+                if (vlan.vpls) found.push(`switching.vlans.${name}.vpls, ${RouterOsVlanTags.UNTESTED}`);
             for (const { where, settings } of holders) {
                 // An 802.1ad bridge sends its BPDUs to another address than the one `stp: false` drops (MikroTik's manual, Bridging and Switching).
                 if (settings.stp === false) found.push(`${where}.stp false, ${RouterOsVlanTags.UNTESTED}`);

@@ -214,6 +214,18 @@ pseudowire: {
 
 `pe-02` writes one back, with `peer: "192.0.2.1"` and the same `pw_id`. LDP finds its neighbors on its links, and sets up a session to each pseudowire's far PE by itself, even across the core. For a session with another router that isn't a neighbor, list its loopback in `routing.mpls.ldp.targets`, at both ends: a targeted session. The two PEs also tell each other the largest frame the pseudowire carries, its `mtu`, and both must say the same. One pseudowire between two sites is called a VPWS. Several in one VLAN, one to each other PE, join many sites into one LAN, a VPLS. There, a frame that arrives over one pseudowire never leaves over another, so the PEs make no loop.
 
+With many sites, that is a pseudowire from each PE to each other PE, and a new site means a change at every PE. BGP can find the PEs of a VPLS instead, as it finds the PEs of a VRF: give the VLAN a `vpls` with a route distinguisher and route targets, and a site ID of its own at each PE.
+
+```ts
+// pe-01.ts, in switching.vlans
+school: {
+    id: 301,
+    vpls: { route_distinguisher: "64500:301", route_targets: { import: ["64500:301"], export: ["64500:301"] }, site_id: 1 },
+},
+```
+
+Each PE announces its VPLS over iBGP, with `l2vpn-vpls` in the session's `address_families`, and sets up a pseudowire to each PE that announces the same target. A new site is then a change at its own PE alone. Write `vpls_id`, the same at every PE, in place of `site_id`, and BGP only finds the PEs, while LDP sets up the pseudowires, as some other vendors' routers expect.
+
 Circuit doesn't do the rest of this lesson: **no EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
 
 ## Further reading

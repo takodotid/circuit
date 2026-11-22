@@ -119,6 +119,7 @@ A note in a cell means "works, with this limit".
 | VRF import/export policies   | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |
 | Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌                         | ❌                       | ❌                    | ❌               |
 | Pseudowire MTU, control word | ✅ MTU 1500 or more     | ❌                         | ❌                       | ❌                    | ❌               |
+| VPLS whose PEs BGP finds     | ✅ VLAN interfaces 1496 | ❌                         | ❌                       | ❌                    | ❌               |
 | BFD                          | ✅ not on static routes | ✅                         | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                      | ✅ one family per session  | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                      | ✅ each rule decides       | ❌                       | ✅                    | ✅               |

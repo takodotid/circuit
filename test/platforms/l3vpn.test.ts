@@ -48,9 +48,12 @@ test("the example validates, and RouterOS renders the VRF's VPN entry and a VPN 
         'add chain=bank-offices-V4 rule="if (dst in bank-offices) { accept }"\nadd chain=bank-offices-V4 rule=reject\n'
     );
     expect(desired).toContain(
-        'add afi=vpnv4 as=64500 comment="pe-02, VPN routes" input.filter=VPN instance=default local.address=10.255.0.1 local.role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 remote.as=64500'
+        'add afi="l2vpn,l2vpn-cisco,vpnv4" as=64500 comment="pe-02, VPN routes" input.filter=VPN instance=default local.address=10.255.0.1 local.role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 remote.as=64500'
     );
-    expect(desired).toContain('add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule=reject\n');
+    // The session carries the VPLS routes of the school and the library too, which their own afi matches.
+    expect(desired).toContain(
+        'add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule="if (afi l2vpn) { accept }"\nadd chain=VPN rule="if (afi l2vpn-cisco) { accept }"\nadd chain=VPN rule=reject\n'
+    );
     expect(desired).not.toContain("REJECT-ALL");
 
     // As the CHRs printed a connection and a VPN entry: `.role` and `.as` after a property of their group, and the VPN entry's properties in its own order.

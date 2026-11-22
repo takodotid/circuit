@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the routes of the bank's VRF to pe-01 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the bank's VRF to pe-01 (L3VPN). A pseudowire carries the clinic's frames to its other site there (VPWS). BGP joins the school's campuses at pe-01 and pe-03 (VPLS).
 
 import { as64500 } from "../../circuit";
 
@@ -20,6 +20,7 @@ export default as64500.device({
             "1g-1": { description: "Management", addresses: ["10.0.2.1/24"] },
             "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
+            "25g-3": { description: "School, campus 2", access_vlan: "school" },
             "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
             "100g-2": { description: "pe-03 qsfp28-1-1", addresses: ["10.0.23.1/30"], link: { device: "pe-03", port: "100g-1" } },
         },
@@ -38,8 +39,16 @@ export default as64500.device({
     },
 
     switching: {
-        // The clinic's port and its pseudowire, alone in one VLAN.
-        vlans: { clinic: { id: 201, description: "Clinic, sites 1 and 2" } },
+        vlans: {
+            // The clinic's port and its pseudowire, alone in one VLAN.
+            clinic: { id: 201, description: "Clinic, sites 1 and 2" },
+            // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
+            school: {
+                id: 301,
+                description: "School, campuses 1 to 3",
+                vpls: { route_distinguisher: "64500:301", route_targets: { import: ["64500:301"], export: ["64500:301"] }, site_id: 2 },
+            },
+        },
     },
 
     routing: {
@@ -69,7 +78,7 @@ export default as64500.device({
         },
         // The LSR ID is the loopback, which IS-IS announces. LDP runs on the links to pe-01 and pe-03, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
         mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1", "100g-2"], import_policy: "loopbacks", export_policy: "loopbacks" } },
-        // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
+        // The iBGP sessions between the loopbacks carry the VRFs' routes, each with its label, and the VPLS routes, and no other routes.
         bgp: {
             neighbors: {
                 "pe-01": {
@@ -77,7 +86,14 @@ export default as64500.device({
                     address: "10.255.0.1",
                     remote_as: 64500,
                     local_address: "10.255.0.2",
-                    address_families: ["vpnv4"],
+                    address_families: ["vpnv4", "l2vpn-vpls"],
+                },
+                "pe-03": {
+                    description: "pe-03, VPLS routes",
+                    address: "10.255.0.3",
+                    remote_as: 64500,
+                    local_address: "10.255.0.2",
+                    address_families: ["l2vpn-vpls"],
                 },
             },
         },
