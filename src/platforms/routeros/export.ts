@@ -206,6 +206,8 @@ export class RouterOsExport {
         },
         // A timer never set prints nothing, and a session then runs at these. Set to them, it prints them.
         "/routing bfd configuration": { "min-rx": "200ms", "min-tx": "200ms", multiplier: "5" },
+        // LDP prints no preferred family while none is set, and prefers IPv6 then, as RFC 7552 does (CHR, 7.24.6).
+        "/mpls ldp": { "preferred-afi": "" },
         // A server without `relay` answers clients on its interface only. As a CHR on 7.24.6 printed a relay with `export verbose`: it is added disabled, and prints an empty `relay-info-remote-id` once it adds Option 82.
         "/ip dhcp-server": { "lease-time": "30m", relay: "0.0.0.0", "use-radius": "no" },
         "/ip dhcp-relay": { "add-relay-info": "no", disabled: "yes", "relay-info-remote-id": "" },
@@ -501,6 +503,7 @@ export class RouterOsExport {
             "import.filter-chain",
         ],
         "/routing ospf area": ["default-cost"],
+        "/mpls ldp": ["preferred-afi"],
         // Without a cost, a range takes the largest of the routes inside it (CHR, 7.24.6).
         "/routing ospf area range": ["cost"],
         "/routing ospf interface-template": ["auth", "auth-id"],

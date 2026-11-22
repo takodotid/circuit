@@ -497,6 +497,9 @@ export const DEVICE = {
         mpls: {
             ldp: {
                 lsr_id: 0,
+                address_families: 0,
+                ipv6_transport_address: 0,
+                prefer_ipv4_transport: 0,
                 interfaces: 0,
                 targets: 0,
                 import_policy: 0,

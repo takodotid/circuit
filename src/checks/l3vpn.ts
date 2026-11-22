@@ -111,11 +111,11 @@ export class L3vpnChecks {
         }
     }
 
-    /** A session that carries VPN routes, of an L3VPN or a VPLS, is iBGP, in the main table, from this router's LSR ID, over MPLS. */
+    /** A session that carries VPN routes, of an L3VPN or a VPLS, is iBGP, in the main table, over MPLS. It runs from the address LDP labels for its family: the LSR ID, or the IPv6 transport address. */
     private static sessions(device: Device, report: Report): void {
         const routing = device.routing;
         const bgp = routing?.bgp;
-        const lsrId = routing?.mpls?.ldp?.lsr_id;
+        const ldp = routing?.mpls?.ldp;
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             const group = neighbor.neighbor_group ? bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -136,19 +136,25 @@ export class L3vpnChecks {
                 );
             if (settings.send_default_route && !Derive.unicastFamilies(settings, neighbor.address).length)
                 report(`${carries} only, and send_default_route sends an ipv4 or ipv6 default route. Remove send_default_route`);
-            if (Address.isValid(neighbor.address) && Address.family(neighbor.address) !== "ipv4")
-                report(
-                    `${carries} to ${neighbor.address}, and LDP here labels IPv4 routes only. Write the far PE's LSR ID, its IPv4 loopback`
-                );
-
-            if (!lsrId) {
+            const overIpv6 = Address.isValid(neighbor.address) && Address.family(neighbor.address) === "ipv6";
+            if (!ldp) {
                 report(`${carries} without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp`);
                 continue;
             }
-            const local = settings.local_address && Address.host(settings.local_address);
-            if (local !== lsrId)
+            if (overIpv6 && !(ldp.address_families ?? ["ipv4"]).includes("ipv6")) {
                 report(
-                    `${carries} ${local ? `from ${local}` : "without local_address"}, and the far PE sends the VPN's traffic to that address, by the label LDP gives this router's LSR ID. Write local_address: "${lsrId}"`
+                    `${carries} to ${neighbor.address}, and LDP here labels IPv4 routes only. Write the far PE's LSR ID, its IPv4 loopback, or add ipv6 to routing.mpls.ldp.address_families`
+                );
+                continue;
+            }
+
+            // The far PE sends the VPN's traffic to this address, by the label LDP gives it here.
+            const own = overIpv6 ? ldp.ipv6_transport_address : ldp.lsr_id;
+            const ownName = overIpv6 ? "IPv6 transport address" : "LSR ID";
+            const local = settings.local_address && Address.host(settings.local_address);
+            if (own && local !== own)
+                report(
+                    `${carries} ${local ? `from ${local}` : "without local_address"}, and the far PE sends the VPN's traffic to that address, by the label LDP gives this router's ${ownName}. Write local_address: "${own}"`
                 );
         }
     }

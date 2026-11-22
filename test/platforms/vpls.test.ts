@@ -32,7 +32,7 @@ test("RouterOS writes a VLAN's VPLS as a BGP VPLS entry named after the VLAN, wh
         'add afi="l2vpn,l2vpn-cisco" as=64500 comment="pe-01, VPLS routes" input.filter=VPN instance=default local.address=10.255.0.3 local.role=ibgp name=pe-01 output.filter-chain=VPN remote.address=10.255.0.1/32 remote.as=64500\n'
     );
     expect(desired).toContain(
-        'add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule="if (afi l2vpn) { accept }"\nadd chain=VPN rule="if (afi l2vpn-cisco) { accept }"\nadd chain=VPN rule=reject\n'
+        'add chain=VPN rule="if (afi l2vpn) { accept }"\nadd chain=VPN rule="if (afi l2vpn-cisco) { accept }"\nadd chain=VPN rule=reject\n'
     );
 
     // As the CHRs printed them: the families in one word, and the VPLS-id after the address.

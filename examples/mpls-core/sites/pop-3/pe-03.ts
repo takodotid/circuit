@@ -21,9 +21,13 @@ export default as64500.device({
             "25g-1": { description: "School, campus 3", access_vlan: "school" },
             "25g-2": { description: "Library, branch 2", access_vlan: "library" },
             "25g-3": { description: "TV station, site 2", trunk_vlans: ["tv-studio", "tv-news"] },
-            "100g-1": { description: "pe-02 qsfp28-2-1", addresses: ["10.0.23.2/30"], link: { device: "pe-02", port: "100g-2" } },
+            "100g-1": {
+                description: "pe-02 qsfp28-2-1",
+                addresses: ["10.0.23.2/30", "2001:db8:100:23::2/64"],
+                link: { device: "pe-02", port: "100g-2" },
+            },
         },
-        loopback: { loopback: { addresses: ["10.255.0.3/32"] } },
+        loopback: { loopback: { addresses: ["10.255.0.3/32", "2001:db8:100:ffff::3/128"] } },
         pseudowire: {
             "pw-tv": {
                 description: "TV station, to site 1 at pe-02",
@@ -36,7 +40,7 @@ export default as64500.device({
 
     switching: {
         vlans: {
-            // The TV station's two VLANs cross the core to pe-03 on one pseudowire, each frame with its tag.
+            // The TV station's two VLANs cross the core to pe-02 on one pseudowire, each frame with its tag.
             "tv-studio": { id: 401, description: "TV station, studio" },
             "tv-news": { id: 402, description: "TV station, newsroom" },
             // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
@@ -64,16 +68,19 @@ export default as64500.device({
         isis: {
             net: "49.0001.0102.5500.0003.00",
             level_capability: "level-2",
-            address_families: ["ipv4"],
+            address_families: ["ipv4", "ipv6"],
             interfaces: {
                 loopback: { passive: true },
                 "100g-1": { network: "point-to-point", metric: 10 },
             },
         },
-        // LDP runs on the link to pe-02, and labels the loopbacks only. The targeted session to pe-01 needs a target back there, which pe-01 has.
+        // LDP labels IPv4 and IPv6 routes, and runs on the link to pe-02, for the loopbacks only. Its sessions run over IPv4, as pe-01's and pe-02's do. The targeted session to pe-01 needs a target back there, which pe-01 has.
         mpls: {
             ldp: {
                 lsr_id: "10.255.0.3",
+                address_families: ["ipv4", "ipv6"],
+                ipv6_transport_address: "2001:db8:100:ffff::3",
+                prefer_ipv4_transport: true,
                 interfaces: ["100g-1"],
                 targets: ["10.255.0.1"],
                 import_policy: "loopbacks",
@@ -102,7 +109,7 @@ export default as64500.device({
             },
         },
         prefix_sets: {
-            loopbacks: { prefixes: ["10.255.0.0/24"] },
+            loopbacks: { prefixes: ["10.255.0.0/24", "2001:db8:100:ffff::/64"] },
         },
         policies: {
             loopbacks: [{ if: { prefix_set: "loopbacks" }, then: "accept" }, { then: "reject" }],
