@@ -226,6 +226,7 @@ test("validate: a table named main or like a VRF, one nothing installs in, a rul
         "routing.policy_routing[1]: src and dst differ in family, so no packet matches both",
         "routing.policy_routing[2] looks up main and has fallback; fallback is for another table, so remove it",
         // Its static routes replaced, block-b has no route for any of originated_prefixes.
+        "routeros cannot express routing.vrfs.oob, a VRF with no interface: RouterOS needs one in each. Give it its interfaces with vrf, or leave the VRF out",
         'routing.bgp.neighbors.as64510 would announce nothing: On RouterOS a session announces from its own table, block-b, which has no route for any of originated_prefixes. Add the routes it announces to block-b too, such as { prefix: "2001:db8:100::/48", blackhole: true, routing_table: "block-b" } in routing.static_routes',
     ]);
 });

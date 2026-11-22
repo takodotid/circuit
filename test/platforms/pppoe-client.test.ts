@@ -109,6 +109,49 @@ test("RouterOS adds the client before what names it, and removes it after", () =
     }
 });
 
+test("RouterOS puts a client with a VRF in that VRF, with the routes through it, and takes it out once the config drops it", () => {
+    const { prefix_delegation: _delegation, ...client } = ISP;
+    const inVrf = (vrf: string | undefined) => {
+        const device = withPppoe({ internet: { ...client, vrf } });
+        device.routing = { ...device.routing, static_routes: [{ prefix: "0.0.0.0/0", interface: "internet", vrf }] };
+        return routeros.render(device);
+    };
+    const desired = inVrf("guests");
+
+    expect(desired).toContain('add comment="Kept apart from everything else" interfaces="guests,internet" name=guests');
+    // A gateway without its VRF stays inactive (CHR, 7.24.6).
+    expect(desired).toContain("add dst-address=0.0.0.0/0 gateway=internet@guests routing-table=guests");
+    expect(sent(desired, desired)).toEqual([]);
+
+    const plan = sent(inVrf(undefined), desired);
+    expect(plan).toContain("/ip vrf set [ find name=guests ] interfaces=guests");
+    expect(plan).toContain("/ip route add dst-address=0.0.0.0/0 gateway=internet");
+});
+
+test("RouterOS refuses a VRF with no interface, which it can't hold", () => {
+    const device = withPppoe({});
+    device.routing = { ...device.routing, vrfs: { ...device.routing?.vrfs, wan: { description: "The provider's internet" } } };
+    expect(routeros.unsupported(device)).toContain(
+        "routing.vrfs.wan, a VRF with no interface: RouterOS needs one in each. Give it its interfaces with vrf, or leave the VRF out"
+    );
+});
+
+test("validate wants a route through a client in the client's VRF", () => {
+    const device = withPppoe({ internet: { ...ISP, vrf: "guests" }, backup: { ...ISP, interface: "25g-3" } });
+    device.routing = {
+        ...device.routing,
+        static_routes: [
+            { prefix: "0.0.0.0/0", interface: "internet" },
+            { prefix: "::/0", interface: "backup", vrf: "guests" },
+        ],
+    };
+
+    expect(errors(device).filter((message) => message.startsWith("routing.static_routes"))).toEqual([
+        'routing.static_routes 0.0.0.0/0 leaves through interfaces.pppoe_client.internet, which routes in VRF guests: write vrf: "guests" on the route',
+        'routing.static_routes ::/0 is in VRF guests, but interfaces.pppoe_client.backup routes in the main table: write vrf: "guests" on the client, or take vrf off the route',
+    ]);
+});
+
 test("RouterOS delegates a PPPoE server's prefixes from a pool its profile names, and clears one set by hand", () => {
     const desired = routeros.render(withPppoe({}, { "olt-1": OLT }));
 
@@ -121,6 +164,44 @@ test("RouterOS delegates a PPPoE server's prefixes from a pool its profile names
 
     const stray = `${desired}/ppp profile\nset *0 dhcpv6-pd-pool=olt-1-pd remote-ipv6-prefix-pool=olt-1-pd\n`;
     expect(sent(desired, stray)).toEqual(['/ppp profile set *0 dhcpv6-pd-pool="" remote-ipv6-prefix-pool=""']);
+});
+
+test("RouterOS gives each session a /64 from a pool its profile names, announced by the default ND entry, which stays on", () => {
+    const slaac: PppoeServer = { ...OLT, slaac: { pool: "2001:db8:100:1000::/52" } };
+    const desired = routeros.render(withPppoe({}, { "olt-1": slaac }));
+
+    expect(desired).toContain("add name=olt-1-slaac prefix=2001:db8:100:1000::/52 prefix-length=64");
+    expect(desired).toContain("local-address=100.64.0.1 name=olt-1 remote-address=olt-1 remote-ipv6-prefix-pool=olt-1-slaac");
+    expect(sent(desired, desired)).toEqual([]);
+    // The example router's `servers` sends router advertisements of its own, which turns the default entry off without a PPPoE server.
+    expect(desired).not.toContain("set [ find default=yes ] disabled=yes");
+    expect(routeros.render(withPppoe({}))).toContain("set [ find default=yes ] disabled=yes");
+
+    const dropped = sent(routeros.render(withPppoe({}, { "olt-1": OLT })), desired);
+    expect(dropped).toContain('/ppp profile set [ find name=olt-1 ] remote-ipv6-prefix-pool=""');
+    expect(dropped).toContain("/ipv6 pool remove [ find name=olt-1-slaac ]");
+});
+
+test("RouterOS has a client take router advertisements on the session alone, and sets that back once the config drops it", () => {
+    const desired = routeros.render(withPppoe({ internet: { ...ISP, slaac: true } }));
+
+    expect(desired).toContain("add name=slaac");
+    expect(desired).toContain("add interface=internet list=slaac");
+    expect(desired).toContain("/ipv6 settings\nset accept-router-advertisements=yes accept-router-advertisements-on=slaac");
+    expect(sent(desired, desired)).toEqual([]);
+
+    // The export says the change waits for a restart, though a session takes it when it next comes up (CHR, 7.24.6).
+    const printed = desired.replace(
+        "/ipv6 settings\n",
+        "/ipv6 settings\n# ipv6 *accept router advertisements* configuration has changed, please restart device to apply settings\n"
+    );
+    expect(sent(desired, printed)).toEqual([]);
+
+    const dropped = sent(routeros.render(withPppoe({ internet: ISP })), desired);
+    expect(dropped).toContain(
+        "/ipv6 settings set accept-router-advertisements=yes-if-forwarding-disabled accept-router-advertisements-on=all"
+    );
+    expect(dropped).toContain("/interface list remove [ find name=slaac ]");
 });
 
 test("RouterOS refuses a client named as an IPv6 pool it writes", () => {
@@ -166,6 +247,7 @@ test("validate checks the login, the port the session runs over, the MTU, and wh
         "interfaces.pppoe_client.internet.prefix_delegation.interfaces.25g-1 is the session's own way to the provider: give the prefix to an interface toward your hosts",
         "interfaces.pppoe_client.backup.interface 25g-3 is switched: run the client on a routed port, or on a VLAN interface of the VLAN that reaches the provider",
         "interfaces.pppoe_client.backup.prefix_delegation.interfaces.servers: '2001:db8::1' is not the last 64 bits of an address, such as ::1. The first 64 bits come from the prefix",
+        "interfaces.pppoe_client.backup.prefix_delegation.interfaces.guests routes in guests, but the session in the main table, where the prefix's route is: put both in one VRF",
         "interfaces.pppoe_client.backup.prefix_delegation.interfaces.guests: '::' is not the last 64 bits of an address, such as ::1. The first 64 bits come from the prefix",
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.servers also takes a prefix from interfaces.pppoe_client.backup: give it one of them",
         "interfaces.pppoe_client.fiber.prefix_delegation.interfaces.25g-4 is switched, so it holds no address: give the prefix to the VLAN interface of its VLAN",
@@ -192,4 +274,20 @@ test("validate checks a PPPoE server's delegated prefixes as a DHCPv6 server's",
     expect(errors(device)).toContain(
         "services.pppoe_server.olt-1.prefix_delegation.prefix_length 48 is not a whole number from 50 to 128: each prefix delegated is a part of pool, a /49"
     );
+});
+
+test("validate wants the sessions' /64s from an IPv6 prefix shorter than a /64, apart from the delegated prefixes", () => {
+    const device = withPppoe(
+        {},
+        {
+            "olt-1": { ...OLT, slaac: { pool: "2001:db8:100:8000::/52" } },
+            "olt-2": { ...OLT, interfaces: ["guests"], slaac: { pool: "2001:db8:100:1001::/64" } },
+            "olt-3": { ...OLT, interfaces: ["25g-3"], slaac: { pool: "100.64.0.0/10" } },
+        }
+    );
+    expect(errors(device).filter((message) => message.includes(".slaac."))).toEqual([
+        "services.pppoe_server.olt-1.slaac.pool 2001:db8:100:8000::/52 overlaps prefix_delegation.pool 2001:db8:100:8000::/49: give each its own prefix",
+        "services.pppoe_server.olt-2.slaac.pool 2001:db8:100:1001::/64 holds no more than one /64: write a shorter prefix, which holds a /64 for each session",
+        "services.pppoe_server.olt-3.slaac.pool '100.64.0.0/10' is not an IPv6 prefix, such as 2001:db8:100:1000::/52",
+    ]);
 });

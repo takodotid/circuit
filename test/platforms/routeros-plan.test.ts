@@ -661,7 +661,7 @@ test("two routes to one prefix through one gateway in one table are refused on R
 });
 
 // Seen on an RB5009 on 7.24.6: a PPPoE client removed before the interface list member naming it left that member pointing at nothing.
-test("a PPPoE client is removed after what names it, and its profile after it", () => {
+test("a PPPoE client is removed after what names it, its profile after it, and an interface list a profile may name last", () => {
     const adapter = Platforms.get("routeros");
     const printed = [
         "/ppp profile",
@@ -677,9 +677,9 @@ test("a PPPoE client is removed after what names it, and its profile after it", 
     const sent = adapter.plan("", printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send);
     expect(sent).toEqual([
         "/interface list member remove [ find list=WAN and interface=pppoe-wan ]",
-        "/interface list remove [ find name=WAN ]",
         "/interface pppoe-client remove [ find name=pppoe-wan ]",
         "/ppp profile remove [ find name=wan-pppoe ]",
+        "/interface list remove [ find name=WAN ]",
     ]);
 });
 

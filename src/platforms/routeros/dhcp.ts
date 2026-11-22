@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { DhcpServer, Device } from "../../model";
+import type { DhcpServer, Dhcpv6Server, Device } from "../../model";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -60,7 +60,7 @@ export class RouterOsDhcp {
         }
     }
 
-    /** One setting for every DHCP server of the router that asks RADIUS: unsupported() refuses servers that differ. */
+    /** One setting for every DHCP and DHCPv6 server of the router that asks RADIUS: unsupported() refuses servers that differ. Both ask the servers for `dhcp`, and report at the interval of `/ip dhcp-server config` (CHR, 7.24.6). */
     private static radius(render: RouterOsRender, device: Device): void {
         const [first] = RouterOsDhcp.withRadius(device);
         if (!first) return;
@@ -73,22 +73,38 @@ export class RouterOsDhcp {
     }
 
     static unsupported(device: Device): string[] {
-        const [first, ...others] = RouterOsDhcp.withRadius(device);
-        if (!first) return [];
-
-        const [firstName, firstServer] = first;
-        const shared = (server: DhcpServer) => JSON.stringify([RouterOsSyntax.radiusServers(server.radius), server.acct_interim_interval]);
-        return others
-            .filter(([, server]) => shared(server) !== shared(firstServer))
+        // With `use-radius=yes`, a CHR on 7.24.6 gave a client that asked for an address none, and never asked RADIUS (TRAPS.md).
+        const addresses = RouterOsSyntax.entries(device.services?.dhcpv6_server)
+            .filter(([, server]) => server.radius && server.pool)
             .map(
                 ([name]) =>
-                    `services.dhcp_server.${name}, RouterOS has one RADIUS setting for all its DHCP servers: write the radius and acct_interim_interval of services.dhcp_server.${firstName}`
+                    `services.dhcpv6_server.${name}.radius beside pool: RouterOS asks RADIUS about delegated prefixes only, and gives no address while it asks. Leave out pool or radius`
             );
+
+        const [first, ...others] = RouterOsDhcp.withRadius(device);
+        if (!first) return addresses;
+
+        const [firstWhere, firstServer] = first;
+        const shared = (server: DhcpServer | Dhcpv6Server) =>
+            JSON.stringify([RouterOsSyntax.radiusServers(server.radius), server.acct_interim_interval]);
+        const differ = others
+            .filter(([, server]) => shared(server) !== shared(firstServer))
+            .map(
+                ([where]) =>
+                    `${where}, RouterOS has one RADIUS setting for all its DHCP and DHCPv6 servers: write the radius and acct_interim_interval of ${firstWhere}`
+            );
+        return [...differ, ...addresses];
     }
 
-    /** The DHCP servers that ask RADIUS about each lease. */
-    private static withRadius(device: Device): [string, DhcpServer][] {
-        return RouterOsSyntax.entries(device.services?.dhcp_server).filter(([, server]) => server.radius);
+    /** The DHCP and DHCPv6 servers that ask RADIUS about each lease, each with where it is written. */
+    private static withRadius(device: Device): [string, DhcpServer | Dhcpv6Server][] {
+        const v4 = RouterOsSyntax.entries(device.services?.dhcp_server);
+        const v6 = RouterOsSyntax.entries(device.services?.dhcpv6_server);
+        const servers: [string, DhcpServer | Dhcpv6Server][] = [
+            ...v4.map(([name, server]): [string, DhcpServer] => [`services.dhcp_server.${name}`, server]),
+            ...v6.map(([name, server]): [string, Dhcpv6Server] => [`services.dhcpv6_server.${name}`, server]),
+        ];
+        return servers.filter(([, server]) => server.radius);
     }
 
     /** A relay with servers of both families is a relay in each menu, by one name. */
@@ -128,6 +144,7 @@ export class RouterOsDhcp {
                 "lease-time": server.lease_time !== undefined && RouterOsSyntax.duration(server.lease_time),
                 name,
                 "prefix-pool": delegation && pdPool,
+                "use-radius": server.radius && "yes",
             });
         }
     }

@@ -148,7 +148,6 @@
         "firewall.filter.input.rules[].if.dst_port.min",
         "firewall.filter.input.rules[].if.dst_port.max",
         "firewall.filter.input.rules[].if.out_interface",
-        "firewall.filter.input.rules[].if.in_interface_set",
         "firewall.filter.input.rules[].if.out_interface_set",
         "firewall.filter.input.rules[].if.connection_nat_state",
         "firewall.filter.input.rules[].if.tcp_flags",

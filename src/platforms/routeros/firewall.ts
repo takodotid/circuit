@@ -252,7 +252,10 @@ export class RouterOsFirewall {
             "dst-address-list": match?.dst_address_set,
             "dst-port": RouterOsFirewall.portList(match?.dst_port),
             "in-interface": inInterface && this.render.name(inInterface),
+            // Only a set that sessions join reaches the platform as a set, an interface list of the same name.
+            "in-interface-list": match?.in_interface_set,
             "out-interface": outInterface && this.render.name(outInterface),
+            "out-interface-list": match?.out_interface_set,
             protocol,
             "src-address": RouterOsFirewall.one(match?.src),
             "src-address-list": match?.src_address_set,

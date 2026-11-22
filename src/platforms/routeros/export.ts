@@ -250,6 +250,19 @@ export class RouterOsExport {
         },
         // MikroTik's manual says 1700, but 7.24.6 listens on RFC 5176's 3799 (TRAPS.md).
         "/radius incoming": { accept: "no", port: "3799" },
+        // As a CHR on 7.24.6 printed them with `export verbose`, but the neighbor table's sizes, which follow the memory.
+        "/ipv6 settings": {
+            "accept-redirects": "yes-if-forwarding-disabled",
+            "accept-router-advertisements": "yes-if-forwarding-disabled",
+            "accept-router-advertisements-on": "all",
+            "allow-fast-path": "yes",
+            "disable-ipv6": "no",
+            "disable-link-local-address": "no",
+            forward: "yes",
+            "multipath-hash-policy": "l3",
+            "stale-neighbor-detect-interval": "30",
+            "stale-neighbor-timeout": "60",
+        },
         // As a CHR on 7.24.6 printed a queue with `export verbose`.
         "/queue simple": {
             "bucket-size": "0.1/0.1",
@@ -275,8 +288,14 @@ export class RouterOsExport {
             priority: "8",
             queue: "default-small",
         },
-        // As a CCR2216 on 7.24.6 printed a server set back to them.
-        "/ipv6 dhcp-server": { "address-pool": "static-only", "prefix-pool": "static-only", "lease-time": "3d", "dhcp-option": "" },
+        // As a CCR2216 on 7.24.6 printed a server set back to them. `use-radius` as MikroTik's manual gives it.
+        "/ipv6 dhcp-server": {
+            "address-pool": "static-only",
+            "prefix-pool": "static-only",
+            "lease-time": "3d",
+            "dhcp-option": "",
+            "use-radius": "no",
+        },
         // As a CHR on 7.24.6 printed a client made with its interface, `request=prefix`, and `pool-name`, with `export verbose`, and the distance `print detail` showed once it added a default route.
         "/ipv6 dhcp-client": {
             "accept-prefix-without-address": "yes",

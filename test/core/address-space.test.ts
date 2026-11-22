@@ -93,6 +93,7 @@ test("a NAT pool and its subscribers, and a PPPoE server's pools, are address sp
     const ours6 = report.spaces.find((space) => space.prefix === "2001:db8:100::/48");
     expect(ours6?.blocks).toContainEqual({ prefix: "2001:db8:100:4000::/50", what: "prefixes delegated by PPPoE server olt-1 on bng-01" });
     expect(ours6?.free).not.toContain("2001:db8:100:4000::/50");
+    expect(ours6?.blocks).toContainEqual({ prefix: "2001:db8:100:1000::/52", what: "sessions' /64s of PPPoE server olt-1 on bng-01" });
 });
 
 test("the text prints a pool as its range, and asking for the pool's prefix shows what uses it", () => {

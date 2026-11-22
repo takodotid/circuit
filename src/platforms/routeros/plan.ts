@@ -25,7 +25,9 @@ export class RouterOsPlan {
         // A PPP profile and a DHCP server name their pools.
         "/ip pool",
         "/ipv6 pool",
-        // A PPP client names its profile, and an interface kind not listed below goes before what names it, such as an interface list. An unlisted menu is removed first, which left a list member naming a removed PPPoE client (RB5009, 7.24.6).
+        // A PPP profile names the interface list its sessions join. The list's members come after the interfaces they name.
+        "/interface list",
+        // A PPP client names its profile, and an interface kind not listed below goes before what names it, such as an interface list member. An unlisted menu is removed first, which left a list member naming a removed PPPoE client (RB5009, 7.24.6).
         "/ppp",
         "/interface",
         "/interface bridge",
@@ -47,7 +49,7 @@ export class RouterOsPlan {
         "/interface bridge port",
         "/interface bridge vlan",
         "/interface bridge filter",
-        "/interface list",
+        "/interface list member",
         // A queue names its queue type and the interface it limits.
         "/queue type",
         "/queue tree",

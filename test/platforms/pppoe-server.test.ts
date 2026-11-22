@@ -62,6 +62,36 @@ test("RouterOS adds the pool before the profile, and the profile before the serv
     expect(at("/ppp profile add")).toBeLessThan(at("/interface pppoe-server server add"));
 });
 
+test("RouterOS makes a set the sessions join an interface list, which the profile and the firewall name", () => {
+    const routeros = Platforms.get("routeros");
+    const joining = (set: string | undefined) => {
+        const device = serving({ "olt-1": { ...OLT, interface_set: set } });
+        device.firewall = {
+            ...(set ? { interface_sets: { [set]: ["guests"] } } : {}),
+            filter: { input: { rules: [{ if: { family: "ipv4", in_interface_set: set, protocol: "icmp" }, then: "drop" }] } },
+        };
+        return routeros.render(device);
+    };
+    const desired = joining("subscribers");
+
+    expect(desired).toContain("add name=subscribers\n/interface list member");
+    expect(desired).toContain("add interface=guests list=subscribers");
+    expect(desired).toContain("interface-list=subscribers local-address=100.64.0.1 name=olt-1");
+    expect(desired).toContain("add action=drop chain=input in-interface-list=subscribers protocol=icmp");
+    expect(sent(desired, desired)).toEqual([]);
+
+    // The list exists before the profile points to it, and its member comes after the interface it holds.
+    const added = sent(desired, routeros.render(serving({})));
+    const at = (start: string) => added.findIndex((line) => line.startsWith(start));
+    expect(at("/interface list add")).toBeLessThan(at("/ppp profile add"));
+    expect(at("/interface list member add")).toBeGreaterThan(at("/interface vlan"));
+
+    const removed = sent(joining(undefined), desired);
+    expect(removed).toContain("/ppp profile unset [ find name=olt-1 ] interface-list");
+    const after = (start: string) => removed.findIndex((line) => line.startsWith(start));
+    expect(after("/interface list remove")).toBeGreaterThan(after("/ppp profile unset"));
+});
+
 test("RouterOS removes what the config doesn't hold: local secrets, profiles, servers, and a subscriber's static interface", () => {
     const routeros = Platforms.get("routeros");
     const desired = routeros.render(serving({ "olt-1": OLT }));

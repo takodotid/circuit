@@ -15,9 +15,19 @@ export class RouterOsPppoe {
     /** A server's pool of delegated prefixes is named after the server, with this after it, as a DHCPv6 server's is. */
     private static readonly PD_POOL_SUFFIX = "-pd";
 
+    /** A server's pool of the /64s its sessions make their addresses in is named after the server, with this after it. */
+    private static readonly SLAAC_POOL_SUFFIX = "-slaac";
+
+    /** The length of a prefix hosts make their own addresses in (RFC 4862, with RFC 4291's 64-bit interface IDs). */
+    private static readonly SLAAC_PREFIX_LENGTH = 64;
+
+    /** The interface list of the clients that take router advertisements. */
+    static readonly SLAAC_LIST = "slaac";
+
     /** Each client's session, added disabled unless told otherwise (CHR, 7.24.6). It takes no DNS servers from the provider and adds no default route: a static route through it does. */
     static clients(render: RouterOsRender, device: Device): void {
-        for (const [name, client] of RouterOsSyntax.entries(device.interfaces?.pppoe_client))
+        const clients = RouterOsSyntax.entries(device.interfaces?.pppoe_client);
+        for (const [name, client] of clients)
             render.add("/interface pppoe-client", "add", {
                 comment: client.description,
                 disabled: "no",
@@ -29,6 +39,16 @@ export class RouterOsPppoe {
                 "service-name": client.service_name,
                 user: client.user,
             });
+
+        // A router forwards, so it takes router advertisements only with `yes`, and only on the interfaces of a list. A session takes the change when it next comes up (CHR, 7.24.6).
+        const slaac = clients.filter(([, client]) => client.slaac).map(([name]) => name);
+        if (!slaac.length) return;
+        render.add("/interface list", "add", { name: RouterOsPppoe.SLAAC_LIST });
+        for (const name of slaac) render.add("/interface list member", "add", { interface: name, list: RouterOsPppoe.SLAAC_LIST });
+        render.add("/ipv6 settings", "set", {
+            "accept-router-advertisements": "yes",
+            "accept-router-advertisements-on": RouterOsPppoe.SLAAC_LIST,
+        });
     }
 
     static render(render: RouterOsRender, device: Device): void {
@@ -42,16 +62,26 @@ export class RouterOsPppoe {
             const [low, high] = server.pool;
             const delegation = server.prefix_delegation;
             const pdPool = `${name}${RouterOsPppoe.PD_POOL_SUFFIX}`;
+            const slaacPool = `${name}${RouterOsPppoe.SLAAC_POOL_SUFFIX}`;
             render.add("/ip pool", "add", { name, ranges: `${low}-${high}` });
             if (delegation)
                 render.add("/ipv6 pool", "add", { name: pdPool, prefix: delegation.pool, "prefix-length": delegation.prefix_length });
-            // A subscriber that asks for a prefix gets one from a DHCPv6 server that each session runs (CHR, 7.24.6).
+            if (server.slaac)
+                render.add("/ipv6 pool", "add", {
+                    name: slaacPool,
+                    prefix: server.slaac.pool,
+                    "prefix-length": RouterOsPppoe.SLAAC_PREFIX_LENGTH,
+                });
+            // A subscriber that asks for a prefix gets one from a DHCPv6 server that each session runs. A session's /64 is a prefix the default ND entry announces on it (CHR, 7.24.6).
             render.add("/ppp profile", "add", {
                 "dhcpv6-pd-pool": delegation && pdPool,
                 "dns-server": server.dns?.join(","),
+                // Each session's interface joins the list while it is up.
+                "interface-list": server.interface_set,
                 "local-address": server.local_address,
                 name,
                 "remote-address": name,
+                "remote-ipv6-prefix-pool": server.slaac && slaacPool,
             });
             // A server is added disabled unless told otherwise (CHR, 7.24.6).
             for (const iface of server.interfaces)
@@ -139,8 +169,10 @@ export class RouterOsPppoe {
             if (server.pool) taken.set(name, `services.dhcpv6_server.${name}`);
             if (server.prefix_delegation) taken.set(`${name}${RouterOsPppoe.PD_POOL_SUFFIX}`, `services.dhcpv6_server.${name}`);
         }
-        for (const [name, server] of RouterOsSyntax.entries(device.services?.pppoe_server))
+        for (const [name, server] of RouterOsSyntax.entries(device.services?.pppoe_server)) {
             if (server.prefix_delegation) taken.set(`${name}${RouterOsPppoe.PD_POOL_SUFFIX}`, `services.pppoe_server.${name}`);
+            if (server.slaac) taken.set(`${name}${RouterOsPppoe.SLAAC_POOL_SUFFIX}`, `services.pppoe_server.${name}`);
+        }
 
         return RouterOsSyntax.entries(device.interfaces?.pppoe_client).flatMap(([name, client]) => {
             const other = client.prefix_delegation && taken.get(name);

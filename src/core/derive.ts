@@ -691,12 +691,16 @@ export class Derive {
         return found;
     }
 
-    /** Where each DHCP server asks RADIUS about its leases, `radius` and `acct_interim_interval`, for a platform that doesn't build it. */
+    /** Where each DHCP and DHCPv6 server asks RADIUS about its leases, `radius` and `acct_interim_interval`, for a platform that doesn't build it. */
     static radiusLeases(device: Device): string[] {
-        return Object.entries(device.services?.dhcp_server ?? {}).flatMap(([name, server]) =>
+        const servers = [
+            ...Object.entries(device.services?.dhcp_server ?? {}).map(([name, server]) => [`dhcp_server.${name}`, server] as const),
+            ...Object.entries(device.services?.dhcpv6_server ?? {}).map(([name, server]) => [`dhcpv6_server.${name}`, server] as const),
+        ];
+        return servers.flatMap(([where, server]) =>
             (["radius", "acct_interim_interval"] as const)
                 .filter((key) => server[key] !== undefined)
-                .map((key) => `services.dhcp_server.${name}.${key}`)
+                .map((key) => `services.${where}.${key}`)
         );
     }
 

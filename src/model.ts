@@ -75,8 +75,8 @@ export type Pseudowire = C.Pseudowire<string> &
     Partial<Record<Exclude<keyof C.Base<string> | keyof C.Switched<string>, keyof C.Pseudowire<string>>, never>>;
 
 /** The settings of other interfaces a PPPoE client has none of are never there, so code reads them from any interface alike. */
-export type PppoeClient = C.PppoeClient<string, string> &
-    Partial<Record<Exclude<keyof C.Base<string>, keyof C.PppoeClient<string, string>>, never>>;
+export type PppoeClient = C.PppoeClient<string, string, string> &
+    Partial<Record<Exclude<keyof C.Base<string>, keyof C.PppoeClient<string, string, string>>, never>>;
 
 /** Any interface that is not a port: what `interfaces` holds besides `ethernet`. */
 export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip | Pseudowire | PppoeClient;
@@ -115,7 +115,7 @@ export type Service = C.Service;
 export type Console = C.Console;
 export type Jump = C.Jump;
 export type DhcpServer = C.DhcpServer<string, string>;
-export type Dhcpv6Server = C.Dhcpv6Server<string>;
+export type Dhcpv6Server = C.Dhcpv6Server<string, string>;
 export type DhcpRelay = C.DhcpRelay<string>;
 export type PppoeServer = C.PppoeServer<string, string>;
 export type FlowExport = C.FlowExport<string>;

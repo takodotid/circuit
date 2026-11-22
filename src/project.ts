@@ -560,6 +560,7 @@ export class Project {
             const written = writtenAt(d.services.pppoe_server, s, ["pppoe_server", s]);
             need("interface", x.interfaces, `services.pppoe_server.${s}.interfaces`, written);
             (x.radius ?? []).forEach((r: Json, n: number) => need("VRF", r.vrf, `services.pppoe_server.${s}.radius[${n}].vrf`, written));
+            need("interface set", x.interface_set, `services.pppoe_server.${s}.interface_set`, written);
         }
         need("interface", d.services?.upnp?.internal, "services.upnp.internal");
         need("interface", d.services?.upnp?.external, "services.upnp.external");
@@ -687,6 +688,7 @@ export class Project {
 
             if (typeof d.management?.allow === "string") d.management.allow = d.firewall?.address_sets?.[d.management.allow] ?? [];
             const sets = d.firewall?.interface_sets ?? {};
+            const joined = Project.sessionSets(d);
             const rules = [
                 ...Object.values<Json>(d.firewall?.filter ?? {}).flatMap((c) => c.rules ?? []),
                 ...(d.firewall?.nat?.source ?? []),
@@ -695,12 +697,13 @@ export class Project {
                 ...(d.qos?.marking ?? []),
             ];
             for (const rule of rules)
-                for (const way of ["in", "out"])
-                    if (rule.if?.[`${way}_interface_set`] !== undefined) {
-                        rule.if[`${way}_interface`] = sets[rule.if[`${way}_interface_set`]] ?? [];
-                        delete rule.if[`${way}_interface_set`];
-                    }
-            if (d.firewall) delete d.firewall.interface_sets;
+                for (const way of ["in", "out"]) {
+                    const set = rule.if?.[`${way}_interface_set`];
+                    if (set === undefined || joined.has(set)) continue;
+                    rule.if[`${way}_interface`] = sets[set] ?? [];
+                    delete rule.if[`${way}_interface_set`];
+                }
+            Project.keepSessionSets(d, joined);
             return d;
         });
         return { asn: network.asn, prefixes: network.prefixes ?? {}, devices: resolved };
@@ -734,20 +737,35 @@ export class Project {
             : [rule];
     }
 
-    /** A filter or NAT rule: the interfaces outermost (an interface set is its interfaces), then `src`, then `dst`. */
+    /** A filter or NAT rule: the interfaces outermost (an interface set in `sets` is its interfaces), then `src`, then `dst`. A set not in `sets` stays a set. */
     private static filter(rule: Json, sets: Record<string, string[]>): Json[] {
         const m = rule.if;
         if (!m) return [rule];
-        const way = (w: string) =>
-            m[`${w}_interface_set`] !== undefined ? sets[m[`${w}_interface_set`]]! : Project.list(m[`${w}_interface`]);
-        if ([m.in_interface_set, m.out_interface_set].some((s) => s !== undefined && !sets[s]!.length)) return [];
+        const written = ["in", "out"].filter((w) => sets[m[`${w}_interface_set`]] !== undefined);
+        const way = (w: string) => (written.includes(w) ? sets[m[`${w}_interface_set`]]! : Project.list(m[`${w}_interface`]));
+        if (written.some((w) => !sets[m[`${w}_interface_set`]]!.length)) return [];
         const fields: [string, unknown[]][] = [
             ["in_interface", way("in")],
             ["out_interface", way("out")],
             ["src", Project.list(m.src)],
             ["dst", Project.list(m.dst)],
         ];
-        return Project.combinations(rule, fields, ["in_interface", "out_interface", "in_interface_set", "out_interface_set", "src", "dst"]);
+        const drop = ["in_interface", "out_interface", ...written.map((w) => `${w}_interface_set`), "src", "dst"];
+        return Project.combinations(rule, fields, drop);
+    }
+
+    /** The interface sets a PPPoE server's sessions join. Each stays a set: the device names a session's interface only when it comes up. */
+    private static sessionSets(d: Json): Set<string> {
+        const servers = Object.values<Json>(d.services?.pppoe_server ?? {});
+        return new Set(servers.map((server) => server?.interface_set).filter((set) => typeof set === "string"));
+    }
+
+    /** Keeps in `firewall.interface_sets` only the sets that sessions join. */
+    private static keepSessionSets(d: Json, joined: Set<string>): void {
+        if (!d.firewall) return;
+        const kept = Object.entries<Json>(d.firewall.interface_sets ?? {}).filter(([set]) => joined.has(set));
+        if (kept.length) d.firewall.interface_sets = Object.fromEntries(kept);
+        else delete d.firewall.interface_sets;
     }
 
     /** A marking rule: as a filter rule, then one rule for each DSCP it matches. */
@@ -793,7 +811,7 @@ export class Project {
         if (bgp.asn === undefined) d.routing.bgp = { asn: network.asn, ...bgp };
     }
 
-    /** A copy of the device in the model, with `rewrite`'s changes. A list in a match becomes one rule per value, an interface set its interfaces, and a map of named prefixes a list. */
+    /** A copy of the device in the model, with `rewrite`'s changes. A list in a match becomes one rule per value, an interface set its interfaces unless sessions join it, and a map of named prefixes a list. */
     private static primitive(device: AnyDevice, network: Json): Device {
         const d = JSON.parse(JSON.stringify(device));
         Project.rewrite(d, network);
@@ -801,10 +819,11 @@ export class Project {
         for (const set of Object.values<Json>(d.routing?.prefix_sets ?? {}))
             if (set.prefixes && !Array.isArray(set.prefixes)) set.prefixes = Object.values(set.prefixes);
 
-        const sets = d.firewall?.interface_sets ?? {};
+        const joined = Project.sessionSets(d);
+        const sets = Object.fromEntries(Object.entries<Json>(d.firewall?.interface_sets ?? {}).filter(([set]) => !joined.has(set)));
         if (d.qos?.marking) d.qos.marking = d.qos.marking.flatMap((r: Json) => Project.marking(r, sets));
         if (d.firewall) {
-            delete d.firewall.interface_sets;
+            Project.keepSessionSets(d, joined);
             for (const chain of Object.values<Json>(d.firewall.filter ?? {}))
                 if (chain.rules) chain.rules = chain.rules.flatMap((r: Json) => Project.filter(r, sets));
             for (const way of ["source", "destination"])
