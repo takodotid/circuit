@@ -905,3 +905,39 @@ test("a port leaves the bridge before a LAG takes it, and joins the bridge from 
         "/interface bridge port add bridge=bridge interface=ether4",
     ]);
 });
+
+// Seen on a CHR with RouterOS 7.24.6: a VRF that lets a bridge port or a LAG member go, or is removed, keeps it bound. Once out of the bridge or LAG, it routes nothing.
+test("a port that leaves a VRF joins a bridge or a LAG only after the VRF steps", () => {
+    const bridge = "/interface bridge\nadd name=bridge vlan-filtering=yes\n";
+    const lag = (slaves: string) => `/interface bonding\nadd mode=802.3ad name=lag-1 slaves=${slaves}\n`;
+    const vrf = (interfaces: string) => `/ip vrf\nadd interfaces=${interfaces} name=lab\n`;
+    const plan = (desired: string, current: string) => Platforms.get("routeros").plan(desired, current, { secrets: false, rollback: 10 });
+    const sends = (desired: string, current: string) => plan(desired, current).steps.flatMap((step) => step.send);
+
+    // The VRF goes, and its port joins the bridge.
+    const address = "/ip address\nadd address=192.0.2.5/30 interface=ether3\n";
+    const access = `${bridge}/interface bridge port\nadd bridge=bridge interface=ether3 pvid=200\n`;
+    expect(sends(access, bridge + vrf("ether3") + address)).toEqual([
+        '/ip address remove [ find address="192.0.2.5/30" and !dynamic ]',
+        "/ip vrf remove [ find name=lab ]",
+        "/interface bridge port add bridge=bridge interface=ether3 pvid=200",
+    ]);
+
+    // The VRF keeps one port, and lets the other go to a new LAG, beside a port that was in no VRF.
+    expect(sends(lag("ether3,ether5") + vrf("ether4"), vrf("ether3,ether4"))).toEqual([
+        "/interface bonding add mode=802.3ad name=lag-1 slaves=ether5",
+        "/ip vrf set [ find name=lab ] interfaces=ether4",
+        "/interface bonding set [ find name=lag-1 ] slaves=ether3,ether5",
+    ]);
+
+    // A LAG that stays keeps its member until the port is out of the VRF.
+    expect(sends(lag("ether3"), lag("ether5") + vrf("ether3"))).toEqual([
+        "/ip vrf remove [ find name=lab ]",
+        "/interface bonding set [ find name=lag-1 ] slaves=ether3",
+    ]);
+
+    // A new LAG of such ports alone would have no member until then, which RouterOS refuses.
+    expect(plan(lag("ether3"), vrf("ether3")).problems).toEqual([
+        "/interface bonding lag-1: each of its members, ether3, leaves a VRF, which would keep it bound (TRAPS.md). Apply once with these ports out of their VRF and of the LAG, then with the LAG",
+    ]);
+});

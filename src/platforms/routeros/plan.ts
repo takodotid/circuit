@@ -18,6 +18,8 @@ export class RouterOsPlan {
 
     private static readonly BRIDGE_PORT = "/interface bridge port";
 
+    private static readonly VRF = "/ip vrf";
+
     /** Dependency order. A menu not listed sorts after all of these. The longest matching prefix decides. */
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
@@ -225,6 +227,7 @@ export class RouterOsPlan {
                 RouterOsPlan.BRIDGE_PORT,
                 bridgePorts.filter((port) => !joining.includes(port))
             );
+        const afterVrfs = planner.joiningAfterVrfs(wantedByMenu, existingByMenu);
 
         const menus = [...new Set([...wantedByMenu.keys(), ...existingByMenu.keys()])].sort(
             (a, b) => RouterOsPlan.rank(a) - RouterOsPlan.rank(b) || a.localeCompare(b)
@@ -246,6 +249,8 @@ export class RouterOsPlan {
             }
 
             if (menu === RouterOsPlan.BONDING && joining.length) first.push(RouterOsPlan.leavingBridge(joining));
+            // Prepended before the VRFs' removals, so they run right after them.
+            if (menu === RouterOsPlan.VRF) last.unshift(...afterVrfs);
             first.push(...menuPlan.first);
             // Removals run in reverse dependency order, so a menu's are prepended.
             last.unshift(...menuPlan.last);
@@ -285,6 +290,72 @@ export class RouterOsPlan {
             show: ports.map((port) => `- ${RouterOsExport.canonical(port)}`),
             send: ports.map((port) => `${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(port))}`),
         };
+    }
+
+    /** The interfaces in a list such as a VRF's `interfaces` or a LAG's `slaves`. */
+    private static members(list: string | undefined): string[] {
+        return (list ?? "").split(",").filter(Boolean);
+    }
+
+    /** Interfaces that a VRF of the device holds, and that the render's VRF of that name does not. */
+    private static leavingVrfs(wanted: Map<string, Command[]>, existing: Map<string, Command[]>): Set<string> {
+        const kept = new Map(
+            (wanted.get(RouterOsPlan.VRF) ?? []).map((vrf) => [vrf.attrs.name, RouterOsPlan.members(vrf.attrs.interfaces)])
+        );
+        const leaving = (vrf: Command) =>
+            RouterOsPlan.members(vrf.attrs.interfaces).filter((name) => !kept.get(vrf.attrs.name)?.includes(name));
+        return new Set((existing.get(RouterOsPlan.VRF) ?? []).flatMap(leaving));
+    }
+
+    /**
+     * Ports that leave a VRF, and join a bridge or a LAG. A VRF that lets a bridge port or a LAG member go, or is removed, keeps it bound (TRAPS.md). Once out of the bridge or LAG, it routes nothing. So such a port is added to its bridge, and its LAG takes it, in steps after the VRFs' removals. Their entries in `wanted` lose those ports.
+     */
+    private joiningAfterVrfs(wanted: Map<string, Command[]>, existing: Map<string, Command[]>): Step[] {
+        const leaving = RouterOsPlan.leavingVrfs(wanted, existing);
+        if (!leaving.size) return [];
+
+        const ports: Step = { title: `${RouterOsPlan.BRIDGE_PORT}, once out of a VRF`, show: [], send: [] };
+        const bridged = new Set((existing.get(RouterOsPlan.BRIDGE_PORT) ?? []).map((port) => port.attrs.interface));
+        const joins = (port: Command) => leaving.has(port.attrs.interface ?? "") && !bridged.has(port.attrs.interface);
+        const wantedPorts = wanted.get(RouterOsPlan.BRIDGE_PORT) ?? [];
+        for (const port of wantedPorts.filter(joins)) {
+            ports.show.push(`+ ${RouterOsExport.canonical(port)}`);
+            ports.send.push(RouterOsPlan.line(RouterOsPlan.BRIDGE_PORT, "add", "", port.flags, port.attrs));
+        }
+        if (ports.send.length)
+            wanted.set(
+                RouterOsPlan.BRIDGE_PORT,
+                wantedPorts.filter((port) => !joins(port))
+            );
+
+        const lags: Step = { title: `${RouterOsPlan.BONDING}, once out of a VRF`, show: [], send: [] };
+        const slavesNow = new Map(
+            (existing.get(RouterOsPlan.BONDING) ?? []).map((lag) => [lag.attrs.name, RouterOsPlan.members(lag.attrs.slaves)])
+        );
+        const untilOut = (lag: Command): Command => {
+            const slaves = RouterOsPlan.members(lag.attrs.slaves);
+            const now = slavesNow.get(lag.attrs.name);
+            const late = slaves.filter((slave) => leaving.has(slave) && !now?.includes(slave));
+            if (!late.length) return lag;
+
+            // A LAG needs a member: RouterOS refuses one added with none, `need at least one slave interface` (CHR, 7.24.6). One that stays keeps its members until then.
+            const early = slaves.filter((slave) => !late.includes(slave));
+            if (!early.length && !now) {
+                this.problems.push(
+                    `/interface bonding ${lag.attrs.name}: each of its members, ${late.join(", ")}, leaves a VRF, which would keep it bound (TRAPS.md). Apply once with these ports out of their VRF and of the LAG, then with the LAG`
+                );
+                return lag;
+            }
+
+            const selector = RouterOsPlan.find(RouterOsPlan.BONDING, RouterOsExport.selector(lag));
+            lags.show.push(`~ ${JSON.stringify(RouterOsExport.identity(lag))} slaves=${lag.attrs.slaves}`);
+            lags.send.push(RouterOsPlan.line(RouterOsPlan.BONDING, "set", selector, [], { slaves: lag.attrs.slaves! }));
+            return { ...lag, attrs: { ...lag.attrs, slaves: (early.length ? early : now!).join(",") } };
+        };
+        const wantedLags = wanted.get(RouterOsPlan.BONDING);
+        if (wantedLags) wanted.set(RouterOsPlan.BONDING, wantedLags.map(untilOut));
+
+        return [ports, lags].filter((step) => step.send.length);
     }
 
     private static rank(menu: string): number {
