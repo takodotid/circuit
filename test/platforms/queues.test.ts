@@ -1,4 +1,4 @@
-// Classes and schedulers (RFC 2475, RFC 4594). RouterOS is applied on CHRs in CI, and edge-01 counts what each queue sends under load (routeros-chr-queues.test.ts).
+// Classes and schedulers (RFC 2475, RFC 4594), and a marking rule's class. RouterOS is applied on CHRs in CI, and edge-01 counts what each queue sends under load (routeros-chr-queues.test.ts).
 
 import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -111,6 +111,47 @@ test("RouterOS schedules a LAG and a VLAN interface by their own names", () => {
     ]);
 });
 
+test("RouterOS gives a packet a marking rule's class: a mark of the class's name, which each scheduler takes before any DSCP", () => {
+    const sample = device("routeros", "CHR", "virtual-2", {
+        qos: {
+            marking: [
+                { if: { protocol: "udp", dst_port: 5060 }, then: { class: "voice" } },
+                { if: { dst: "203.0.113.0/24" }, then: { dscp: "cs1", class: "bulk" } },
+            ],
+            classes: CLASSES,
+            default_class: "best-effort",
+            schedulers: { uplink: { rate: "400k", queues: QUEUES } },
+        },
+    });
+    const adapter = Platforms.get("routeros");
+
+    expect(queues(adapter.unsupported(sample))).toEqual([]);
+    const text = adapter.render(sample);
+    expect(adapter.plan(text, text, options).steps).toEqual([]);
+
+    const mangle = menu(text, "/ip firewall mangle");
+    expect(mangle.slice(0, 3)).toEqual([
+        "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-voice out-interface=ether2 packet-mark=voice passthrough=no",
+        "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-bulk out-interface=ether2 packet-mark=bulk passthrough=no",
+        "add action=mark-packet chain=postrouting dscp=48 new-packet-mark=ether2-uplink-network out-interface=ether2 passthrough=no",
+    ]);
+    expect(mangle.filter((line) => line.includes("chain=forward"))).toEqual([
+        "add action=mark-packet chain=forward dst-port=5060 new-packet-mark=voice passthrough=no protocol=udp",
+        "add action=mark-packet chain=forward dst-address=203.0.113.0/24 new-packet-mark=bulk",
+        "add action=change-dscp chain=forward dst-address=203.0.113.0/24 new-dscp=8 passthrough=no",
+    ]);
+    expect(menu(text, "/ipv6 firewall mangle")).toContain(
+        "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-voice out-interface=ether2 packet-mark=voice passthrough=no"
+    );
+});
+
+test("VRP marks a DSCP, but sets no class", () => {
+    const sample = device("vrp", "CE6855-48S6Q-HI", "10g-1", {
+        qos: { classes: CLASSES, marking: [{ then: { dscp: "ef", class: "voice" } }] },
+    });
+    expect(queues(Platforms.get("vrp").unsupported(sample))).toContain("qos.marking[0].then.class, not built yet");
+});
+
 test("RouterOS refuses a scheduler it can't build, or whose packets would skip the queues", () => {
     const sample = device("routeros", "CCR2216-1G-12XS-2XQ", "25g-1", {
         system: { users: {}, hardware_offload: true },
@@ -214,6 +255,7 @@ test("a scheduler and a class are names the device declares", async () => {
             classes: CLASSES,
             default_class: "best-effort",
             schedulers: { uplink: { rate: "400k", queues: [...QUEUES.slice(0, -1), { class: "bulky", share: 10 }] } },
+            marking: [{ then: { class: "voise" } }],
         },
     });
     writeFileSync(join(folder, "circuit.ts"), `export const net = circuit({ asn: 64500, sites: { lab: { description: "lab" } } });\n`);
@@ -230,5 +272,6 @@ test("a scheduler and a class are names the device declares", async () => {
     expect(lines.map((line) => line.replace(/^.*?edge-01: /, ""))).toEqual([
         "interfaces.ethernet.virtual-2.scheduler: no scheduler uplnk. Did you mean uplink?",
         "qos.schedulers.uplink.queues[4].class: no class bulky. Did you mean bulk?",
+        "qos.marking[0].then.class: no class voise. Did you mean voice?",
     ]);
 });

@@ -44,31 +44,43 @@ export type MarkingMatch<I extends string, AS extends string, IS extends string>
     dscp?: OneOrMore<Dscp>;
 };
 
-/** What a marking rule writes in a packet: a DSCP, a PCP, or both. */
-export type Marking =
+/** What a marking rule writes in a packet, and the class whose queue it takes: a DSCP, a PCP, a class, or several. */
+export type Marking<C extends string = string> =
     | {
           /** The DSCP the packet leaves with. */
           dscp: Dscp;
           /** The PCP the packet leaves with, in the VLAN tag of the interface it leaves through. A packet that leaves without a tag carries none. */
           pcp?: Pcp;
+          /** The class whose queue the packet takes as it leaves this device, from `qos.classes`, whatever DSCP it leaves with. The next device sorts it by its DSCP. */
+          class?: C;
       }
     | {
           /** The DSCP the packet leaves with. */
           dscp?: Dscp;
           /** The PCP the packet leaves with, in the VLAN tag of the interface it leaves through. A packet that leaves without a tag carries none. */
           pcp: Pcp;
+          /** The class whose queue the packet takes as it leaves this device, from `qos.classes`, whatever DSCP it leaves with. The next device sorts it by its DSCP. */
+          class?: C;
+      }
+    | {
+          /** The DSCP the packet leaves with. */
+          dscp?: Dscp;
+          /** The PCP the packet leaves with, in the VLAN tag of the interface it leaves through. A packet that leaves without a tag carries none. */
+          pcp?: Pcp;
+          /** The class whose queue the packet takes as it leaves this device, from `qos.classes`, whatever DSCP it leaves with. The next device sorts it by its DSCP. */
+          class: C;
       };
 
 /**
  * One marking rule, with the condition first: `{ if: { protocol: "udp", dst_port: 5060 }, then: { dscp: "cs5" } }`. Without `if`, it marks every packet the device routes.
  */
-export type MarkingRule<I extends string, AS extends string, IS extends string> = {
+export type MarkingRule<I extends string, AS extends string, IS extends string, C extends string = string> = {
     /** Shown beside the rule on the device. */
     description?: string;
     /** Which packets the rule marks. Every packet the device routes when absent. */
     if?: MarkingMatch<I, AS, IS>;
-    /** What a matching packet leaves with. */
-    then: Marking;
+    /** What a matching packet leaves with, and the class whose queue it takes. */
+    then: Marking<C>;
 };
 
 /** A class of traffic: the packets that leave with one of its DSCPs. */
@@ -124,7 +136,7 @@ export type Qos<I extends string, AS extends string, IS extends string, C extend
     /**
      * Marks the packets the device routes, so the devices after it can tell their classes apart (RFC 2475). Rules in order: the first rule that matches marks the packet, and the rules after it are skipped. A packet that no rule matches keeps its DSCP. Packets the device sends or receives itself are not marked, nor packets it switches within a VLAN.
      */
-    marking?: Ordered<MarkingRule<I, AS, IS>>;
+    marking?: Ordered<MarkingRule<I, AS, IS, NoInfer<C>>>;
     /**
      * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates), such as `voice: { dscp: ["ef"] }`. A packet's class is the one that lists the DSCP it leaves with, after `marking`. To sort packets by their address or port, mark their DSCP first in `marking`.
      */

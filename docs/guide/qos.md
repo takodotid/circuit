@@ -14,7 +14,11 @@ The routers of one network sort traffic alike, so the campus example writes its 
 
 <<< @/../examples/campus/circuit.ts#classes
 
-A packet's class is decided after `qos.marking`, so a packet that a marking rule marks lands in its new class. To sort packets by their address or port, mark their DSCP first.
+A packet's class is decided after `qos.marking`, so a packet that a marking rule marks lands in its new class. To sort packets by their address or port, mark their DSCP first, or give them a class in the marking rule:
+
+<<< @/../examples/campus/sites/library/library-01.ts#class
+
+A packet a marking rule gives a `class` takes that class's queue on this device, whatever its DSCP. It leaves with its DSCP unchanged, unless the rule also sets `dscp`, so the next device sorts it by its DSCP.
 
 ## Schedulers
 
@@ -29,4 +33,4 @@ A scheduler sends what leaves an interface: one queue for each class. A port, a 
 
 A scheduler shapes what leaves the interface, so it is not written beside `shaping` or `rate_limit.output` on the same interface: write its `rate` instead. Packets the device sends itself go into their class's queue too.
 
-Which platforms build schedulers, and what each needs, is on [Platforms](/reference/platforms). Drop profiles (WRED), and a marking rule that sets a class instead of a DSCP, are not built yet ([#215](https://github.com/takodotid/circuit/issues/215)).
+Which platforms build schedulers, and what each needs, is on [Platforms](/reference/platforms). Drop profiles (WRED) and a queue's depth are not built yet ([#215](https://github.com/takodotid/circuit/issues/215)).

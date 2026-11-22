@@ -79,7 +79,7 @@ const { tcp_flags: _flags, connection_state: _connection, connection_nat_state: 
 const MARKING_RULE = {
     description: 0,
     if: { ...MARKING_MATCH, dscp: 0 },
-    then: { dscp: 0, pcp: 0 },
+    then: { dscp: 0, pcp: 0, class: 0 },
 } as const satisfies ShapeOf<MarkingRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,

@@ -5,7 +5,7 @@ import { RateLimitChecks } from "./rate-limit";
 
 type Report = (message: string) => void;
 
-/** Marking rules write a DSCP by its IANA name, or an IEEE 802.1Q priority. Classes split the DSCPs between them, and each scheduler has a queue for each class. */
+/** Marking rules write a DSCP by its IANA name, an IEEE 802.1Q priority, or a class. Classes split the DSCPs between them, and each scheduler has a queue for each class. */
 export class QosChecks {
     /** The highest PCP, three bits (IEEE 802.1Q). */
     private static readonly MAX_PCP = 7;
@@ -19,9 +19,11 @@ export class QosChecks {
             const then: unknown = rule.then;
 
             if (!then || typeof then !== "object")
-                report(`${where}.then ${JSON.stringify(then)} is no marking: write it as { dscp: "ef" }, { pcp: 5 }, or both`);
-            else if (rule.then.dscp === undefined && rule.then.pcp === undefined)
-                report(`${where}.then marks nothing: write dscp, pcp, or both`);
+                report(
+                    `${where}.then ${JSON.stringify(then)} is no marking: write it as { dscp: "ef" }, { pcp: 5 }, { class: "voice" }, or several`
+                );
+            else if (rule.then.dscp === undefined && rule.then.pcp === undefined && rule.then.class === undefined)
+                report(`${where}.then marks nothing: write dscp, pcp, class, or several`);
             else {
                 if (rule.then.dscp !== undefined) QosChecks.dscp(`${where}.then.dscp`, rule.then.dscp, report);
                 const pcp = rule.then.pcp;

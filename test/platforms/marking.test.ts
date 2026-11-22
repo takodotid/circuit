@@ -117,8 +117,8 @@ test("validate says what is wrong in a marking rule", () => {
         "qos.marking: src and dst differ in family, so no packet matches both",
         'qos.marking[0].then.dscp "af44" is no DSCP name. Did you mean af41?',
         'qos.marking[0].if.dscp "EF" is no DSCP name. Did you mean ef?',
-        "qos.marking[1].then marks nothing: write dscp, pcp, or both",
-        'qos.marking[2].then "ef" is no marking: write it as { dscp: "ef" }, { pcp: 5 }, or both',
+        "qos.marking[1].then marks nothing: write dscp, pcp, class, or several",
+        'qos.marking[2].then "ef" is no marking: write it as { dscp: "ef" }, { pcp: 5 }, { class: "voice" }, or several',
         "qos.marking[3].then.pcp 8 is not a whole number from 0 to 7",
         "qos.marking[3].if.dscp is an empty list, which matches no packet: leave it out",
     ]);
