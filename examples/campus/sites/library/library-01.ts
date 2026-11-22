@@ -70,6 +70,10 @@ export default campus.device({
 
     // The reading rooms' access points carry about 300 Mbit/s in all, less than the port's 1G, so the router queues what it sends them. Calls go first, and the rest share what is left.
     qos: {
+        // #region class
+        // The laptops' software updates come from the mirror in the data center, unmarked. Here they wait in the bulk queue, behind the readers' own traffic, and leave with the DSCP they came with.
+        marking: [{ description: "Software updates", if: { src: ["10.2.0.30/32", "2001:db8:10:200::30/128"] }, then: { class: "bulk" } }],
+        // #endregion class
         classes,
         default_class: "best-effort",
         schedulers: {

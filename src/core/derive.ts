@@ -100,6 +100,7 @@ export type BuiltFeature =
     | "vrf-imports"
     | "rate-limit"
     | "marking"
+    | "marking-class"
     | "queues"
     | "ospf-ranges"
     | "ospf-priority"
@@ -660,6 +661,10 @@ export class Derive {
                 if (device.qos?.[field] !== undefined) found.push(`qos.${field}, ${notBuilt}`);
             for (const { where } of Derive.scheduled(device)) found.push(`${where}.scheduler, ${notBuilt}`);
         }
+        if (has("marking") && !has("marking-class"))
+            (device.qos?.marking ?? []).forEach((rule, index) => {
+                if (rule.then.class !== undefined) found.push(`qos.marking[${index}].then.class, not built yet`);
+            });
 
         found.push(...Derive.unbuiltOspf(device, has));
         return found;

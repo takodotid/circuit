@@ -568,6 +568,7 @@ export class Project {
         need("class", d.qos?.default_class, "qos.default_class");
         for (const [s, scheduler] of Object.entries<Json>(d.qos?.schedulers ?? {}))
             (scheduler?.queues ?? []).forEach((q: Json, i: number) => need("class", q?.class, `qos.schedulers.${s}.queues[${i}].class`));
+        (d.qos?.marking ?? []).forEach((r: Json, i: number) => need("class", r?.then?.class, `qos.marking[${i}].then.class`));
 
         (d.routing?.static_routes ?? []).forEach((r: Json, i: number) => {
             need("interface", r.interface, `routing.static_routes[${i}].interface`);

@@ -57,9 +57,10 @@ export default campus.device({
                 queues: [
                     { class: "network", priority: "strict", max: "5M" },
                     { class: "voice", priority: "strict", max: "20M" },
-                    { class: "video", share: 40 },
-                    { class: "best-effort", share: 50 },
-                    { class: "bulk", share: 10 },
+                    // Video keeps a short queue, as a frame that comes late is no use. Best effort holds more, and RED drops a few of its packets early, so TCP senders slow down before it is full.
+                    { class: "video", share: 40, depth_packets: 50 },
+                    { class: "best-effort", share: 50, depth_packets: 200, red: { min_threshold_percent: 30, max_threshold_percent: 90 } },
+                    { class: "bulk", share: 10, depth_packets: 100 },
                 ],
             },
         },

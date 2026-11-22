@@ -443,6 +443,7 @@ export class RouterOs extends Platform {
                 "vrf-imports",
                 "rate-limit",
                 "marking",
+                "marking-class",
                 "queues",
                 "ospf-ranges",
                 "ospf-priority",
