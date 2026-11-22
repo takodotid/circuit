@@ -1,9 +1,10 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device } from "../model";
+import type { Device, PppoeClient } from "../model";
 import { ServicesChecks } from "./services";
 
 type Report = (message: string) => void;
+type Delegation = NonNullable<PppoeClient["prefix_delegation"]>;
 
 /** PPPoE clients (RFC 2516), each over a routed port, LAG, or VLAN interface, and the interfaces that take a /64 of a delegated prefix. */
 export class PppoeClientChecks {
@@ -32,7 +33,7 @@ export class PppoeClientChecks {
             const at = `${where}.prefix_delegation.interfaces`;
             const lans = Object.entries(delegation.interfaces);
             if (!lans.length) report(`${at} is empty: write the interfaces that each take a /64 of the prefix, such as { home: "::1" }`);
-            PppoeClientChecks.hint(`${where}.prefix_delegation.prefix_length`, delegation.prefix_length, lans.length, report);
+            PppoeClientChecks.request(`${where}.prefix_delegation`, delegation, lans.length, report);
 
             for (const [lan, address] of lans) {
                 if (lan === name || lan === client.interface)
@@ -57,14 +58,34 @@ export class PppoeClientChecks {
         }
     }
 
-    /** A length the prefix may have: a /64 at most, and short enough to hold a /64 for each interface that takes one. */
-    private static hint(where: string, length: number | undefined, interfaces: number, report: Report): void {
+    /** What the client asks for: a whole prefix (a prefix hint) or a length alone (a prefix-length hint), not both. A prefix is IPv6, written without bits past its length. */
+    private static request(at: string, delegation: Delegation, interfaces: number, report: Report): void {
+        const { prefix, prefix_length } = delegation;
+        PppoeClientChecks.hint(`${at}.prefix_length`, prefix_length, interfaces, report);
+        if (prefix === undefined) return;
+
+        if (prefix_length !== undefined) report(`${at} has both prefix and prefix_length: write prefix alone, which holds its length`);
+        if (!Address.isCidr(prefix) || Address.family(prefix) !== "ipv6") {
+            report(`${at}.prefix '${prefix}' is not an IPv6 prefix with its length, such as 2001:db8:100:a500::/56`);
+            return;
+        }
+        if (Address.prefixOf(prefix) !== Address.canonical(prefix))
+            report(`${at}.prefix ${prefix} has bits past its length: write ${Address.prefixOf(prefix)}`);
+        PppoeClientChecks.hint(`${at}.prefix`, Address.split(prefix).len, interfaces, report, prefix);
+    }
+
+    /** A length the prefix may have, written alone or as a whole prefix's: a /64 at most, and short enough to hold a /64 for each interface that takes one. */
+    private static hint(where: string, length: number | undefined, interfaces: number, report: Report, prefix?: string): void {
         if (length === undefined) return;
         const most = Number(PppoeClientChecks.INTERFACE_ID_BITS) - Math.ceil(Math.log2(Math.max(interfaces, 1)));
-        if (!Number.isInteger(length) || length < 1 || length > most)
-            report(
-                `${where} ${length} is not a whole number from 1 to ${most}, the longest prefix that holds a /64 for each interface listed`
-            );
+        if (Number.isInteger(length) && length >= 1 && length <= most) return;
+
+        const why = "the longest prefix that holds a /64 for each interface listed";
+        report(
+            prefix
+                ? `${where} ${prefix} is a /${length}: ask for a /1 to a /${most}, ${why}`
+                : `${where} ${length} is not a whole number from 1 to ${most}, ${why}`
+        );
     }
 
     /** A routed port, LAG, or VLAN interface: on a switched one, the switch would take the session's frames. A port in a LAG carries it as the LAG. */

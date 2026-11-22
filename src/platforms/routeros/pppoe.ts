@@ -1,3 +1,4 @@
+import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device, PppoeServer } from "../../model";
@@ -146,7 +147,10 @@ export class RouterOsPppoe {
             render.add("/ipv6 dhcp-client", "add", {
                 interface: name,
                 "pool-name": name,
-                "prefix-hint": delegation.prefix_length !== undefined && `::/${delegation.prefix_length}`,
+                // A prefix hint in RFC 5952's spelling, as the export prints it (TRAPS.md), or a prefix-length hint, with `::` for the prefix (RFC 9915 §18.2.1).
+                "prefix-hint": delegation.prefix
+                    ? Address.canonical(delegation.prefix)
+                    : delegation.prefix_length !== undefined && `::/${delegation.prefix_length}`,
                 request: "prefix",
                 "use-peer-dns": "no",
             });

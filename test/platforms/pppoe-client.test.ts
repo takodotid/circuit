@@ -2,6 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
+import type { Prefix } from "../../src/config/common";
 import type { Device, PppoeClient, PppoeServer } from "../../src/model";
 import { Platforms } from "../../src/platforms";
 import { Fixtures } from "../fixtures";
@@ -91,6 +92,22 @@ test("RouterOS asks for a prefix length with a hint, and takes the hint back onc
         "/ipv6 dhcp-client\nadd interface=internet pool-name=internet prefix-hint=::/56 request=prefix use-peer-dns=no"
     );
     expect(sent(desired, desired)).toEqual([]);
+    expect(sent(routeros.render(withPppoe({ internet: ISP })), desired)).toEqual([
+        "/ipv6 dhcp-client set [ find interface=internet ] prefix-hint=::/0",
+    ]);
+});
+
+test("RouterOS asks for a whole prefix with a hint, as RFC 5952 writes it, and changes the hint in place", () => {
+    const asking = (prefix: Prefix) => withPppoe({ internet: { ...ISP, prefix_delegation: { ...ISP.prefix_delegation!, prefix } } });
+    const desired = routeros.render(asking("2001:DB8:100:A500:0::/56"));
+
+    expect(desired).toContain(
+        "/ipv6 dhcp-client\nadd interface=internet pool-name=internet prefix-hint=2001:db8:100:a500::/56 request=prefix use-peer-dns=no"
+    );
+    expect(sent(desired, desired)).toEqual([]);
+    expect(sent(routeros.render(asking("2001:db8:100:b600::/56")), desired)).toEqual([
+        "/ipv6 dhcp-client set [ find interface=internet ] prefix-hint=2001:db8:100:b600::/56",
+    ]);
     expect(sent(routeros.render(withPppoe({ internet: ISP })), desired)).toEqual([
         "/ipv6 dhcp-client set [ find interface=internet ] prefix-hint=::/0",
     ]);
@@ -266,6 +283,28 @@ test("validate wants a prefix hint that holds a /64 for each interface listed", 
     expect(errors(device).filter((message) => message.includes("prefix_length"))).toEqual([
         "interfaces.pppoe_client.internet.prefix_delegation.prefix_length 64 is not a whole number from 1 to 63, the longest prefix that holds a /64 for each interface listed",
         "interfaces.pppoe_client.backup.prefix_delegation.prefix_length 0 is not a whole number from 1 to 63, the longest prefix that holds a /64 for each interface listed",
+    ]);
+});
+
+test("validate wants a whole prefix hint alone, an IPv6 prefix without bits past its length, that holds a /64 for each interface listed", () => {
+    const asking = (prefix_delegation: Partial<NonNullable<PppoeClient["prefix_delegation"]>>, port: string) => ({
+        ...ISP,
+        interface: port,
+        prefix_delegation: { ...ISP.prefix_delegation!, ...prefix_delegation },
+    });
+    const device = withPppoe({
+        internet: asking({ prefix: "2001:db8:100:a500::/56" }, "1g-1"),
+        both: asking({ prefix: "2001:db8:100:a500::/56", prefix_length: 56 }, "25g-2"),
+        legacy: asking({ prefix: "100.64.0.0/10" }, "25g-3"),
+        bits: asking({ prefix: "2001:db8:100:a501::/56" }, "25g-4"),
+        long: asking({ prefix: "2001:db8:100:a500::/64" }, "uplink"),
+    });
+
+    expect(errors(device).filter((message) => message.includes(".prefix_delegation") && !message.includes(".interfaces."))).toEqual([
+        "interfaces.pppoe_client.both.prefix_delegation has both prefix and prefix_length: write prefix alone, which holds its length",
+        "interfaces.pppoe_client.legacy.prefix_delegation.prefix '100.64.0.0/10' is not an IPv6 prefix with its length, such as 2001:db8:100:a500::/56",
+        "interfaces.pppoe_client.bits.prefix_delegation.prefix 2001:db8:100:a501::/56 has bits past its length: write 2001:db8:100:a500::/56",
+        "interfaces.pppoe_client.long.prefix_delegation.prefix 2001:db8:100:a500::/64 is a /64: ask for a /1 to a /63, the longest prefix that holds a /64 for each interface listed",
     ]);
 });
 
