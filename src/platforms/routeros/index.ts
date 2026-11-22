@@ -279,6 +279,14 @@ export class RouterOs extends Platform {
                 `interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
             );
         found.push(...RouterOsIpsec.unsupported(device));
+        // `crl-use` is the whole router's: once on, a certificate that points to the list of its CA gets refused while RouterOS holds no list of that CA (TRAPS.md).
+        const certificates = RouterOsSyntax.entries(device.system?.certificates);
+        if (certificates.some(([, certificate]) => certificate.crl_url))
+            for (const [name, certificate] of certificates)
+                if (!certificate.private_key && !certificate.crl_url)
+                    found.push(
+                        `system.certificates.${name} without crl_url beside a CA with one: RouterOS then refuses a certificate that points to the list of its CA, while it holds no list of that CA. Write crl_url here too`
+                    );
         found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))

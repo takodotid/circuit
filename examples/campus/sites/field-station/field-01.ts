@@ -14,7 +14,11 @@ export default campus.device({
         users: { operator: { role: "admin", password: secret("FIELD_01_PASSWORD") } },
         // The campus's own CA signs a certificate for each end of a tunnel. The private key stays out of git.
         certificates: {
-            "campus-ipsec-ca": { certificate_file: "certificates/campus-ipsec-ca.pem" },
+            // The CA publishes the certificates it revoked, and the router refuses those.
+            "campus-ipsec-ca": {
+                certificate_file: "certificates/campus-ipsec-ca.pem",
+                crl_url: "http://pki.campus.example/campus-ipsec-ca.crl",
+            },
             "field-01": { certificate_file: "certificates/field-01.pem", private_key: secretFile("certificates/field-01.key") },
         },
     },

@@ -257,7 +257,7 @@ export const DEVICE = {
             remote_role: 0,
             accounting_events: 0,
         },
-        certificates: { "*": { certificate_file: 0, private_key: SECRET } },
+        certificates: { "*": { certificate_file: 0, private_key: SECRET, crl_url: 0 } },
         // A VDOM's routes have no VRF.
         vdoms: {
             management: {

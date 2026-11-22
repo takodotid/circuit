@@ -130,6 +130,9 @@ export class FortiOs extends Platform {
         // A tunnel's interface takes `vrf` as any interface does, in Fortinet's 6.2 reference and its FortiGate-6000 handbook, but no FortiGate has tried it.
         for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
             if (tunnel?.vrf) found.push(`interfaces.ipsec.${name}.vrf`);
+        // A CA's list of revoked certificates is from Fortinet's 6.2 reference: no FortiGate has fetched one.
+        for (const [name, certificate] of Object.entries(device.system?.certificates ?? {}))
+            if (certificate?.crl_url) found.push(`system.certificates.${name}.crl_url`);
         // Applied, read back, changed, and removed, but no session came up: 6.2 has no PPPoE server to dial, and no other was in reach.
         for (const [name] of FortiOsPppoe.clients(device)) found.push(`interfaces.pppoe_client.${name}`);
 

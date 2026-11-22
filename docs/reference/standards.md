@@ -202,6 +202,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Logins through servers, accounting | TACACS+: RFC 8907 (Informational). RADIUS: RFC 2865, RFC 2866 (Informational)               | `system.aaa`                                   |
 | The device's own services in a VRF | Practice: OpenConfig's `network-instance` of an NTP server and of a syslog server           | `vrf` on a service or a server                 |
 | Certificates in PEM                | RFC 5280 (X.509), RFC 7468 (PEM)                                                            | `system.certificates`                          |
+| Lists of revoked certificates      | RFC 5280 §5, fetched over HTTP                                                              | `crl_url` of `system.certificates`             |
 | Alarm severities                   | ITU-T X.733                                                                                 | `system.alarms`                                |
 | Time zones                         | IANA Time Zone Database (BCP 175, RFC 6557)                                                 | `system.timezone`                              |
 | Peering records                    | Not a standard: PeeringDB API                                                               | `integrations.peeringdb`, interface `exchange` |

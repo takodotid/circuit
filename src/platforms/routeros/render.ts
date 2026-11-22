@@ -907,6 +907,11 @@ export class RouterOsRender {
                 "private-key": RouterOsSyntax.yesNo(Boolean(certificate.private_key)),
             });
         }
+
+        // RouterOS downloads a list only while `crl-download` is on, and checks certificates against the lists only while `crl-use` is (TRAPS.md).
+        const lists = RouterOsSyntax.entries(this.device.system?.certificates).flatMap(([, certificate]) => certificate.crl_url ?? []);
+        if (lists.length) this.add("/certificate settings", "set", { "crl-download": "yes", "crl-use": "yes" });
+        for (const url of lists) this.add("/certificate crl", "add", { url });
     }
 
     private system(): void {

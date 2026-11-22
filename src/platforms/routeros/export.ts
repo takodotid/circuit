@@ -438,6 +438,7 @@ export class RouterOsExport {
             type: "qkd",
         },
         "/system routerboard settings": { "enter-setup-on": "any-key" },
+        "/certificate settings": { "builtin-trust-store": "default", "crl-download": "no", "crl-store": "ram", "crl-use": "no" },
         // As `export verbose` printed a tunnel's entries on a CHR with 7.24.6.
         "/ip ipsec profile": {
             "dpd-interval": "8s",
@@ -600,6 +601,7 @@ export class RouterOsExport {
         "/ipv6 dhcp-client": ["interface"],
         "/ipv6 nd": ["interface"],
         "/ipv6 nd prefix": ["prefix", "interface"],
+        "/certificate crl": ["url"],
         // One identity per peer. A policy is known by its traffic: no two of Circuit's take the same.
         "/ip ipsec identity": ["peer"],
         "/ip ipsec policy": ["src-address", "dst-address"],

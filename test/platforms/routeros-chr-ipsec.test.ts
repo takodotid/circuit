@@ -1,7 +1,8 @@
-// Policy-based IPsec on the three CHRs of the devices workflow. The first is the internet, and counts what it forwards. The second and the third each hold a network, and encrypt what goes between them: with a key, then other algorithms, then certificates. Then the tunnel goes. No selector holds a management network. Skipped without the three CHRs.
+// Policy-based IPsec on the three CHRs of the devices workflow. The first is the internet, and counts what it forwards. The second and the third each hold a network, and encrypt what goes between them: with a key, then other algorithms, then certificates, then a revoked one. Then the tunnel goes. No selector holds a management network. Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -80,6 +81,15 @@ const ALGORITHMS = {
 /** How each office authenticates. */
 type Authentication = "key" | "certificates";
 
+/** What the lab writes beside the tunnel: whether office-01 has the CA's list of revoked certificates, and office-02's certificate. */
+type Revocation = { crl?: boolean; certificate?: string };
+
+/** office-02's certificate that the CA revokes. */
+const REVOKED = "office-02-revoked";
+
+/** Where the runner serves the CA's list, which each CHR reaches at .2 of its management network, QEMU's address for the runner. */
+const CRL_PORT = 8000;
+
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
     const run = spawnSync("bun", [join(repo, "src", "cli", "index.ts"), ...args], {
@@ -128,21 +138,53 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** A CA for the offices, and a certificate for each office, as `certificates/<name>.pem` with its key beside it. */
+/**
+ * A CA for the offices, a certificate for each office, and one more for office-02 that the CA revokes, each as `certificates/<name>.pem` with its key beside it. The CA's list of what it revoked is `certificates/lab-ca.crl`, as RFC 5280 writes one: DER, with the CA's key identifier.
+ */
 function writeCertificates(): void {
-    mkdirSync(join(folder, "certificates"), { recursive: true });
-    shell(
-        'cd certificates && openssl req -x509 -newkey rsa:2048 -nodes -keyout lab-ca.key -out lab-ca.pem -days 30 -subj "/CN=lab-ca" -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign"'
+    write(
+        "certificates/ca/ca.cnf",
+        [
+            "[ ca ]",
+            "default_ca = lab",
+            "[ lab ]",
+            "database = ca/index.txt",
+            "new_certs_dir = ca",
+            "certificate = lab-ca.pem",
+            "private_key = ca/lab-ca.key",
+            "serial = ca/serial",
+            "crlnumber = ca/crlnumber",
+            "default_md = sha256",
+            "default_days = 30",
+            "default_crl_days = 30",
+            "policy = any",
+            "unique_subject = no",
+            "crl_extensions = list",
+            "[ any ]",
+            "commonName = supplied",
+            "[ list ]",
+            "authorityKeyIdentifier = keyid:always",
+            "",
+        ].join("\n")
     );
-    for (const { name } of OFFICES) {
+    write("certificates/ca/index.txt", "");
+    write("certificates/ca/serial", "01\n");
+    write("certificates/ca/crlnumber", "01\n");
+    shell(
+        'cd certificates && openssl req -x509 -newkey rsa:2048 -nodes -keyout ca/lab-ca.key -out lab-ca.pem -days 30 -subj "/CN=lab-ca" -addext "basicConstraints=critical,CA:TRUE" -addext "keyUsage=critical,keyCertSign,cRLSign" -addext "subjectKeyIdentifier=hash"'
+    );
+    for (const name of [...OFFICES.map((office) => office.name), REVOKED]) {
         write(
             `certificates/${name}.ext`,
             `subjectAltName=DNS:${name}.lab.example\nkeyUsage=digitalSignature\nauthorityKeyIdentifier=keyid\nsubjectKeyIdentifier=hash\n`
         );
         shell(
-            `cd certificates && openssl req -new -newkey rsa:2048 -nodes -keyout ${name}.key -out ${name}.csr -subj "/CN=${name}" && openssl x509 -req -in ${name}.csr -CA lab-ca.pem -CAkey lab-ca.key -CAcreateserial -days 30 -out ${name}.pem -extfile ${name}.ext`
+            `cd certificates && openssl req -new -newkey rsa:2048 -nodes -keyout ${name}.key -out ${name}.csr -subj "/CN=${name}" && openssl ca -batch -notext -config ca/ca.cnf -in ${name}.csr -out ${name}.pem -extfile ${name}.ext`
         );
     }
+    shell(
+        `cd certificates && openssl ca -config ca/ca.cnf -revoke ${REVOKED}.pem && openssl ca -config ca/ca.cnf -gencrl -out ca/lab-ca.crl.pem && openssl crl -in ca/lab-ca.crl.pem -outform DER -out lab-ca.crl && openssl crl -in ca/lab-ca.crl.pem -noout -text`
+    );
 }
 
 /** internet-01, the internet between the offices. It routes their links, not their networks, and counts the ESP it forwards, and what an office's network sends in the clear. */
@@ -184,21 +226,22 @@ export default lab.device({
 }
 
 /** An office's router: its network on a loopback, routes to the other office through the internet, and, unless `authentication` is left out, the tunnel. */
-function writeOffice(office: Office, authentication?: Authentication, algorithms = ALGORITHMS.first): void {
+function writeOffice(office: Office, authentication?: Authentication, algorithms = ALGORITHMS.first, revocation: Revocation = {}): void {
     const [host, port] = office.chr.split(":");
     const far = office === FIRST ? SECOND : FIRST;
     const gateway = GATEWAY[office.name]!;
+    const own = (office === SECOND && revocation.certificate) || office.name;
+    // Only office-01 holds the list: the end that refuses a revoked certificate, which the test proves.
+    const list = revocation.crl && office === FIRST ? `, crl_url: "http://${office.management}.2:${CRL_PORT}/lab-ca.crl"` : "";
     const certificates =
         authentication === "certificates"
             ? `certificates: {
-            "lab-ca": { certificate_file: "certificates/lab-ca.pem" },
-            "${office.name}": { certificate_file: "certificates/${office.name}.pem", private_key: secretFile("certificates/${office.name}.key") },
+            "lab-ca": { certificate_file: "certificates/lab-ca.pem"${list} },
+            "${own}": { certificate_file: "certificates/${own}.pem", private_key: secretFile("certificates/${own}.key") },
         },`
             : "";
     const way =
-        authentication === "certificates"
-            ? `certificate: "${office.name}", ca_certificate: "lab-ca",`
-            : `pre_shared_key: secret("IPSEC_KEY"),`;
+        authentication === "certificates" ? `certificate: "${own}", ca_certificate: "lab-ca",` : `pre_shared_key: secret("IPSEC_KEY"),`;
     const tunnel = authentication
         ? `
     firewall: {
@@ -250,9 +293,9 @@ export default lab.device({
 }
 
 /** The lab with the tunnel authenticated so, or without it. */
-function writeLab(authentication?: Authentication, algorithms = ALGORITHMS.first): void {
+function writeLab(authentication?: Authentication, algorithms = ALGORITHMS.first, revocation: Revocation = {}): void {
     writeInternet();
-    for (const office of OFFICES) writeOffice(office, authentication, algorithms);
+    for (const office of OFFICES) writeOffice(office, authentication, algorithms, revocation);
 }
 
 /** Applies to each router, and finds nothing to change after. */
@@ -313,13 +356,26 @@ function logTunnels(): void {
 }
 
 describe.skipIf(!internetChr || !firstChr || !secondChr)("policy-based IPsec between two CHRs", () => {
+    /** The runner's web server, which serves the CA's list of revoked certificates. It runs on its own: the tests wait without yielding, so a server of their own would answer nothing. Its log of each request goes to the job's log. */
+    let server: ChildProcess | undefined;
+
     beforeAll(() => {
         write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked port to port." } } });\n`);
         writeCertificates();
         writeLab("key");
+        server = spawn(
+            "python3",
+            ["-m", "http.server", String(CRL_PORT), "--bind", "127.0.0.1", "--directory", join(folder, "certificates")],
+            {
+                stdio: "inherit",
+            }
+        );
     });
 
-    afterAll(() => rmSync(folder, { recursive: true, force: true }));
+    afterAll(() => {
+        server?.kill();
+        rmSync(folder, { recursive: true, force: true });
+    });
 
     test(
         "two offices with a key both share encrypt what their networks send each other, of both families, and the internet between them sees only ESP",
@@ -379,13 +435,44 @@ describe.skipIf(!internetChr || !firstChr || !secondChr)("policy-based IPsec bet
     );
 
     test(
-        "without the tunnel in the config, each apply removes its entries, and diff then finds nothing to change",
+        "with the CA's list of revoked certificates, office-01 refuses office-02's revoked certificate, then takes its good one again",
+        async () => {
+            writeLab("certificates", ALGORITHMS.changed, { crl: true, certificate: REVOKED });
+            for (const { name } of OFFICES) {
+                expect(circuit("apply", name, "--confirm").status).toBe(0);
+                expect(circuit("diff", name).status).toBe(0);
+            }
+            // The list holds one revoked certificate once office-01 has fetched it.
+            expect(eventually(() => /revoked=1\b/.test(exec(FIRST.name, "/certificate crl print detail")))).toBe(true);
+            await rekey();
+
+            expect(eventually(() => /can't verify peer's certificate/.test(exec(FIRST.name, '/log print where topics~"ipsec"')))).toBe(
+                true
+            );
+            expect(/received=[1-9]/.test(exec(FIRST.name, `/ping ${SECOND.lan} src-address=${FIRST.lan} count=3`))).toBe(false);
+            expect(exec(FIRST.name, "/ip ipsec active-peers print detail")).not.toContain("state=established");
+            logTunnels();
+
+            writeLab("certificates", ALGORITHMS.changed, { crl: true });
+            expect(circuit("apply", SECOND.name, "--confirm").status).toBe(0);
+            expect(circuit("diff", SECOND.name).status).toBe(0);
+            await rekey();
+            expect(reaches(FIRST.lan, SECOND.lan)).toBe(true);
+            expect(exec(FIRST.name, "/ip ipsec active-peers print detail")).toContain('id="CN=office-02"');
+            for (const { name } of OFFICES) expect(circuit("diff", name).status).toBe(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "without the tunnel and the certificates in the config, each apply removes their entries and the list, and diff then finds nothing to change",
         () => {
             writeLab();
             for (const { name } of OFFICES) {
                 expect(circuit("apply", name, "--confirm").status).toBe(0);
                 expect(circuit("diff", name).status).toBe(0);
-                expect(exec(name, "/ip ipsec export")).not.toMatch(/^add /m);
+                expect(exec(name, "/ip ipsec export", "/certificate crl export")).not.toMatch(/^add /m);
+                expect(exec(name, "/certificate settings export")).not.toContain("crl-use=yes");
             }
             expect(eventually(() => !/received=[1-9]/.test(exec(FIRST.name, `/ping ${SECOND.lan} src-address=${FIRST.lan} count=2`)))).toBe(
                 true

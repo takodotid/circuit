@@ -71,6 +71,10 @@ export type Certificate = {
     certificate_file: string;
     /** Its private key. Use `secretFile` for a PEM file, or `secret` for the PEM base64-encoded as one line. A certificate the device only trusts, such as a CA, has no private key. */
     private_key?: Secret;
+    /**
+     * Where this CA publishes its certificate revocation list (RFC 5280 §5), over HTTP. The device fetches the list, fetches it again as it ages, and refuses a certificate the CA has revoked, such as an IPsec peer's. A CA's certificate only, without a private key. No list is checked when absent.
+     */
+    crl_url?: `http://${string}`;
 };
 
 /**

@@ -233,10 +233,18 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Flow timeouts                     | ✅                              | ❌                              | ❌                | ❌                     | 🧪                                |
 | ICMP probes                       | ✅                              | ❌                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌                              | ❌                | web, API               | ✅                                |
+| Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌                              | ❌                | ❌                     | 🧪                                |
 | Management in a VRF               | ✅ not FTP                      | ❌                              | ❌                | ❌                     | ❌                                |
 | SNMP in a VRF                     | ✅                              | ❌                              | ❌                | ❌                     | ❌                                |
 | NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ❌                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
 | Management VDOM                   | ❌                              | ❌                              | ❌                | ❌                     | ✅                                |
+
+The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
+
+- **RouterOS.** It checks certificates against the lists for the whole router, so each CA of the device takes a `crl_url` once one does. It refuses a certificate that points to the list of its CA while it holds no list of that CA.
+- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet.
+
+OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
 
 ### Circuit's own tools
 

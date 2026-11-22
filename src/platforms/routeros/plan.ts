@@ -22,6 +22,9 @@ export class RouterOsPlan {
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
         "/certificate",
+        // A list added while `crl-download` is off waits for its hourly download (TRAPS.md).
+        "/certificate settings",
+        "/certificate crl",
         // A PPP profile and a DHCP server name their pools.
         "/ip pool",
         "/ipv6 pool",
