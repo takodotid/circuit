@@ -160,6 +160,13 @@ export class RouterOsPlan {
     /** Menus whose running entry a `set` stops for good: an EVPN entry logs `stop`, and never starts again (TRAPS.md). A change there removes the entry and adds it again, which starts it. */
     private static readonly REPLACED_ON_CHANGE = new Set(["/routing bgp evpn"]);
 
+    /**
+     * Properties whose `unset` crashes the routing process while they name what the device runs: OSPF's `mpls-te-area`, an area of the instance. So did removing that area. Moved first to an area the instance doesn't have, it was unset without a crash (TRAPS.md).
+     */
+    private static readonly PARKED: Record<string, Record<string, string>> = {
+        "/routing ospf instance": { "mpls-te-area": "255.255.255.255" },
+    };
+
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
 
@@ -356,7 +363,14 @@ export class RouterOsPlan {
         const values = Object.fromEntries(Object.entries(update).filter(([property]) => !cleared.includes(property)));
         const set = Object.keys(values).length || flags.length ? [RouterOsPlan.line(menu, "set", selector, flags, values)] : [];
 
-        return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
+        return [...cleared.flatMap((property) => RouterOsPlan.unsetLines(menu, selector, property)), ...set];
+    }
+
+    /** An `unset`, after a `set` to the value `PARKED` gives the property. */
+    private static unsetLines(menu: string, selector: string, property: string): string[] {
+        const parked = RouterOsPlan.PARKED[menu]?.[property];
+        const unset = `${menu} unset ${selector} ${property}`;
+        return parked === undefined ? [unset] : [RouterOsPlan.line(menu, "set", selector, [], { [property]: parked }), unset];
     }
 
     /**
@@ -579,6 +593,14 @@ export class RouterOsPlan {
             removeStep.show.push(`- list ${list}, ${count} entr${count === 1 ? "y" : "ies"}`);
             removeStep.send.push(`${menu} remove [ find list=${RouterOsPlan.quote(list)} and !dynamic ]`);
         }
+
+        // What the entry names that the device can't take back while it is removed goes first, with the changes.
+        for (const entry of removed)
+            for (const property of Object.keys(RouterOsPlan.PARKED[menu] ?? {}))
+                if (entry.attrs[property] !== undefined)
+                    changeStep.send.push(
+                        ...RouterOsPlan.unsetLines(menu, RouterOsPlan.find(menu, RouterOsExport.selector(entry)), property)
+                    );
 
         for (const entry of RouterOsPlan.onOthersFirst(menu, removed)) {
             if (wholeLists.has(entry.attrs.list ?? "")) continue;

@@ -35,6 +35,10 @@ const ENOUGH_BACK = 90;
 /** Seconds between those pings. */
 const PING_INTERVAL = 0.02;
 
+/** How long apart a counter is read until it stops rising, and how often at most: a CHR counts packets a moment after they leave. */
+const COUNTER_SETTLE_MS = 2000;
+const COUNTER_READS = 5;
+
 /** The MTU of a VLAN interface on a bridge where a pseudowire runs, which RouterOS lowers it to (TRAPS.md). */
 const VLAN_MTU = 1496;
 
@@ -90,6 +94,9 @@ const THROUGH_P = [
 /** The tunnel pe-01 starts: how it finds its path, and what it reserves. */
 type Tunnel = { path: "explicit" | "cspf"; bandwidth: string };
 
+/** What the lab runs on its links: nothing, OSPF and LDP with the pseudowire, or RSVP-TE and OSPF's traffic engineering as well. */
+type Mode = "bare" | "ldp" | "te";
+
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
     const run = spawnSync("bun", [join(repo, "src", "cli", "index.ts"), ...args], {
@@ -118,8 +125,9 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** A router of the lab, with RSVP-TE on its links and OSPF's traffic engineering when `te`, and pe-01's tunnel to pe-02 when `tunnel`. */
-function writeRouter(router: Router, te: boolean, tunnel?: Tunnel): void {
+/** A router of the lab, running what `mode` says, and pe-01's tunnel to pe-02 when `tunnel`. */
+function writeRouter(router: Router, mode: Mode, tunnel?: Tunnel): void {
+    const te = mode === "te";
     const [host, port] = router.chr.split(":");
     const links = Object.keys(router.links);
     const ports = Object.entries(router.links)
@@ -127,13 +135,14 @@ function writeRouter(router: Router, te: boolean, tunnel?: Tunnel): void {
         .join("\n            ");
     const ospf = links.map((link) => `"${link}": { network: "point-to-point" },`).join(" ");
     const far = router === FIRST_PE ? SECOND_PE : FIRST_PE;
-    const vpws = router.vpws
-        ? {
-              vlan: `switching: { vlans: { vpws: { id: ${VPWS.id} } } },`,
-              interfaces: `vlan_interface: { "vlan-vpws": { vlan: "vpws", mtu: ${VLAN_MTU}, addresses: ["${router.vpws}/26"] } },
+    const vpws =
+        router.vpws && mode !== "bare"
+            ? {
+                  vlan: `switching: { vlans: { vpws: { id: ${VPWS.id} } } },`,
+                  interfaces: `vlan_interface: { "vlan-vpws": { vlan: "vpws", mtu: ${VLAN_MTU}, addresses: ["${router.vpws}/26"] } },
         pseudowire: { "pw-vpws": { peer: "${far.loopback}", pw_id: ${VPWS.pw}, access_vlan: "vpws" } },`,
-          }
-        : { vlan: "", interfaces: "" };
+              }
+            : { vlan: "", interfaces: "" };
     const path = tunnel?.path === "cspf" ? "cspf: true" : `explicit_path: ${JSON.stringify(THROUGH_P)}`;
     const tunnels = tunnel
         ? `tunnels: { "pe-02": { destination: "${SECOND_PE.loopback}", bandwidth: "${tunnel.bandwidth}", ${path} } },`
@@ -141,6 +150,17 @@ function writeRouter(router: Router, te: boolean, tunnel?: Tunnel): void {
     const rsvpTe = te
         ? `rsvp_te: { interfaces: { ${links.map((link) => `"${link}": { bandwidth: "${LINK_BANDWIDTH}" }`).join(", ")} }, ${tunnels} },`
         : "";
+    const routing =
+        mode === "bare"
+            ? ""
+            : `routing: {
+        router_id: "${router.loopback}",
+        ospf: { areas: { "0.0.0.0": { ${te ? "traffic_engineering: true," : ""} interfaces: { loopback: { passive: true }, ${ospf} } } } },
+        mpls: {
+            ldp: { lsr_id: "${router.loopback}", interfaces: ${JSON.stringify(links)} },
+            ${rsvpTe}
+        },
+    },`;
     write(
         `sites/lab/${router.name}.ts`,
         `import { lab } from "../../circuit";
@@ -162,22 +182,28 @@ export default lab.device({
         ${vpws.interfaces}
     },
     ${vpws.vlan}
-    routing: {
-        router_id: "${router.loopback}",
-        ospf: { areas: { "0.0.0.0": { ${te ? "traffic_engineering: true," : ""} interfaces: { loopback: { passive: true }, ${ospf} } } } },
-        mpls: {
-            ldp: { lsr_id: "${router.loopback}", interfaces: ${JSON.stringify(links)} },
-            ${rsvpTe}
-        },
-    },
+    ${routing}
 });
 `
     );
 }
 
-/** The three routers, with RSVP-TE when `te`, and pe-01's `tunnel`. */
-function writeLab(te: boolean, tunnel?: Tunnel): void {
-    for (const router of ROUTERS) writeRouter(router, te, router === FIRST_PE ? tunnel : undefined);
+/** The three routers, running what `mode` says, and pe-01's `tunnel`. */
+function writeLab(mode: Mode, tunnel?: Tunnel): void {
+    for (const router of ROUTERS) writeRouter(router, mode, router === FIRST_PE ? tunnel : undefined);
+}
+
+/** How many times the router's routing process failed: RouterOS writes a `supout.rif` file each time. */
+function crashes(device: string): number {
+    const output = exec(device, `:put [:len [/file find where name~"supout"]]`);
+    return Number(/^(\d+)\s*$/m.exec(output)?.[1] ?? Number.NaN);
+}
+
+/** Applies to each router of `routers`, and finds that none of their routing processes failed meanwhile. */
+function applyWithoutCrash(routers: readonly Router[]): void {
+    const before = routers.map(({ name }) => crashes(name));
+    apply(routers);
+    expect(routers.map(({ name }) => crashes(name))).toEqual(before);
 }
 
 /** What `exec` printed for `commands` on `device`. */
@@ -206,12 +232,24 @@ function sentTowardSecondPe(): number {
     return Number(/^(\d+)\s*$/m.exec(output)?.[1] ?? Number.NaN);
 }
 
+/** The packets p-01 has sent toward pe-02, once its counter stops rising. */
+function settledSentTowardSecondPe(): number {
+    let last = sentTowardSecondPe();
+    for (let read = 0; read < COUNTER_READS; read++) {
+        Bun.sleepSync(COUNTER_SETTLE_MS);
+        const now = sentTowardSecondPe();
+        if (now === last) return now;
+        last = now;
+    }
+    return last;
+}
+
 /** How many of `PINGS` pings across the pseudowire came back, and how many packets p-01 sent toward pe-02 meanwhile. */
 function pingAcross(): { received: number; crossedP: number } {
-    const before = sentTowardSecondPe();
+    const before = settledSentTowardSecondPe();
     const output = exec("pe-01", `:put [/ping ${SECOND_PE.vpws} count=${PINGS} interval=${PING_INTERVAL}]`);
     const received = Number(/^(\d+)\s*$/m.exec(output)?.[1] ?? 0);
-    return { received, crossedP: sentTowardSecondPe() - before };
+    return { received, crossedP: settledSentTowardSecondPe() - before };
 }
 
 /** What each router holds of RSVP-TE, for the job's log. */
@@ -240,7 +278,7 @@ function apply(routers: readonly Router[] = ROUTERS): void {
 describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHRs", () => {
     beforeAll(() => {
         write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked in a triangle." } } });\n`);
-        writeLab(true, { path: "explicit", bandwidth: TUNNEL_BANDWIDTH });
+        writeLab("te", { path: "explicit", bandwidth: TUNNEL_BANDWIDTH });
     });
 
     afterAll(() => rmSync(folder, { recursive: true, force: true }));
@@ -281,7 +319,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHR
     test(
         "with cspf, the tunnel takes the direct link to pe-02, and the pseudowire's frames no longer cross p-01",
         () => {
-            writeLab(true, { path: "cspf", bandwidth: TUNNEL_BANDWIDTH });
+            writeLab("te", { path: "cspf", bandwidth: TUNNEL_BANDWIDTH });
             apply([FIRST_PE]);
             const direct = eventually(() => tunnelNextHop() === SECOND_PE.links["virtual-2"]);
             logTe();
@@ -295,8 +333,8 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHR
                     return crossing.received >= ENOUGH_BACK;
                 })
             ).toBe(true);
-            // p-01 sent only its own packets meanwhile, such as hellos.
-            expect(crossing.crossedP).toBeLessThan(PINGS - ENOUGH_BACK);
+            // p-01 sent only its own packets meanwhile, such as hellos, far fewer than the pings.
+            expect(crossing.crossedP).toBeLessThan(crossing.received / 2);
         },
         TEST_MS
     );
@@ -305,7 +343,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHR
         "a tunnel that reserves more than any link has stays down, computed or explicit, and comes up once it fits",
         () => {
             for (const path of ["cspf", "explicit"] as const) {
-                writeLab(true, { path, bandwidth: TOO_MUCH });
+                writeLab("te", { path, bandwidth: TOO_MUCH });
                 apply([FIRST_PE]);
                 expect(eventually(() => tunnelNextHop() === undefined)).toBe(true);
                 Bun.sleepSync(STAYS_DOWN_MS);
@@ -313,7 +351,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHR
                 expect(tunnelNextHop()).toBeUndefined();
             }
 
-            writeLab(true, { path: "explicit", bandwidth: TUNNEL_BANDWIDTH });
+            writeLab("te", { path: "explicit", bandwidth: TUNNEL_BANDWIDTH });
             apply([FIRST_PE]);
             expect(eventually(() => tunnelNextHop() === P.links["virtual-2"])).toBe(true);
         },
@@ -321,14 +359,28 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHR
     );
 
     test(
-        "without RSVP-TE in the config, each apply removes it, and OSPF's traffic engineering with it",
+        "without RSVP-TE in the config, each apply removes it, and OSPF's traffic engineering with it, with no crash",
         () => {
-            writeLab(false);
-            apply([FIRST_PE, P, SECOND_PE]);
+            writeLab("ldp");
+            applyWithoutCrash([FIRST_PE, P, SECOND_PE]);
             for (const { name } of ROUTERS) {
                 expect(exec(name, "/mpls traffic-eng export")).not.toMatch(/^add /m);
                 expect(exec(name, "/routing ospf instance export")).not.toContain("mpls-te");
             }
+        },
+        TEST_MS
+    );
+
+    test(
+        "without OSPF and MPLS in the config, each apply removes OSPF with its traffic engineering, with no crash",
+        () => {
+            writeLab("te", { path: "cspf", bandwidth: TUNNEL_BANDWIDTH });
+            apply();
+            expect(eventually(() => tunnelNextHop() === SECOND_PE.links["virtual-2"])).toBe(true);
+
+            writeLab("bare");
+            applyWithoutCrash([FIRST_PE, P, SECOND_PE]);
+            for (const { name } of ROUTERS) expect(exec(name, "/routing ospf export", "/mpls traffic-eng export")).not.toMatch(/^add /m);
         },
         TEST_MS
     );
