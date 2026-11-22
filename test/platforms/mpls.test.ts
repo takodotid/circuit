@@ -371,3 +371,145 @@ test("RouterOS rewrites the label filters in order, then restarts LDP so its ses
     const noMpls = routeros.render({ ...device, routing: { ...device.routing, mpls: undefined } });
     expect(sent("routeros", noMpls, desired).filter((line) => line.includes("disabled="))).toEqual([]);
 });
+
+/** The example router with LDP for both families, its loopback's IPv6 address the transport address, which OSPFv3 announces. */
+function withLdpIpv6(ldp: Partial<Mpls["ldp"]> = {}): Device {
+    const device = withMpls("platforms--example-router", {
+        ldp: { ...ROUTER.ldp, address_families: ["ipv4", "ipv6"], ipv6_transport_address: "2001:db8:ffff::255", ...ldp },
+    });
+    const routing = device.routing!;
+    return {
+        ...device,
+        interfaces: { ...device.interfaces, loopback: { loopback: { addresses: ["192.0.2.255/32", "2001:db8:ffff::255/128"] } } },
+        routing: { ...routing, ospf: { ...routing.ospf!, address_families: ["ipv4", "ipv6"] } },
+    };
+}
+
+test("LDP for IPv6 runs its sessions from an IPv6 address of a loopback that OSPFv3 or IS-IS announces, and labels IPv4 routes too", () => {
+    expect(errors(withLdpIpv6())).toEqual([]);
+
+    expect(errors(withLdpIpv6({ ipv6_transport_address: undefined }))).toEqual([
+        "routing.mpls.ldp.address_families has ipv6, and LDP runs its IPv6 sessions from an IPv6 address of the device, as it has no IPv6 LSR ID. Write ipv6_transport_address, the IPv6 address of a loopback, such as 2001:db8:ffff::255",
+    ]);
+    expect(errors(withLdpIpv6({ ipv6_transport_address: "2001:db8:ffff::254" }))).toEqual([
+        "routing.mpls.ldp.ipv6_transport_address 2001:db8:ffff::254 is no address of a loopback, and LDP runs its IPv6 sessions from it. Write the address of a loopback, such as 2001:db8:ffff::255",
+    ]);
+    expect(errors(withLdpIpv6({ ipv6_transport_address: "192.0.2.255" as never }))).toEqual([
+        "routing.mpls.ldp.ipv6_transport_address 192.0.2.255 is not an IPv6 address. Write the IPv6 address of a loopback, such as 2001:db8::1",
+    ]);
+    expect(errors(withLdpIpv6({ address_families: ["ipv6"] }))).toEqual([
+        'routing.mpls.ldp.address_families has no ipv4, and LDP here labels IPv4 routes always: its LSR ID, targets, and pseudowires are IPv4. Write ["ipv4", "ipv6"]',
+    ]);
+    expect(errors(withLdpIpv6({ address_families: ["ipv4", "ipv4"] }))).toEqual([
+        "routing.mpls.ldp.address_families lists ipv4 twice. Remove one",
+        "routing.mpls.ldp.ipv6_transport_address 2001:db8:ffff::255 is where LDP runs its IPv6 sessions from, and routing.mpls.ldp.address_families has no ipv6. Add ipv6 there, or remove ipv6_transport_address",
+    ]);
+
+    // OSPF announces the loopback for IPv4 only.
+    const device = withLdpIpv6();
+    const v2Only = { ...device, routing: { ...device.routing, ospf: { ...device.routing!.ospf!, address_families: ["ipv4"] as const } } };
+    expect(errors(v2Only)).toEqual([
+        "routing.mpls.ldp.ipv6_transport_address 2001:db8:ffff::255 is on loopback loopback, which neither OSPF nor IS-IS announces for IPv6, so other LDP routers can't reach it. Add loopback to routing.isis.interfaces, or to an area of routing.ospf, with passive: true, and ipv6 to its address_families",
+    ]);
+});
+
+test("RouterOS runs LDP for both families from the LSR ID and the IPv6 transport address, and back to IPv4 alone", () => {
+    const routeros = Platforms.get("routeros");
+    const device = withLdpIpv6();
+    expect(routeros.unsupported(device).filter((refused) => refused.includes("mpls"))).toEqual([]);
+
+    const desired = routeros.render(device);
+    const ipv4 = routeros.render(withMpls("platforms--example-router", ROUTER));
+    expect(desired).toContain('/mpls ldp\nadd afi="ip,ipv6" lsr-id=192.0.2.255 transport-addresses="192.0.2.255,2001:db8:ffff::255"\n');
+    expect(sent("routeros", desired, desired)).toEqual([]);
+    expect(sent("routeros", desired, ipv4)).toContain(
+        "/mpls ldp set [ find (vrf=main or !vrf) ] afi=ip,ipv6 transport-addresses=192.0.2.255,2001:db8:ffff::255"
+    );
+    expect(sent("routeros", ipv4, desired)).toContain("/mpls ldp set [ find (vrf=main or !vrf) ] afi=ip transport-addresses=192.0.2.255");
+});
+
+test("with LDP for IPv6, RouterOS writes an LDP policy's IPv6 prefixes as label filters too, and ends each family's in one that rejects the rest", () => {
+    const routeros = Platforms.get("routeros");
+    const base = withLdpIpv6({ import_policy: "loopbacks", export_policy: "own" });
+    const device = {
+        ...base,
+        routing: {
+            ...base.routing,
+            policies: { ...base.routing!.policies, ...LOOPBACKS },
+            prefix_sets: { ...base.routing!.prefix_sets, loopbacks: { prefixes: ["192.0.2.0/24", "2001:db8::/32"] } },
+        },
+    } as Device;
+    expect(ldpGaps(device)).toEqual([]);
+
+    const desired = routeros.render(device);
+    expect(desired).toContain(
+        "/mpls ldp accept-filter\nadd accept=yes prefix=192.0.2.0/24\nadd accept=yes prefix=2001:db8::/32\nadd accept=no prefix=0.0.0.0/0\nadd accept=no prefix=::/0\n"
+    );
+    // `own` accepts every IPv6 label last, so IPv6 needs no filter after it.
+    expect(desired).toContain(
+        "/mpls ldp advertise-filter\nadd advertise=yes prefix=192.0.2.255/32\nadd advertise=yes prefix=192.0.2.0/24\nadd advertise=yes prefix=2001:db8::/32\nadd advertise=yes prefix=::/0\nadd advertise=no prefix=0.0.0.0/0\n"
+    );
+
+    const wide = {
+        ...device,
+        routing: {
+            ...device.routing,
+            policies: { ...device.routing!.policies, own: [{ if: { prefix: "2001:db8::/32" }, then: "accept" }] },
+        },
+    } as Device;
+    expect(ldpGaps(wide)).toEqual([
+        "routing.policies.own[0].if.prefix 2001:db8::/32 in an LDP policy: a RouterOS label filter matches the prefixes inside it too. Write a prefix set, which matches so",
+    ]);
+});
+
+test("Junos refuses LDP for IPv6 while its MPLS is experimental", () => {
+    const device = withMpls("platforms--example-aggregation-switch", {
+        ldp: { lsr_id: "203.0.113.65", interfaces: ["10g-48"], address_families: ["ipv4", "ipv6"], ipv6_transport_address: "2001:db8::65" },
+    });
+
+    expect(Platforms.get("junos").unsupported(device)).toEqual(
+        expect.arrayContaining([
+            "routing.mpls.ldp.address_families ipv6, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
+            "routing.mpls.ldp.ipv6_transport_address, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
+        ])
+    );
+});
+
+test("with LDP for IPv6, RouterOS holds sessions over IPv4 only when told, and refuses a target or a pseudowire to an LSR ID without it", () => {
+    const routeros = Platforms.get("routeros");
+    const why =
+        "with ipv6 in routing.mpls.ldp.address_families: RouterOS 7.24 then holds LDP sessions over IPv6, as RFC 7552 prefers, and kept a session to an LSR ID down. Write routing.mpls.ldp.prefer_ipv4_transport: true, here and on every LDP router this one holds a session with";
+    expect(ldpGaps(withLdpIpv6({ targets: ["192.0.2.2"] }))).toEqual([`routing.mpls.ldp.targets, ${why}`]);
+
+    const preferred = withLdpIpv6({ targets: ["192.0.2.2"], prefer_ipv4_transport: true });
+    expect(errors(preferred)).toEqual([]);
+    expect(ldpGaps(preferred)).toEqual([]);
+    const desired = routeros.render(preferred);
+    // As a CHR printed it.
+    expect(desired).toContain(
+        '/mpls ldp\nadd afi="ip,ipv6" lsr-id=192.0.2.255 preferred-afi=ip transport-addresses="192.0.2.255,2001:db8:ffff::255"\n'
+    );
+    expect(sent("routeros", routeros.render(withLdpIpv6()), desired)).toContain(
+        "/mpls ldp unset [ find (vrf=main or !vrf) ] preferred-afi"
+    );
+
+    expect(errors(withMpls("platforms--example-router", { ldp: { ...ROUTER.ldp, prefer_ipv4_transport: true } }))).toEqual([
+        "routing.mpls.ldp.prefer_ipv4_transport picks a family for sessions with neighbors that run LDP for both, and routing.mpls.ldp.address_families has no ipv6. Remove it",
+    ]);
+});
+
+test("Junos refuses the IPv4 transport preference while its MPLS is experimental", () => {
+    const device = withMpls("platforms--example-aggregation-switch", {
+        ldp: {
+            lsr_id: "203.0.113.65",
+            interfaces: ["10g-48"],
+            address_families: ["ipv4", "ipv6"],
+            ipv6_transport_address: "2001:db8::65",
+            prefer_ipv4_transport: true,
+        },
+    });
+
+    expect(Platforms.get("junos").unsupported(device)).toContain(
+        "routing.mpls.ldp.prefer_ipv4_transport, not built for Junos yet: its MPLS is experimental, untested on a router that runs it"
+    );
+});

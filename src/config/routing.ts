@@ -1,4 +1,4 @@
-import type { Family, HostAddress, IP, IPv4, Named, OneOrMore, Ordered, Prefix, Secret } from "./common";
+import type { Family, HostAddress, IP, IPv4, IPv6, Named, OneOrMore, Ordered, Prefix, Secret } from "./common";
 import type { CommunitiesRule, NeighborCommunities } from "./communities";
 import { ACTIONS, CALL_RULE, closest, COMMUNITIES_EXPORT, COMMUNITIES_IMPORT, ROUTE_MATCH, ROUTE_RULE, ROUTE_SET } from "./keys";
 import type { AnyFacts, NetworkFacts } from "./network";
@@ -338,6 +338,16 @@ export type LdpNeighbor<P extends string = string> = {
 export type Ldp<I extends string, P extends string = string> = {
     /** The device's LSR ID, which other LDP routers know it by. LDP sessions run between LSR IDs, so it is the address of a loopback that OSPF or IS-IS announces. */
     lsr_id: IPv4;
+    /**
+     * What LDP gives labels to: routes to IPv4 prefixes, `ipv4`, and with `ipv6`, routes to IPv6 prefixes too (RFC 7552), such as `["ipv4", "ipv6"]`. `ipv4` when absent. With both, each LDP neighbor that runs both holds one session with the device, over IPv6, for the labels of both. Needs `ipv6_transport_address` with `ipv6`.
+     */
+    address_families?: readonly Family[];
+    /** The IPv6 address LDP runs its IPv6 sessions from, such as `2001:db8:ffff::1`: an IPv6 address of a loopback that OSPFv3 or IS-IS announces. LDP has no IPv6 LSR ID to take it from. Its IPv4 sessions run from `lsr_id`. With `ipv6` in `address_families` only. */
+    ipv6_transport_address?: IPv6;
+    /**
+     * With a neighbor that runs LDP for both families, hold the session over IPv4, between LSR IDs, not over IPv6 (RFC 7552, section 6.1.1). Targeted sessions and pseudowires to an LSR ID need it. Write it on every LDP router the device holds a session with: RFC 7552 keeps a session down when the two ends prefer other families. Over IPv6 when absent. With `ipv6` in `address_families` only.
+     */
+    prefer_ipv4_transport?: true;
     /** The ports and interfaces that forward MPLS and run LDP, each toward another LDP router. */
     interfaces: readonly I[];
     /**

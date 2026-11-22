@@ -20,9 +20,13 @@ export default as64500.device({
             "1g-1": { description: "Management", addresses: ["10.0.1.1/24"] },
             "25g-1": { description: "Bank, office 1", vrf: "bank", addresses: ["172.16.1.1/30"] },
             "25g-2": { description: "Clinic, site 1", access_vlan: "clinic" },
-            "100g-1": { description: "pe-02 qsfp28-1-1", addresses: ["10.0.12.1/30"], link: { device: "pe-02", port: "100g-1" } },
+            "100g-1": {
+                description: "pe-02 qsfp28-1-1",
+                addresses: ["10.0.12.1/30", "2001:db8:100:12::1/64"],
+                link: { device: "pe-02", port: "100g-1" },
+            },
         },
-        loopback: { loopback: { addresses: ["10.255.0.1/32"] } },
+        loopback: { loopback: { addresses: ["10.255.0.1/32", "2001:db8:100:ffff::1/128"] } },
         // The clinic's frames cross the core to pe-02 on this pseudowire, which has the same pw_id, MTU, and control word there.
         pseudowire: {
             "pw-clinic": {
@@ -59,16 +63,19 @@ export default as64500.device({
         isis: {
             net: "49.0001.0102.5500.0001.00",
             level_capability: "level-2",
-            address_families: ["ipv4"],
+            address_families: ["ipv4", "ipv6"],
             interfaces: {
                 loopback: { passive: true },
                 "100g-1": { network: "point-to-point", metric: 10 },
             },
         },
-        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the link to pe-02, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link. pe-03 is no neighbor, so LDP holds a targeted session with it, and pe-03 has one back.
+        // The LSR ID is the loopback, which IS-IS announces. LDP labels IPv4 and IPv6 routes, for the loopbacks only, on the link to pe-02. Its sessions run over IPv4, as on every router here, since the pseudowire and the targeted session run to an LSR ID. pe-03 is no neighbor, so LDP holds a targeted session with it, and pe-03 has one back.
         mpls: {
             ldp: {
                 lsr_id: "10.255.0.1",
+                address_families: ["ipv4", "ipv6"],
+                ipv6_transport_address: "2001:db8:100:ffff::1",
+                prefer_ipv4_transport: true,
                 interfaces: ["100g-1"],
                 targets: ["10.255.0.3"],
                 import_policy: "loopbacks",
@@ -91,7 +98,7 @@ export default as64500.device({
         },
         prefix_sets: {
             "bank-offices": { prefixes: ["10.1.0.0/16"] },
-            loopbacks: { prefixes: ["10.255.0.0/24"] },
+            loopbacks: { prefixes: ["10.255.0.0/24", "2001:db8:100:ffff::/64"] },
         },
         policies: {
             "bank-offices": [{ if: { prefix_set: "bank-offices" }, then: "accept" }, { then: "reject" }],

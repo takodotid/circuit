@@ -20,10 +20,18 @@ export default as64500.device({
             "1g-1": { description: "Management", addresses: ["10.0.2.1/24"] },
             "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
-            "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
-            "100g-2": { description: "pe-03 qsfp28-1-1", addresses: ["10.0.23.1/30"], link: { device: "pe-03", port: "100g-1" } },
+            "100g-1": {
+                description: "pe-01 qsfp28-1-1",
+                addresses: ["10.0.12.2/30", "2001:db8:100:12::2/64"],
+                link: { device: "pe-01", port: "100g-1" },
+            },
+            "100g-2": {
+                description: "pe-03 qsfp28-1-1",
+                addresses: ["10.0.23.1/30", "2001:db8:100:23::1/64"],
+                link: { device: "pe-03", port: "100g-1" },
+            },
         },
-        loopback: { loopback: { addresses: ["10.255.0.2/32"] } },
+        loopback: { loopback: { addresses: ["10.255.0.2/32", "2001:db8:100:ffff::2/128"] } },
         // The clinic's frames cross the core to pe-01 on this pseudowire, which has the same pw_id, MTU, and control word there.
         pseudowire: {
             "pw-clinic": {
@@ -60,15 +68,25 @@ export default as64500.device({
         isis: {
             net: "49.0001.0102.5500.0002.00",
             level_capability: "level-2",
-            address_families: ["ipv4"],
+            address_families: ["ipv4", "ipv6"],
             interfaces: {
                 loopback: { passive: true },
                 "100g-1": { network: "point-to-point", metric: 10 },
                 "100g-2": { network: "point-to-point", metric: 10 },
             },
         },
-        // The LSR ID is the loopback, which IS-IS announces. LDP runs on the links to pe-01 and pe-03, and labels the loopbacks only: traffic crosses the core to a loopback, never to a link.
-        mpls: { ldp: { lsr_id: "10.255.0.2", interfaces: ["100g-1", "100g-2"], import_policy: "loopbacks", export_policy: "loopbacks" } },
+        // The LSR ID is the loopback, which IS-IS announces. LDP labels IPv4 and IPv6 routes, for the loopbacks only, on the links to pe-01 and pe-03. Its sessions run over IPv4, as on every router here, since the pseudowire runs to an LSR ID.
+        mpls: {
+            ldp: {
+                lsr_id: "10.255.0.2",
+                address_families: ["ipv4", "ipv6"],
+                ipv6_transport_address: "2001:db8:100:ffff::2",
+                prefer_ipv4_transport: true,
+                interfaces: ["100g-1", "100g-2"],
+                import_policy: "loopbacks",
+                export_policy: "loopbacks",
+            },
+        },
         // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
         bgp: {
             neighbors: {
@@ -83,7 +101,7 @@ export default as64500.device({
         },
         prefix_sets: {
             "bank-offices": { prefixes: ["10.1.0.0/16"] },
-            loopbacks: { prefixes: ["10.255.0.0/24"] },
+            loopbacks: { prefixes: ["10.255.0.0/24", "2001:db8:100:ffff::/64"] },
         },
         policies: {
             "bank-offices": [{ if: { prefix_set: "bank-offices" }, then: "accept" }, { then: "reject" }],
