@@ -102,6 +102,10 @@ export class RouterOsPlan {
         "/mpls ldp",
         "/mpls ldp interface",
         "/mpls ldp neighbor",
+        // RSVP-TE runs on interfaces that forward MPLS, and a tunnel names its path.
+        "/mpls traffic-eng interface",
+        "/mpls traffic-eng path",
+        "/mpls traffic-eng tunnel",
         "/ip",
         "/ipv6",
         "/routing",
@@ -165,6 +169,8 @@ export class RouterOsPlan {
     /** Menus whose running entry a `set` stops for good: an EVPN entry logs `stop`, and never starts again (TRAPS.md). A change there removes the entry and adds it again, which starts it. */
     private static readonly REPLACED_ON_CHANGE = new Set(["/routing bgp evpn"]);
 
+    private static readonly OSPF_INSTANCE = "/routing ospf instance";
+
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
 
@@ -205,6 +211,7 @@ export class RouterOsPlan {
         const want = RouterOsExport.parse(desired);
         const have = RouterOsExport.parse(current);
         const planner = new RouterOsPlan(options.secrets);
+        planner.problems.push(...RouterOsPlan.ospfTeOff(want, have));
 
         // A list from a registry that the render did not fetch keeps the entries the device holds.
         const owned = (command: Command) => !(command.menu.endsWith("address-list") && want.generated.has(command.attrs.list ?? ""));
@@ -362,6 +369,21 @@ export class RouterOsPlan {
         const set = Object.keys(values).length || flags.length ? [RouterOsPlan.line(menu, "set", selector, flags, values)] : [];
 
         return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
+    }
+
+    /**
+     * Each OSPF instance whose traffic engineering would go off, which the plan does not send. RouterOS 7.24.6 crashed its routing process each way that was tried. It did so on an `unset` of `mpls-te-area`, on another area, and on removing the instance's area or the instance, where a tunnel ran. The process came back, but an apply then failed and restored its backup (TRAPS.md).
+     */
+    private static ospfTeOff(want: Parsed, have: Parsed): string[] {
+        return have.commands.flatMap((command) => {
+            if (command.menu !== RouterOsPlan.OSPF_INSTANCE || command.attrs["mpls-te-area"] === undefined) return [];
+            const name = command.attrs.name ?? "";
+            const wanted = want.commands.find((other) => other.menu === command.menu && other.attrs.name === name);
+            if (wanted?.attrs["mpls-te-area"] !== undefined) return [];
+            return [
+                `${command.menu} ${name}: Circuit doesn't turn OSPF's traffic engineering off, since RouterOS 7.24's routing process crashed each way that was tried (TRAPS.md). Keep traffic_engineering on the area, or turn it off by hand when every routing protocol of the router may restart, then apply`,
+            ];
+        });
     }
 
     /**

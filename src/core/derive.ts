@@ -108,7 +108,8 @@ export type BuiltFeature =
     | "ospf-priority"
     | "ospf-unicast-links"
     | "ospf-range-cost"
-    | "ospf-virtual-links";
+    | "ospf-virtual-links"
+    | "ospf-traffic-engineering";
 
 export class Derive {
     /** The ports a NAT pool hands out: the system ports below them stay out (RFC 7422, section 2; RFC 6335). */
@@ -732,7 +733,7 @@ export class Derive {
         return found;
     }
 
-    /** OSPF's area ranges and their cost, router priority, point-to-multipoint and NBMA links, and virtual links, which a platform builds once a device of it has run them. */
+    /** OSPF's area ranges and their cost, router priority, point-to-multipoint and NBMA links, virtual links, and traffic engineering, which a platform builds once a device of it has run them. */
     private static unbuiltOspf(device: Device, has: (feature: BuiltFeature) => boolean): string[] {
         const found: string[] = [];
         const untried = "not built yet, since no device of the platform has run it";
@@ -744,6 +745,7 @@ export class Derive {
                 if (range.cost !== undefined && !has("ospf-range-cost")) found.push(`${where}.ranges[${index}].cost, ${untried}`);
             });
             if (area.virtual_links && !has("ospf-virtual-links")) found.push(`${where}.virtual_links, ${untried}`);
+            if (area.traffic_engineering && !has("ospf-traffic-engineering")) found.push(`${where}.traffic_engineering, ${untried}`);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 const at = `${where}.interfaces.${name}`;

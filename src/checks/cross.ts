@@ -96,6 +96,7 @@ export class CrossChecks {
             ...CrossChecks.pseudowires(devices),
             ...CrossChecks.vplsSites(devices),
             ...CrossChecks.ldpTargets(devices),
+            ...CrossChecks.rsvpTeTunnels(devices, owners),
             ...CrossChecks.virtualLinks(devices),
         ];
     }
@@ -504,6 +505,35 @@ export class CrossChecks {
                 ];
             });
         });
+    }
+
+    /** Each router of ours that a tunnel crosses or ends at runs RSVP-TE, or the tunnel never comes up (RFC 3209). */
+    private static rsvpTeTunnels(devices: readonly Device[], owners: ReadonlyMap<string, Holder>): Finding[] {
+        const byLsrId = CrossChecks.byLsrId(devices);
+
+        return devices.flatMap((device) =>
+            Object.entries(device.routing?.mpls?.rsvp_te?.tunnels ?? {}).flatMap(([name, tunnel]): Finding[] => {
+                const at = `routing.mpls.rsvp_te.tunnels.${name}`;
+                const crossed = [
+                    ...(tunnel.explicit_path ?? []).map((hop, index) => ({
+                        where: `${at}.explicit_path[${index}].address ${hop.address}`,
+                        far: owners.get(Topology.keyOf(hop.address) ?? "")?.device,
+                    })),
+                    { where: `${at}.destination ${tunnel.destination}`, far: byLsrId.get(tunnel.destination) },
+                ];
+                return crossed.flatMap(({ where, far }): Finding[] =>
+                    far && far !== device && !far.routing?.mpls?.rsvp_te
+                        ? [
+                              {
+                                  level: "error",
+                                  device: device.name,
+                                  message: `${where} is ${far.name}'s, which runs no RSVP-TE, so the tunnel never comes up. Write routing.mpls.rsvp_te.interfaces on ${far.name}`,
+                              },
+                          ]
+                        : []
+                );
+            })
+        );
     }
 
     /** An OSPF virtual link to the router ID of another of our devices has one back there, across the same area (RFC 2328, section 15). */

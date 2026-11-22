@@ -18,6 +18,7 @@ import type {
     RouteRule,
 } from "../../model";
 import { RouterOsEvpn } from "./evpn";
+import { RouterOsRsvpTe } from "./rsvp-te";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -119,6 +120,7 @@ export class RouterOsRouting {
         routing.ospf();
         routing.isis();
         routing.mpls();
+        RouterOsRsvpTe.render(render, device);
         routing.bfd();
     }
 
@@ -747,10 +749,15 @@ export class RouterOsRouting {
         const ospf = this.device.routing?.ospf;
         if (!ospf) return;
 
+        // RFC 3630's traffic engineering, in one area of OSPFv2, with the LSR ID as its router address, which a tunnel to this router ends at.
+        const teArea = Object.entries(ospf.areas).find(([, area]) => area.traffic_engineering)?.[0];
         for (const family of ospf.address_families ?? ["ipv4"]) {
             const version = family === "ipv4" ? 2 : 3;
             const instance = `ospf-v${version}`;
+            const te = family === "ipv4" ? teArea : undefined;
             this.render.add("/routing ospf instance", "add", {
+                "mpls-te-address": te && this.device.routing?.mpls?.ldp.lsr_id,
+                "mpls-te-area": te,
                 name: instance,
                 redistribute: ospf.redistribute?.join(","),
                 "router-id": this.device.routing?.router_id,
