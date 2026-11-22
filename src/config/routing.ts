@@ -53,8 +53,8 @@ export type PrefixLimit =
           restart_after?: never;
       };
 
-/** What a BGP session carries: `ipv4` or `ipv6` routes, or the routes of VRFs with route targets, `vpnv4` (RFC 4364) or `vpnv6` (RFC 4659). */
-export type BgpFamily = Family | "vpnv4" | "vpnv6";
+/** What a BGP session carries: `ipv4` or `ipv6` routes, or the routes of VRFs with route targets, `vpnv4` (RFC 4364) or `vpnv6` (RFC 4659). `l2vpn-evpn` carries the EVPN routes of VXLAN segments (RFC 7432, RFC 8365). */
+export type BgpFamily = Family | "vpnv4" | "vpnv6" | "l2vpn-evpn";
 
 /** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `F` its VRFs, `Net` what the network writes. */
 export type NeighborSettings<P extends string, T extends string, F extends string = string, Net extends NetworkFacts = AnyFacts> = {
@@ -88,6 +88,8 @@ export type NeighborSettings<P extends string, T extends string, F extends strin
     keepalive?: number;
     /**
      * The address families the session carries. The family of the neighbor's address when absent. `vpnv4` and `vpnv6` carry the routes of each VRF with `route_targets` to another PE, and bring back the far VRFs' routes. Write them on an iBGP session from this router's LSR ID, `local_address`, to the far PE's, with `routing.mpls`: the routes' traffic crosses the core by label. Route targets pick the VPN routes a VRF takes, so `import_policy` and `export_policy` apply to `ipv4` and `ipv6` routes only.
+     *
+     * `l2vpn-evpn` carries the EVPN routes of each VXLAN with `evpn` to another VTEP, and brings back the far VTEPs' routes. Write it on an iBGP session from the VXLANs' `local_address` to the far VTEP's. Route targets pick these routes too.
      */
     address_families?: readonly BgpFamily[];
     /** Wait for the neighbor to connect instead of connecting to it. */
@@ -382,11 +384,11 @@ export type RouteDistinguisher = `${number}:${number}` | `${IPv4}:${number}`;
 /** A route target, an extended community (RFC 4360, RFC 5668), written as a route distinguisher is: `64500:101`, or `192.0.2.1:101`. */
 export type RouteTarget = `${number}:${number}` | `${IPv4}:${number}`;
 
-/** Which VPN routes a VRF takes, and what its own carry. */
+/** Which VPN routes a VRF or an EVPN segment takes, and what its own carry. */
 export type VrfRouteTargets = {
-    /** The VRF takes each VPN route that carries any of these. */
+    /** It takes each VPN route that carries any of these. */
     import?: readonly RouteTarget[];
-    /** The VRF's own routes carry these. */
+    /** Its own routes carry these. */
     export?: readonly RouteTarget[];
 };
 

@@ -1,4 +1,4 @@
-// The network, AS64500: three points of presence joined by an MPLS core. IS-IS carries the routers' IPv4 and IPv6 loopbacks, and LDP gives each a label. Over the core, iBGP carries a bank's VPN routes between its offices, and a pseudowire joins a clinic's two sites.
+// The network, AS64500: three points of presence joined by an MPLS core. IS-IS carries the routers' IPv4 and IPv6 loopbacks, and LDP gives each a label. Over the core, iBGP carries a bank's VPN routes between its offices, a pseudowire joins a clinic's two sites, and an EVPN VXLAN segment a school's two campuses.
 
 export const as64500 = circuit({
     asn: 64500,

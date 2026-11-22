@@ -9,6 +9,7 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { NamedInterface } from "../../core/derive";
 import { RouterOsDhcp } from "./dhcp";
+import { RouterOsEvpn } from "./evpn";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
@@ -226,6 +227,7 @@ export class RouterOsRender {
         this.lags();
         RouterOsVlanTags.render(this, this.device);
         this.tunnels();
+        RouterOsEvpn.vxlans(this, this.device);
         this.wireguard();
         RouterOsPppoe.clients(this, this.device);
         this.vrrp();
@@ -245,10 +247,11 @@ export class RouterOsRender {
         this.add("/interface ethernet switch l3hw-settings", "set", { autorestart: on, "ipv6-hw": on });
     }
 
-    /** One VLAN-filtering bridge carries every switched port, with their one TPID. A loopback is a bridge with no ports, the platform's idiom for one. */
+    /** One VLAN-filtering bridge carries every switched port and VXLAN segment in EVPN, with their one TPID. A loopback is a bridge with no ports, the platform's idiom for one. */
     private bridge(): void {
         const { device } = this;
-        if (this.switched().length > 0 || this.declaredVlanInterfaces().length > 0) {
+        const ports = this.switched().length + this.declaredVlanInterfaces().length + Derive.evpnVxlans(device).length;
+        if (ports > 0) {
             const stp = device.switching?.stp;
             this.add("/interface bridge", "add", {
                 "dhcp-snooping": RouterOsSyntax.yesWhen(device.switching?.dhcp_snooping),
@@ -391,6 +394,8 @@ export class RouterOsRender {
         }
 
         for (const [name, vxlan] of RouterOsSyntax.entries(this.device.interfaces?.vxlan)) {
+            // RouterOsEvpn writes a segment in EVPN.
+            if (vxlan.evpn) continue;
             // 4789 is the platform's default and is not written.
             const port = vxlan.port && vxlan.port !== 4789 ? vxlan.port : undefined;
             this.add("/interface vxlan", "add", {

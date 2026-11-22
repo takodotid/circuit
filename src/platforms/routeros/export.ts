@@ -126,7 +126,8 @@ export class RouterOsExport {
         "/interface vlan": { "l3-hw-offloading": "yes", mtu: "1500", "use-service-tag": "no" },
         "/interface macvlan": { mode: "bridge", mtu: "1500" },
         "/interface vrrp": { priority: "100", "preemption-mode": "yes", interval: "1s", version: "3", "v3-protocol": "ipv4" },
-        "/interface vxlan": { port: "4789" },
+        // As a CHR on 7.24.6 printed a VXLAN interface with `export verbose`.
+        "/interface vxlan": { port: "4789", learning: "yes", "bridge-pvid": "1" },
         "/interface wireguard": { mtu: "1420" },
         "/interface wireguard peers": {
             "client-allowed-address": "",
@@ -196,6 +197,8 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4": "",
             "input.limit-process-routes-ipv6": "",
         },
+        // An EVPN entry's route distinguisher and lists print nothing until they are set (CHR, 7.24.6).
+        "/routing bgp evpn": { rd: "", "export.route-targets": "", "import.route-targets": "" },
         // A VPN entry's lists print nothing until they are set.
         "/routing bgp vpn": {
             "export.redistribute": "",
@@ -479,6 +482,7 @@ export class RouterOsExport {
     static readonly GENERATED: Record<string, readonly string[]> = {
         "/interface eoip": ["mac-address"],
         "/interface vpls": ["mac-address"],
+        "/interface vxlan": ["mac-address"],
     };
 
     /** Properties the device clears only with `unset`: empty, it refuses them or takes them as another value (TRAPS.md). */

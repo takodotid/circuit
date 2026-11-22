@@ -17,6 +17,7 @@ import type {
     PolicyRule,
     RouteRule,
 } from "../../model";
+import { RouterOsEvpn } from "./evpn";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -50,7 +51,13 @@ export class RouterOsRouting {
     private static readonly VPN_FAMILIES = ["vpnv4", "vpnv6"] as const satisfies readonly BgpFamily[];
 
     /** A connection's `afi` for each family, in the order the device prints them. */
-    private static readonly AFI = { ipv4: "ip", ipv6: "ipv6", vpnv4: "vpnv4", vpnv6: "vpnv6" } as const satisfies Record<BgpFamily, string>;
+    private static readonly AFI = {
+        ipv4: "ip",
+        ipv6: "ipv6",
+        vpnv4: "vpnv4",
+        vpnv6: "vpnv6",
+        "l2vpn-evpn": "evpn",
+    } as const satisfies Record<BgpFamily, string>;
 
     /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
     private static readonly GTSM_TTL = 255;
@@ -105,6 +112,7 @@ export class RouterOsRouting {
             routing.bgpConnections();
             routing.vrfImports();
             routing.vpns();
+            RouterOsEvpn.instances(render, device);
         }
 
         routing.ospf();

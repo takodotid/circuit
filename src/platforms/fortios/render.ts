@@ -4,6 +4,7 @@ import { Utils } from "../../core/utils";
 import type {
     AdvertisedPrefix,
     Device,
+    EvpnVxlan,
     Family,
     Gre,
     Helper,
@@ -552,6 +553,8 @@ export class FortiOsRender {
         // A tunnel's interface is created by its own table, which uses the interface it leaves through.
         for (const { name, kind, settings } of FortiOsNames.interfacesOf(device)) {
             if (kind !== "gre" && kind !== "vxlan" && kind !== "ipsec") continue;
+            // `unsupported()` refuses a VXLAN segment in EVPN.
+            if ((settings as Vxlan | EvpnVxlan).evpn) continue;
 
             const iface = settings as Gre | Vxlan | Ipsec;
             const vxlan = kind === "vxlan" ? (settings as Vxlan) : undefined;

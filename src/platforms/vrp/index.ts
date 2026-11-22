@@ -199,6 +199,8 @@ export class Vrp extends Platform {
         found.push(...VrpIsis.unsupported(device));
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
+        // Huawei's VXLAN guide for CloudEngine switches in V200R005C00 sets up BGP EVPN, under a VXLAN license. No switch here has run it.
+        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for VRP yet`);
         if (routing?.rpki) found.push("routing.rpki");
         // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
         if (routing?.ospf?.vrf) found.push("routing.ospf.vrf, not built yet");

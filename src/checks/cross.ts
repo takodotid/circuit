@@ -468,8 +468,9 @@ export class CrossChecks {
             ...Object.entries(device.interfaces?.gre ?? {}).flatMap(([name, tunnel]) =>
                 tunnel ? [{ device, where: `interfaces.gre.${name}`, kind: "gre" as const, tunnel }] : []
             ),
+            // A VXLAN segment in EVPN has no far end of its own: BGP finds its VTEPs.
             ...Object.entries(device.interfaces?.vxlan ?? {}).flatMap(([name, tunnel]) =>
-                tunnel ? [{ device, where: `interfaces.vxlan.${name}`, kind: "vxlan" as const, tunnel }] : []
+                tunnel && !tunnel.evpn ? [{ device, where: `interfaces.vxlan.${name}`, kind: "vxlan" as const, tunnel }] : []
             ),
             ...Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, tunnel]) =>
                 tunnel ? [{ device, where: `interfaces.ipsec.${name}`, kind: "ipsec" as const, tunnel }] : []
