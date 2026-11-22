@@ -138,6 +138,7 @@ export type Isis = C.Isis<string>;
 export type Mpls = C.Mpls<string>;
 export type RsvpTe = C.RsvpTe<string>;
 export type RsvpTeTunnel = C.RsvpTeTunnel;
+export type TunnelPath = C.TunnelPath;
 
 /** Something wrong with a config, as `circuit validate` reports it. */
 export type Finding = {

@@ -380,8 +380,8 @@ export type ExplicitHop = {
     hop_type: "strict" | "loose";
 };
 
-/** The path a tunnel takes: the hops written out, or one CSPF computes. */
-type TunnelPath =
+/** A path of a tunnel: the hops written out, or one CSPF computes. */
+export type TunnelPath =
     | {
           /** The routers the tunnel crosses, in order, the router it ends at last, such as `[{ address: "10.0.12.2", hop_type: "strict" }, { address: "10.0.23.2", hop_type: "strict" }]`. */
           explicit_path: readonly ExplicitHop[];
@@ -393,7 +393,13 @@ type TunnelPath =
           explicit_path?: never;
       };
 
-/** A tunnel this router starts (RFC 3209): a path of labels to another router, with bandwidth reserved on each link it crosses. */
+/** A path a tunnel moves to while its primary path is down. */
+export type SecondaryPath = TunnelPath & {
+    /** Set the path up ahead, beside the primary path, so the tunnel moves to it at once when the primary path fails. Without it, the tunnel sets the path up only then. */
+    standby?: true;
+};
+
+/** A tunnel this router starts (RFC 3209): a path of labels to another router, with bandwidth reserved on each link it crosses. Its own `explicit_path` or `cspf` is its primary path. */
 export type RsvpTeTunnel = TunnelPath & {
     /** What the tunnel is for. */
     description?: string;
@@ -401,6 +407,10 @@ export type RsvpTeTunnel = TunnelPath & {
     destination: IPv4;
     /** The bandwidth the tunnel reserves on each link it crosses, such as `"1G"`. A link without that much left takes no part in the path, and with no path left, the tunnel stays down. Nothing is reserved when absent. */
     bandwidth?: Rate;
+    /**
+     * The paths the tunnel moves to while its primary path is down, keyed by name, tried in the order written, such as `{ "pe-03-around": { cspf: true } }`. Once the primary path is up again, the tunnel moves back. Each name is a path on the device, beside the primary path named after its tunnel, so it is unique among the device's tunnels and their paths.
+     */
+    secondary_paths?: Readonly<Record<string, SecondaryPath>>;
 };
 
 /** RSVP-TE (RFC 3209): tunnels across the core along paths of your choice, each with bandwidth reserved for it. */

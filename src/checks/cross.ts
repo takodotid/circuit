@@ -514,11 +514,19 @@ export class CrossChecks {
         return devices.flatMap((device) =>
             Object.entries(device.routing?.mpls?.rsvp_te?.tunnels ?? {}).flatMap(([name, tunnel]): Finding[] => {
                 const at = `routing.mpls.rsvp_te.tunnels.${name}`;
+                const paths = [
+                    [at, tunnel] as const,
+                    ...Object.entries(tunnel.secondary_paths ?? {}).map(
+                        ([path, settings]) => [`${at}.secondary_paths.${path}`, settings] as const
+                    ),
+                ];
                 const crossed = [
-                    ...(tunnel.explicit_path ?? []).map((hop, index) => ({
-                        where: `${at}.explicit_path[${index}].address ${hop.address}`,
-                        far: owners.get(Topology.keyOf(hop.address) ?? "")?.device,
-                    })),
+                    ...paths.flatMap(([where, path]) =>
+                        (path.explicit_path ?? []).map((hop, index) => ({
+                            where: `${where}.explicit_path[${index}].address ${hop.address}`,
+                            far: owners.get(Topology.keyOf(hop.address) ?? "")?.device,
+                        }))
+                    ),
                     { where: `${at}.destination ${tunnel.destination}`, far: byLsrId.get(tunnel.destination) },
                 ];
                 return crossed.flatMap(({ where, far }): Finding[] =>

@@ -1,4 +1,4 @@
-// A metro router, a MikroTik CCR2216, linked to ring-02 and ring-03. OSPF carries its loopback and the bandwidth of its links, and LDP labels each loopback. A pseudowire carries the TV station's frames from studio 1 to studio 2 at ring-03, in a tunnel whose path CSPF computes.
+// A metro router, a MikroTik CCR2216, linked to ring-02 and ring-03. OSPF carries its loopback and the bandwidth of its links, and LDP labels each loopback. A pseudowire carries the TV station's frames from studio 1 to studio 2 at ring-03, in a tunnel whose path CSPF computes. The tunnel holds a path around the ring ready.
 
 import { as64500 } from "../../circuit";
 
@@ -60,11 +60,25 @@ export default as64500.device({
         },
         mpls: {
             ldp: { lsr_id: "10.255.1.1", interfaces: ["100g-1", "100g-2"] },
-            // Tunnels may reserve 40G of each link. The pseudowire to ring-03 crosses in the tunnel to ring-03, which reserves 10G along the shortest path that has it.
+            // Tunnels may reserve 40G of each link. The pseudowire to ring-03 crosses in the tunnel to ring-03, which reserves 10G along the shortest path that has it. Should that path fail, the tunnel moves at once to its path around the ring, which it holds ready.
             rsvp_te: {
                 interfaces: { "100g-1": { bandwidth: "40G" }, "100g-2": { bandwidth: "40G" } },
                 tunnels: {
-                    "ring-03": { description: "TV station, to studio 2", destination: "10.255.1.3", bandwidth: "10G", cspf: true },
+                    "ring-03": {
+                        description: "TV station, to studio 2",
+                        destination: "10.255.1.3",
+                        bandwidth: "10G",
+                        cspf: true,
+                        secondary_paths: {
+                            "ring-03-around": {
+                                explicit_path: [
+                                    { address: "10.1.12.2", hop_type: "strict" },
+                                    { address: "10.1.23.2", hop_type: "strict" },
+                                ],
+                                standby: true,
+                            },
+                        },
+                    },
                 },
             },
         },

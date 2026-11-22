@@ -58,7 +58,7 @@ export default as64500.device({
         },
         mpls: {
             ldp: { lsr_id: "10.255.1.3", interfaces: ["100g-1", "100g-2"] },
-            // The tunnel to ring-01 follows its hops: strict to ring-02 by its address on the link from here, then strict to ring-01 by its address on the link from ring-02.
+            // The tunnel to ring-01 follows its hops: strict to ring-02 by its address on the link from here, then strict to ring-01 by its address on the link from ring-02. While that path is down, the tunnel takes the shortest path that has the bandwidth, the direct link.
             rsvp_te: {
                 interfaces: { "100g-1": { bandwidth: "40G" }, "100g-2": { bandwidth: "40G" } },
                 tunnels: {
@@ -70,6 +70,7 @@ export default as64500.device({
                             { address: "10.1.23.1", hop_type: "strict" },
                             { address: "10.1.12.1", hop_type: "strict" },
                         ],
+                        secondary_paths: { "ring-01-direct": { cspf: true } },
                     },
                 },
             },

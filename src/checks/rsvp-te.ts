@@ -1,6 +1,6 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, RsvpTe, RsvpTeTunnel } from "../model";
+import type { Device, RsvpTe, RsvpTeTunnel, TunnelPath } from "../model";
 import { RateLimitChecks } from "./rate-limit";
 
 type Report = (message: string) => void;
@@ -14,8 +14,9 @@ export class RsvpTeChecks {
         if (!rsvpTe) return;
 
         RsvpTeChecks.interfaces(device, rsvpTe, report);
-        for (const [name, tunnel] of Object.entries(rsvpTe.tunnels ?? {}))
-            RsvpTeChecks.tunnel(device, `routing.mpls.rsvp_te.tunnels.${name}`, tunnel, report);
+        const tunnels = Object.entries(rsvpTe.tunnels ?? {});
+        for (const [name, tunnel] of tunnels) RsvpTeChecks.tunnel(device, `routing.mpls.rsvp_te.tunnels.${name}`, tunnel, report);
+        RsvpTeChecks.pathNames(tunnels, report);
     }
 
     /** The OSPF areas that tell their routers each link's bandwidth. */
@@ -54,7 +55,7 @@ export class RsvpTeChecks {
         }
     }
 
-    /** A tunnel ends at another router's LSR ID, along an explicit path or one CSPF computes from OSPF's traffic engineering. */
+    /** A tunnel ends at another router's LSR ID, along its paths, with its bandwidth. */
     private static tunnel(device: Device, at: string, tunnel: RsvpTeTunnel, report: Report): void {
         const lsrId = device.routing?.mpls?.ldp.lsr_id;
         const { destination, bandwidth } = tunnel;
@@ -66,6 +67,13 @@ export class RsvpTeChecks {
 
         if (bandwidth !== undefined) RateLimitChecks.rate(`${at}.bandwidth`, bandwidth, report);
 
+        RsvpTeChecks.path(device, at, tunnel, report);
+        for (const [name, path] of Object.entries(tunnel.secondary_paths ?? {}))
+            RsvpTeChecks.path(device, `${at}.secondary_paths.${name}`, path, report);
+    }
+
+    /** A path is the hops written out, or one CSPF computes from OSPF's traffic engineering. */
+    private static path(device: Device, at: string, tunnel: TunnelPath, report: Report): void {
         const path: unknown = tunnel.explicit_path;
         const cspf: unknown = tunnel.cspf;
         if (path !== undefined && cspf !== undefined) report(`${at} has explicit_path and cspf. Write one`);
@@ -89,5 +97,19 @@ export class RsvpTeChecks {
             if (hop.hop_type !== "strict" && hop.hop_type !== "loose")
                 report(`${where}.hop_type ${JSON.stringify(hop.hop_type)} is not strict or loose`);
         });
+    }
+
+    /** Each path of a tunnel is a path of the device by its name: a primary path is named after its tunnel, and a secondary path by its key. */
+    private static pathNames(tunnels: [string, RsvpTeTunnel][], report: Report): void {
+        const owner = new Map<string, string>(tunnels.map(([name]) => [name, `tunnel ${name}'s primary path`]));
+        for (const [name, tunnel] of tunnels)
+            for (const path of Object.keys(tunnel.secondary_paths ?? {})) {
+                const other = owner.get(path);
+                if (other)
+                    report(
+                        `routing.mpls.rsvp_te.tunnels.${name}.secondary_paths.${path} has the name of ${other}, and each path of the device has its own. Give it another name`
+                    );
+                else owner.set(path, `tunnel ${name}'s secondary path`);
+            }
     }
 }
