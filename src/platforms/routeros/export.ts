@@ -288,6 +288,15 @@ export class RouterOsExport {
             priority: "8",
             queue: "default-small",
         },
+        // As a CHR on 7.24.6 printed a FIFO and a RED queue type made without them, with `export verbose`.
+        "/queue type": {
+            "pfifo-limit": "50",
+            "red-avg-packet": "1000",
+            "red-burst": "20",
+            "red-limit": "60",
+            "red-max-threshold": "50",
+            "red-min-threshold": "10",
+        },
         // As a CCR2216 on 7.24.6 printed a server set back to them. `use-radius` as MikroTik's manual gives it.
         "/ipv6 dhcp-server": {
             "address-pool": "static-only",

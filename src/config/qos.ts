@@ -44,31 +44,43 @@ export type MarkingMatch<I extends string, AS extends string, IS extends string>
     dscp?: OneOrMore<Dscp>;
 };
 
-/** What a marking rule writes in a packet: a DSCP, a PCP, or both. */
-export type Marking =
+/** What a marking rule writes in a packet, and the class whose queue it takes: a DSCP, a PCP, a class, or several. */
+export type Marking<C extends string = string> =
     | {
           /** The DSCP the packet leaves with. */
           dscp: Dscp;
           /** The PCP the packet leaves with, in the VLAN tag of the interface it leaves through. A packet that leaves without a tag carries none. */
           pcp?: Pcp;
+          /** The class whose queue the packet takes as it leaves this device, from `qos.classes`, whatever DSCP it leaves with. The next device sorts it by its DSCP. */
+          class?: C;
       }
     | {
           /** The DSCP the packet leaves with. */
           dscp?: Dscp;
           /** The PCP the packet leaves with, in the VLAN tag of the interface it leaves through. A packet that leaves without a tag carries none. */
           pcp: Pcp;
+          /** The class whose queue the packet takes as it leaves this device, from `qos.classes`, whatever DSCP it leaves with. The next device sorts it by its DSCP. */
+          class?: C;
+      }
+    | {
+          /** The DSCP the packet leaves with. */
+          dscp?: Dscp;
+          /** The PCP the packet leaves with, in the VLAN tag of the interface it leaves through. A packet that leaves without a tag carries none. */
+          pcp?: Pcp;
+          /** The class whose queue the packet takes as it leaves this device, from `qos.classes`, whatever DSCP it leaves with. The next device sorts it by its DSCP. */
+          class: C;
       };
 
 /**
  * One marking rule, with the condition first: `{ if: { protocol: "udp", dst_port: 5060 }, then: { dscp: "cs5" } }`. Without `if`, it marks every packet the device routes.
  */
-export type MarkingRule<I extends string, AS extends string, IS extends string> = {
+export type MarkingRule<I extends string, AS extends string, IS extends string, C extends string = string> = {
     /** Shown beside the rule on the device. */
     description?: string;
     /** Which packets the rule marks. Every packet the device routes when absent. */
     if?: MarkingMatch<I, AS, IS>;
-    /** What a matching packet leaves with. */
-    then: Marking;
+    /** What a matching packet leaves with, and the class whose queue it takes. */
+    then: Marking<C>;
 };
 
 /** A class of traffic: the packets that leave with one of its DSCPs. */
@@ -78,11 +90,29 @@ export type QosClass = {
 };
 
 /**
+ * Random early detection, RED (RFC 2309, RFC 7567): the queue drops packets at random before it is full, by how full it is on average. A sender that slows down when it loses a packet slows down early, so the queue stays short. Every packet of the queue meets the same thresholds, whatever its drop precedence (RFC 2597).
+ */
+export type Red = {
+    /** Below this fill, on average, no packet is dropped early, in percent of the queue's `depth_packets`. */
+    min_threshold_percent: number;
+    /** Above this fill, on average, every packet that comes is dropped, in percent of the queue's `depth_packets`, up to 100. Between the two thresholds, a packet is dropped at random, more often as the queue fills. */
+    max_threshold_percent: number;
+};
+
+/** How many packets a queue holds, and how it drops what it has no room for. */
+export type QueueManagement = {
+    /** The most packets the queue holds. What comes while it is full is dropped: tail drop. The platform's own depth when absent, 10 packets on RouterOS. */
+    depth_packets?: number;
+    /** Drops packets at random before the queue is full, with RED. Needs `depth_packets`. Without it, the queue drops only what comes while it is full. */
+    red?: Red;
+};
+
+/**
  * A queue sent before every weighted queue, such as for calls (RFC 3246) or the routers' own traffic (RFC 4594). Several strict queues take turns.
  *
  * RouterOS sends a strict queue first only up to its `max`, which it keeps for the queue even when the weighted queues are full. So there each strict queue needs `max`.
  */
-export type StrictQueue<C extends string> = {
+export type StrictQueue<C extends string> = QueueManagement & {
     /** The class it holds, from `qos.classes`. */
     class: C;
     /** `strict`: sent before the weighted queues. */
@@ -97,7 +127,7 @@ export type StrictQueue<C extends string> = {
  *
  * RouterOS keeps each weighted queue its share of the scheduler's rate less every strict queue's `max`. What a queue leaves unused, it lends to the weighted queues alike, not by share.
  */
-export type WeightedQueue<C extends string> = {
+export type WeightedQueue<C extends string> = QueueManagement & {
     /** The class it holds, from `qos.classes`. */
     class: C;
     /** Its part of what the strict queues leave, in percent, 1 to 100. The shares of a scheduler add up to 100. */
@@ -124,7 +154,7 @@ export type Qos<I extends string, AS extends string, IS extends string, C extend
     /**
      * Marks the packets the device routes, so the devices after it can tell their classes apart (RFC 2475). Rules in order: the first rule that matches marks the packet, and the rules after it are skipped. A packet that no rule matches keeps its DSCP. Packets the device sends or receives itself are not marked, nor packets it switches within a VLAN.
      */
-    marking?: Ordered<MarkingRule<I, AS, IS>>;
+    marking?: Ordered<MarkingRule<I, AS, IS, NoInfer<C>>>;
     /**
      * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates), such as `voice: { dscp: ["ef"] }`. A packet's class is the one that lists the DSCP it leaves with, after `marking`. To sort packets by their address or port, mark their DSCP first in `marking`.
      */

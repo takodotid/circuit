@@ -146,8 +146,9 @@ A note in a cell means "works, with this limit".
 | CGNAT pool, block timeout          | ❌                         | ❌                    | ❌                         | ❌                       | ✅ 3 to 300 seconds                             |
 | NAT64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
 | TCP MSS clamp                      | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DSCP and PCP marking               | ✅ not with fast path      | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
+| DSCP, PCP, and class marking       | ✅ not with fast path      | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
 | Classes and schedulers             | ✅ not with fast path      | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Queue depth and RED                | ✅ RED counts bytes        | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DHCP server                        | ✅                         | 🧪                    | ❌                         | ✅                       | ✅                                              |
 | DHCPv6 server                      | ✅ pool is a prefix        | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
 | DHCP relay                         | ✅                         | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
@@ -167,7 +168,7 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 
 - **Junos.** A QFX5100 marks in a filter on each interface where traffic arrives. That filter also marks what goes to the switch itself, can't match the interface a packet leaves through, and can't set a PCP.
 - **FortiOS.** A DSCP is set for a whole session, in the firewall policy or the shaping policy the session takes. A session takes one shaping policy, and rate limits already use them.
-- **VRP.** Marking is Huawei's MQC: an ACL and a traffic classifier for each rule, and a traffic policy for each family, applied to all the switch receives. Huawei's reference has `remark dscp` work only on what the switch routes, as marking means. `remark 8021p` works only on what it switches, so VRP refuses `pcp`. A CE6855 took the policies on a spare port, but no packet was seen marked, so marking stays experimental.
+- **VRP.** Marking is Huawei's MQC: an ACL and a traffic classifier for each rule, and a traffic policy for each family, applied to all the switch receives. Huawei's reference has `remark dscp` work only on what the switch routes, as marking means. `remark 8021p` works only on what it switches, so VRP refuses `pcp`. It refuses `class` too, as it builds no schedulers yet. A CE6855 took the policies on a spare port, but no packet was seen marked, so marking stays experimental.
 - **Raisecom ROS.** Not built yet.
 
 NAT64 and DNS64 are built on FortiOS only:
@@ -178,7 +179,9 @@ NAT64 and DNS64 are built on FortiOS only:
 - **VRP.** Circuit builds no NAT there. Huawei's FAQ on NAT in CloudEngine switches gives it to the CE12800 with a firewall card only, and Huawei builds NAT64 on NE routers with a CGN board.
 - **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.
 
-A scheduler on RouterOS needs its `rate`, and each strict queue its `max`. RouterOS queues with HTB, which gives each queue the rate it keeps for it first, then lends what is left by priority. So a strict queue keeps its `max` and goes first, and a weighted queue keeps its share of the rate less the strict queues' `max`. A scheduler is refused on a switched port, whose routed packets leave through the VLAN interface. It is refused beside a `fast_path` rule, and with `system.hardware_offload` unless on a VLAN interface with `hardware_offload: false`, as packets there skip the queues. Junos, FortiOS, VRP, and Raisecom ROS don't build classes and schedulers yet.
+A scheduler on RouterOS needs its `rate`, and each strict queue its `max`. RouterOS queues with HTB, which gives each queue the rate it keeps for it first, then lends what is left by priority. So a strict queue keeps its `max` and goes first, and a weighted queue keeps its share of the rate less the strict queues' `max`. What a weighted queue leaves unused goes to the other weighted queues alike, not by share. A priority for each weighted queue gives it all to one, and a cap at each share leaves the link idle when the other queues are. A marking rule's `class` is a packet mark of the class's name, which the scheduler of each interface moves into its queue before it looks at the DSCP. A scheduler is refused on a switched port, whose routed packets leave through the VLAN interface. It is refused beside a `fast_path` rule, and with `system.hardware_offload` unless on a VLAN interface with `hardware_offload: false`, as packets there skip the queues. Junos, FortiOS, VRP, and Raisecom ROS don't build classes and schedulers yet.
+
+A queue with `depth_packets` takes a queue type of its own on RouterOS: a FIFO of that many packets, or RED. RouterOS's RED counts bytes, not packets, so Circuit counts a packet as 1500 bytes: a queue of full-size packets holds `depth_packets`, and one of smaller packets holds more of them. The thresholds of RED are rounded down to whole packets, and RouterOS refuses two that come to the same number. RouterOS has no setting for how often RED drops between its thresholds.
 
 ### Management and monitoring
 

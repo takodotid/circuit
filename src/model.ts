@@ -102,6 +102,7 @@ export type TcpMssRule = C.TcpMssRule<string, string, string>;
 export type MarkingRule = C.MarkingRule<string, string, string>;
 export type Scheduler = C.Scheduler<string>;
 export type Queue = C.Queue<string>;
+export type Red = C.Red;
 export type AclRule = C.AclRule<string>;
 export type PolicyRule = C.PolicyRule<string, string>;
 export type RouteRule = C.RouteRule<string>;
