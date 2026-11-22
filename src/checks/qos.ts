@@ -157,8 +157,9 @@ export class QosChecks {
                 report(
                     `${where}.scheduler beside shaping, which also shapes what leaves: write the scheduler's rate, and leave shaping out`
                 );
-            if (settings?.rate_limit?.output)
-                report(`${where}.scheduler beside rate_limit.output, which also limits what leaves: write the scheduler's rate instead`);
+            const output = settings?.rate_limit && Derive.limitsOutput(settings.rate_limit);
+            if (output)
+                report(`${where}.scheduler beside rate_limit.${output}, which also limits what leaves: write the scheduler's rate instead`);
             const lag = kind === "ethernet" ? device.interfaces?.ethernet?.[name]?.in_lag : undefined;
             if (lag) report(`${where}.scheduler is on a member of ${lag}: write it on the LAG`);
         }

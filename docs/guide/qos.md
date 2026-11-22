@@ -1,5 +1,5 @@
 ---
-description: Sort the packets an interface sends into classes by their DSCP, and send each class from its own queue, strict queues first and the others by share, each queue as deep as you set it.
+description: Sort the packets an interface sends into classes by their DSCP, and send each class from its own queue, strict queues first and the others by share, each queue as deep as you set it. Give each customer a rate of its own.
 ---
 
 # Quality of service
@@ -42,3 +42,11 @@ A queue holds the packets that wait to be sent. `depth_packets` is the most it h
 `red` drops packets at random before the queue is full: random early detection (RED, RFC 2309). Below `min_threshold_percent` of the depth, on average, no packet is dropped early. Above `max_threshold_percent`, every packet that comes is dropped. Between them, a packet is dropped at random, more often as the queue fills. A TCP sender slows down when it loses a packet, so it slows down before the queue is full, and the queue stays short. `red` needs `depth_packets`. The field station's best-effort queue uses it, in the scheduler above.
 
 RFC 7567 asks every device to manage its queues, and no longer asks for RED by default. The thresholds of RED need tuning for each link. Every packet of a queue meets the same thresholds, whatever its drop precedence: `af41`, `af42`, and `af43` are dropped alike (RFC 2597). WRED, with thresholds for each drop precedence, is not built yet ([#215](https://github.com/takodotid/circuit/issues/215)).
+
+## A rate for each customer
+
+`rate_limit` holds a port, a LAG, or a VLAN interface to a rate as a whole. `per_prefix` gives each customer on it a rate of its own instead, or as well. Each prefix of the lengths you write gets `input` and `output`: `ipv4: 32` and `ipv6: 128` limit each address, and `ipv6: 56` each customer's /56. What arrives is counted by its source, and what leaves by its destination, so write it on the interface toward the customers. The library's guest Wi-Fi:
+
+<<< @/../examples/campus/sites/library/library-01.ts#per-prefix
+
+Beside the interface's own `input` and `output`, the customers share those rates, each up to its own. A customer's IPv4 and IPv6 traffic each get the rates. Hosts that make their IPv6 addresses in one /64 need `ipv6: 128`, and then each address a host makes gets the rates. [Platforms](/reference/platforms#interfaces) says where it works.

@@ -106,6 +106,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | A VLAN interface inside another VLAN | IEEE 802.1ad's stacked tags. Name from OpenConfig `openconfig-vlan`: `inner-vlan-id`                                                    | VLAN interface `inner_vlan_id`                                 |
 | VLAN translation                     | IEEE 802.1Q-2022, a port's VID translation table                                                                                        | port `vlan_translation`                                        |
 | Rate limit and burst                 | Practice: RFC 2697 (Informational) for the committed rate and burst. Names from OpenConfig `openconfig-qos`: `cir`, `bc`                | `rate_limit` on an interface, ACL rule `rate`                  |
+| Rate limit for each prefix           | Not a standard: each vendor's own, such as RouterOS's per connection queue (PCQ)                                                        | `rate_limit.per_prefix`                                        |
 
 <!-- vale Google.Units = YES -->
 
