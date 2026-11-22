@@ -532,6 +532,8 @@ export const DEVICE = {
                         bandwidth: 0,
                         ...TUNNEL_PATH,
                         secondary_paths: { "*": { ...TUNNEL_PATH, standby: 0 } },
+                        setup_priority: 0,
+                        hold_priority: 0,
                     },
                 },
             },

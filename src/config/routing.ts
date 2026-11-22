@@ -399,6 +399,9 @@ export type SecondaryPath = TunnelPath & {
     standby?: true;
 };
 
+/** A priority of RSVP-TE (RFC 3209, section 4.7.1): 0 is the highest, 7 the lowest. */
+export type TePriority = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
 /** A tunnel this router starts (RFC 3209): a path of labels to another router, with bandwidth reserved on each link it crosses. Its own `explicit_path` or `cspf` is its primary path. */
 export type RsvpTeTunnel = TunnelPath & {
     /** What the tunnel is for. */
@@ -411,6 +414,10 @@ export type RsvpTeTunnel = TunnelPath & {
      * The paths the tunnel moves to while its primary path is down, keyed by name, tried in the order written, such as `{ "pe-03-around": { cspf: true } }`. Once the primary path is up again, the tunnel moves back. Each name is a path on the device, beside the primary path named after its tunnel, so it is unique among the device's tunnels and their paths.
      */
     secondary_paths?: Readonly<Record<string, SecondaryPath>>;
+    /** How the tunnel ranks for taking bandwidth that other tunnels hold (RFC 3209, section 4.7). Where a link has too little left, it takes the bandwidth of tunnels whose `hold_priority` is lower, which go down. Write `hold_priority` beside it. */
+    setup_priority?: TePriority;
+    /** How the tunnel ranks for keeping its bandwidth: only a tunnel whose `setup_priority` is higher takes it. As high as `setup_priority`, or higher (RFC 3209, section 4.7.3). Write `setup_priority` beside it. */
+    hold_priority?: TePriority;
 };
 
 /** RSVP-TE (RFC 3209): tunnels across the core along paths of your choice, each with bandwidth reserved for it. */

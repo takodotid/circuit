@@ -273,12 +273,14 @@ rsvp_te: {
             bandwidth: "10G",
             cspf: true,
             secondary_paths: { "pe-02-any": { cspf: true, standby: true } },
+            setup_priority: 0,
+            hold_priority: 0,
         },
     },
 },
 ```
 
-While the tunnel's own path is down, it moves to its secondary path, which CSPF computes too, and moves back once its own is up again. With `standby`, the router sets the secondary path up ahead, so the move takes no time to signal.
+While the tunnel's own path is down, it moves to its secondary path, which CSPF computes too, and moves back once its own is up again. With `standby`, the router sets the secondary path up ahead, so the move takes no time to signal. Where a link has too little bandwidth left, a tunnel takes the bandwidth of tunnels whose priority is lower, which go down: 0 is the highest, and this tunnel keeps its bandwidth.
 
 ## EVPN in Circuit
 

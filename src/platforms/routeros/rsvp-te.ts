@@ -1,5 +1,5 @@
 import { Derive } from "../../core/derive";
-import type { Device, Rate, TunnelPath } from "../../model";
+import type { Device, Rate, RsvpTeTunnel, TunnelPath } from "../../model";
 import { RouterOsQueues } from "./queues";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
@@ -24,7 +24,7 @@ export class RouterOsRsvpTe {
         for (const [name, tunnel] of Object.entries(rsvpTe.tunnels ?? {})) {
             const secondaries = Object.entries(tunnel.secondary_paths ?? {});
             for (const [path, settings] of [[name, tunnel] as const, ...secondaries])
-                render.add("/mpls traffic-eng path", "add", RouterOsRsvpTe.path(path, settings));
+                render.add("/mpls traffic-eng path", "add", RouterOsRsvpTe.path(tunnel, path, settings));
 
             render.add("/mpls traffic-eng tunnel", "add", {
                 bandwidth: tunnel.bandwidth && RouterOsRsvpTe.bandwidth(tunnel.bandwidth),
@@ -40,12 +40,14 @@ export class RouterOsRsvpTe {
     }
 
     /**
-     * One path of a tunnel: its hops, or CSPF. A path without `use-cspf` follows its hops alone (TRAPS.md).
+     * One path of a tunnel: its hops, or CSPF. The tunnel's priorities go on each of its paths, as RouterOS signals a path's and ignores the tunnel's own (TRAPS.md). A path without `use-cspf` follows its hops alone (TRAPS.md).
      */
-    private static path(name: string, path: TunnelPath): Record<string, string | undefined> {
+    private static path(tunnel: RsvpTeTunnel, name: string, path: TunnelPath): Record<string, string | undefined> {
         return {
+            "holding-priority": tunnel.hold_priority?.toString(),
             hops: path.explicit_path?.map((hop) => `${hop.address}/${hop.hop_type}`).join(","),
             name,
+            "setup-priority": tunnel.setup_priority?.toString(),
             "use-cspf": path.cspf ? "yes" : undefined,
         };
     }

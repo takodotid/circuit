@@ -60,7 +60,7 @@ export default as64500.device({
         },
         mpls: {
             ldp: { lsr_id: "10.255.1.1", interfaces: ["100g-1", "100g-2"] },
-            // Tunnels may reserve 40G of each link. The pseudowire to ring-03 crosses in the tunnel to ring-03, which reserves 10G along the shortest path that has it. Should that path fail, the tunnel moves at once to its path around the ring, which it holds ready.
+            // Tunnels may reserve 40G of each link. The pseudowire to ring-03 crosses in the tunnel to ring-03, which reserves 10G along the shortest path that has it. Should that path fail, the tunnel moves at once to its path around the ring, which it holds ready. The TV station comes first: its tunnel takes the bandwidth of any other, and no other takes its own.
             rsvp_te: {
                 interfaces: { "100g-1": { bandwidth: "40G" }, "100g-2": { bandwidth: "40G" } },
                 tunnels: {
@@ -78,6 +78,8 @@ export default as64500.device({
                                 standby: true,
                             },
                         },
+                        setup_priority: 0,
+                        hold_priority: 0,
                     },
                 },
             },

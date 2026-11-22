@@ -1,4 +1,4 @@
-// An RSVP-TE tunnel's options on the three CHRs of the devices workflow, linked in a triangle. pe-01's tunnel to pe-02 carries a pseudowire through p-01, and moves to a secondary path while p-01's link to pe-02 is down. The tests run in order.
+// An RSVP-TE tunnel's options on the three CHRs of the devices workflow, linked in a triangle. pe-01's tunnel to pe-02 carries a pseudowire through p-01, and moves to a secondary path while p-01's link to pe-02 is down. Then a tunnel of a higher priority takes the bandwidth of a lower one. The tests run in order.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -23,6 +23,9 @@ const WAIT_MS = 180_000;
 
 const POLL_MS = 3000;
 
+/** How long a tunnel that lost its bandwidth is watched, to see that it stays down. */
+const STAYS_DOWN_MS = 30_000;
+
 /** The pings sent across the pseudowire, and how many must come back: the first few can be lost while the far PE learns where to send its replies. */
 const PINGS = 100;
 const ENOUGH_BACK = 90;
@@ -31,9 +34,10 @@ const PING_INTERVAL = 0.02;
 /** The MTU of a VLAN interface on a bridge where a pseudowire runs, which RouterOS lowers it to (TRAPS.md). */
 const VLAN_MTU = 1496;
 
-/** The bandwidth each link lets tunnels reserve, and what a tunnel reserves. */
+/** The bandwidth each link lets tunnels reserve, what a tunnel reserves, and what two tunnels reserve that one link can't hold together. */
 const LINK_BANDWIDTH = "10M";
 const TUNNEL_BANDWIDTH = "1M";
+const HALF_AND_MORE = "6M";
 
 /** The pseudowire's VLAN and PW ID. */
 const VPWS = { id: 201, pw: 201 };
@@ -226,6 +230,12 @@ const PROTECTED = `{ "pe-02": {
     secondary_paths: { "pe-02-direct": { explicit_path: ${JSON.stringify(STRAIGHT)}, standby: true } },
 } }`;
 
+/** Two tunnels across the direct link that it can't hold together, the first with priorities `low`, the second with `high`. */
+const contending = (low: number, high: number) => `{
+    "pe-02": { destination: "${SECOND_PE.loopback}", bandwidth: "${HALF_AND_MORE}", explicit_path: ${JSON.stringify(STRAIGHT)}, setup_priority: ${low}, hold_priority: ${low} },
+    "pe-02-video": { destination: "${SECOND_PE.loopback}", bandwidth: "${HALF_AND_MORE}", explicit_path: ${JSON.stringify(STRAIGHT)}, setup_priority: ${high}, hold_priority: ${high} },
+}`;
+
 describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options between three CHRs", () => {
     beforeAll(() => {
         write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked in a triangle." } } });\n`);
@@ -276,6 +286,25 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
     );
 
     test(
+        "a tunnel of a higher priority takes the bandwidth of a lower one, which goes down, and gives it back once their priorities change",
+        () => {
+            writeLab({ tunnels: contending(7, 0) });
+            apply([FIRST_PE]);
+            expect(eventually(() => tunnel("pe-02-video").forwarding && !tunnel("pe-02").forwarding)).toBe(true);
+            Bun.sleepSync(STAYS_DOWN_MS);
+            logTe();
+            expect(tunnel("pe-02").forwarding).toBe(false);
+
+            writeLab({ tunnels: contending(0, 7) });
+            apply([FIRST_PE]);
+            const swapped = eventually(() => tunnel("pe-02").forwarding && !tunnel("pe-02-video").forwarding);
+            logTe();
+            expect(swapped).toBe(true);
+        },
+        TEST_MS
+    );
+
+    test(
         "without the options, each apply removes their paths and settings, and diff then finds nothing to change",
         () => {
             writeLab({ tunnels: `{ "pe-02": { destination: "${SECOND_PE.loopback}", explicit_path: ${JSON.stringify(THROUGH_P)} } }` });
@@ -283,7 +312,7 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE tunnel options be
             expect(eventually(() => tunnel("pe-02").nextHop === VIA_P)).toBe(true);
             const exported = exec("pe-01", "/mpls traffic-eng export");
             logTe();
-            expect(exported).not.toMatch(/pe-02-direct|secondary-paths/);
+            expect(exported).not.toMatch(/pe-02-direct|pe-02-video|secondary-paths|priority/);
         },
         TEST_MS
     );

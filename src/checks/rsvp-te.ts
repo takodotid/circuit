@@ -7,6 +7,9 @@ type Report = (message: string) => void;
 
 /** RSVP-TE tunnels (RFC 3209) beside LDP, from the LSR ID, and the traffic engineering of OSPF (RFC 3630) that CSPF reads. */
 export class RsvpTeChecks {
+    /** RFC 3209's priorities, 0 the highest. */
+    private static readonly LOWEST_PRIORITY = 7;
+
     static check(device: Device, report: Report): void {
         RsvpTeChecks.ospf(device, report);
 
@@ -55,7 +58,7 @@ export class RsvpTeChecks {
         }
     }
 
-    /** A tunnel ends at another router's LSR ID, along its paths, with its bandwidth. */
+    /** A tunnel ends at another router's LSR ID, along its paths, with its bandwidth and priorities. */
     private static tunnel(device: Device, at: string, tunnel: RsvpTeTunnel, report: Report): void {
         const lsrId = device.routing?.mpls?.ldp.lsr_id;
         const { destination, bandwidth } = tunnel;
@@ -70,6 +73,8 @@ export class RsvpTeChecks {
         RsvpTeChecks.path(device, at, tunnel, report);
         for (const [name, path] of Object.entries(tunnel.secondary_paths ?? {}))
             RsvpTeChecks.path(device, `${at}.secondary_paths.${name}`, path, report);
+
+        RsvpTeChecks.priorities(at, tunnel, report);
     }
 
     /** A path is the hops written out, or one CSPF computes from OSPF's traffic engineering. */
@@ -97,6 +102,29 @@ export class RsvpTeChecks {
             if (hop.hop_type !== "strict" && hop.hop_type !== "loose")
                 report(`${where}.hop_type ${JSON.stringify(hop.hop_type)} is not strict or loose`);
         });
+    }
+
+    /** Both priorities or neither, each 0 to 7, and the setup priority never higher than the hold priority (RFC 3209, section 4.7.3). */
+    private static priorities(at: string, tunnel: RsvpTeTunnel, report: Report): void {
+        const setup: unknown = tunnel.setup_priority;
+        const hold: unknown = tunnel.hold_priority;
+        if (setup === undefined && hold === undefined) return;
+        if (setup === undefined || hold === undefined) {
+            const missing = setup === undefined ? "setup_priority" : "hold_priority";
+            report(`${at} has ${missing === "setup_priority" ? "hold_priority" : "setup_priority"} alone. Write ${missing} beside it`);
+            return;
+        }
+        const valid = (value: unknown): value is number =>
+            typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= RsvpTeChecks.LOWEST_PRIORITY;
+        for (const [key, value] of [
+            ["setup_priority", setup],
+            ["hold_priority", hold],
+        ] as const)
+            if (!valid(value)) report(`${at}.${key} ${JSON.stringify(value)} is not a priority from 0, the highest, to 7`);
+        if (valid(setup) && valid(hold) && setup < hold)
+            report(
+                `${at}.setup_priority ${setup} is higher than hold_priority ${hold}, so the tunnel could take bandwidth it then gives up to a tunnel like itself (RFC 3209, section 4.7.3). Write a hold_priority of ${setup} or higher, a lower number`
+            );
     }
 
     /** Each path of a tunnel is a path of the device by its name: a primary path is named after its tunnel, and a secondary path by its key. */

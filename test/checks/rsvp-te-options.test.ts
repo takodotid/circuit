@@ -1,4 +1,4 @@
-// What validate says of an RSVP-TE tunnel's secondary paths.
+// What validate says of an RSVP-TE tunnel's options: its secondary paths, and its priorities (RFC 3209, section 4.7).
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -33,10 +33,28 @@ test("a tunnel with its options validates", () => {
                 secondary_paths: {
                     "pe-02-around": { explicit_path: [{ address: "192.0.2.9", hop_type: "loose" }], standby: true },
                 },
+                setup_priority: 4,
+                hold_priority: 3,
             },
         },
     });
     expect(errors(device)).toEqual([]);
+});
+
+test("priorities go together, from 0 to 7, the setup priority never higher than the hold priority (RFC 3209, section 4.7.3)", () => {
+    const device = withRsvpTe({
+        interfaces: { uplink: { bandwidth: "10G" } },
+        tunnels: {
+            alone: { destination: "192.0.2.2", cspf: true, setup_priority: 3 },
+            higher: { destination: "192.0.2.3", cspf: true, setup_priority: 0, hold_priority: 7 },
+            wrong: { destination: "192.0.2.4", cspf: true, setup_priority: 8, hold_priority: 0 } as never,
+        },
+    });
+    expect(errors(device)).toEqual([
+        "routing.mpls.rsvp_te.tunnels.alone has setup_priority alone. Write hold_priority beside it",
+        "routing.mpls.rsvp_te.tunnels.higher.setup_priority 0 is higher than hold_priority 7, so the tunnel could take bandwidth it then gives up to a tunnel like itself (RFC 3209, section 4.7.3). Write a hold_priority of 0 or higher, a lower number",
+        "routing.mpls.rsvp_te.tunnels.wrong.setup_priority 8 is not a priority from 0, the highest, to 7",
+    ]);
 });
 
 test("a secondary path is a path, and has a name of its own on the device", () => {
