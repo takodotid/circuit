@@ -38,7 +38,7 @@ const RANGE = { min: 0, max: 0 } as const;
 const RADIUS_SERVER = { address: 0, secret_key: SECRET, source_address: 0, vrf: 0, auth_port: 0, acct_port: 0 } as const;
 const ISIS_AUTHENTICATION = { algorithm: 0, key_id: 0, key: SECRET } as const satisfies ShapeOf<IsisAuthentication>;
 const LIMIT = { cir: 0, bc: 0 } as const;
-const RATE_LIMIT = { input: LIMIT, output: LIMIT } as const;
+const RATE_LIMIT = { input: LIMIT, output: LIMIT, per_prefix: { ipv4: 0, ipv6: 0, input: 0, output: 0 } } as const;
 
 const FILTER_MATCH = {
     family: 0,
@@ -512,7 +512,7 @@ export const DEVICE = {
     },
     qos: {
         marking: [MARKING_RULE],
-        classes: { "*": { dscp: 0 } },
+        classes: { "*": { dscp: 0, pcp: 0 } },
         default_class: 0,
         schedulers: {
             "*": {

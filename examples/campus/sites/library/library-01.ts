@@ -20,7 +20,7 @@ export default campus.device({
             "2.5g-1": { description: "Management", addresses: ["10.0.0.2/24"] },
             "10g-1": { description: "Backbone VLAN, on the campus switches", addresses: ["10.255.1.2/24", "2001:db8:10:ff01::2/64"] },
             "1g-1": { description: "field-01 ether2", addresses: ["10.1.3.1/30"], link: { device: "field-01", port: "1g-1" } },
-            "1g-2": { description: "Library switch", trunk_vlans: ["reading-rooms", "archive"] },
+            "1g-2": { description: "Library switch", trunk_vlans: ["reading-rooms", "archive", "guests"] },
         },
         vlan_interface: {
             "reading-rooms": {
@@ -30,6 +30,15 @@ export default campus.device({
                 scheduler: "wifi",
             },
             archive: { vlan: "archive", addresses: ["10.1.200.1/24"] },
+            // #region per-prefix
+            // Visitors share 200 Mbit/s down and 50 Mbit/s up, so the readers' own Wi-Fi keeps the rest. Each address gets at most 20 down and 5 up, so one laptop can't take it all. The visitors make their IPv6 addresses in one /64, so each IPv6 address is limited, a /128.
+            guests: {
+                vlan: "guests",
+                addresses: ["10.1.2.1/24", "2001:db8:10:102::1/64"],
+                ipv6_ra: true,
+                rate_limit: { input: "50M", output: "200M", per_prefix: { ipv4: 32, ipv6: 128, input: "5M", output: "20M" } },
+            },
+            // #endregion per-prefix
         },
         loopback: { loopback: { addresses: ["10.255.0.2/32", "2001:db8:10:ffff::2/128"] } },
     },
@@ -37,6 +46,7 @@ export default campus.device({
         vlans: {
             "reading-rooms": { id: 11, description: "Reading rooms' Wi-Fi" },
             archive: { id: 12, description: "The archive's scanners" },
+            guests: { id: 13, description: "Visitors' Wi-Fi" },
         },
     },
 
@@ -61,6 +71,7 @@ export default campus.device({
                     interfaces: {
                         "reading-rooms": { passive: true },
                         archive: { passive: true },
+                        guests: { passive: true },
                         "1g-1": { network: "point-to-point" },
                     },
                 },
