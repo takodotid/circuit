@@ -396,7 +396,7 @@ export class RouterOsFirewall {
     }
 
     /**
-     * Marking rewrites what the device routes, in the mangle table's forward chain, after the TCP MSS clamps. Its rules end with `passthrough=no`, so the first rule that matches marks the packet and the next are skipped. A PCP is the packet's priority, which the VLAN tag it leaves with carries (TRAPS.md). The priority is set first: a DSCP changed first would no longer match the next rule's `dscp`.
+     * Marking rewrites what the device routes, in the mangle table's forward chain, after the TCP MSS clamps. Each rule ends with `passthrough=no`, so the first that matches marks the packet. A PCP is the packet's priority, which its VLAN tag carries (TRAPS.md). A class is a packet mark of its name, which each scheduler moves into its queue. The DSCP changes last, or the next action would no longer match `dscp`.
      */
     private marking(family: Family): void {
         const menu = family === "ipv4" ? "/ip firewall mangle" : "/ipv6 firewall mangle";
@@ -406,9 +406,10 @@ export class RouterOsFirewall {
 
             const dscp = RouterOsFirewall.one(rule.if?.dscp);
             const match = { ...this.matchProperties(rule.if, family), dscp: dscp && Derive.DSCP[dscp] };
-            const { dscp: newDscp, pcp } = rule.then;
+            const { dscp: newDscp, pcp, class: queue } = rule.then;
             const actions = [
                 ...(pcp === undefined ? [] : [{ action: "set-priority", "new-priority": pcp }]),
+                ...(queue === undefined ? [] : [{ action: "mark-packet", "new-packet-mark": queue }]),
                 ...(newDscp === undefined ? [] : [{ action: "change-dscp", "new-dscp": Derive.DSCP[newDscp] }]),
             ];
 
