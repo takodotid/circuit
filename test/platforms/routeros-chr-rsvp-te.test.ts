@@ -193,9 +193,9 @@ function writeLab(mode: Mode, tunnel?: Tunnel): void {
     for (const router of ROUTERS) writeRouter(router, mode, router === FIRST_PE ? tunnel : undefined);
 }
 
-/** How many times the router's routing process failed: RouterOS writes a `supout.rif` file each time. */
+/** How many times the router's routing process failed, by its log: RouterOS writes `supout.rif` again each time. */
 function crashes(device: string): number {
-    const output = exec(device, `:put [:len [/file find where name~"supout"]]`);
+    const output = exec(device, `:put [:len [/log find where message~"supout.rif file generated"]]`);
     return Number(/^(\d+)\s*$/m.exec(output)?.[1] ?? Number.NaN);
 }
 

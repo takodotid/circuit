@@ -161,11 +161,9 @@ export class RouterOsPlan {
     private static readonly REPLACED_ON_CHANGE = new Set(["/routing bgp evpn"]);
 
     /**
-     * Properties whose `unset` crashes the routing process while they name what the device runs: OSPF's `mpls-te-area`, an area of the instance. So did removing that area. Moved first to an area the instance doesn't have, it was unset without a crash (TRAPS.md).
+     * Properties the device can't take back from an entry: OSPF's `mpls-te-area`, whose `unset` or change crashed the routing process, and so did removing the instance's area. Removing the instance did not, and its areas joined it again when it was added back (TRAPS.md). So the entry is removed and added again without them, and an entry that goes is removed before what names it.
      */
-    private static readonly PARKED: Record<string, Record<string, string>> = {
-        "/routing ospf instance": { "mpls-te-area": "255.255.255.255" },
-    };
+    private static readonly KEPT_UNTIL_REMOVED: Record<string, readonly string[]> = { "/routing ospf instance": ["mpls-te-area"] };
 
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
@@ -363,14 +361,14 @@ export class RouterOsPlan {
         const values = Object.fromEntries(Object.entries(update).filter(([property]) => !cleared.includes(property)));
         const set = Object.keys(values).length || flags.length ? [RouterOsPlan.line(menu, "set", selector, flags, values)] : [];
 
-        return [...cleared.flatMap((property) => RouterOsPlan.unsetLines(menu, selector, property)), ...set];
+        return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
     }
 
-    /** An `unset`, after a `set` to the value `PARKED` gives the property. */
-    private static unsetLines(menu: string, selector: string, property: string): string[] {
-        const parked = RouterOsPlan.PARKED[menu]?.[property];
-        const unset = `${menu} unset ${selector} ${property}`;
-        return parked === undefined ? [unset] : [RouterOsPlan.line(menu, "set", selector, [], { [property]: parked }), unset];
+    /** Whether `entry` holds a property the device can't take back, which `wanted` doesn't: no `wanted` when the entry goes. */
+    private static keptUntilRemoved(menu: string, entry: Command, wanted?: Command): boolean {
+        return (RouterOsPlan.KEPT_UNTIL_REMOVED[menu] ?? []).some(
+            (property) => entry.attrs[property] !== undefined && entry.attrs[property] !== wanted?.attrs[property]
+        );
     }
 
     /**
@@ -556,7 +554,7 @@ export class RouterOsPlan {
             if (!Object.keys(update).length && !flags.length) continue;
 
             const selector = RouterOsPlan.find(menu, RouterOsExport.selector(current));
-            if (RouterOsPlan.REPLACED_ON_CHANGE.has(menu)) {
+            if (RouterOsPlan.REPLACED_ON_CHANGE.has(menu) || RouterOsPlan.keptUntilRemoved(menu, current, entry)) {
                 changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
                 changeStep.send.push(`${menu} remove ${selector}`);
                 changeStep.send.push(...RouterOsPlan.adding(menu, entry));
@@ -594,19 +592,13 @@ export class RouterOsPlan {
             removeStep.send.push(`${menu} remove [ find list=${RouterOsPlan.quote(list)} and !dynamic ]`);
         }
 
-        // What the entry names that the device can't take back while it is removed goes first, with the changes.
-        for (const entry of removed)
-            for (const property of Object.keys(RouterOsPlan.PARKED[menu] ?? {}))
-                if (entry.attrs[property] !== undefined)
-                    changeStep.send.push(
-                        ...RouterOsPlan.unsetLines(menu, RouterOsPlan.find(menu, RouterOsExport.selector(entry)), property)
-                    );
-
         for (const entry of RouterOsPlan.onOthersFirst(menu, removed)) {
             if (wholeLists.has(entry.attrs.list ?? "")) continue;
 
-            removeStep.show.push(`- ${RouterOsExport.canonical(entry)}`);
-            removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(entry))}`);
+            // One that holds what the device can't take back goes with the changes, before what names it.
+            const step = RouterOsPlan.keptUntilRemoved(menu, entry) ? changeStep : removeStep;
+            step.show.push(`- ${RouterOsExport.canonical(entry)}`);
+            step.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(entry))}`);
         }
 
         if (changeStep.send.length) result.first.push(changeStep);
