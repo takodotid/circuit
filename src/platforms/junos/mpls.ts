@@ -17,14 +17,17 @@ export class JunosMpls {
         }
     }
 
-    /** Junos has no LSR ID of its own for LDP in the main instance: it is the router ID. Targeted LDP and LDP's policies, the device's and its neighbors', wait for a router that runs MPLS. */
+    /** Junos has no LSR ID of its own for LDP in the main instance: it is the router ID. LDP for IPv6, targeted LDP, and LDP's policies, the device's and its neighbors', wait for a router that runs MPLS. */
     static unsupported(device: Device): string[] {
         const ldp = device.routing?.mpls?.ldp;
         if (!ldp) return [];
 
-        const found = (["targets", "import_policy", "export_policy", "neighbors"] as const)
-            .filter((key) => ldp[key] !== undefined)
-            .map((key) => `routing.mpls.ldp.${key}, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
+        const keys = (
+            ["ipv6_transport_address", "prefer_ipv4_transport", "targets", "import_policy", "export_policy", "neighbors"] as const
+        ).filter((key) => ldp[key] !== undefined);
+        const found = [...(ldp.address_families?.includes("ipv6") ? ["address_families ipv6"] : []), ...keys].map(
+            (key) => `routing.mpls.ldp.${key}, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`
+        );
         if (ldp.lsr_id !== device.routing?.router_id)
             found.push(
                 `routing.mpls.ldp.lsr_id ${ldp.lsr_id}, Junos takes the LSR ID from routing.router_id: write the same address in both`

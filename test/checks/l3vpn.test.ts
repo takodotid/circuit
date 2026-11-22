@@ -76,6 +76,26 @@ test("each VRF in an L3VPN has a route distinguisher of its own and route target
     ]);
 });
 
+test("a session between IPv6 loopbacks carries VPN routes from the IPv6 transport address, with LDP for IPv6", () => {
+    const overIpv6: Partial<Neighbor> = { address: "2001:db8:100:ffff::2", address_families: ["vpnv6"] };
+    expect(errors(withSession({ ...overIpv6, local_address: "2001:db8:100:ffff::1" }))).toEqual([]);
+    expect(errors(withSession({ ...overIpv6, local_address: "2001:db8:100:ffff::3" }))).toEqual([
+        "routing.bgp.neighbors.pe-02 carries vpnv6 from 2001:db8:100:ffff::3, and the far PE sends the VRFs' traffic to that address, by the label LDP gives this router's IPv6 transport address. Write local_address: \"2001:db8:100:ffff::1\"",
+    ]);
+
+    const session = withSession({ ...overIpv6, local_address: "2001:db8:100:ffff::1" });
+    const ldp = {
+        ...pe01.routing!.mpls!.ldp,
+        address_families: ["ipv4"] as const,
+        ipv6_transport_address: undefined,
+        prefer_ipv4_transport: undefined,
+    };
+    const ipv4Only: Device = { ...session, routing: { ...session.routing, mpls: { ldp } } };
+    expect(errors(ipv4Only)).toContain(
+        "routing.bgp.neighbors.pe-02 carries vpnv6 to 2001:db8:100:ffff::2, and LDP here labels IPv4 routes only. Write the far PE's LSR ID, its IPv4 loopback, or add ipv6 to routing.mpls.ldp.address_families"
+    );
+});
+
 test("a session that carries VPN routes is iBGP, in the main table, from the LSR ID, over MPLS", () => {
     expect(errors(withSession({ remote_as: 64501 }))).toContain(
         "routing.bgp.neighbors.pe-02 carries vpnv4 to AS64501, another AS. Circuit carries VPN routes between the PEs of one AS: write them on an iBGP neighbor, remote_as 64500"
