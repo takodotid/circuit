@@ -438,6 +438,23 @@ test("the default neighbor discovery entry printed with advertise-dns plans noth
     expect(plan.steps).toEqual([]);
 });
 
+// A new CHR's own keymat provider comes and goes by itself. RouterOS prints it with `add`, and refuses that `add` as printed (CHR, 7.24.6).
+test("the device's own keymat provider plans nothing, printed or not, and is changed in place, never removed", () => {
+    const adapter = Platforms.get("routeros");
+    const options = { secrets: false, rollback: 10 };
+    const printed = "/system keymat-provider\nadd disabled=yes key-size=0 name=default qkd-cache-size=0 qkd-certificate=*0 type=qkd\n";
+
+    expect(adapter.plan("", printed, options)).toEqual({ steps: [], problems: [] });
+    expect(adapter.plan("", "", options)).toEqual({ steps: [], problems: [] });
+
+    const changed = printed.replace("qkd-cache-size=0", "qkd-cache-size=16");
+    expect(routerOsSends("", changed)).toEqual(["/system keymat-provider set default qkd-cache-size=0"]);
+
+    // A provider of the person's own is removed, as anything else the config does not hold.
+    const another = `${printed}add name=qkd-lab qkd-address=192.0.2.10:443 type=qkd\n`;
+    expect(routerOsSends("", another)).toEqual(["/system keymat-provider remove [ find name=qkd-lab ]"]);
+});
+
 // An RB5009's default configuration shares a USB disk on its bridge. Circuit writes none of it.
 test("an RB5009's disk sharing from its default configuration is reset", () => {
     const adapter = Platforms.get("routeros");

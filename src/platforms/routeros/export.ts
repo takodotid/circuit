@@ -400,6 +400,18 @@ export class RouterOsExport {
             "memory-lines": "1000",
         },
         "/system package update": { channel: "stable" },
+        // As a CHR on 7.24.6 printed its own entry with `export verbose`. It ships disabled.
+        "/system keymat-provider": {
+            disabled: "yes",
+            "hkdf-hash": "sha256",
+            "key-size": "0",
+            "qkd-address": "",
+            "qkd-cache-size": "0",
+            "qkd-certificate": "*0",
+            "qkd-kme-id": "",
+            "qkd-peer-sae-id": "",
+            type: "qkd",
+        },
         "/system routerboard settings": { "enter-setup-on": "any-key" },
         "/interface ethernet switch": { "l3-hw-offloading": "no" },
         "/interface ethernet switch l3hw-settings": { autorestart: "no", "ipv6-hw": "no" },
@@ -424,6 +436,11 @@ export class RouterOsExport {
         // The PPP profiles `default` and `default-encryption`, as the export addresses them.
         "/ppp profile": { "*0": { "change-tcp-mss": "yes" }, "*FFFFFFFE": { "change-tcp-mss": "yes", "use-encryption": "yes" } },
     };
+
+    /**
+     * Entries the device makes itself, by menu and name, which the export prints as `add`. Each is read as a setting addressed by its name, `set default`, so the plan changes it but never adds or removes it. A new router's keymat provider comes and goes by itself, and an `add` as printed is refused (TRAPS.md).
+     */
+    private static readonly BUILT_IN: Record<string, string> = { "/system keymat-provider": "default" };
 
     /** Properties RouterOS 7.24 prints under another name, read as the name the render writes (TRAPS.md). */
     private static readonly RENAMED: Record<string, Record<string, string>> = { "/ip service": { "available-from": "address" } };
@@ -667,6 +684,11 @@ export class RouterOsExport {
             if (name.startsWith(".")) name = group + name;
             else if (name.includes(".")) group = name.split(".")[0]!;
             attrs[name] = RouterOsExport.unquote(word.slice(equals + 1));
+        }
+
+        const { name: entry, ...properties } = attrs;
+        if (verb === "add" && entry !== undefined && RouterOsExport.BUILT_IN[menu] === entry) {
+            return { menu, verb: "set", selector: entry, flags, attrs: properties };
         }
 
         return { menu, verb, selector, flags, attrs };
