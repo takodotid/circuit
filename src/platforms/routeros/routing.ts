@@ -419,11 +419,10 @@ export class RouterOsRouting {
             const verb = route.blackhole ? "add blackhole" : "add";
             const nextHop = route.next_hop && Address.host(route.next_hop);
             const out = route.interface && this.render.name(route.interface);
-            // A route in a VRF through a PPPoE client stays inactive unless its gateway says the VRF: `internet@wan` (TRAPS.md).
-            const session = route.interface !== undefined && this.device.interfaces?.pppoe_client?.[route.interface] !== undefined;
-            const through = out && session && route.vrf ? `${out}@${route.vrf}` : out;
             // A next hop with its interface is written `fe80::1%ether1`, the form a link-local next hop needs (TRAPS.md).
-            const gateway = nextHop && out ? `${nextHop}%${out}` : (nextHop ?? through);
+            const through = nextHop && out ? `${nextHop}%${out}` : (nextHop ?? out);
+            // RouterOS looks a gateway up in main unless the gateway ends in its VRF, so a route in a VRF without it stays inactive: `192.0.2.2@wan`, `ether1@wan` (TRAPS.md).
+            const gateway = through && route.vrf ? `${through}@${route.vrf}` : through;
             this.render.add(menu, verb, {
                 comment: route.description,
                 distance: route.distance,

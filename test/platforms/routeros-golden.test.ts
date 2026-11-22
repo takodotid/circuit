@@ -58,6 +58,11 @@ function withPrependAsAsked(text: string): string {
     return text.replace(/bgp-path-prepend (\d+)/g, (_, count: string) => `bgp-path-prepend ${Number(count) - 1}`);
 }
 
+/** 0.x wrote the gateway of a route in a VRF without the VRF, which RouterOS keeps inactive (TRAPS.md). It is left out of the comparison. */
+function withoutGatewayVrf(text: string): string {
+    return text.replace(/( gateway="?[^\s"@]+)@[^\s"]+/g, "$1");
+}
+
 function advertises(device: Device): boolean {
     return Object.values(device.interfaces ?? {}).some((group) =>
         Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
@@ -120,7 +125,7 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
             ]);
 
             if (!(name in ORDER_ONLY)) {
-                expect(withPrependAsAsked(rendered)).toBe(old);
+                expect(withoutGatewayVrf(withPrependAsAsked(rendered))).toBe(old);
                 return;
             }
 
@@ -129,7 +134,7 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
             // A user with a key keeps its password for SSH too, which Circuit logs in by. 0.x left the platform's default.
             const keys = Object.values(device.system?.users ?? {}).some((user) => user?.ssh_keys?.length);
             if (keys) expect(rendered).toContain("/ip ssh\nset password-authentication=yes ");
-            const compared = withPrependAsAsked(withoutNewInV1(withoutRouterAdvertisements(rendered))).replace(
+            const compared = withoutGatewayVrf(withPrependAsAsked(withoutNewInV1(withoutRouterAdvertisements(rendered)))).replace(
                 "set password-authentication=yes ",
                 "set "
             );
