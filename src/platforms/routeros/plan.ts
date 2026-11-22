@@ -167,6 +167,9 @@ export class RouterOsPlan {
     /** An OSPF instance's traffic engineering, which the device can't take back: unsetting `mpls-te-area`, changing it, or removing the instance's area crashed the routing process (TRAPS.md). */
     private static readonly OSPF_TE = ["mpls-te-area", "mpls-te-address"];
 
+    /** How long the plan points an area at its instance added again, until it holds. */
+    private static readonly AREA_JOIN_SECONDS = 30;
+
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
 
@@ -367,6 +370,14 @@ export class RouterOsPlan {
         return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
     }
 
+    /** Points an OSPF area at an instance added again, each second until it holds, for up to `AREA_JOIN_SECONDS`. A `set` right after the instance came back did not hold (TRAPS.md). */
+    private static untilAreaJoins(area: string, instance: string): string {
+        const selector = RouterOsPlan.find(RouterOsPlan.OSPF_AREA, { name: area });
+        const set = RouterOsPlan.line(RouterOsPlan.OSPF_AREA, "set", selector, [], { instance });
+        const joined = `[${RouterOsPlan.OSPF_AREA} get ${selector} instance] = "${instance}"`;
+        return `:local tries 0; :while ($tries < ${RouterOsPlan.AREA_JOIN_SECONDS}) do={ ${set}; :delay 1s; :if (${joined}) do={ :set tries ${RouterOsPlan.AREA_JOIN_SECONDS} } else={ :set tries ($tries + 1) } }`;
+    }
+
     /**
      * Takes traffic engineering off each OSPF instance that has it and is not to keep it, first. Removing the instance did not crash the routing process. The instance is added again without it, and its areas point at it again, as they did. The rest of the plan then starts from that, so it never unsets `mpls-te-area` itself (TRAPS.md).
      */
@@ -388,15 +399,7 @@ export class RouterOsPlan {
                 RouterOsPlan.line(command.menu, "add", "", plain.flags, attrs)
             );
             for (const area of have.commands.filter((other) => other.menu === RouterOsPlan.OSPF_AREA && other.attrs.instance === name))
-                step.send.push(
-                    RouterOsPlan.line(
-                        RouterOsPlan.OSPF_AREA,
-                        "set",
-                        RouterOsPlan.find(RouterOsPlan.OSPF_AREA, { name: area.attrs.name ?? "" }),
-                        [],
-                        { instance: name }
-                    )
-                );
+                step.send.push(RouterOsPlan.untilAreaJoins(area.attrs.name ?? "", name));
             return plain;
         });
         return step.send.length ? { step, have: { ...have, commands } } : { have };

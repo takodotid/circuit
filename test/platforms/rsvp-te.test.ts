@@ -78,7 +78,8 @@ test("the device validates, and RouterOS writes OSPF's traffic engineering, RSVP
     expect(sent(without, desired)).toEqual([
         "/routing ospf instance remove [ find name=ospf-v2 ]",
         "/routing ospf instance add name=ospf-v2 redistribute=connected,static router-id=192.0.2.255 version=2",
-        "/routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2",
+        // A `set` right after the instance came back did not hold, so it is sent until it does.
+        ':local tries 0; :while ($tries < 30) do={ /routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2; :delay 1s; :if ([/routing ospf area get [ find name=ospf-v2-0.0.0.0 ] instance] = "ospf-v2") do={ :set tries 30 } else={ :set tries ($tries + 1) } }',
         "/mpls traffic-eng tunnel remove [ find name=pe-02 ]",
         "/mpls traffic-eng tunnel remove [ find name=pe-03 ]",
         "/mpls traffic-eng path remove [ find name=pe-02 ]",
@@ -96,7 +97,8 @@ test("RouterOS takes traffic engineering off an OSPF instance it removes, before
     expect(steps.slice(0, 3)).toEqual([
         "/routing ospf instance remove [ find name=ospf-v2 ]",
         "/routing ospf instance add name=ospf-v2 redistribute=connected,static router-id=192.0.2.255 version=2",
-        "/routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2",
+        // A `set` right after the instance came back did not hold, so it is sent until it does.
+        ':local tries 0; :while ($tries < 30) do={ /routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2; :delay 1s; :if ([/routing ospf area get [ find name=ospf-v2-0.0.0.0 ] instance] = "ospf-v2") do={ :set tries 30 } else={ :set tries ($tries + 1) } }',
     ]);
     const area = steps.findIndex((line) => line.startsWith("/routing ospf area remove"));
     expect(steps.lastIndexOf("/routing ospf instance remove [ find name=ospf-v2 ]")).toBeGreaterThan(area);
