@@ -160,10 +160,12 @@ export class RouterOsPlan {
     /** Menus whose running entry a `set` stops for good: an EVPN entry logs `stop`, and never starts again (TRAPS.md). A change there removes the entry and adds it again, which starts it. */
     private static readonly REPLACED_ON_CHANGE = new Set(["/routing bgp evpn"]);
 
-    /**
-     * Properties the device can't take back from an entry: OSPF's `mpls-te-area`, whose `unset` or change crashed the routing process, and so did removing the instance's area. Removing the instance did not, and its areas joined it again when it was added back (TRAPS.md). So the entry is removed and added again without them, and an entry that goes is removed before what names it.
-     */
-    private static readonly KEPT_UNTIL_REMOVED: Record<string, readonly string[]> = { "/routing ospf instance": ["mpls-te-area"] };
+    private static readonly OSPF_INSTANCE = "/routing ospf instance";
+
+    private static readonly OSPF_AREA = "/routing ospf area";
+
+    /** An OSPF instance's traffic engineering, which the device can't take back: unsetting `mpls-te-area`, changing it, or removing the instance's area crashed the routing process (TRAPS.md). */
+    private static readonly OSPF_TE = ["mpls-te-area", "mpls-te-address"];
 
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
@@ -203,7 +205,8 @@ export class RouterOsPlan {
 
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         const want = RouterOsExport.parse(desired);
-        const have = RouterOsExport.parse(current);
+        const teOff = RouterOsPlan.ospfTeOff(want, RouterOsExport.parse(current));
+        const have = teOff.have;
         const planner = new RouterOsPlan(options.secrets);
 
         // A list from a registry that the render did not fetch keeps the entries the device holds.
@@ -222,7 +225,7 @@ export class RouterOsPlan {
         const menus = [...new Set([...wantedByMenu.keys(), ...existingByMenu.keys()])].sort(
             (a, b) => RouterOsPlan.rank(a) - RouterOsPlan.rank(b) || a.localeCompare(b)
         );
-        const first: Step[] = [];
+        const first: Step[] = teOff.step ? [teOff.step] : [];
         const last: Step[] = [];
 
         for (const menu of menus) {
@@ -364,11 +367,39 @@ export class RouterOsPlan {
         return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
     }
 
-    /** Whether `entry` holds a property the device can't take back, which `wanted` doesn't: no `wanted` when the entry goes. */
-    private static keptUntilRemoved(menu: string, entry: Command, wanted?: Command): boolean {
-        return (RouterOsPlan.KEPT_UNTIL_REMOVED[menu] ?? []).some(
-            (property) => entry.attrs[property] !== undefined && entry.attrs[property] !== wanted?.attrs[property]
-        );
+    /**
+     * Takes traffic engineering off each OSPF instance that has it and is not to keep it, first. Removing the instance did not crash the routing process. The instance is added again without it, and its areas point at it again, as they did. The rest of the plan then starts from that, so it never unsets `mpls-te-area` itself (TRAPS.md).
+     */
+    private static ospfTeOff(want: Parsed, have: Parsed): { step?: Step; have: Parsed } {
+        const step: Step = { title: RouterOsPlan.OSPF_INSTANCE, show: [], send: [] };
+        const commands = have.commands.map((command) => {
+            if (command.menu !== RouterOsPlan.OSPF_INSTANCE || command.attrs["mpls-te-area"] === undefined) return command;
+            const name = command.attrs.name ?? "";
+            const wanted = want.commands.find((other) => other.menu === command.menu && other.attrs.name === name);
+            if (wanted?.attrs["mpls-te-area"] === command.attrs["mpls-te-area"]) return command;
+
+            const attrs = Object.fromEntries(
+                Object.entries(command.attrs).filter(([property]) => !RouterOsPlan.OSPF_TE.includes(property))
+            );
+            const plain: Command = { ...command, attrs };
+            step.show.push(`~ ${name}: traffic engineering off, by removing the instance and adding it again, which restarts OSPF`);
+            step.send.push(
+                `${command.menu} remove ${RouterOsPlan.find(command.menu, { name })}`,
+                RouterOsPlan.line(command.menu, "add", "", plain.flags, attrs)
+            );
+            for (const area of have.commands.filter((other) => other.menu === RouterOsPlan.OSPF_AREA && other.attrs.instance === name))
+                step.send.push(
+                    RouterOsPlan.line(
+                        RouterOsPlan.OSPF_AREA,
+                        "set",
+                        RouterOsPlan.find(RouterOsPlan.OSPF_AREA, { name: area.attrs.name ?? "" }),
+                        [],
+                        { instance: name }
+                    )
+                );
+            return plain;
+        });
+        return step.send.length ? { step, have: { ...have, commands } } : { have };
     }
 
     /**
@@ -554,7 +585,7 @@ export class RouterOsPlan {
             if (!Object.keys(update).length && !flags.length) continue;
 
             const selector = RouterOsPlan.find(menu, RouterOsExport.selector(current));
-            if (RouterOsPlan.REPLACED_ON_CHANGE.has(menu) || RouterOsPlan.keptUntilRemoved(menu, current, entry)) {
+            if (RouterOsPlan.REPLACED_ON_CHANGE.has(menu)) {
                 changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
                 changeStep.send.push(`${menu} remove ${selector}`);
                 changeStep.send.push(...RouterOsPlan.adding(menu, entry));
@@ -595,10 +626,8 @@ export class RouterOsPlan {
         for (const entry of RouterOsPlan.onOthersFirst(menu, removed)) {
             if (wholeLists.has(entry.attrs.list ?? "")) continue;
 
-            // One that holds what the device can't take back goes with the changes, before what names it.
-            const step = RouterOsPlan.keptUntilRemoved(menu, entry) ? changeStep : removeStep;
-            step.show.push(`- ${RouterOsExport.canonical(entry)}`);
-            step.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(entry))}`);
+            removeStep.show.push(`- ${RouterOsExport.canonical(entry)}`);
+            removeStep.send.push(`${menu} remove ${RouterOsPlan.find(menu, RouterOsExport.selector(entry))}`);
         }
 
         if (changeStep.send.length) result.first.push(changeStep);

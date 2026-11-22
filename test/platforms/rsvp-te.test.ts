@@ -74,10 +74,11 @@ test("the device validates, and RouterOS writes OSPF's traffic engineering, RSVP
         "/mpls traffic-eng tunnel add bandwidth=1500M from-address=192.0.2.255 name=pe-02 primary-path=pe-02 to-address=192.0.2.2",
         '/mpls traffic-eng tunnel add comment="pe-03, the clinic\'s pseudowire" from-address=192.0.2.255 name=pe-03 primary-path=pe-03 to-address=192.0.2.3',
     ]);
-    // `unset mpls-te-area` crashed the routing process, and removing the instance did not: its area joined it again once it was back (TRAPS.md).
+    // `unset mpls-te-area` crashed the routing process, and removing the instance did not. Its area points at it again once it is back (TRAPS.md).
     expect(sent(without, desired)).toEqual([
         "/routing ospf instance remove [ find name=ospf-v2 ]",
         "/routing ospf instance add name=ospf-v2 redistribute=connected,static router-id=192.0.2.255 version=2",
+        "/routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2",
         "/mpls traffic-eng tunnel remove [ find name=pe-02 ]",
         "/mpls traffic-eng tunnel remove [ find name=pe-03 ]",
         "/mpls traffic-eng path remove [ find name=pe-02 ]",
@@ -86,16 +87,20 @@ test("the device validates, and RouterOS writes OSPF's traffic engineering, RSVP
     ]);
 });
 
-test("RouterOS removes an OSPF instance with traffic engineering before the instance's area, which crashed its routing otherwise", () => {
+test("RouterOS takes traffic engineering off an OSPF instance it removes, before it removes the instance's area, which crashed its routing otherwise", () => {
     const device = withRsvpTe(RSVP_TE);
     const desired = routeros.render(device);
     const withoutOspf = routeros.render({ ...device, routing: { ...device.routing, ospf: undefined, mpls: undefined } });
     const steps = sent(withoutOspf, desired);
 
-    const instance = steps.indexOf("/routing ospf instance remove [ find name=ospf-v2 ]");
+    expect(steps.slice(0, 3)).toEqual([
+        "/routing ospf instance remove [ find name=ospf-v2 ]",
+        "/routing ospf instance add name=ospf-v2 redistribute=connected,static router-id=192.0.2.255 version=2",
+        "/routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2",
+    ]);
     const area = steps.findIndex((line) => line.startsWith("/routing ospf area remove"));
-    expect(instance).toBeGreaterThanOrEqual(0);
-    expect(area).toBeGreaterThan(instance);
+    expect(steps.lastIndexOf("/routing ospf instance remove [ find name=ospf-v2 ]")).toBeGreaterThan(area);
+    expect(steps.filter((line) => line.includes("mpls-te"))).toEqual([]);
 });
 
 test("RouterOS changes a tunnel in place: CSPF in place of its hops, and back, and without its bandwidth", () => {
