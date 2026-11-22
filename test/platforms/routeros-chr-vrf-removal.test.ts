@@ -15,8 +15,8 @@ const password = process.env.CIRCUIT_TEST_CHR_PASSWORD ?? "";
 const repo = join(import.meta.dir, "..", "..");
 const folder = realpathSync(mkdtempSync(join(tmpdir(), "circuit-chr-vrf-removal-")));
 
-/** The test applies to edge-01 six times, and waits for pings after each. */
-const TEST_MS = 400_000;
+/** The test applies to each far router once, then to edge-01 six times, and waits for pings after each. */
+const TEST_MS = 500_000;
 
 /** How long a link has to carry pings after an apply. */
 const WAIT_MS = 30_000;
@@ -181,13 +181,7 @@ describe.skipIf(!edgeChr || !cpeChr || !hostChr)("a CHR's ports leaving VRFs for
         write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked port to port." } } });\n`);
         writeFar("cpe-01", cpeChr!, "10.0.1", CPE);
         writeFar("host-01", hostChr!, "10.0.2", HOST);
-        for (const device of ["cpe-01", "host-01"]) {
-            // A diff first: the first export after a boot leaves out what the apply's read would then miss (TRAPS.md).
-            circuit("diff", device);
-            expect(circuit("apply", device, "--confirm").status).toBe(0);
-            expect(circuit("diff", device).status).toBe(0);
-        }
-        circuit("diff", "edge-01");
+        writeEdge(IN_VRFS);
     });
 
     afterAll(() => rmSync(folder, { recursive: true, force: true }));
@@ -195,7 +189,13 @@ describe.skipIf(!edgeChr || !cpeChr || !hostChr)("a CHR's ports leaving VRFs for
     test(
         "each port joins the bridge or the LAG once out of its VRF, routes in main once out of them, and goes back the same way",
         () => {
-            writeEdge(IN_VRFS);
+            for (const device of ["cpe-01", "host-01"]) {
+                // A diff first: the first export after a boot leaves out what the apply's read would then miss (TRAPS.md).
+                circuit("diff", device);
+                expect(circuit("apply", device, "--confirm").status).toBe(0);
+                expect(circuit("diff", device).status).toBe(0);
+            }
+            circuit("diff", "edge-01");
             converges({ cpe: CUSTOMERS, host: SERVICES });
 
             writeEdge(JOINED);
