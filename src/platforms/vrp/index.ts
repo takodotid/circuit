@@ -259,7 +259,12 @@ export class Vrp extends Platform {
             if (!device.interfaces?.vlan_interface?.[relay.interface])
                 found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
             if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
+            if (relay.relay_agent_information)
+                found.push(`services.dhcp_relay.${name}.relay_agent_information, Option 82, not built for VRP`);
         }
+        for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {}))
+            if (server.relay !== undefined)
+                found.push(`services.dhcp_server.${name}.relay, a server for a relay's clients, not built for VRP`);
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
         found.push(...VrpAaa.unsupported(device));

@@ -16,6 +16,7 @@ import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, P
 import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
 import { JunosBgpSessions } from "./bgp-sessions";
+import { JunosDhcp } from "./dhcp";
 import { JunosIsis } from "./isis";
 import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
@@ -107,15 +108,13 @@ export class Junos extends Platform {
     /** Read on a QFX5100 without BGP, where the device says `BGP is not running`. A session's fields come from Juniper's documentation. */
     override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
 
-    /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF, and a DHCP server on an interface in one, only passed `commit check`. */
+    /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF only passed `commit check`. */
     override experimental(device: Device): string[] {
         const found = Derive.serviceVrfs(device)
             .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa."))
             .map(({ where }) => where);
         if (device.routing?.vrf_imports) found.push("routing.vrf_imports");
-        for (const group of ["dhcp_server", "dhcpv6_server"] as const)
-            for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
-                if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
+        found.push(...JunosDhcp.experimental(device));
         // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
         if (device.routing?.mpls) found.push("routing.mpls");
         // IS-IS multi-topology, the leak into level 1, and HMAC-SHA passed `commit check` only, in a candidate that was never committed.
@@ -363,31 +362,9 @@ export class Junos extends Platform {
         if (system.hardware_offload !== undefined) found.push("system.hardware_offload");
         if (system.certificates !== undefined) found.push("system.certificates");
 
-        const services = device.services ?? {};
-        const relayed = new Set(Object.values(services.dhcp_relay ?? {}).map((relay) => relay.interface));
-
-        for (const [name, server] of Object.entries(services.dhcp_server ?? {})) {
-            // The device refuses a relay and a server on one interface: `Interface irb.10 already configured`.
-            if (relayed.has(server.interface)) found.push(`services.dhcp_server.${name}.interface, which a DHCP relay also uses`);
-
-            if (Derive.settings(device, server.interface)?.vrf) found.push(`services.dhcp_server.${name}.interface, which routes in a VRF`);
-        }
-
-        for (const [name, server] of Object.entries(services.dhcpv6_server ?? {})) {
-            const where = `services.dhcpv6_server.${name}`;
-            if (Derive.settings(device, server.interface)?.vrf) found.push(`${where}.interface, which routes in a VRF`);
-            if (!server.pool && !server.prefix_delegation && server.dns?.length)
-                found.push(
-                    `${where} without pool or prefix_delegation: Junos takes the DNS servers it gives from a pool's settings. Write pool or prefix_delegation, or announce the DNS servers in ipv6_ra.dns_servers`
-                );
-        }
-
-        for (const [name, relay] of Object.entries(services.dhcp_relay ?? {})) {
-            if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
-        }
-        if (services.pppoe_server)
+        found.push(...JunosDhcp.unsupported(device));
+        if (device.services?.pppoe_server)
             found.push("services.pppoe_server, Junos serves PPPoE subscribers on MX routers only, which Circuit does not support");
-        for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for Junos`);
 
         const flow = device.monitoring?.flow_export;
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
