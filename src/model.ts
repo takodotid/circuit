@@ -65,6 +65,8 @@ export type VlanInterface = C.VlanInterface<string, string>;
 export type Loopback = C.Loopback<string>;
 export type Gre = C.Gre<string>;
 export type Vxlan = C.Vxlan<string>;
+/** The settings of other ports and interfaces a VXLAN segment in EVPN has none of are never there, so code reads them from any port or interface alike. */
+export type EvpnVxlan = C.EvpnVxlan<string> & Partial<Record<Exclude<keyof C.Switched<string>, "access_vlan">, never>>;
 /** The settings of other interfaces an IPsec tunnel has none of are never there, so code reads them from any interface alike. */
 export type Ipsec = C.Ipsec & Partial<Record<Exclude<keyof C.Base<string>, keyof C.Ipsec>, never>>;
 export type WireGuard = C.WireGuard<string, string>;
@@ -79,7 +81,8 @@ export type PppoeClient = C.PppoeClient<string, string, string> &
     Partial<Record<Exclude<keyof C.Base<string>, keyof C.PppoeClient<string, string, string>>, never>>;
 
 /** Any interface that is not a port: what `interfaces` holds besides `ethernet`. */
-export type Interface = Lag | VlanInterface | Loopback | Gre | Vxlan | Ipsec | WireGuard | Bridge | Eoip | Pseudowire | PppoeClient;
+export type Interface =
+    Lag | VlanInterface | Loopback | Gre | Vxlan | EvpnVxlan | Ipsec | WireGuard | Bridge | Eoip | Pseudowire | PppoeClient;
 
 /** The kinds of interface `interfaces` groups by, besides `ethernet`. */
 export type InterfaceKind =

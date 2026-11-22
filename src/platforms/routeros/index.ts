@@ -25,6 +25,7 @@ import { BgpHealth } from "../bgp-health";
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
 import { RouterOsDhcp } from "./dhcp";
+import { RouterOsEvpn } from "./evpn";
 import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
@@ -328,6 +329,7 @@ export class RouterOs extends Platform {
         }
 
         found.push(...RouterOsRouting.vrfGaps(device));
+        found.push(...RouterOsEvpn.unsupported(device));
         found.push(...RouterOsRouting.isisGaps(device), ...RouterOsRouting.ldpGaps(device), ...RouterOsRouting.ospfGaps(device));
 
         const bgp = device.routing?.bgp;

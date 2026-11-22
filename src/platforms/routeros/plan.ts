@@ -74,6 +74,8 @@ export class RouterOsPlan {
         "/routing bgp connection",
         // A VPN entry names its VRF, its instance, and its chains.
         "/routing bgp vpn",
+        // An EVPN entry names its instance, and takes the VXLAN interface of its VNI.
+        "/routing bgp evpn",
         "/routing ospf instance",
         "/routing ospf area",
         // A range and a static neighbor name their area.
@@ -148,6 +150,9 @@ export class RouterOsPlan {
      * Properties a running entry takes only when it restarts. A BGP session given a new `routing-table` stops announcing at once, and keeps its routes in the old table until it restarts (TRAPS.md). So the plan disables the connection, changes it, waits until its session closes, and enables it again.
      */
     private static readonly RESTART_ON: Record<string, string[]> = { "/routing bgp connection": ["routing-table"] };
+
+    /** Menus whose running entry a `set` stops for good: an EVPN entry logs `stop`, and never starts again (TRAPS.md). A change there removes the entry and adds it again, which starts it. */
+    private static readonly REPLACED_ON_CHANGE = new Set(["/routing bgp evpn"]);
 
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
@@ -531,6 +536,13 @@ export class RouterOsPlan {
             if (!Object.keys(update).length && !flags.length) continue;
 
             const selector = RouterOsPlan.find(menu, RouterOsExport.selector(current));
+            if (RouterOsPlan.REPLACED_ON_CHANGE.has(menu)) {
+                changeStep.show.push(`~ replace ${RouterOsExport.canonical(entry)}`);
+                changeStep.send.push(`${menu} remove ${selector}`);
+                changeStep.send.push(...RouterOsPlan.adding(menu, entry));
+                continue;
+            }
+
             const restartsOn = (RouterOsPlan.RESTART_ON[menu] ?? []).filter((property) => property in update);
             if (restartsOn.length) {
                 changeStep.show.push(

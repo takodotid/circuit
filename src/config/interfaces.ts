@@ -1,4 +1,5 @@
 import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
+import type { RouteDistinguisher, VrfRouteTargets } from "./routing";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -355,7 +356,40 @@ export type Vxlan<Vrf extends string> = Base<Vrf> & {
     port?: number;
     /** A fixed MAC address, so the tunnel keeps the MAC the far end learned, even after it is rebuilt. */
     mac?: MacAddress;
+    access_vlan?: never;
+    evpn?: never;
 };
+
+/** The EVPN instance of one VXLAN segment: the EVPN routes it sends and takes over BGP. */
+export type VxlanEvpn = {
+    /** Keeps this segment's EVPN routes apart from another's inside BGP, such as `192.0.2.1:10100`: this VTEP's address and a number (RFC 7432, section 7.9). Each EVPN segment and VRF of the device has its own. */
+    route_distinguisher: RouteDistinguisher;
+    /**
+     * Which EVPN routes the segment takes, and which its own carry, such as `{ import: ["64500:10100"], export: ["64500:10100"] }`. It learns the far VTEPs (type 3 routes) and the MAC addresses behind them (type 2) from the routes with an `import` target. Each VTEP of the segment writes the same targets.
+     */
+    route_targets: VrfRouteTargets;
+};
+
+/**
+ * A VXLAN segment (RFC 8365) that is a port of a VLAN, as a pseudowire is. BGP EVPN (RFC 7432) finds its far VTEPs and the MAC addresses behind each, so it has no `remote_address`. Each VTEP announces itself in a type 3 route, and each MAC address it learns in a type 2 route. It floods broadcasts to every far VTEP, one copy each (ingress replication).
+ */
+export type EvpnVxlan<Vlan extends string> = {
+    /** What the segment carries. */
+    description?: string;
+    /** The VXLAN segment ID, 1 to 16777215. Use the same ID on every VTEP of the segment. */
+    vni: number;
+    /** Our VTEP address, alone or with its length, such as the loopback's. The far VTEPs send the segment's frames to it. */
+    local_address: HostAddress;
+    /** UDP port. 4789 when absent. Use the same port on every VTEP of the segment. */
+    port?: number;
+    /** A fixed MAC address for the segment's interface. */
+    mac?: MacAddress;
+    /** The VLAN the segment is a port of, from `switching.vlans`. Its frames cross without the VLAN's tag, so the VLAN ID may differ on each VTEP. */
+    access_vlan: Vlan;
+    /** BGP EVPN finds the far VTEPs and the MAC addresses behind them. */
+    evpn: VxlanEvpn;
+    remote_address?: never;
+} & { [K in Exclude<keyof Base<string>, "description">]?: never };
 
 /**
  * An Ethernet over IP tunnel (EoIP): MikroTik's GRE tunnel that carries Ethernet frames, IP protocol 47. It carries layer 2 between two routers, so it can be a member of a LAG. Both ends use the same `tunnel_id`.
@@ -613,8 +647,8 @@ export type Interfaces<
     loopback?: Named<T, Loopback<F>>;
     /** GRE tunnels, keyed by name. */
     gre?: Named<T, Gre<F>>;
-    /** Point-to-point VXLAN tunnels, keyed by name. */
-    vxlan?: Named<T, Vxlan<F>>;
+    /** VXLANs, keyed by name: point-to-point tunnels, and segments that are ports of a VLAN, whose far VTEPs BGP EVPN finds. */
+    vxlan?: Named<T, Vxlan<F> | EvpnVxlan<V>>;
     /** Route-based IPsec tunnels, keyed by name. */
     ipsec?: Named<T, Ipsec<Certificate>>;
     /** WireGuard interfaces, keyed by name. */

@@ -1,5 +1,5 @@
 import { Address } from "../../core/address";
-import type { AclRule, Device, FilterRule, Gre, Lag, PoolNatRule, RadiusServer, VlanInterface, Vxlan } from "../../model";
+import type { AclRule, Device, EvpnVxlan, FilterRule, Gre, Lag, PoolNatRule, RadiusServer, VlanInterface, Vxlan } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
@@ -66,6 +66,7 @@ export class FortiOsUnsupported {
         }
         if (device.routing?.mpls) found.push("routing.mpls, FortiOS has no MPLS");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN: FortiOS has no MPLS`);
+        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for FortiOS yet`);
         // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 
@@ -337,7 +338,8 @@ export class FortiOsUnsupported {
                 if (iface.vrrp?.length) found.push(`${where}.vrrp, a loopback runs no VRRP`);
             }
 
-            if (kind === "gre" || kind === "vxlan") {
+            // `Derive.evpn` refuses a VXLAN segment in EVPN above.
+            if ((kind === "gre" || kind === "vxlan") && !(kind === "vxlan" && (iface as Vxlan | EvpnVxlan).evpn)) {
                 const tunnel = iface as Gre | Vxlan;
                 if (!FortiOsNames.holderOf(device, tunnel.local_address))
                     found.push(`${where}.local_address, no interface holds ${tunnel.local_address}`);

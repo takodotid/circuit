@@ -329,7 +329,18 @@ export const DEVICE = {
         bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },
-        vxlan: { "*": { ...BASE, vni: 0, local_address: 0, remote_address: 0, port: 0, mac: 0 } },
+        vxlan: {
+            "*": {
+                ...BASE,
+                vni: 0,
+                local_address: 0,
+                remote_address: 0,
+                port: 0,
+                mac: 0,
+                access_vlan: 0,
+                evpn: { route_distinguisher: 0, route_targets: { import: 0, export: 0 } },
+            },
+        },
         ipsec: {
             "*": {
                 addresses: ROUTED.addresses,

@@ -155,6 +155,8 @@ export class Junos extends Platform {
         // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
         for (const where of Derive.l3vpn(device))
             found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
+        // Juniper documents EVPN-VXLAN on a QFX5100, as a VTEP that bridges and doesn't route between VXLANs. No switch here has run it.
+        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for Junos yet`);
         const names = new JunosNames(device);
         const users = device.system?.users ?? {};
 

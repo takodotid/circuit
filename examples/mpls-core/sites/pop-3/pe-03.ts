@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216, one link away from pe-02 and with no customer yet. IS-IS carries its loopback, and LDP labels each loopback, so traffic to pe-01 crosses pe-02 by label. pe-01 is no neighbor, so a targeted LDP session joins the two across pe-02.
+// A provider edge router, a MikroTik CCR2216, one link away from pe-02. IS-IS carries its loopback, and LDP labels each loopback, so traffic to pe-01 crosses pe-02 by label. pe-01 is no neighbor, so a targeted LDP session joins the two across pe-02. A VXLAN segment joins the school's campus here to its other one at pe-02, which iBGP finds (EVPN, RFC 8365).
 
 import { as64500 } from "../../circuit";
 
@@ -19,8 +19,26 @@ export default as64500.device({
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.3.1/24"] },
             "100g-1": { description: "pe-02 qsfp28-2-1", addresses: ["10.0.23.2/30"], link: { device: "pe-02", port: "100g-2" } },
+            "25g-1": { description: "School, campus 3", access_vlan: "school" },
         },
         loopback: { loopback: { addresses: ["10.255.0.3/32"] } },
+        // The school's segment, with the VNI and route targets pe-02 has. Its route distinguisher is this router's own.
+        vxlan: {
+            "vxlan-school": {
+                description: "School, to campus 2 at pe-02",
+                vni: 10301,
+                local_address: "10.255.0.3",
+                access_vlan: "school",
+                evpn: {
+                    route_distinguisher: "10.255.0.3:301",
+                    route_targets: { import: ["64500:10301"], export: ["64500:10301"] },
+                },
+            },
+        },
+    },
+
+    switching: {
+        vlans: { school: { id: 301, description: "School, campuses 2 and 3" } },
     },
 
     routing: {
@@ -45,6 +63,18 @@ export default as64500.device({
                 export_policy: "loopbacks",
                 // Over the session with pe-01, only the two loopbacks' own labels, as pe-01 gives.
                 neighbors: { "10.255.0.1": { import_policy: "pe-01-loopback", export_policy: "own-loopback" } },
+            },
+        },
+        // The iBGP session to pe-02's loopback carries the EVPN routes of the school's segment, from the segment's own address.
+        bgp: {
+            neighbors: {
+                "pe-02": {
+                    description: "pe-02, EVPN routes",
+                    address: "10.255.0.2",
+                    remote_as: 64500,
+                    local_address: "10.255.0.3",
+                    address_families: ["l2vpn-evpn"],
+                },
             },
         },
         prefix_sets: {
