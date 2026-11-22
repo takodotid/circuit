@@ -105,7 +105,6 @@
         "switching.acls.*[].if.src_port.max",
         "switching.acls.*[].if.dst_port",
         "services.dhcp_server.*.reservations",
-        "services.dhcp_relay",
         "services.upnp",
         "routing.tables",
         "routing.policy_routing",
