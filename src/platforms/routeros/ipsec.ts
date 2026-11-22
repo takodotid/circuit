@@ -109,8 +109,15 @@ export class RouterOsIpsec {
             found.push(...RouterOsIpsec.ikeGaps(where, tunnel.ike), ...RouterOsIpsec.localGaps(where, tunnel.local_address, device));
             if (tunnel.certificate) found.push(...RouterOsIpsec.caGaps(where, tunnel.ca_certificate, device));
         }
+        if (RouterOsIpsec.tunnels(device).length && RouterOsIpsec.fastPath(device))
+            found.push("firewall.ipsec beside a fast_path rule, whose flows skip IPsec's policies: take fast_path off");
 
         return found;
+    }
+
+    /** A flow on the fast path skips IPsec's policies, so what a policy should encrypt would leave in the clear (MikroTik's manual, Packet Flow). */
+    static fastPath(device: Device): boolean {
+        return Object.values(device.firewall?.filter ?? {}).some((chain) => chain?.rules?.some((rule) => rule.fast_path));
     }
 
     /** RouterOS's IKE daemon has no AES-GCM (TRAPS.md). */
