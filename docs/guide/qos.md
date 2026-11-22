@@ -59,3 +59,5 @@ RFC 7567 asks every device to manage its queues, and no longer asks for RED by d
 <<< @/../examples/campus/sites/library/library-01.ts#per-prefix
 
 Beside the interface's own `input` and `output`, the customers share those rates, each up to its own. A customer's IPv4 and IPv6 traffic each get the rates. Hosts that make their IPv6 addresses in one /64 need `ipv6: 128`, and then each address a host makes gets the rates. [Platforms](/reference/platforms#interfaces) says where it works.
+
+A rate limit has one rate each way. Policing with a second rate, RFC 2698's two-rate three-color marker, is not built: [Platforms](/reference/platforms#firewall-and-services) says why.
