@@ -1,4 +1,5 @@
-import type { IP, IPv4, IPv6, MacAddress, Prefix } from "./common";
+import type { HostAddress, IP, IPv4, IPv6, MacAddress, Prefix } from "./common";
+import type { IpsecEsp, IpsecIke } from "./interfaces";
 import type { RadiusServer } from "./system";
 
 /** An address a DHCP server keeps for one client. */
@@ -121,8 +122,51 @@ export type PppoeServer<I extends string, F extends string = string, IS extends 
     interface_set?: IS;
 };
 
-/** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs, `IS` its interface sets. */
-export type Services<I extends string, F extends string = string, IS extends string = string> = {
+/** Traffic between a prefix on our side and a client's address, both ways: one of the traffic selectors a remote access client gets (RFC 7296 §2.9). */
+export type RemoteAccessSelector = {
+    /** The prefix on our side: the hosts clients reach. With `0.0.0.0/0`, all of a client's IPv4 traffic goes through the tunnel. */
+    local_prefix: `${IPv4}/${number}`;
+};
+
+/** How users prove who they are: with EAP, which RADIUS servers check, or with a certificate. Write one of the two. */
+export type RemoteAccessUsers<F extends string, C extends string> =
+    | {
+          /**
+           * RADIUS servers, in order: the next one is asked only when one does not answer. The device passes each user's EAP messages to them (RFC 3579). So they check the user by the EAP method they choose, such as EAP-MSCHAPv2 or EAP-TLS (RFC 7296 §2.16). They get the accounting of each session (RFC 2866).
+           */
+          radius: readonly RadiusServer<F>[];
+          ca_certificate?: never;
+      }
+    | {
+          /** The CA that signs users' certificates, one of `system.certificates`, without its private key. The device takes any certificate this CA signed, so give the CA a `crl_url`, and revoke a user's certificate there. */
+          ca_certificate: C;
+          radius?: never;
+      };
+
+/**
+ * IPsec remote access (RFC 7296 §1.1.3 and §2.19): laptops and phones that connect from anywhere, rather than one fixed peer. Each client starts IKEv2 to `local_address`, and asks for an address in a configuration payload (RFC 7296 §3.15). The device gives it an address from `pool` and the DNS servers in `dns`. ESP then carries the traffic between that address and `traffic_selectors`. The device proves who it is with `certificate`, and users prove who they are with EAP through `radius`, or with a certificate `ca_certificate` signed.
+ */
+export type IpsecRemoteAccess<F extends string = string, C extends string = string> = {
+    /** Shown beside it on the device. */
+    description?: string;
+    /** Our address the clients connect to, alone or with its length. */
+    local_address: HostAddress;
+    /** First and last address given to clients, one to each (INTERNAL_IP4_ADDRESS, RFC 7296 §3.15.1). */
+    pool: readonly [IPv4, IPv4];
+    /** DNS servers given to clients (INTERNAL_IP4_DNS, RFC 7296 §3.15.1). None when absent. */
+    dns?: readonly IPv4[];
+    /** The traffic a client may send through the tunnel: between its address and each `local_prefix`. A client that asks for more, such as all its traffic, gets these alone (RFC 7296 §2.9). */
+    traffic_selectors: readonly RemoteAccessSelector[];
+    ike: IpsecIke;
+    esp: IpsecEsp;
+    /**
+     * The device's certificate, one of `system.certificates` with its private key. The device signs with it, and clients check it against the CA that signed it, and against the name they connect to. RFC 7296 §2.16 has the device sign so even when users use EAP.
+     */
+    certificate: C;
+} & RemoteAccessUsers<F, C>;
+
+/** What the device serves to hosts. `I` is the device's ports and interfaces, `F` its VRFs, `IS` its interface sets, `C` its certificates. */
+export type Services<I extends string, F extends string = string, IS extends string = string, C extends string = string> = {
     /** DHCP servers, keyed by name, one per network. */
     dhcp_server?: Record<string, DhcpServer<I, F>>;
     /** DHCPv6 servers, keyed by name, one per interface. */
@@ -131,6 +175,8 @@ export type Services<I extends string, F extends string = string, IS extends str
     dhcp_relay?: Record<string, DhcpRelay<I>>;
     /** PPPoE servers for subscribers, keyed by name. */
     pppoe_server?: Record<string, PppoeServer<I, F, IS>>;
+    /** IPsec remote access for laptops and phones, keyed by name. */
+    ipsec_remote_access?: Record<string, IpsecRemoteAccess<F, C>>;
     /** Answer DNS queries from others, using `system.dns.servers`. Off when absent. */
     dns_server?: true;
     /**

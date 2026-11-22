@@ -640,6 +640,9 @@ export class FortiOsUnsupported {
     private static serviceGaps(device: Device): string[] {
         const found: string[] = [];
         if (device.services?.pppoe_server) found.push("services.pppoe_server, FortiOS has a PPPoE client only, no server");
+        // Dial-up IPsec is a phase 1 of `type dynamic` with `mode-cfg`, and RADIUS users in a user group, which no FortiGate in CI has proven.
+        if (device.services?.ipsec_remote_access)
+            found.push("services.ipsec_remote_access, IPsec remote access, not built yet for FortiOS");
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for FortiOS`);
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {

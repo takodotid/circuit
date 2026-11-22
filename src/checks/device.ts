@@ -118,6 +118,7 @@ export class DeviceChecks {
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
         IpsecChecks.policyBased(device, report);
+        IpsecChecks.remoteAccess(device, report, ip);
         QosChecks.check(device, report);
         ServicesChecks.check(device, report, cidr, ip);
         PppoeClientChecks.check(device, report);

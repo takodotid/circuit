@@ -568,6 +568,13 @@ export class Project {
             (x.radius ?? []).forEach((r: Json, n: number) => need("VRF", r.vrf, `services.pppoe_server.${s}.radius[${n}].vrf`, written));
             need("interface set", x.interface_set, `services.pppoe_server.${s}.interface_set`, written);
         }
+        for (const [s, x] of Object.entries<Json>(d.services?.ipsec_remote_access ?? {})) {
+            const at = `services.ipsec_remote_access.${s}`;
+            const written = writtenAt(d.services.ipsec_remote_access, s, ["ipsec_remote_access", s]);
+            need("certificate", x.certificate, `${at}.certificate`, written);
+            need("certificate", x.ca_certificate, `${at}.ca_certificate`, written);
+            (x.radius ?? []).forEach((r: Json, n: number) => need("VRF", r.vrf, `${at}.radius[${n}].vrf`, written));
+        }
         need("interface", d.services?.upnp?.internal, "services.upnp.internal");
         need("interface", d.services?.upnp?.external, "services.upnp.external");
 
@@ -800,6 +807,7 @@ export class Project {
         for (const tunnel of [
             ...["gre", "vxlan", "ipsec", "eoip"].flatMap((kind) => Object.values<Json>(d.interfaces?.[kind] ?? {})),
             ...Object.values<Json>(d.firewall?.ipsec ?? {}),
+            ...Object.values<Json>(d.services?.ipsec_remote_access ?? {}),
         ])
             tunnel.local_address = Project.alone(tunnel.local_address);
         for (const wg of Object.values<Json>(d.interfaces?.wireguard ?? {})) if (wg.endpoint) wg.endpoint = Project.alone(wg.endpoint);

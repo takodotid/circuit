@@ -458,6 +458,15 @@ export class RouterOsExport {
         },
         "/ip ipsec proposal": { "auth-algorithms": "sha1", lifetime: "30m", "pfs-group": "modp1024" },
         "/ip ipsec peer": { "exchange-mode": "main", passive: "no", "send-initial-contact": "yes" },
+        // As `export verbose` printed a mode config made with its name and pool alone. `split-include` and `static-dns` print nothing until they are set, and `split-include=""` clears it (CHR, 7.24.6).
+        "/ip ipsec mode-config": {
+            "address-prefix-length": "24",
+            "split-dns": "",
+            "split-include": "",
+            "static-dns": "",
+            "system-dns": "yes",
+        },
+        "/ip ipsec settings": { accounting: "yes", "ddos-cookie-threshold": "20", "interim-update": "0s", "xauth-use-radius": "no" },
         "/ip ipsec identity": { "auth-method": "pre-shared-key", "generate-policy": "no", "match-by": "remote-id", "remote-id": "auto" },
         "/ip ipsec policy": {
             action: "encrypt",

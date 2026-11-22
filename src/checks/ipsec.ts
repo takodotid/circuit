@@ -1,5 +1,6 @@
 import { Address } from "../core/address";
-import type { Certificate, Device, IpsecIdentity, IpsecTunnel, TrafficSelector } from "../model";
+import { ServicesChecks } from "./services";
+import type { Certificate, Device, IpsecEsp, IpsecIdentity, IpsecIke, IpsecTunnel, RemoteAccessSelector, TrafficSelector } from "../model";
 
 type Report = (message: string) => void;
 
@@ -37,26 +38,8 @@ export class IpsecChecks {
         if (tunnel.remote_identity && !tunnel.certificate)
             report(`${where}.remote_identity needs certificate and ca_certificate: the peer's certificate carries its identity`);
 
-        const own = tunnel.certificate;
-        if (own && certificates[own] && !certificates[own].private_key)
-            report(`${where}.certificate ${own} has no private key to sign with. Add its private_key`);
-        const ca = tunnel.ca_certificate;
-        if (ca && certificates[ca]?.private_key)
-            report(`${where}.ca_certificate ${ca} has a private key: write the CA's certificate alone, which the device only trusts`);
-
-        for (const [sa, algorithms] of [
-            ["ike", tunnel.ike],
-            ["esp", tunnel.esp],
-        ] as const) {
-            const at = `${where}.${sa}`;
-            const aead = IpsecChecks.AEAD.test(algorithms.encryption);
-            if (aead && algorithms.integrity)
-                report(`${at}.integrity: ${algorithms.encryption} protects integrity itself. Remove integrity`);
-            if (!aead && !algorithms.integrity)
-                report(`${at} has ${algorithms.encryption} without integrity. Add integrity, such as "hmac-sha2-256-128"`);
-            if (!(Number.isInteger(algorithms.lifetime) && algorithms.lifetime > 0))
-                report(`${at}.lifetime ${algorithms.lifetime} is not a whole number of seconds above 0`);
-        }
+        IpsecChecks.keys(where, tunnel, certificates, report);
+        IpsecChecks.algorithms(where, tunnel, report);
 
         const check = tunnel.liveness_check;
         if (check && !(Number.isInteger(check.interval) && check.interval > 0))
@@ -67,6 +50,36 @@ export class IpsecChecks {
         const keepalive = tunnel.nat_keepalive;
         if (keepalive !== undefined && !(Number.isInteger(keepalive) && keepalive > 0))
             report(`${where}.nat_keepalive ${keepalive} is not a whole number of seconds above 0`);
+    }
+
+    /** This end's certificate with its private key, to sign with, and the CA's without one. */
+    private static keys(
+        where: string,
+        { certificate: own, ca_certificate: ca }: { certificate?: string; ca_certificate?: string },
+        certificates: Partial<Record<string, Certificate>>,
+        report: Report
+    ): void {
+        if (own && certificates[own] && !certificates[own].private_key)
+            report(`${where}.certificate ${own} has no private key to sign with. Add its private_key`);
+        if (ca && certificates[ca]?.private_key)
+            report(`${where}.ca_certificate ${ca} has a private key: write the CA's certificate alone, which the device only trusts`);
+    }
+
+    /** An integrity algorithm with each `cbc` encryption and none with a `gcm` one, and lifetimes in whole seconds. */
+    private static algorithms(where: string, { ike, esp }: { ike: IpsecIke; esp: IpsecEsp }, report: Report): void {
+        for (const [sa, algorithms] of [
+            ["ike", ike],
+            ["esp", esp],
+        ] as const) {
+            const at = `${where}.${sa}`;
+            const aead = IpsecChecks.AEAD.test(algorithms.encryption);
+            if (aead && algorithms.integrity)
+                report(`${at}.integrity: ${algorithms.encryption} protects integrity itself. Remove integrity`);
+            if (!aead && !algorithms.integrity)
+                report(`${at} has ${algorithms.encryption} without integrity. Add integrity, such as "hmac-sha2-256-128"`);
+            if (!(Number.isInteger(algorithms.lifetime) && algorithms.lifetime > 0))
+                report(`${at}.lifetime ${algorithms.lifetime} is not a whole number of seconds above 0`);
+        }
     }
 
     /** One of the four IKEv2 identities, written as RFC 7296 §3.5 and RFC 4514 write it. */
@@ -130,6 +143,85 @@ export class IpsecChecks {
                 taken.push({ where: at, selector });
             });
         }
+    }
+
+    /**
+     * Each IPsec remote access of `services.ipsec_remote_access`: an address to connect to, and a pool of IPv4 addresses that holds neither it nor another's. IPv4 DNS servers, and traffic selectors of whole IPv4 prefixes, at least one and none inside another, and none that a policy-based tunnel's takes too. Users check with RADIUS or with a CA, one of the two.
+     */
+    static remoteAccess(device: Device, report: Report, ip: (where: string, value: string) => void): void {
+        const certificates = device.system?.certificates ?? {};
+        const pools: { where: string; first: bigint; last: bigint }[] = [];
+
+        for (const [name, access] of Object.entries(device.services?.ipsec_remote_access ?? {})) {
+            if (!access) continue;
+            const where = `services.ipsec_remote_access.${name}`;
+            const local = Address.host(access.local_address);
+            if (!Address.isValid(local)) report(`${where}.local_address: '${access.local_address}' is not an address`);
+
+            const ipv4 = (at: string, address: string) => {
+                const valid = Address.isValid(address) && Address.family(address) === "ipv4";
+                if (!valid) report(`${where}.${at}: '${address}' is not an IPv4 address, such as 192.0.2.1`);
+                return valid;
+            };
+            const [first, last] = access.pool;
+            if (ipv4("pool", first) && ipv4("pool", last)) {
+                const range = { where, first: Address.toNumber(first)!, last: Address.toNumber(last)! };
+                if (range.first > range.last) report(`${where}.pool starts at ${first}, after its last address ${last}`);
+                const own = Address.toNumber(local);
+                if (own !== null && own >= range.first && own <= range.last) report(`${where}.local_address ${local} is in pool`);
+                const shared = pools.find((other) => other.first <= range.last && range.first <= other.last);
+                if (shared) report(`${where}.pool shares addresses with ${shared.where}.pool: give each its own`);
+                pools.push(range);
+                IpsecChecks.apartFromTunnels(where, access.traffic_selectors, range, device, report);
+            }
+            for (const server of access.dns ?? []) ipv4("dns", server);
+
+            if (!access.traffic_selectors.length)
+                report(`${where}.traffic_selectors is empty: write the local_prefix of each network clients reach`);
+            access.traffic_selectors.forEach(({ local_prefix: prefix }, index) => {
+                const at = `${where}.traffic_selectors[${index}].local_prefix`;
+                if (!Address.isCidr(prefix) || Address.family(Address.host(prefix)) !== "ipv4")
+                    report(`${at}: '${prefix}' is not an IPv4 prefix with its length, such as 198.51.100.0/24`);
+                else if (Address.prefixOf(prefix) !== prefix)
+                    report(`${at} ${prefix} has bits past its length: write ${Address.prefixOf(prefix)}`);
+                else if (access.traffic_selectors.some((other, before) => before < index && Address.contains(other.local_prefix, prefix)))
+                    report(`${at} ${prefix} is inside a selector before it: remove it`);
+            });
+
+            const radius = access.radius !== undefined;
+            const ca = access.ca_certificate !== undefined;
+            if (radius === ca)
+                report(`${where}: write radius, for users who log in with EAP, or ca_certificate, for users with certificates`);
+            if (access.radius && !access.radius.length) report(`${where}.radius is empty: write the RADIUS servers that check users`);
+            if (access.radius) ServicesChecks.servers(`${where}.radius`, access.radius, report, ip);
+            IpsecChecks.keys(where, access, certificates, report);
+            IpsecChecks.algorithms(where, access, report);
+        }
+    }
+
+    /** No remote access selector takes traffic a policy-based tunnel's takes: a local prefix that shares addresses with the tunnel's, and a pool that does with its remote prefix. */
+    private static apartFromTunnels(
+        where: string,
+        selectors: readonly RemoteAccessSelector[],
+        pool: { first: bigint; last: bigint },
+        device: Device,
+        report: Report
+    ): void {
+        for (const [name, tunnel] of Object.entries(device.firewall?.ipsec ?? {}))
+            for (const selector of tunnel?.traffic_selectors ?? []) {
+                if (!Address.isCidr(selector.remote_prefix) || Address.family(Address.host(selector.remote_prefix)) !== "ipv4") continue;
+                const remote = Address.range(selector.remote_prefix);
+                if (remote.last < pool.first || pool.last < remote.first) continue;
+                const local = selectors.find(
+                    ({ local_prefix: prefix }) =>
+                        Address.isCidr(prefix) &&
+                        (Address.contains(prefix, selector.local_prefix) || Address.contains(selector.local_prefix, prefix))
+                );
+                if (local)
+                    report(
+                        `${where}: clients from pool reach ${local.local_prefix}, and firewall.ipsec.${name} takes traffic from ${selector.local_prefix} to ${selector.remote_prefix} too. Give the pool addresses outside ${selector.remote_prefix}`
+                    );
+            }
     }
 
     /** Whether both prefixes are whole prefixes of one family, after reporting what is not. */

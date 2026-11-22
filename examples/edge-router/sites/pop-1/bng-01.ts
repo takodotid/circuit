@@ -35,6 +35,10 @@ export default as64500.device({
         timezone: "Asia/Jakarta",
         ntp: { servers: ["pool.ntp.org"] },
         users: { operator: { role: "admin", password: secret("BNG_01_PASSWORD") } },
+        // The certificate the support team's laptops check, which our VPN CA signed for the address they connect to. The private key stays out of git.
+        certificates: {
+            "bng-01": { certificate_file: "certificates/bng-01.pem", private_key: secretFile("certificates/bng-01.key") },
+        },
     },
     management: { allow: ["10.0.0.0/24"], ssh: { vrf: "management" } },
     // The router pings each RADIUS server and its way out, and keeps the results: `/tool netwatch print` shows which answer.
@@ -137,6 +141,20 @@ export default as64500.device({
                 // A home router's own side of the session takes a /64 by SLAAC.
                 slaac: { pool: "2001:db8:100:1000::/52" },
                 interface_set: "homes",
+            },
+        },
+        // The support team logs in from anywhere with EAP, as each person's own name, which the same servers check. The team reaches each home's router, to help its owner, and nothing else.
+        ipsec_remote_access: {
+            support: {
+                description: "The support team",
+                local_address: "198.51.100.2",
+                pool: ["10.0.8.10", "10.0.8.250"],
+                dns: ["198.51.100.53", "198.51.100.54"],
+                traffic_selectors: [{ local_prefix: "100.64.0.0/17" }, { local_prefix: "100.64.128.0/24" }],
+                certificate: "bng-01",
+                radius,
+                ike: { ...presets.ipsec_rfc8247, lifetime: 28800 },
+                esp: { encryption: "aes-256-gcm", pfs_group: 19, lifetime: 3600 },
             },
         },
     },
