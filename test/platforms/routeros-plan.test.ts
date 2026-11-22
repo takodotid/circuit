@@ -652,6 +652,48 @@ test("a next hop with its interface is one gateway on RouterOS", () => {
     expect(findings).toEqual([]);
 });
 
+// RouterOS looks a gateway up in main unless it ends in a VRF. A route in a VRF without it stayed inactive through a port, a VLAN interface, a tunnel, and to a next hop (CHR, 7.24.6).
+test("a route in a VRF ends its gateway in the VRF, and one the device holds without it is replaced", () => {
+    const written = withRoutes([
+        { prefix: "0.0.0.0/0", next_hop: "198.51.100.130", vrf: "guests" },
+        { prefix: "192.0.2.0/24", interface: "25g-1", vrf: "guests" },
+        { prefix: "192.0.2.0/24", next_hop: "198.51.100.131", interface: "guests", vrf: "guests" },
+        { prefix: "::/0", next_hop: "2001:DB8:0::1", vrf: "guests" },
+        { prefix: "2001:db8:1::/48", next_hop: "fe80::1", interface: "guests", vrf: "guests" },
+        { prefix: "203.0.113.0/24", blackhole: true, vrf: "guests" },
+    ]);
+    for (const route of [
+        "dst-address=0.0.0.0/0 gateway=198.51.100.130@guests",
+        "dst-address=192.0.2.0/24 gateway=sfp28-1@guests",
+        'dst-address=192.0.2.0/24 gateway="198.51.100.131%guests@guests"',
+        "dst-address=::/0 gateway=2001:DB8:0::1@guests",
+        'dst-address=2001:db8:1::/48 gateway="fe80::1%guests@guests"',
+        "blackhole dst-address=203.0.113.0/24",
+    ])
+        expect(written).toContain(`\nadd ${route} routing-table=guests\n`);
+
+    // The device prints each gateway as written, but an address in its own spelling.
+    const printed = written
+        .replace("2001:DB8:0::1@guests", "2001:db8::1@guests")
+        .replace('"198.51.100.131%guests@guests"', "198.51.100.131%guests@guests")
+        .replace('"fe80::1%guests@guests"', "fe80::1%guests@guests");
+    expect(routerOsSends(written, printed)).toEqual([]);
+
+    // A route as Circuit wrote it before, without the VRF, is another route. The new one is added before the old one goes.
+    const before = printed
+        .replace("gateway=198.51.100.130@guests", "gateway=198.51.100.130")
+        .replace("gateway=2001:db8::1@guests", "gateway=2001:db8::1");
+    expect(routerOsSends(written, before)).toEqual([
+        "/ip route add dst-address=0.0.0.0/0 gateway=198.51.100.130@guests routing-table=guests",
+        "/ipv6 route add dst-address=::/0 gateway=2001:DB8:0::1@guests routing-table=guests",
+        '/ipv6 route remove [ find dst-address="::/0" and routing-table=guests and gateway=2001:db8::1 and !dynamic ]',
+        '/ip route remove [ find dst-address="0.0.0.0/0" and routing-table=guests and gateway=198.51.100.130 and !dynamic ]',
+    ]);
+    expect(routerOsSends(withRoutes([]), printed)).toContain(
+        '/ip route remove [ find dst-address="192.0.2.0/24" and routing-table=guests and gateway="sfp28-1@guests" and !dynamic ]'
+    );
+});
+
 // RouterOS knows a route by its prefix, table, and gateway, so two routes alike in all three can't be told apart.
 test("two routes to one prefix through one gateway in one table are refused on RouterOS", () => {
     const routes: StaticRoute[] = [

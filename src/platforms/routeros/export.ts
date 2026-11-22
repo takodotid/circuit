@@ -787,9 +787,9 @@ export class RouterOsExport {
         return Address.fromNumber(value & ((1n << RouterOsExport.INTERFACE_ID_BITS) - 1n), "ipv6");
     }
 
-    /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and the interface after a `%`, as in `fe80::1%ether1`, as it is. An interface alone stays as it is. */
+    /** A route's gateway in one spelling: an address as `Address.canonical` writes it, and what follows it as it is. That is the interface after a `%`, as in `fe80::1%ether1`, and the VRF after an `@`, as in `192.0.2.1@red`. An interface alone stays as it is. */
     private static gateway(value: string): string {
-        const at = value.indexOf("%");
+        const at = value.search(/[%@]/);
         if (at === -1) return Address.canonical(value);
 
         return `${Address.canonical(value.slice(0, at))}${value.slice(at)}`;
