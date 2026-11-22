@@ -1,4 +1,4 @@
-// Classes and schedulers (RFC 2475, RFC 4594), and a marking rule's class. RouterOS is applied on CHRs in CI, and edge-01 counts what each queue sends under load (routeros-chr-queues.test.ts).
+// Classes and schedulers (RFC 2475, RFC 4594), a queue's depth and RED (RFC 2309, RFC 7567), and a marking rule's class. RouterOS is applied on CHRs in CI, and edge-01 counts what each queue sends under load (routeros-chr-queues.test.ts).
 
 import { afterAll, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -108,6 +108,74 @@ test("RouterOS schedules a LAG and a VLAN interface by their own names", () => {
     expect(tree.filter((line) => line.includes("parent=global"))).toEqual([
         "add max-limit=400k name=core-uplink parent=global",
         "add max-limit=400k name=customers-uplink parent=global",
+    ]);
+});
+
+test("RouterOS gives a queue with a depth a queue type of its own: a FIFO, or RED in whole packets", () => {
+    const sample = device("routeros", "CHR", "virtual-2", {
+        qos: {
+            classes: CLASSES,
+            default_class: "best-effort",
+            schedulers: {
+                uplink: {
+                    rate: "400k",
+                    queues: [
+                        ...QUEUES.slice(0, 2),
+                        { class: "video", share: 40, depth_packets: 50 },
+                        {
+                            class: "best-effort",
+                            share: 50,
+                            depth_packets: 200,
+                            red: { min_threshold_percent: 30, max_threshold_percent: 90 },
+                        },
+                        { class: "bulk", share: 10, depth_packets: 99, red: { min_threshold_percent: 20, max_threshold_percent: 50 } },
+                    ],
+                },
+            },
+        },
+    });
+    const adapter = Platforms.get("routeros");
+
+    expect(queues(adapter.unsupported(sample))).toEqual([]);
+    const text = adapter.render(sample);
+    // A packet is 1500 bytes, the thresholds are rounded down, and the burst is the lower threshold twice and the upper one once, over 3.
+    expect(menu(text, "/queue type")).toEqual([
+        "add kind=pfifo name=ether2-uplink-video pfifo-limit=50",
+        "add kind=red name=ether2-uplink-best-effort red-avg-packet=1500 red-burst=100 red-limit=200 red-max-threshold=180 red-min-threshold=60",
+        "add kind=red name=ether2-uplink-bulk red-avg-packet=1500 red-burst=29 red-limit=99 red-max-threshold=49 red-min-threshold=19",
+    ]);
+    expect(menu(text, "/queue tree").map((line) => /queue=(\S+)/.exec(line)?.[1])).toEqual([
+        undefined,
+        undefined,
+        undefined,
+        "ether2-uplink-video",
+        "ether2-uplink-best-effort",
+        "ether2-uplink-bulk",
+    ]);
+
+    // The device's export leaves out what a queue type holds as it is made: 50 packets in a FIFO.
+    const exported = text.replace("pfifo-limit=50", "");
+    expect(adapter.plan(text, exported, options).steps).toEqual([]);
+});
+
+test("RouterOS refuses RED whose thresholds come to the same whole packets", () => {
+    const sample = device("routeros", "CHR", "virtual-2", {
+        qos: {
+            classes: CLASSES,
+            default_class: "best-effort",
+            schedulers: {
+                uplink: {
+                    rate: "400k",
+                    queues: [
+                        ...QUEUES.slice(0, 4),
+                        { class: "bulk", share: 10, depth_packets: 10, red: { min_threshold_percent: 20, max_threshold_percent: 25 } },
+                    ],
+                },
+            },
+        },
+    });
+    expect(queues(Platforms.get("routeros").unsupported(sample))).toEqual([
+        "qos.schedulers.uplink.queues[4].red: of 10 packets, both thresholds come to 2 whole packets, and RouterOS needs the lower one below the other. Set them further apart, or deepen the queue",
     ]);
 });
 
@@ -242,6 +310,42 @@ test("validate says what is wrong in classes and schedulers", () => {
         "qos.schedulers.small.queues has no queue for voice, video, best-effort, empty: write one for each class, so none is left out",
         "qos.schedulers.small: the strict queues' max add up to the rate, 1M, or more, which leaves the weighted queues nothing. Lower a max, or raise the rate",
         "interfaces.ethernet.virtual-2.scheduler beside shaping, which also shapes what leaves: write the scheduler's rate, and leave shaping out",
+    ]);
+});
+
+test("validate says what is wrong in a queue's depth and RED", () => {
+    const sample = device("routeros", "CHR", "virtual-2", {
+        qos: {
+            classes: CLASSES,
+            default_class: "best-effort",
+            schedulers: {
+                uplink: {
+                    rate: "400k",
+                    queues: [
+                        { class: "network", priority: "strict", max: "60k", depth_packets: 0 },
+                        { class: "voice", priority: "strict", max: "100k", depth_packets: 2.5 },
+                        { class: "video", share: 40, red: { min_threshold_percent: 20, max_threshold_percent: 80 } },
+                        {
+                            class: "best-effort",
+                            share: 50,
+                            depth_packets: 100,
+                            red: { min_threshold_percent: 80, max_threshold_percent: 20 },
+                        },
+                        { class: "bulk", share: 10, depth_packets: 100, red: { min_threshold_percent: -1, max_threshold_percent: 100.5 } },
+                    ],
+                },
+            },
+        },
+    });
+
+    const messages = Checks.run([sample], undefined).map((finding) => finding.message);
+    expect(messages.filter((message) => /qos\.|scheduler/.test(message))).toEqual([
+        "qos.schedulers.uplink.queues[0].depth_packets 0 is not a whole number of packets above 0",
+        "qos.schedulers.uplink.queues[1].depth_packets 2.5 is not a whole number of packets above 0",
+        "qos.schedulers.uplink.queues[2].red without depth_packets: write the queue's depth, which the thresholds are percents of",
+        "qos.schedulers.uplink.queues[3].red.min_threshold_percent 80 is not below max_threshold_percent, 20: lower it, or raise the other",
+        "qos.schedulers.uplink.queues[4].red.min_threshold_percent -1 is not a whole percent from 0 to 100",
+        "qos.schedulers.uplink.queues[4].red.max_threshold_percent 100.5 is not a whole percent from 0 to 100",
     ]);
 });
 

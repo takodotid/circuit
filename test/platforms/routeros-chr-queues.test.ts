@@ -1,4 +1,4 @@
-// Three CHRs, which the devices workflow boots. edge-01 routes from cpe-01 to host-01, marks a DSCP by the address each packet goes to, and schedules what leaves toward host-01. cpe-01 sends to every address at once, over the rate, and edge-01's queue counters show what each class got. An unlicensed CHR sends at most 1 Mbit/s from each interface. Skipped without the CHRs.
+// Three CHRs, which the devices workflow boots. edge-01 routes from cpe-01 to host-01, marks a DSCP by the address each packet goes to, and schedules what leaves toward host-01. cpe-01 sends to every address at once, over the rate, and edge-01's queue counters show what each class got and holds. An unlicensed CHR sends at most 1 Mbit/s from each interface. Skipped without the CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -46,6 +46,11 @@ const COUNT_SECONDS = 10;
 const KBIT = 1000;
 const BITS_PER_BYTE = 8;
 const PERCENT = 100;
+
+/** The depth of a queue that sets none, in packets: RouterOS's `default-small`. A queue's depth the test sets, and its RED thresholds, in percent of it. */
+const DEFAULT_DEPTH = 10;
+const DEPTH = 100;
+const RED = { min: 20, max: 50 } as const;
 
 /** How far a measured rate may be from what HTB gives it. A queue counted 9 in 10 of what a bandwidth test sent it, as the two count other headers. */
 const MARGIN = 0.25;
@@ -107,8 +112,8 @@ export default lab.device({
     );
 }
 
-/** What a test adds to edge-01: marking rules before the others. */
-type Extra = { marking?: readonly string[] };
+/** What a test adds to edge-01: settings of some classes' queues, and marking rules before the others. */
+type Extra = { queues?: Partial<Record<ClassName, string>>; marking?: readonly string[] };
 
 /** edge-01, with its link to host-01 on `link`, scheduled or not. Its marking gives each address of host-01 its class's DSCP, as cpe-01 sends unmarked. */
 function writeEdge(link: Link, scheduled: boolean, extra: Extra = {}): void {
@@ -130,6 +135,7 @@ function writeEdge(link: Link, scheduled: boolean, extra: Extra = {}): void {
             .filter(({ dscp }) => dscp !== "cs0")
             .map(({ address, dscp }) => `{ if: { dst: "${address}/32" }, then: { dscp: "${dscp}" } }`),
     ];
+    const more = (name: ClassName) => (extra.queues?.[name] ? `, ${extra.queues[name]}` : "");
     const queues = `classes: {
             network: { dscp: ["cs6", "cs7"] },
             voice: { dscp: ["ef"] },
@@ -142,11 +148,11 @@ function writeEdge(link: Link, scheduled: boolean, extra: Extra = {}): void {
             uplink: {
                 rate: "${RATE}k",
                 queues: [
-                    { class: "network", priority: "strict", max: "${MAX.network}k" },
-                    { class: "voice", priority: "strict", max: "${MAX.voice}k" },
-                    { class: "video", share: ${SHARES.video} },
-                    { class: "best-effort", share: ${SHARES["best-effort"]} },
-                    { class: "bulk", share: ${SHARES.bulk} },
+                    { class: "network", priority: "strict", max: "${MAX.network}k"${more("network")} },
+                    { class: "voice", priority: "strict", max: "${MAX.voice}k"${more("voice")} },
+                    { class: "video", share: ${SHARES.video}${more("video")} },
+                    { class: "best-effort", share: ${SHARES["best-effort"]}${more("best-effort")} },
+                    { class: "bulk", share: ${SHARES.bulk}${more("bulk")} },
                 ],
             },
         },`;
@@ -208,6 +214,29 @@ async function load(iface: string, kbps: Partial<Record<ClassName, number>> = {}
     ) as Counted;
     console.log(`counted on ${iface}: ${JSON.stringify(counted)}`);
     return { counted, ef: milliseconds(ef), cs0: milliseconds(cs0) };
+}
+
+/**
+ * cpe-01 sends `name`'s class alone, at twice the scheduler's rate. Once its queue on ether3 is full, edge-01 reads each second how many packets it holds. It returns the most it held, and how many packets it dropped meanwhile.
+ */
+async function fill(name: ClassName): Promise<{ held: number; dropped: number }> {
+    const sending = onChr(
+        cpeChr!,
+        `/tool bandwidth-test address=${CLASSES[name].address} direction=transmit protocol=udp local-tx-speed=${2 * RATE}k duration=${SEND_SECONDS}s`
+    );
+    await Bun.sleep(FILL_MS);
+
+    const get = (field: string) => `[/queue tree get [find name=${queue("ether3", name)}] ${field}]`;
+    const printed = await onChr(
+        edgeChr!,
+        `:local d ${get("dropped")}; :for i from=1 to=${COUNT_SECONDS} do={ :put ("held " . ${get("queued-packets")}); :delay 1s }; :put ("dropped " . (${get("dropped")} - $d))`
+    );
+    await sending;
+
+    const held = Math.max(...[...printed.matchAll(/^held (\d+)$/gm)].map(([, count]) => Number(count)));
+    const dropped = Number(/^dropped (\d+)$/m.exec(printed)?.[1]);
+    console.log(`${name} held at most ${held} packets, and dropped ${dropped}`);
+    return { held, dropped };
 }
 
 /** How many packets `name`'s queue of `iface` has sent. */
@@ -381,6 +410,39 @@ describe.skipIf(!edgeChr || !cpeChr || !hostChr)("a CHR schedules what leaves an
 
             writeEdge("port", true);
             apply();
+        },
+        TEST_MS
+    );
+
+    test(
+        "a queue's depth sets how much of a full class it holds, and RED drops before it is full",
+        async () => {
+            // Without depth_packets, the queue holds RouterOS's 10 packets.
+            const short = await fill("best-effort");
+            expect(short.held).toBeLessThanOrEqual(DEFAULT_DEPTH);
+            expect(short.dropped).toBeGreaterThan(0);
+
+            writeEdge("port", true, { queues: { "best-effort": `depth_packets: ${DEPTH}` } });
+            apply();
+            const deep = await fill("best-effort");
+            expect(deep.held).toBeGreaterThan(DEPTH * (1 - MARGIN));
+            expect(deep.dropped).toBeGreaterThan(0);
+
+            writeEdge("port", true, {
+                queues: {
+                    "best-effort": `depth_packets: ${DEPTH}, red: { min_threshold_percent: ${RED.min}, max_threshold_percent: ${RED.max} }`,
+                },
+            });
+            apply();
+            const red = await fill("best-effort");
+            expect(red.held).toBeLessThan((DEPTH * RED.max * (1 + MARGIN)) / PERCENT);
+            expect(red.dropped).toBeGreaterThan(0);
+
+            // Without them, the queue's type goes, and it holds 10 packets again.
+            writeEdge("port", true);
+            apply();
+            expect((await onChr(edgeChr!, `:put [:len [/queue type find name~"^ether3-uplink"]]`)).trim()).toBe("0");
+            expect((await fill("best-effort")).held).toBeLessThanOrEqual(DEFAULT_DEPTH);
         },
         TEST_MS
     );
