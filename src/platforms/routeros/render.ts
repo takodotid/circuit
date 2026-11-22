@@ -468,7 +468,9 @@ export class RouterOsRender {
         }
     }
 
-    /** A pseudowire is a VPLS interface that LDP sets up with the PWid FEC, MikroTik's `cisco-static-id` (RFC 8077). Its `pw-l2mtu` is the MTU it tells the far PE. The device adds one disabled (TRAPS.md). */
+    /**
+     * A pseudowire is a VPLS interface that LDP sets up with the PWid FEC, MikroTik's `cisco-static-id` (RFC 8077). Its `pw-l2mtu` is the MTU it tells the far PE. A trunk's frames keep their tags, which `pw-type=tagged-ethernet` signals as PW type 4. The device adds one disabled (TRAPS.md).
+     */
     private pseudowires(): void {
         for (const [name, pseudowire] of RouterOsSyntax.entries(this.device.interfaces?.pseudowire)) {
             const controlWord = pseudowire.control_word;
@@ -480,6 +482,7 @@ export class RouterOsRender {
                 peer: pseudowire.peer,
                 "pw-control-word": controlWord === undefined ? undefined : controlWord ? "enabled" : "disabled",
                 "pw-l2mtu": pseudowire.mtu,
+                "pw-type": pseudowire.trunk_vlans ? "tagged-ethernet" : undefined,
             });
         }
     }

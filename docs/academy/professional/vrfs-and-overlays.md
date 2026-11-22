@@ -214,6 +214,16 @@ pseudowire: {
 
 `pe-02` writes one back, with `peer: "192.0.2.1"` and the same `pw_id`. LDP finds its neighbors on its links, and sets up a session to each pseudowire's far PE by itself, even across the core. For a session with another router that isn't a neighbor, list its loopback in `routing.mpls.ldp.targets`, at both ends: a targeted session. The two PEs also tell each other the largest frame the pseudowire carries, its `mtu`, and both must say the same. One pseudowire between two sites is called a VPWS. Several in one VLAN, one to each other PE, join many sites into one LAN, a VPLS. There, a frame that arrives over one pseudowire never leaves over another, so the PEs make no loop.
 
+A pseudowire is a port, so it can carry more than one VLAN. With `trunk_vlans`, each frame crosses with its VLAN's tag, and the far PE puts it in the VLAN of that ID. With `qinq_vlan`, a customer's own VLANs cross inside one VLAN of yours, as on a QinQ port:
+
+```ts
+// pe-02.ts, in interfaces.pseudowire
+"pw-tv": { description: "TV station, to site 2 at pe-03", peer: "192.0.2.3", pw_id: 401, trunk_vlans: ["tv-studio", "tv-news"] },
+"pw-isp": { description: "ISP, to handoff 1 at pe-01", peer: "192.0.2.1", pw_id: 500, qinq_vlan: "isp" },
+```
+
+Both ends of a pseudowire carry their frames the same way: tagged, with the same VLAN IDs, or untagged.
+
 With many sites, that is a pseudowire from each PE to each other PE, and a new site means a change at every PE. BGP can find the PEs of a VPLS instead, as it finds the PEs of a VRF: give the VLAN a `vpls` with a route distinguisher and route targets, and a site ID of its own at each PE.
 
 ```ts

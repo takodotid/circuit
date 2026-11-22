@@ -68,6 +68,7 @@ test("RouterOS changes a pseudowire's peer and PW ID in place", () => {
     const desired = routeros.render(pe01);
     const moved = routeros.render(
         withPseudowires(pe01, {
+            ...pe01.interfaces!.pseudowire,
             "pw-clinic": { ...pe01.interfaces!.pseudowire!["pw-clinic"]!, peer: "10.255.0.3", pw_id: 202 },
         })
     );

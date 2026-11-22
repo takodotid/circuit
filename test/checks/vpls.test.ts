@@ -69,6 +69,7 @@ test("a VLAN's VPLS needs MPLS, and a BGP neighbor that carries l2vpn-vpls from 
     expect(errors(withoutMpls)).toEqual([
         "routing.bgp.neighbors.pe-01 carries l2vpn-vpls without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp",
         "routing.bgp.neighbors.pe-02 carries l2vpn-vpls without routing.mpls, and traffic to a VPN route crosses the core by label. Write routing.mpls.ldp",
+        "interfaces.pseudowire.pw-tv needs routing.mpls: LDP sets up the pseudowire, and its frames cross the core by label. Write routing.mpls.ldp",
         "switching.vlans.school.vpls needs routing.mpls: the VPLS's frames cross the core by label. Write routing.mpls.ldp",
         "switching.vlans.library.vpls needs routing.mpls: the VPLS's frames cross the core by label. Write routing.mpls.ldp",
     ]);

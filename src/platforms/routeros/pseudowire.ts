@@ -47,19 +47,24 @@ export class RouterOsPseudowire {
         const pseudowires = RouterOsSyntax.entries(device.interfaces?.pseudowire);
         const vplsVlans = RouterOsPseudowire.vplsVlans(device);
         for (const [name, pseudowire] of pseudowires) {
-            if (device.switching?.vlans?.[pseudowire.access_vlan]?.private_vlan)
-                found.push(
-                    `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a private VLAN, not built for a pseudowire yet`
-                );
+            const at = `interfaces.pseudowire.${name}`;
+            const access = pseudowire.access_vlan;
+            if (access && device.switching?.vlans?.[access]?.private_vlan)
+                found.push(`${at}.access_vlan ${access}, a private VLAN, not built for a pseudowire yet`);
             // A lower MTU would lower the bridge's VLAN interfaces with it, before which RouterOS refuses it (TRAPS.md).
             if (pseudowire.mtu !== undefined && pseudowire.mtu < RouterOsPseudowire.MTU)
                 found.push(
-                    `interfaces.pseudowire.${name}.mtu ${pseudowire.mtu}: RouterOS refuses a pseudowire MTU below a VLAN interface's on its bridge with a tag, and the plan does not lower those first. Write ${RouterOsPseudowire.MTU} or more`
+                    `${at}.mtu ${pseudowire.mtu}: RouterOS refuses a pseudowire MTU below a VLAN interface's on its bridge with a tag, and the plan does not lower those first. Write ${RouterOsPseudowire.MTU} or more`
                 );
-            if (vplsVlans.includes(pseudowire.access_vlan))
-                found.push(
-                    `interfaces.pseudowire.${name}.access_vlan ${pseudowire.access_vlan}, a VPLS whose PEs BGP finds: its pseudowires and this one share one split horizon, so no frame passes between them. Put this pseudowire in another VLAN, or remove vpls there`
-                );
+            for (const vlan of [access, pseudowire.qinq_vlan, ...(pseudowire.trunk_vlans ?? [])])
+                if (vlan && vplsVlans.includes(vlan))
+                    found.push(
+                        `${at} in VLAN ${vlan}, a VPLS whose PEs BGP finds: its pseudowires and this one share one split horizon, so no frame passes between them. Put this pseudowire in another VLAN, or remove vpls there`
+                    );
+            // As on a port, the bridge snoops every VLAN, a QinQ one too.
+            for (const field of ["dhcp_snooping", "ra_guard"] as const)
+                if (pseudowire.qinq_vlan && device.switching?.[field])
+                    found.push(`${at}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
         }
         for (const name of vplsVlans)
             if (device.switching?.vlans?.[name]?.private_vlan) found.push(`switching.vlans.${name}.vpls, in a private VLAN, not built yet`);
@@ -71,6 +76,11 @@ export class RouterOsPseudowire {
                 found.push(
                     `interfaces.vlan_interface.${name}.mtu ${iface.mtu ?? "left out, 1500"} beside a pseudowire: RouterOS lowers it to ${RouterOsPseudowire.VLAN_MTU} once the pseudowire runs, and refuses more. Write mtu: ${RouterOsPseudowire.VLAN_MTU} or less`
                 );
+        // The VLAN interface of an outer tag that the render adds has no MTU of its own, which RouterOS would lower too (TRAPS.md).
+        for (const vlan of running ? RouterOsVlanTags.madeOuter(device) : [])
+            found.push(
+                `switching.vlans.${vlan}: Circuit adds the VLAN interface of its outer tag at MTU 1500, and RouterOS lowers it to ${RouterOsPseudowire.VLAN_MTU} beside a pseudowire. Write a plain VLAN interface on ${vlan} with mtu: ${RouterOsPseudowire.VLAN_MTU}`
+            );
         return found;
     }
 }

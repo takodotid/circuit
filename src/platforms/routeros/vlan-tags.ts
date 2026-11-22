@@ -103,7 +103,7 @@ export class RouterOsVlanTags {
     }
 
     /** The VLANs with an inner VLAN interface and no plain one, whose outer VLAN interface the render makes. */
-    private static madeOuter(device: Device): string[] {
+    static madeOuter(device: Device): string[] {
         const declared = RouterOsSyntax.entries(device.interfaces?.vlan_interface).map(([, iface]) => iface);
         const outer = new Set(declared.filter((iface) => iface.inner_vlan_id !== undefined).map((iface) => iface.vlan));
         for (const iface of declared) if (iface.inner_vlan_id === undefined) outer.delete(iface.vlan);

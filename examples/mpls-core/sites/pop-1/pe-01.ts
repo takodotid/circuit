@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP labels each loopback, so traffic crosses the core by label. iBGP carries the bank's VRF to pe-02 (L3VPN), and joins the school and the library to their other sites (VPLS). A pseudowire carries the clinic's frames to pe-02 (VPWS). A targeted LDP session joins it to pe-03, across pe-02.
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP labels each loopback, so traffic crosses the core by label. iBGP carries the bank's VRF to pe-02 (L3VPN), and joins the school and the library to their other sites (VPLS). Pseudowires carry the clinic's frames and the ISP's to pe-02 (VPWS). A targeted LDP session joins it to pe-03, across pe-02.
 
 import { as64500 } from "../../circuit";
 
@@ -22,6 +22,7 @@ export default as64500.device({
             "25g-2": { description: "Clinic, site 1", access_vlan: "clinic" },
             "25g-3": { description: "School, campus 1", access_vlan: "school" },
             "25g-4": { description: "Library, branch 1", access_vlan: "library" },
+            "25g-5": { description: "ISP, handoff 1", qinq_vlan: "isp" },
             "100g-1": { description: "pe-02 qsfp28-1-1", addresses: ["10.0.12.1/30"], link: { device: "pe-02", port: "100g-1" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.1/32"] } },
@@ -35,6 +36,8 @@ export default as64500.device({
                 mtu: 1500,
                 control_word: true,
             },
+            // A QinQ port of the ISP's VLAN, as the ISP's port is: the ISP's frames cross with their own tags.
+            "pw-isp": { description: "ISP, to handoff 2 at pe-02", peer: "10.255.0.2", pw_id: 500, qinq_vlan: "isp" },
         },
     },
 
@@ -42,6 +45,8 @@ export default as64500.device({
         vlans: {
             // The clinic's port and its pseudowire, alone in one VLAN.
             clinic: { id: 201, description: "Clinic, sites 1 and 2" },
+            // The ISP's own VLANs cross the core inside this one.
+            isp: { id: 500, description: "ISP, handoffs 1 and 2" },
             // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
             school: {
                 id: 301,

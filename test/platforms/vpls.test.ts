@@ -79,7 +79,7 @@ test("RouterOS refuses a pseudowire written in a VLAN whose PEs BGP finds, as ev
         interfaces: { ...pe03.interfaces, pseudowire: { "pw-school": { peer: "10.255.0.2", pw_id: 301, access_vlan: "school" } } },
     };
     expect(routeros.unsupported(spoke)).toEqual([
-        "interfaces.pseudowire.pw-school.access_vlan school, a VPLS whose PEs BGP finds: its pseudowires and this one share one split horizon, so no frame passes between them. Put this pseudowire in another VLAN, or remove vpls there",
+        "interfaces.pseudowire.pw-school in VLAN school, a VPLS whose PEs BGP finds: its pseudowires and this one share one split horizon, so no frame passes between them. Put this pseudowire in another VLAN, or remove vpls there",
     ]);
 });
 

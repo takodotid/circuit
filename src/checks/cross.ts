@@ -2,7 +2,7 @@
 
 import { X509Certificate } from "node:crypto";
 import { Address } from "../core/address";
-import type { Device, Finding, Gre, Ipsec, Prefix, Routed, Switched, Vxlan } from "../model";
+import type { Device, Finding, Gre, Ipsec, Prefix, Pseudowire, Routed, Switched, Vxlan } from "../model";
 import { Derive } from "../core/derive";
 import { Utils } from "../core/utils";
 import { DeviceChecks } from "./device";
@@ -380,7 +380,7 @@ export class CrossChecks {
         );
     }
 
-    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). */
+    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). The two carry the same VLANs tagged, or both carry them untagged. */
     private static pseudowires(devices: readonly Device[]): Finding[] {
         const byLsrId = CrossChecks.byLsrId(devices);
 
@@ -393,14 +393,8 @@ export class CrossChecks {
                 const back = Object.values(far.interfaces?.pseudowire ?? {}).find(
                     (other) => other?.peer === own && other?.pw_id === pseudowire.pw_id
                 );
-                if (back && back.mtu !== pseudowire.mtu)
-                    return [
-                        {
-                            level: "error",
-                            device: device.name,
-                            message: `interfaces.pseudowire.${name}.mtu is ${pseudowire.mtu ?? "left out"}, and ${far.name}'s pseudowire back has ${back.mtu ?? "none"}: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`,
-                        },
-                    ];
+                const problem = back && CrossChecks.pseudowireBack(device, far, pseudowire, back);
+                if (problem) return [{ level: "error", device: device.name, message: `interfaces.pseudowire.${name}${problem}` }];
                 if (back) return [];
                 return [
                     {
@@ -411,6 +405,27 @@ export class CrossChecks {
                 ];
             });
         });
+    }
+
+    /** What a pseudowire's way back at the far PE has otherwise, after the pseudowire's own path, or nothing. A tagged frame keeps its VLAN ID across, so both ends carry the same IDs tagged, or both carry none (RFC 4448, section 3). */
+    private static pseudowireBack(device: Device, far: Device, pseudowire: Pseudowire, back: Pseudowire): string | undefined {
+        if (back.mtu !== pseudowire.mtu)
+            return `.mtu is ${pseudowire.mtu ?? "left out"}, and ${far.name}'s pseudowire back has ${back.mtu ?? "none"}: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`;
+
+        const ids = (owner: Device, vlans: readonly string[]) =>
+            vlans
+                .map((vlan) => owner.switching?.vlans?.[vlan]?.id ?? 0)
+                .sort((a, b) => a - b)
+                .join(", ");
+        const near = pseudowire.trunk_vlans && ids(device, pseudowire.trunk_vlans);
+        const away = back.trunk_vlans && ids(far, back.trunk_vlans);
+        if (near === away) return undefined;
+        const tagged = "both ends tagged, or both untagged. Write trunk_vlans at both ends, or at neither";
+        if (near === undefined)
+            return ` carries its frames untagged, and ${far.name}'s pseudowire back carries VLANs tagged: RFC 4448 wants ${tagged}`;
+        if (away === undefined)
+            return `.trunk_vlans carries VLANs tagged, and ${far.name}'s pseudowire back carries its frames untagged: RFC 4448 wants ${tagged}`;
+        return `.trunk_vlans carries VLAN IDs ${near}, and ${far.name}'s pseudowire back carries ${away}: a frame keeps its VLAN ID across. Write the same VLAN IDs at both ends`;
     }
 
     /**

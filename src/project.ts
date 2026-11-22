@@ -528,7 +528,8 @@ export class Project {
             for (const [i, x] of Object.entries<Json>(d.interfaces?.[kind] ?? {})) {
                 const at = `interfaces.${kind}.${i}`;
                 const written = writtenAt(d.interfaces[kind], i, [kind, i]);
-                for (const f of ["access_vlan", "trunk_vlans", "native_vlan", "vlan"]) need("VLAN", x[f], `${at}.${f}`, written);
+                for (const f of ["access_vlan", "trunk_vlans", "native_vlan", "qinq_vlan", "vlan"])
+                    need("VLAN", x[f], `${at}.${f}`, written);
                 need("ACL", x.ingress_acl, `${at}.ingress_acl`, written);
                 need("LAG", x.in_lag, `${at}.in_lag`, written);
                 need("VRF", x.vrf, `${at}.vrf`, written);

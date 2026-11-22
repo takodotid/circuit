@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the bank's VRF to pe-01 (L3VPN). A pseudowire carries the clinic's frames to its other site there (VPWS). BGP joins the school's campuses at pe-01 and pe-03 (VPLS).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the bank's VRF to pe-01 (L3VPN). Pseudowires carry the clinic's frames and the ISP's to pe-01, and the TV station's to pe-03 (VPWS). BGP joins the school's campuses at pe-01 and pe-03 (VPLS).
 
 import { as64500 } from "../../circuit";
 
@@ -21,6 +21,8 @@ export default as64500.device({
             "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
             "25g-3": { description: "School, campus 2", access_vlan: "school" },
+            "25g-4": { description: "TV station, site 1", trunk_vlans: ["tv-studio", "tv-news"] },
+            "25g-5": { description: "ISP, handoff 2", qinq_vlan: "isp" },
             "100g-1": { description: "pe-01 qsfp28-1-1", addresses: ["10.0.12.2/30"], link: { device: "pe-01", port: "100g-1" } },
             "100g-2": { description: "pe-03 qsfp28-1-1", addresses: ["10.0.23.1/30"], link: { device: "pe-03", port: "100g-1" } },
         },
@@ -35,6 +37,13 @@ export default as64500.device({
                 mtu: 1500,
                 control_word: true,
             },
+            "pw-isp": { description: "ISP, to handoff 1 at pe-01", peer: "10.255.0.1", pw_id: 500, qinq_vlan: "isp" },
+            "pw-tv": {
+                description: "TV station, to site 2 at pe-03",
+                peer: "10.255.0.3",
+                pw_id: 401,
+                trunk_vlans: ["tv-studio", "tv-news"],
+            },
         },
     },
 
@@ -42,6 +51,11 @@ export default as64500.device({
         vlans: {
             // The clinic's port and its pseudowire, alone in one VLAN.
             clinic: { id: 201, description: "Clinic, sites 1 and 2" },
+            // The ISP's own VLANs cross the core inside this one.
+            isp: { id: 500, description: "ISP, handoffs 1 and 2" },
+            // The TV station's two VLANs cross the core to pe-03 on one pseudowire, each frame with its tag.
+            "tv-studio": { id: 401, description: "TV station, studio" },
+            "tv-news": { id: 402, description: "TV station, newsroom" },
             // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
             school: {
                 id: 301,

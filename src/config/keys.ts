@@ -358,7 +358,7 @@ export const DEVICE = {
             },
         },
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
-        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0, mtu: 0, control_word: 0 } },
+        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0, trunk_vlans: 0, qinq_vlan: 0, mtu: 0, control_word: 0 } },
         pppoe_client: {
             "*": {
                 interface: 0,

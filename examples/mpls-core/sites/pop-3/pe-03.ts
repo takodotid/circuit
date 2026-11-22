@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216, one link away from pe-02. IS-IS carries its loopback, and LDP labels each loopback, so traffic to pe-01 crosses pe-02 by label. pe-01 is no neighbor, so a targeted LDP session joins the two across pe-02. BGP joins the school's campuses at pe-01 and pe-02, and the library's branch at pe-01 (VPLS).
+// A provider edge router, a MikroTik CCR2216, one link away from pe-02. IS-IS carries its loopback, and LDP labels each loopback. pe-01 is no neighbor, so a targeted LDP session joins the two across pe-02. BGP joins the school's campuses at pe-01 and pe-02, and the library's branch at pe-01 (VPLS). A pseudowire carries the TV station's two VLANs to pe-02, with their tags.
 
 import { as64500 } from "../../circuit";
 
@@ -20,13 +20,25 @@ export default as64500.device({
             "1g-1": { description: "Management", addresses: ["10.0.3.1/24"] },
             "25g-1": { description: "School, campus 3", access_vlan: "school" },
             "25g-2": { description: "Library, branch 2", access_vlan: "library" },
+            "25g-3": { description: "TV station, site 2", trunk_vlans: ["tv-studio", "tv-news"] },
             "100g-1": { description: "pe-02 qsfp28-2-1", addresses: ["10.0.23.2/30"], link: { device: "pe-02", port: "100g-2" } },
         },
         loopback: { loopback: { addresses: ["10.255.0.3/32"] } },
+        pseudowire: {
+            "pw-tv": {
+                description: "TV station, to site 1 at pe-02",
+                peer: "10.255.0.2",
+                pw_id: 401,
+                trunk_vlans: ["tv-studio", "tv-news"],
+            },
+        },
     },
 
     switching: {
         vlans: {
+            // The TV station's two VLANs cross the core to pe-03 on one pseudowire, each frame with its tag.
+            "tv-studio": { id: 401, description: "TV station, studio" },
+            "tv-news": { id: 402, description: "TV station, newsroom" },
             // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
             school: {
                 id: 301,

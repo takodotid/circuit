@@ -388,7 +388,7 @@ export type Eoip<Lag extends string, Vrf extends string> = Base<Vrf> & {
 };
 
 /**
- * An Ethernet pseudowire (RFC 4448) across the MPLS core to another PE, set up by LDP with the PWid FEC (RFC 8077). It is a port of the device in a VLAN. With a customer's port in the same VLAN, it carries that port's frames to the far PE: a point-to-point service, VPWS. With several pseudowires in one VLAN, the PEs make a VPLS (RFC 4762), and a frame from one pseudowire never leaves by another. Needs `routing.mpls`.
+ * An Ethernet pseudowire (RFC 4448) across the MPLS core to another PE, set up by LDP with the PWid FEC (RFC 8077). It is a port of the device in its VLANs, with one of `access_vlan`, `trunk_vlans`, and `qinq_vlan`, as a port is. With a customer's port in the same VLAN, it carries that port's frames to the far PE: a point-to-point service, VPWS. With several pseudowires in one VLAN, the PEs make a VPLS (RFC 4762), and a frame from one pseudowire never leaves by another. Needs `routing.mpls`.
  */
 export type Pseudowire<Vlan extends string> = {
     /** What it carries, such as the customer and its far site. */
@@ -397,8 +397,16 @@ export type Pseudowire<Vlan extends string> = {
     peer: IPv4;
     /** The pseudowire's ID, 1 to 4294967295, the same at both ends. Each pseudowire of the device to one peer has its own. */
     pw_id: number;
-    /** The VLAN it is in, from `switching.vlans`. Its frames cross the pseudowire without the VLAN's tag, raw mode (RFC 4448, section 4.4.1). */
-    access_vlan: Vlan;
+    /** The one VLAN it is in, from `switching.vlans`. Its frames cross the pseudowire without the VLAN's tag, raw mode (RFC 4448, section 4.4.1), and it takes untagged frames only. */
+    access_vlan?: Vlan;
+    /**
+     * The VLANs it carries, from `switching.vlans`. Each frame crosses the pseudowire with its VLAN's tag: tagged mode, PW type 4 (RFC 4448, section 4.4.1). At the far PE, it joins the VLAN of that ID. Every frame crosses tagged, so there is no native VLAN. Write the same VLAN IDs on the pseudowire back, in `trunk_vlans` too: RFC 4448 wants both ends tagged, or both untagged.
+     */
+    trunk_vlans?: readonly Vlan[];
+    /**
+     * QinQ, from `switching.vlans`: every frame from the far PE, tagged or not, takes this VLAN's tag on top, and a frame that leaves by the pseudowire loses it. So a customer's own VLANs cross inside one VLAN of yours, each frame with its tags, raw mode (RFC 4448, section 4.4.1).
+     */
+    qinq_vlan?: Vlan;
     /** The MTU the pseudowire tells the far PE, in bytes: the largest frame it carries, without its Ethernet header (RFC 8077, section 6.4). Write the same at the far PE: RFC 8077 keeps the pseudowire down otherwise. The platform's own when absent, 1500 on RouterOS. */
     mtu?: number;
     /** Put the control word (RFC 4385) in front of each frame. A P router that shares traffic out among links then never takes a frame for an IP packet (RFC 4448, section 4.6). The platform's own when absent, without it on RouterOS. */
@@ -637,7 +645,7 @@ export type Interfaces<
     wireguard?: Named<T, WireGuard<F, Table>>;
     /** Ethernet tunnels over IP, keyed by name. Each may be a member of a LAG with `in_lag`. */
     eoip?: Named<T, Eoip<NoInfer<L>, F>>;
-    /** Ethernet pseudowires to other PEs, keyed by name. Each is a port in its `access_vlan`. */
+    /** Ethernet pseudowires to other PEs, keyed by name. Each is a port in its VLANs. */
     pseudowire?: Named<T, Pseudowire<V>>;
     /** PPPoE clients, keyed by name: each a session to a provider over a port, a LAG, or a VLAN interface. */
     pppoe_client?: Named<T, PppoeClient<NoInfer<(keyof Ethernet & string) | L | VI>, I, F>>;
