@@ -83,11 +83,20 @@ export type MarkingRule<I extends string, AS extends string, IS extends string, 
     then: Marking<C>;
 };
 
-/** A class of traffic: the packets that leave with one of its DSCPs. */
-export type QosClass = {
-    /** The DSCPs of its packets, such as `["af41", "af42", "af43"]` for video conferencing (RFC 4594). A DSCP is in one class at most. */
-    dscp: readonly Dscp[];
-};
+/** A class of traffic: the packets that leave with one of its DSCPs, or that arrive with one of its PCPs. It lists one or both. */
+export type QosClass =
+    | {
+          /** The DSCPs of its packets, such as `["af41", "af42", "af43"]` for video conferencing (RFC 4594). A DSCP is in one class at most. */
+          dscp: readonly Dscp[];
+          /** The PCPs of its packets, from the VLAN tag they arrive with (IEEE 802.1Q), such as `[5]` for calls from phones that set no DSCP. A packet that arrives without a tag has PCP 0, its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class. A PCP is in one class at most. */
+          pcp?: readonly Pcp[];
+      }
+    | {
+          /** The DSCPs of its packets, such as `["af41", "af42", "af43"]` for video conferencing (RFC 4594). A DSCP is in one class at most. */
+          dscp?: readonly Dscp[];
+          /** The PCPs of its packets, from the VLAN tag they arrive with (IEEE 802.1Q), such as `[5]` for calls from phones that set no DSCP. A packet that arrives without a tag has PCP 0, its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class. A PCP is in one class at most. */
+          pcp: readonly Pcp[];
+      };
 
 /**
  * Random early detection, RED (RFC 2309, RFC 7567): the queue drops packets at random before it is full, by how full it is on average. A sender that slows down when it loses a packet slows down early, so the queue stays short. Every packet of the queue meets the same thresholds, whatever its drop precedence (RFC 2597).
@@ -156,10 +165,10 @@ export type Qos<I extends string, AS extends string, IS extends string, C extend
      */
     marking?: Ordered<MarkingRule<I, AS, IS, NoInfer<C>>>;
     /**
-     * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates), such as `voice: { dscp: ["ef"] }`. A packet's class is the one that lists the DSCP it leaves with, after `marking`. To sort packets by their address or port, mark their DSCP first in `marking`.
+     * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates) or PCPs, such as `voice: { dscp: ["ef"], pcp: [5] }`. A packet takes the class a marking rule gives it, else the class that lists the DSCP it leaves with, after `marking`. Else it takes the class that lists the PCP it arrives with. `default_class` takes every other packet, so what it lists only shows what it holds. To sort packets by their address or port, mark their DSCP first in `marking`.
      */
     classes?: Named<C, QosClass>;
-    /** The class of every DSCP that no class lists, from `qos.classes`. Needed with `classes`. */
+    /** The class of every packet that no other class takes, from `qos.classes`. Needed with `classes`. */
     default_class?: NoInfer<C>;
     /** Ways to send what leaves an interface, by name. A port, LAG, or VLAN interface takes one with `scheduler`. */
     schedulers?: Named<S, Scheduler<NoInfer<C>>>;

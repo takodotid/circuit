@@ -99,6 +99,7 @@ export type BuiltFeature =
     | "urpf"
     | "vrf-imports"
     | "rate-limit"
+    | "rate-limit-per-prefix"
     | "marking"
     | "marking-class"
     | "queues"
@@ -240,6 +241,13 @@ export class Derive {
                 settings?.scheduler ? [{ where: `interfaces.${kind}.${name}`, name, kind, scheduler: settings.scheduler }] : []
             )
         );
+    }
+
+    /** Where a rate limit limits what leaves: its `output`, else its `per_prefix.output`. */
+    static limitsOutput(rateLimit: RateLimit): "output" | "per_prefix.output" | undefined {
+        if (rateLimit.output) return "output";
+        if (rateLimit.per_prefix?.output) return "per_prefix.output";
+        return undefined;
     }
 
     /** A rate limit's rate, and its burst in bytes when it sets one. */
@@ -675,7 +683,10 @@ export class Derive {
 
         if (device.routing?.vrf_imports && !has("vrf-imports")) found.push(`routing.vrf_imports, ${notBuilt}`);
 
-        if (!has("rate-limit")) for (const { where } of Derive.rateLimited(device)) found.push(`${where}.rate_limit, ${notBuilt}`);
+        for (const { where, rateLimit } of Derive.rateLimited(device)) {
+            if (!has("rate-limit")) found.push(`${where}.rate_limit, ${notBuilt}`);
+            else if (rateLimit.per_prefix && !has("rate-limit-per-prefix")) found.push(`${where}.rate_limit.per_prefix, ${notBuilt}`);
+        }
         if (device.qos?.marking && !has("marking")) found.push(`qos.marking, ${notBuilt}`);
         if (!has("queues")) {
             for (const field of ["classes", "default_class", "schedulers"] as const)

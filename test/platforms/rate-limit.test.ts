@@ -26,6 +26,15 @@ function device(platform: string, model: string, interfaces: object, more: objec
 
 const rateLimits = (found: string[]) => found.filter((field) => field.includes("rate"));
 
+/** The lines of `name` in a render. */
+function menu(text: string, name: string): string[] {
+    const start = text.indexOf(`${name}\n`);
+    return text
+        .slice(start, text.indexOf("\n/", start + 1))
+        .split("\n")
+        .slice(1);
+}
+
 const renders = (platform: string, sample: Device) => {
     const adapter = Platforms.get(platform);
     const text = adapter.render(sample);
@@ -74,6 +83,63 @@ test("RouterOS refuses a queue that traffic skips, and a burst its bucket can't 
         "interfaces.ethernet.virtual-3.rate_limit while system.hardware_offload is on, whose traffic skips the queue: limit a VLAN interface with hardware_offload: false",
         "switching.acls.edge[0].rate.bc, a switch rule takes a rate without a burst: write the rate alone",
     ]);
+});
+
+test("RouterOS gives each prefix its own rate with a PCQ queue type, by source in and by destination out, and reads it back as a CHR printed it", () => {
+    const sample = device("routeros", "CHR", {
+        ethernet: {
+            "virtual-2": { addresses: ["192.0.2.1/30"], rate_limit: { per_prefix: { ipv4: 30, ipv6: 56, output: "1.5M" } } },
+            "virtual-3": { access_vlan: "hosts" },
+        },
+        vlan_interface: {
+            hosts: {
+                vlan: "hosts",
+                addresses: ["198.51.100.1/24"],
+                rate_limit: { output: "150k", per_prefix: { ipv4: 32, ipv6: 64, input: "100k", output: "100k" } },
+            },
+        },
+    });
+
+    expect(rateLimits(Platforms.get("routeros").unsupported(sample))).toEqual([]);
+    const text = renders("routeros", sample);
+    expect(menu(text, "/queue type")).toEqual([
+        "add kind=pcq name=ether2-rate-limit-output pcq-classifier=dst-address pcq-rate=1500k pcq-dst-address-mask=30 pcq-dst-address6-mask=56",
+        "add kind=pcq name=hosts-rate-limit-input pcq-classifier=src-address pcq-rate=100k pcq-src-address-mask=32 pcq-src-address6-mask=64",
+        "add kind=pcq name=hosts-rate-limit-output pcq-classifier=dst-address pcq-rate=100k pcq-dst-address-mask=32 pcq-dst-address6-mask=64",
+    ]);
+    expect(menu(text, "/queue simple")).toEqual([
+        "add name=ether2-rate-limit queue=default-small/ether2-rate-limit-output target=ether2",
+        "add max-limit=0/150k name=hosts-rate-limit queue=hosts-rate-limit-input/hosts-rate-limit-output target=hosts",
+    ]);
+
+    // `export` leaves out each mask at its default, 32 and 128 (TRAPS.md).
+    const printed = `/queue type
+add kind=pcq name=ether2-rate-limit-output pcq-classifier=dst-address pcq-dst-address-mask=30 pcq-dst-address6-mask=56 pcq-rate=1500k
+add kind=pcq name=hosts-rate-limit-input pcq-classifier=src-address pcq-rate=100k pcq-src-address6-mask=64
+add kind=pcq name=hosts-rate-limit-output pcq-classifier=dst-address pcq-dst-address6-mask=64 pcq-rate=100k
+/queue simple
+add name=ether2-rate-limit queue=default-small/ether2-rate-limit-output target=ether2
+add max-limit=0/150k name=hosts-rate-limit queue=hosts-rate-limit-input/hosts-rate-limit-output target=hosts
+`;
+    const read = text.replace(/\/queue type\n(?:add .*\n)+\/queue simple\n(?:add .*\n)+/, printed);
+    expect(read).not.toBe(text);
+    expect(Platforms.get("routeros").plan(text, read, options).steps).toEqual([]);
+});
+
+test("The other platforms refuse per_prefix", () => {
+    for (const [platform, model, port] of [
+        ["junos", "QFX5100-48S-6Q", "10g-3"],
+        ["fortios", "FG-3700D", "10g-28"],
+        ["vrp", "CE6855-48S6Q-HI", "10g-3"],
+        ["raisecom-ros", "RAX721-C-6C48", "10g-1"],
+    ] as const) {
+        const sample = device(platform, model, {
+            ethernet: { [port]: { access_vlan: "hosts", rate_limit: { per_prefix: { ipv4: 32, ipv6: 64, output: "20M" } } } },
+        });
+        expect(Platforms.get(platform).unsupported(sample)).toContain(
+            `interfaces.ethernet.${port}.rate_limit.per_prefix, which the platform does not build`
+        );
+    }
 });
 
 test("Junos polices what arrives on a switched port and shapes what leaves, in the numbers the switch prints", () => {
@@ -255,13 +321,20 @@ test("Raisecom ROS limits a port and a LAG in kbit/s, with the switch's own burs
     );
 });
 
-test("validate stops a rate limit that limits nothing, a rate or burst out of range, one on a LAG member, and one beside shaping", () => {
+test("validate stops a rate limit that limits nothing, a rate or burst out of range, one on a LAG member, one beside shaping, and a prefix length out of range", () => {
     const sample = device("routeros", "CHR", {
         ethernet: {
             "virtual-2": { addresses: ["192.0.2.1/30"], rate_limit: {} },
             "virtual-3": { addresses: ["198.51.100.1/30"], rate_limit: { input: "0M", output: { cir: "1G", bc: 1.5 } } },
             "virtual-4": { addresses: ["203.0.113.1/30"], shaping: { algorithm: "cake", mbps: 100 }, rate_limit: { output: "100M" } },
             "virtual-5": { in_lag: "uplink", rate_limit: { input: "1G" } },
+            "virtual-6": { addresses: ["203.0.113.9/30"], rate_limit: { per_prefix: { ipv4: 33, ipv6: 0, output: "0k" } } },
+            "virtual-7": { addresses: ["203.0.113.13/30"], rate_limit: { per_prefix: { ipv4: 32, ipv6: 64 } } },
+            "virtual-8": {
+                addresses: ["203.0.113.17/30"],
+                shaping: { algorithm: "cake", mbps: 100 },
+                rate_limit: { per_prefix: { ipv4: 32, ipv6: 64, output: "20M" } },
+            },
         },
         lag: { uplink: { addresses: ["203.0.113.5/30"] } },
     });
@@ -269,11 +342,16 @@ test("validate stops a rate limit that limits nothing, a rate or burst out of ra
     const messages = Checks.run([sample], undefined).map((finding) => finding.message);
     expect(messages.filter((message) => message.includes("rate_limit"))).toEqual(
         expect.arrayContaining([
-            "interfaces.ethernet.virtual-2.rate_limit limits nothing: write input, output, or both",
+            "interfaces.ethernet.virtual-2.rate_limit limits nothing: write input, output, per_prefix, or several",
             "interfaces.ethernet.virtual-3.rate_limit.input 0M is not a rate above 0, such as 200M, 1.5G, or 64k",
             "interfaces.ethernet.virtual-3.rate_limit.output.bc 1.5 is not a whole number of bytes above 0",
             "interfaces.ethernet.virtual-4.rate_limit.output beside shaping, which also limits what leaves: write one of them",
             "interfaces.ethernet.virtual-5.rate_limit is on a member of uplink: write it on the LAG",
+            "interfaces.ethernet.virtual-6.rate_limit.per_prefix.output 0k is not a rate above 0, such as 200M, 1.5G, or 64k",
+            "interfaces.ethernet.virtual-6.rate_limit.per_prefix.ipv4 33 is not a prefix length from 1 to 32: write 32 for each address",
+            "interfaces.ethernet.virtual-6.rate_limit.per_prefix.ipv6 0 is not a prefix length from 1 to 128: write 128 for each address",
+            "interfaces.ethernet.virtual-7.rate_limit.per_prefix limits nothing: write input, output, or both",
+            "interfaces.ethernet.virtual-8.rate_limit.per_prefix.output beside shaping, which also limits what leaves: write one of them",
         ])
     );
 });

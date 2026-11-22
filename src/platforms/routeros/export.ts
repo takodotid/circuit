@@ -290,8 +290,17 @@ export class RouterOsExport {
             priority: "8",
             queue: "default-small",
         },
-        // As a CHR on 7.24.6 printed a FIFO and a RED queue type made without them, with `export verbose`.
+        // As a CHR on 7.24.6 printed a FIFO, a RED, and a PCQ queue type made without them, with `export verbose`.
         "/queue type": {
+            "pcq-burst-rate": "0",
+            "pcq-burst-threshold": "0",
+            "pcq-burst-time": "10s",
+            "pcq-dst-address-mask": "32",
+            "pcq-dst-address6-mask": "128",
+            "pcq-limit": "50KiB",
+            "pcq-src-address-mask": "32",
+            "pcq-src-address6-mask": "128",
+            "pcq-total-limit": "2000KiB",
             "pfifo-limit": "50",
             "red-avg-packet": "1000",
             "red-burst": "20",

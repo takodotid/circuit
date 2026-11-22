@@ -108,6 +108,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | A VLAN interface inside another VLAN | IEEE 802.1ad's stacked tags. Name from OpenConfig `openconfig-vlan`: `inner-vlan-id`                                                    | VLAN interface `inner_vlan_id`                                 |
 | VLAN translation                     | IEEE 802.1Q-2022, a port's VID translation table                                                                                        | port `vlan_translation`                                        |
 | Rate limit and burst                 | Practice: RFC 2697 (Informational) for the committed rate and burst. Names from OpenConfig `openconfig-qos`: `cir`, `bc`                | `rate_limit` on an interface, ACL rule `rate`                  |
+| Rate limit for each prefix           | Not a standard: each vendor's own, such as RouterOS's per connection queue (PCQ)                                                        | `rate_limit.per_prefix`                                        |
 
 <!-- vale Google.Units = YES -->
 
@@ -165,7 +166,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | Expedited forwarding `ef`, `voice-admit`          | RFC 3246, RFC 5865                                                                                                                                        | marking `dscp`                 |
 | Lower effort `le`, non-queue-building `nqb`       | RFC 8622, RFC 9956                                                                                                                                        | marking `dscp`                 |
 | Which DSCP each kind of traffic takes             | Practice: RFC 4594 (Informational)                                                                                                                        | marking `dscp`, `qos.classes`  |
-| Priority in a VLAN tag (PCP)                      | IEEE 802.1Q-2022                                                                                                                                          | marking `pcp`                  |
+| Priority in a VLAN tag (PCP)                      | IEEE 802.1Q-2022                                                                                                                                          | marking `pcp`, class `pcp`     |
 | Classes by DSCP (behavior aggregates)             | Practice: RFC 2475 (Informational)                                                                                                                        | `qos.classes`, `default_class` |
 | A queue sent first, capped so it starves no other | RFC 3246, section 2.10; practice: RFC 4594 (Informational)                                                                                                | strict queue, `max`            |
 | Bandwidth kept for each class                     | RFC 2597, section 1                                                                                                                                       | weighted queue, `share`        |

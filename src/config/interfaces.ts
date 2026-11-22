@@ -1,4 +1,4 @@
-import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Secret } from "./common";
+import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Rate, Secret } from "./common";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
 export type Threshold =
@@ -259,6 +259,22 @@ export type RateLimit = {
     input?: Limit;
     /** The traffic that leaves through the interface. */
     output?: Limit;
+    /** Limits each prefix on the interface's side on its own as well, such as each customer on a VLAN interface. Only the interface as a whole when absent. */
+    per_prefix?: PerPrefix;
+};
+
+/**
+ * A rate for each prefix of these lengths, such as `{ ipv4: 32, ipv6: 64, input: "5M", output: "20M" }` for each IPv4 address and each IPv6 /64. What arrives is counted by its source, and what leaves by its destination, so write it on the interface toward the customers. A customer's IPv4 and IPv6 traffic each get the rates. Beside `input` and `output` of the interface as a whole, the prefixes share those.
+ */
+export type PerPrefix = {
+    /** 32 for each address, or shorter, such as 30, for each network of that length. */
+    ipv4: number;
+    /** 128 for each address, or shorter, such as 64 or 56, for each customer's network. */
+    ipv6: number;
+    /** What each prefix sends: the traffic from it that arrives on the interface. */
+    input?: Rate;
+    /** What each prefix gets: the traffic to it that leaves through the interface. */
+    output?: Rate;
 };
 
 /**

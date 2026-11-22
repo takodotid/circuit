@@ -1,5 +1,5 @@
 ---
-description: Sort the packets an interface sends into classes by their DSCP, and send each class from its own queue, strict queues first and the others by share, each queue as deep as you set it.
+description: Sort the packets an interface sends into classes by their DSCP, and send each class from its own queue, strict queues first and the others by share, each queue as deep as you set it. Give each customer a rate of its own.
 ---
 
 # Quality of service
@@ -8,7 +8,7 @@ A device tells traffic apart by the DSCP each packet carries (RFC 2474). [Markin
 
 ## Classes
 
-`qos.classes` sorts packets into classes by the DSCP they leave with, RFC 2475's behavior aggregates. A DSCP is in one class at most. `default_class` takes every DSCP that no class lists, and it is needed with `classes`. RFC 4594 says which DSCP each kind of traffic takes, such as `ef` for calls and `cs6` for routing protocols.
+`qos.classes` sorts packets into classes by the DSCP they leave with, RFC 2475's behavior aggregates. A DSCP is in one class at most. `default_class` takes every packet that no other class takes, and it is needed with `classes`. RFC 4594 says which DSCP each kind of traffic takes, such as `ef` for calls and `cs6` for routing protocols.
 
 The routers of one network sort traffic alike, so the campus example writes its classes once, beside the network, and each router takes them:
 
@@ -19,6 +19,19 @@ A packet's class is decided after `qos.marking`, so a packet that a marking rule
 <<< @/../examples/campus/sites/library/library-01.ts#class
 
 A packet a marking rule gives a `class` takes that class's queue on this device, whatever its DSCP. It leaves with its DSCP unchanged, unless the rule also sets `dscp`, so the next device sorts it by its DSCP.
+
+A class can also list PCPs: the priority in the VLAN tag a packet arrives with (IEEE 802.1Q). Use it for devices that set a PCP and no DSCP, such as a switch that tags the calls of older phones, as the campus's voice class above does. A packet's class is the first of these:
+
+1. the class a marking rule gives it
+2. the class that lists the DSCP it leaves with
+3. the class that lists the PCP it arrives with
+4. `default_class`
+
+So a DSCP that a class lists goes before the PCP, as in a switch that trusts both. What `default_class` lists only shows what it holds. A packet that arrives without a tag has PCP 0, as IEEE 802.1Q gives it its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class.
+
+## What a port keeps
+
+A device keeps the DSCP of a packet it routes, unless a marking rule changes it. To overwrite what a port lets in, such as a customer that marks everything EF, write a [marking](/guide/rules#marking) rule with `in_interface` that sets the DSCP you trust. A VLAN tag ends at the router, so a routed packet leaves with the PCP a marking rule sets. Trust settings for each port, as a switch chip has them, are not built: [Platforms](/reference/platforms#firewall-and-services) says why.
 
 ## Schedulers
 
@@ -42,3 +55,13 @@ A queue holds the packets that wait to be sent. `depth_packets` is the most it h
 `red` drops packets at random before the queue is full: random early detection (RED, RFC 2309). Below `min_threshold_percent` of the depth, on average, no packet is dropped early. Above `max_threshold_percent`, every packet that comes is dropped. Between them, a packet is dropped at random, more often as the queue fills. A TCP sender slows down when it loses a packet, so it slows down before the queue is full, and the queue stays short. `red` needs `depth_packets`. The field station's best-effort queue uses it, in the scheduler above.
 
 RFC 7567 asks every device to manage its queues, and no longer asks for RED by default. The thresholds of RED need tuning for each link. Every packet of a queue meets the same thresholds, whatever its drop precedence: `af41`, `af42`, and `af43` are dropped alike (RFC 2597). WRED, with thresholds for each drop precedence, is not built yet ([#215](https://github.com/takodotid/circuit/issues/215)).
+
+## A rate for each customer
+
+`rate_limit` holds a port, a LAG, or a VLAN interface to a rate as a whole. `per_prefix` gives each customer on it a rate of its own instead, or as well. Each prefix of the lengths you write gets `input` and `output`: `ipv4: 32` and `ipv6: 128` limit each address, and `ipv6: 56` each customer's /56. What arrives is counted by its source, and what leaves by its destination, so write it on the interface toward the customers. The library's guest Wi-Fi:
+
+<<< @/../examples/campus/sites/library/library-01.ts#per-prefix
+
+Beside the interface's own `input` and `output`, the customers share those rates, each up to its own. A customer's IPv4 and IPv6 traffic each get the rates. Hosts that make their IPv6 addresses in one /64 need `ipv6: 128`, and then each address a host makes gets the rates. [Platforms](/reference/platforms#interfaces) says where it works.
+
+A rate limit has one rate each way. Policing with a second rate, RFC 2698's two-rate three-color marker, is not built: [Platforms](/reference/platforms#firewall-and-services) says why.

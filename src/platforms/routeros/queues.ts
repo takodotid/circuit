@@ -1,5 +1,5 @@
 import { Derive } from "../../core/derive";
-import type { Device, Rate, Switched } from "../../model";
+import type { Device, PerPrefix, Rate, Switched } from "../../model";
 import type { RouterOsRender } from "./render";
 
 /** Rate limits, as simple queues. */
@@ -9,23 +9,52 @@ export class RouterOsQueues {
     /** A queue's bucket is a share of its rate in steps of a thousandth, up to `MAX_BUCKET` times the rate. */
     private static readonly BUCKET_STEPS = 1000;
     private static readonly MAX_BUCKET = 10;
+    /** The queue type of a simple queue's direction that sets none, a FIFO of 10 packets. */
+    private static readonly SMALL_FIFO = "default-small";
 
     /**
-     * A simple queue on each interface with a rate limit. Its target is the interface: what arrives on it is what the target sends, the first of each pair, and what leaves is the second. A rate of 0 is no limit.
+     * A simple queue on each interface with a rate limit. Its target is the interface: what arrives on it is what the target sends, the first of each pair, and what leaves is the second. A rate of 0 is no limit, and `max-limit` holds the interface as a whole.
      */
     static render(render: RouterOsRender, device: Device): void {
         for (const { name, rateLimit } of Derive.rateLimited(device)) {
-            const limits = [rateLimit.input, rateLimit.output].map((limit) => (limit ? Derive.limit(limit) : undefined));
-            const bursts = limits.some((limit) => limit?.burst !== undefined);
             const target = render.name(name);
+            const limits = [rateLimit.input, rateLimit.output].map((limit) => (limit ? Derive.limit(limit) : undefined));
+            const whole = limits.some(Boolean);
+            const bursts = limits.some((limit) => limit?.burst !== undefined);
+            const queue = rateLimit.per_prefix && RouterOsQueues.perPrefix(render, target, rateLimit.per_prefix);
 
             render.add("/queue simple", "add", {
                 "bucket-size": bursts && limits.map((limit) => RouterOsQueues.bucketSize(limit)).join("/"),
-                "max-limit": limits.map((limit) => (limit ? RouterOsQueues.rate(Derive.bitsPerSecond(limit.rate)) : "0")).join("/"),
+                "max-limit":
+                    whole && limits.map((limit) => (limit ? RouterOsQueues.rate(Derive.bitsPerSecond(limit.rate)) : "0")).join("/"),
                 name: `${target}-rate-limit`,
+                queue,
                 target,
             });
         }
+    }
+
+    /**
+     * A rate for each prefix is a PCQ queue type, which gives each source or destination prefix a queue of its own at `pcq-rate` (MikroTik's manual, PCQ). What arrives on the interface is sorted by its source, and what leaves by its destination, each family by its own mask. It returns the simple queue's queue types, upload first, with `default-small` for a direction without a rate.
+     */
+    private static perPrefix(render: RouterOsRender, target: string, perPrefix: PerPrefix): string {
+        const types = (["input", "output"] as const).map((direction) => {
+            const rate = perPrefix[direction];
+            if (!rate) return RouterOsQueues.SMALL_FIFO;
+
+            const name = `${target}-rate-limit-${direction}`;
+            const side = direction === "input" ? "src" : "dst";
+            render.add("/queue type", "add", {
+                kind: "pcq",
+                name,
+                "pcq-classifier": `${side}-address`,
+                "pcq-rate": RouterOsQueues.rate(Derive.bitsPerSecond(rate)),
+                [`pcq-${side}-address-mask`]: perPrefix.ipv4,
+                [`pcq-${side}-address6-mask`]: perPrefix.ipv6,
+            });
+            return name;
+        });
+        return types.join("/");
     }
 
     /**
