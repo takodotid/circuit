@@ -19,6 +19,7 @@ import { Nat64Checks } from "./nat64";
 import { OspfChecks } from "./ospf";
 import { PppoeClientChecks } from "./pppoe-client";
 import { PseudowireChecks } from "./pseudowire";
+import { RsvpTeChecks } from "./rsvp-te";
 import { QosChecks } from "./qos";
 import { ServicesChecks } from "./services";
 import { VlanTagChecks } from "./vlan-tag";
@@ -107,6 +108,7 @@ export class DeviceChecks {
         OspfChecks.check(device, report);
         IsisChecks.check(device, report);
         MplsChecks.check(device, report);
+        RsvpTeChecks.check(device, report);
         L3vpnChecks.check(device, report);
         EvpnChecks.check(device, report);
         PseudowireChecks.check(device, report);

@@ -93,6 +93,10 @@ export class RouterOsPlan {
         "/mpls ldp",
         "/mpls ldp interface",
         "/mpls ldp neighbor",
+        // RSVP-TE runs on interfaces that forward MPLS, and a tunnel names its path.
+        "/mpls traffic-eng interface",
+        "/mpls traffic-eng path",
+        "/mpls traffic-eng tunnel",
         "/ip",
         "/ipv6",
         "/routing",

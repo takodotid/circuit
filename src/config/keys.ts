@@ -477,6 +477,7 @@ export const DEVICE = {
                     stub_default_cost: 0,
                     ranges: [{ prefix: 0, advertise: 0, cost: 0 }],
                     virtual_links: [{ transit_area_id: 0, router_id: 0 }],
+                    traffic_engineering: 0,
                     interfaces: {
                         "*": {
                             cost: 0,
@@ -516,6 +517,12 @@ export const DEVICE = {
                 import_policy: 0,
                 export_policy: 0,
                 neighbors: { "*": { import_policy: 0, export_policy: 0 } },
+            },
+            rsvp_te: {
+                interfaces: { "*": { bandwidth: 0 } },
+                tunnels: {
+                    "*": { description: 0, destination: 0, bandwidth: 0, explicit_path: [{ address: 0, hop_type: 0 }], cspf: 0 },
+                },
             },
         },
         bfd: { interval: 0, multiplier: 0 },

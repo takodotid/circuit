@@ -614,6 +614,7 @@ export class Project {
         need("interface", Project.keys(d.routing?.isis?.interfaces), "routing.isis.interfaces");
         need("policy", d.routing?.isis?.level2_to_level1?.import_policy, "routing.isis.level2_to_level1.import_policy");
         need("interface", d.routing?.mpls?.ldp?.interfaces, "routing.mpls.ldp.interfaces");
+        need("interface", Project.keys(d.routing?.mpls?.rsvp_te?.interfaces), "routing.mpls.rsvp_te.interfaces");
         for (const way of ["import_policy", "export_policy"]) {
             need("policy", d.routing?.mpls?.ldp?.[way], `routing.mpls.ldp.${way}`);
             for (const [lsrId, neighbor] of Object.entries<Json>(d.routing?.mpls?.ldp?.neighbors ?? {}))
