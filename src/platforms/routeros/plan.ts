@@ -22,6 +22,9 @@ export class RouterOsPlan {
     private static readonly ORDER = [
         // Certificates depend on nothing, and services name them.
         "/certificate",
+        // A list added while `crl-download` is off waits for its hourly download (TRAPS.md).
+        "/certificate settings",
+        "/certificate crl",
         // A PPP profile and a DHCP server name their pools.
         "/ip pool",
         "/ipv6 pool",
@@ -68,6 +71,12 @@ export class RouterOsPlan {
         "/ipv6 firewall address-list",
         "/ip firewall",
         "/ipv6 firewall",
+        // A peer names its profile, an identity its peer and certificate, and a policy its peer and proposal.
+        "/ip ipsec profile",
+        "/ip ipsec proposal",
+        "/ip ipsec peer",
+        "/ip ipsec identity",
+        "/ip ipsec policy",
         "/routing rpki",
         "/routing filter rule",
         "/routing bgp instance",

@@ -217,6 +217,15 @@ const NEIGHBOR_SETTINGS = {
     communities: { groups: 0, blackhole: 0 },
 } as const;
 const CHAIN = { default_action: 0, rules: [FILTER_RULE] } as const;
+const IPSEC_TUNNEL = {
+    local_address: 0,
+    remote_address: 0,
+    pre_shared_key: SECRET,
+    certificate: 0,
+    ca_certificate: 0,
+    ike: { encryption: 0, integrity: 0, prf: 0, dh_group: 0, lifetime: 0 },
+    esp: { encryption: 0, integrity: 0, pfs_group: 0, lifetime: 0 },
+} as const;
 
 /** Every key a device may have, its parts merged in. */
 export const DEVICE = {
@@ -248,7 +257,7 @@ export const DEVICE = {
             remote_role: 0,
             accounting_events: 0,
         },
-        certificates: { "*": { certificate_file: 0, private_key: SECRET } },
+        certificates: { "*": { certificate_file: 0, private_key: SECRET, crl_url: 0 } },
         // A VDOM's routes have no VRF.
         vdoms: {
             management: {
@@ -345,14 +354,9 @@ export const DEVICE = {
             "*": {
                 addresses: ROUTED.addresses,
                 description: 0,
-                local_address: 0,
-                remote_address: 0,
-                pre_shared_key: SECRET,
-                certificate: 0,
-                ca_certificate: 0,
+                vrf: 0,
+                ...IPSEC_TUNNEL,
                 remote_identity: { distinguished_name: 0, fqdn: 0, email: 0, address: 0 },
-                ike: { encryption: 0, integrity: 0, prf: 0, dh_group: 0, lifetime: 0 },
-                esp: { encryption: 0, integrity: 0, pfs_group: 0, lifetime: 0 },
                 liveness_check: { interval: 0, retries: 0 },
                 nat_traversal: 0,
                 nat_keepalive: 0,
@@ -531,6 +535,7 @@ export const DEVICE = {
         tcp_mss: [TCP_MSS_RULE],
         conntrack_helpers: 0,
         untracked: 0,
+        ipsec: { "*": { description: 0, traffic_selectors: [{ local_prefix: 0, remote_prefix: 0 }], liveness_check: 0, ...IPSEC_TUNNEL } },
     },
     qos: {
         marking: [MARKING_RULE],

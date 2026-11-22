@@ -26,6 +26,7 @@ import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
+import { RouterOsIpsec } from "./ipsec";
 import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
@@ -106,6 +107,10 @@ export class RouterOs extends Platform {
 
     /** How much an error quotes of output it could not read: the certificate list, or the clock. */
     private static readonly QUOTE_UNEXPECTED_CHARS = 120;
+
+    /** How long an install waits, at most, for an imported key to join its certificate, then how long it waits before anything names the certificate (TRAPS.md). */
+    private static readonly KEY_JOIN_SECONDS = 15;
+    private static readonly CERTIFICATE_SETTLE_SECONDS = 3;
 
     /** How much of a refused command, and of the device's answer, an apply's error quotes. */
     private static readonly QUOTE_REFUSED_COMMAND_CHARS = 160;
@@ -270,7 +275,18 @@ export class RouterOs extends Platform {
         if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
-            found.push(`interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)`);
+            found.push(
+                `interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
+            );
+        found.push(...RouterOsIpsec.unsupported(device));
+        // `crl-use` is the whole router's: once on, a certificate that points to the list of its CA gets refused while RouterOS holds no list of that CA (TRAPS.md).
+        const certificates = RouterOsSyntax.entries(device.system?.certificates);
+        if (certificates.some(([, certificate]) => certificate.crl_url))
+            for (const [name, certificate] of certificates)
+                if (!certificate.private_key && !certificate.crl_url)
+                    found.push(
+                        `system.certificates.${name} without crl_url beside a CA with one: RouterOS then refuses a certificate that points to the list of its CA, while it holds no list of that CA. Write crl_url here too`
+                    );
         found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
@@ -984,6 +1000,10 @@ export class RouterOs extends Platform {
 
             await session.upload(`${name}.key`, privateKey);
             await session.run(`/certificate import file-name=${name}.key name=${name} passphrase=""`);
+            // An IPsec identity set to the certificate at once was refused, and one set a moment later took it. So the install waits until the certificate shows its key, then a moment more (TRAPS.md).
+            await session.run(
+                `:local waited 0; :while (![/certificate get [find name="${name}"] private-key] && $waited < ${RouterOs.KEY_JOIN_SECONDS}) do={ :delay 1s; :set waited ($waited + 1) }; :delay ${RouterOs.CERTIFICATE_SETTLE_SECONDS}s`
+            );
         }
 
         await session.run(`/file remove [find name="${name}.crt" or name="${name}.key"]`);

@@ -75,6 +75,7 @@ A note in a cell means "works, with this limit".
 | IPsec carrying IPv6             | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅ one IPv6 address, without a peer             |
 | IPsec with certificates         | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                                              |
 | IPsec, the peer's identity      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | 🧪 its subject only                             |
+| IPsec, the tunnel in a VRF      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | 🧪 the tunnel's interface                       |
 | WireGuard                       | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                                              |
 | PPPoE client                    | ✅ with a delegated IPv6 prefix and a prefix or length hint, SLAAC, and in a VRF           | ❌                | ❌                                  | ❌                                                                         | 🧪 SLAAC, in a VRF; no MTU, no delegated prefix |
 | EoIP                            | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                                              |
@@ -86,6 +87,8 @@ A note in a cell means "works, with this limit".
 | VRRP                            | ✅                                                                                         | IPv4              | IPv4                                | IPv4                                                                       | IPv4                                            |
 | IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                | ❌                                  | ✅                                                                         | ✅                                              |
 | uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4    | ❌                                  | ✅ strict                                                                  | 🧪 strict, one mode for the VDOM                |
+
+A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes `vrf` on any interface, and its FortiGate-6000 handbook for 6.2 puts a tunnel's interface in one, but no FortiGate in CI has tried it. RouterOS runs IKE in the main table only, so a policy-based tunnel there takes no VRF.
 
 ### Routing
 
@@ -152,6 +155,8 @@ A note in a cell means "works, with this limit".
 | CGNAT pool, block timeout          | ❌                         | ❌                    | ❌                         | ❌                       | ✅ 3 to 300 seconds                             |
 | NAT64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
 | TCP MSS clamp                      | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec, policy-based, certificates  | ✅ one CA on the device    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DSCP, PCP, and class marking       | ✅ not with fast path      | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
 | Classes and schedulers             | ✅ not with fast path      | ❌                    | ❌                         | ❌                       | ❌                                              |
 | Classes by PCP                     | ✅ routed, as it arrives   | ❌                    | ❌                         | ❌                       | ❌                                              |
@@ -174,6 +179,14 @@ A note in a cell means "works, with this limit".
 | DNS64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 with NAT64's prefix                          |
 | NTP client                         | ✅                         | ✅                    | ✅                         | ✅                       | ✅                                              |
 | NTP server                         | ✅                         | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
+
+Policy-based IPsec is built on RouterOS only:
+
+- **RouterOS.** The IKE daemon has no AES-GCM, and runs in the main table only, so a tunnel's `local_address` is outside every VRF. It takes a peer's certificate that any certificate it holds signed, so `ca_certificate` must be its only certificate without a private key. It has no setting for a liveness check's retries, ESP in UDP without a NAT, or the NAT keepalive interval, and its remote ID matches the identity the peer sends. So a policy-based tunnel takes none of these yet, nor `remote_identity`.
+- **FortiOS.** A policy-based tunnel is a phase 1 and a phase 2 without an interface, and a firewall policy with `action ipsec`. No FortiGate in CI has proven one, so it is not built yet.
+- **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
+
+No platform writes IKEv1. RFC 9395 deprecates it.
 
 Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardware_offload` unless the rule matches a VLAN interface with `hardware_offload: false` in `in_interface` or `out_interface`: traffic on the fast path or offloaded skips it. The other platforms don't build marking:
 
@@ -220,10 +233,18 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Flow timeouts                     | ✅                              | ❌                              | ❌                | ❌                     | 🧪                                |
 | ICMP probes                       | ✅                              | ❌                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌                              | ❌                | web, API               | ✅                                |
+| Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌                              | ❌                | ❌                     | 🧪                                |
 | Management in a VRF               | ✅ not FTP                      | ❌                              | ❌                | ❌                     | ❌                                |
 | SNMP in a VRF                     | ✅                              | ❌                              | ❌                | ❌                     | ❌                                |
 | NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ❌                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
 | Management VDOM                   | ❌                              | ❌                              | ❌                | ❌                     | ✅                                |
+
+The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
+
+- **RouterOS.** It checks certificates against the lists for the whole router, so each CA of the device takes a `crl_url` once one does. It refuses a certificate that points to the list of its CA while it holds no list of that CA.
+- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet.
+
+OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
 
 ### Circuit's own tools
 

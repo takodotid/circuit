@@ -11,6 +11,7 @@ import type { NamedInterface } from "../../core/derive";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
 import { RouterOsFirewall } from "./firewall";
+import { RouterOsIpsec } from "./ipsec";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
 import { RouterOsPseudowire } from "./pseudowire";
@@ -107,6 +108,7 @@ export class RouterOsRender {
         RouterOsQueues.render(render, device);
         RouterOsSchedulers.render(render, device);
         RouterOsFirewall.render(render, device);
+        RouterOsIpsec.render(render, device);
         RouterOsRouting.render(render, device);
         RouterOsPseudowire.render(render, device);
         render.management();
@@ -905,6 +907,11 @@ export class RouterOsRender {
                 "private-key": RouterOsSyntax.yesNo(Boolean(certificate.private_key)),
             });
         }
+
+        // RouterOS downloads a list only while `crl-download` is on, and checks certificates against the lists only while `crl-use` is (TRAPS.md).
+        const lists = RouterOsSyntax.entries(this.device.system?.certificates).flatMap(([, certificate]) => certificate.crl_url ?? []);
+        if (lists.length) this.add("/certificate settings", "set", { "crl-download": "yes", "crl-use": "yes" });
+        for (const url of lists) this.add("/certificate crl", "add", { url });
     }
 
     private system(): void {

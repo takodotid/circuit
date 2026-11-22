@@ -2,7 +2,19 @@
 
 import { X509Certificate } from "node:crypto";
 import { Address } from "../core/address";
-import type { Device, Finding, Gre, Ipsec, Prefix, Pseudowire, Routed, Switched, Vxlan } from "../model";
+import type {
+    Device,
+    Finding,
+    Gre,
+    IpsecTunnel,
+    PolicyIpsec,
+    Prefix,
+    Pseudowire,
+    Routed,
+    Switched,
+    TrafficSelector,
+    Vxlan,
+} from "../model";
 import { Derive } from "../core/derive";
 import { Utils } from "../core/utils";
 import { DeviceChecks } from "./device";
@@ -12,7 +24,7 @@ import type { Holder } from "../core/topology";
 /** What a port's settings are kept on, as a path: the LAG when the port is in one, otherwise the port. */
 type Carrier = { where: string; settings: Routed & Switched & { mtu?: number } };
 
-type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan" | "ipsec"; tunnel: Gre | Vxlan | Ipsec };
+type TunnelEnd = { device: Device; where: string; kind: "gre" | "vxlan" | "ipsec"; tunnel: Gre | Vxlan | IpsecTunnel };
 
 export class CrossChecks {
     /** An interface's MTU when the config gives none. */
@@ -25,7 +37,7 @@ export class CrossChecks {
     private static readonly TUNNEL_NAMES: Record<TunnelEnd["kind"], string> = { gre: "GRE", vxlan: "VXLAN", ipsec: "IPsec" };
 
     /** What both ends of an IPsec tunnel must agree on: everything in `ike` and `esp` but the lifetimes, which each end keeps for itself (RFC 7296). */
-    private static algorithms(tunnel: Ipsec): unknown {
+    private static algorithms(tunnel: IpsecTunnel): unknown {
         const { lifetime: _ike, ...ike } = tunnel.ike;
         const { lifetime: _esp, ...esp } = tunnel.esp;
         return { ike, esp };
@@ -33,10 +45,10 @@ export class CrossChecks {
 
     /** Both ends of an IPsec tunnel authenticate the same way, and with certificates each end's CA signed the other's certificate. A file that can't be read is reported where it is written. */
     private static authentication(end: TunnelEnd, mirror: TunnelEnd): string | undefined {
-        const ours = end.tunnel as Ipsec;
-        const theirs = mirror.tunnel as Ipsec;
+        const ours = end.tunnel as IpsecTunnel;
+        const theirs = mirror.tunnel as IpsecTunnel;
         const far = mirror.device.name;
-        const way = (tunnel: Ipsec) => (tunnel.pre_shared_key ? "pre_shared_key" : "a certificate");
+        const way = (tunnel: IpsecTunnel) => (tunnel.pre_shared_key ? "pre_shared_key" : "a certificate");
 
         if (way(ours) !== way(theirs))
             return `it authenticates with ${way(ours)}, and ${far} ${mirror.where} with ${way(theirs)}. Write the same way at both ends`;
@@ -55,6 +67,20 @@ export class CrossChecks {
         if (!ca || !certificate || (certificate.checkIssued(ca) && certificate.verify(ca.publicKey))) return undefined;
 
         return `ca_certificate ${ours.ca_certificate} did not sign ${far}'s certificate ${theirs.certificate}. Write the CA that signed it`;
+    }
+
+    /** Two policy-based ends carry the same traffic: each selector of one is a selector of the other, its prefixes swapped. A route-based end takes any selectors. */
+    private static selectors(end: TunnelEnd, mirror: TunnelEnd): string | undefined {
+        const ours = (end.tunnel as Partial<PolicyIpsec>).traffic_selectors;
+        const theirs = (mirror.tunnel as Partial<PolicyIpsec>).traffic_selectors;
+        if (!ours || !theirs) return undefined;
+
+        const key = (local: string, remote: string) => `${Address.canonical(local)} ${Address.canonical(remote)}`;
+        const mirrored = new Set(theirs.map((selector) => key(selector.remote_prefix, selector.local_prefix)));
+        const missing = ours.find((selector: TrafficSelector) => !mirrored.has(key(selector.local_prefix, selector.remote_prefix)));
+        if (!missing) return undefined;
+
+        return `traffic_selectors take ${missing.local_prefix} to ${missing.remote_prefix}, and ${mirror.device.name} ${mirror.where} has no selector from ${missing.remote_prefix} to ${missing.local_prefix}. Write the same selectors at both ends, each from its own side`;
     }
 
     static run(devices: readonly Device[]): Finding[] {
@@ -522,6 +548,9 @@ export class CrossChecks {
             ...Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, tunnel]) =>
                 tunnel ? [{ device, where: `interfaces.ipsec.${name}`, kind: "ipsec" as const, tunnel }] : []
             ),
+            ...Object.entries(device.firewall?.ipsec ?? {}).flatMap(([name, tunnel]) =>
+                tunnel ? [{ device, where: `firewall.ipsec.${name}`, kind: "ipsec" as const, tunnel }] : []
+            ),
         ]);
 
         const same = (a: string, b: string) => Topology.keyOf(a) !== undefined && Topology.keyOf(a) === Topology.keyOf(b);
@@ -553,12 +582,14 @@ export class CrossChecks {
             }
 
             if (end.kind === "ipsec") {
-                const algorithms = (tunnel: Ipsec) => JSON.stringify(CrossChecks.algorithms(tunnel));
-                if (algorithms(end.tunnel as Ipsec) !== algorithms(mirror.tunnel as Ipsec))
+                const algorithms = (tunnel: IpsecTunnel) => JSON.stringify(CrossChecks.algorithms(tunnel));
+                if (algorithms(end.tunnel as IpsecTunnel) !== algorithms(mirror.tunnel as IpsecTunnel))
                     report(`its algorithms differ from ${far.name} ${mirror.where}'s. Write the same ike and esp, but for their lifetimes`);
 
                 const authentication = CrossChecks.authentication(end, mirror);
                 if (authentication) report(authentication);
+                const selectors = CrossChecks.selectors(end, mirror);
+                if (selectors) report(selectors);
                 continue;
             }
 

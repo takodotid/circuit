@@ -115,6 +115,7 @@ export class DeviceChecks {
         Nat64Checks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
+        IpsecChecks.policyBased(device, report);
         QosChecks.check(device, report);
         ServicesChecks.check(device, report, cidr, ip);
         PppoeClientChecks.check(device, report);
@@ -877,6 +878,18 @@ export class DeviceChecks {
             } catch {
                 report(`system.certificates.${name} is not a PEM certificate`);
             }
+        }
+
+        // A CA publishes the list of what it revoked, and the device only trusts a CA.
+        for (const [name, certificate] of Object.entries(certificates)) {
+            const url = certificate?.crl_url;
+            if (url === undefined) continue;
+            if (certificate?.private_key)
+                report(
+                    `system.certificates.${name}.crl_url beside a private key: write it on the certificate of the CA that publishes the list, without a private key`
+                );
+            if (!URL.canParse(url) || new URL(url).protocol !== "http:")
+                report(`system.certificates.${name}.crl_url ${url} is no HTTP URL: write it as http://host/path`);
         }
 
         for (const service of ["https", "api_tls"] as const) {

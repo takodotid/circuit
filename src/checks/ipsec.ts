@@ -1,5 +1,5 @@
 import { Address } from "../core/address";
-import type { Certificate, Ipsec, IpsecIdentity } from "../model";
+import type { Certificate, Device, IpsecIdentity, IpsecTunnel, TrafficSelector } from "../model";
 
 type Report = (message: string) => void;
 
@@ -26,7 +26,7 @@ export class IpsecChecks {
     private static readonly EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
     /** Endpoints of one family, and one way to authenticate, with a remote identity only beside certificates. An integrity algorithm with each `cbc` encryption and none with a `gcm` one, and lifetimes and liveness checks in whole numbers. `certificates` are the device's. */
-    static check(where: string, tunnel: Ipsec, certificates: Partial<Record<string, Certificate>>, report: Report): void {
+    static check(where: string, tunnel: IpsecTunnel, certificates: Partial<Record<string, Certificate>>, report: Report): void {
         const local = Address.host(tunnel.local_address);
         const remote = tunnel.remote_address;
         if (Address.isValid(local) && Address.isValid(remote) && Address.family(local) !== Address.family(remote))
@@ -90,7 +90,7 @@ export class IpsecChecks {
     }
 
     /** A key both ends share, or a certificate with the CA that signed the peer's: one of the two, whole. */
-    private static authentication(where: string, tunnel: Ipsec, report: Report): void {
+    private static authentication(where: string, tunnel: IpsecTunnel, report: Report): void {
         const key = tunnel.pre_shared_key !== undefined;
         const certificate = tunnel.certificate !== undefined;
         const ca = tunnel.ca_certificate !== undefined;
@@ -101,5 +101,60 @@ export class IpsecChecks {
             report(`${where} has no way to authenticate. Add pre_shared_key, or certificate with ca_certificate`);
         else if (certificate && !ca) report(`${where}.certificate needs ca_certificate: the CA that signed the peer's certificate`);
         else if (ca && !certificate) report(`${where}.ca_certificate needs certificate: this end's own, with its private key`);
+    }
+
+    /**
+     * Each policy-based tunnel of `firewall.ipsec`: a tunnel as `check` says, with endpoints that are addresses, and at least one traffic selector. A selector's prefixes are whole prefixes of one family. No two selectors of the device take the same traffic: the model has no order, so the device could take either tunnel for it.
+     */
+    static policyBased(device: Device, report: Report): void {
+        const taken: { where: string; selector: TrafficSelector }[] = [];
+
+        for (const [name, tunnel] of Object.entries(device.firewall?.ipsec ?? {})) {
+            if (!tunnel) continue;
+            const where = `firewall.ipsec.${name}`;
+            for (const key of ["local_address", "remote_address"] as const)
+                if (!Address.isValid(Address.host(tunnel[key]))) report(`${where}.${key}: '${tunnel[key]}' is not an address`);
+            IpsecChecks.check(where, tunnel, device.system?.certificates ?? {}, report);
+
+            if (tunnel.traffic_selectors.length === 0)
+                report(`${where}.traffic_selectors is empty: write the local_prefix and remote_prefix whose traffic the tunnel carries`);
+            tunnel.traffic_selectors.forEach((selector, index) => {
+                const at = `${where}.traffic_selectors[${index}]`;
+                if (!IpsecChecks.selector(at, selector, report)) return;
+
+                const same = taken.find(({ selector: other }) => IpsecChecks.overlap(selector, other));
+                if (same)
+                    report(
+                        `${at} takes traffic that ${same.where} takes too, from ${selector.local_prefix} to ${selector.remote_prefix}: the device would send it through either. Narrow one of them`
+                    );
+                taken.push({ where: at, selector });
+            });
+        }
+    }
+
+    /** Whether both prefixes are whole prefixes of one family, after reporting what is not. */
+    private static selector(at: string, selector: TrafficSelector, report: Report): boolean {
+        let whole = true;
+        for (const key of ["local_prefix", "remote_prefix"] as const) {
+            const prefix = selector[key];
+            if (!Address.isCidr(prefix)) {
+                report(`${at}.${key}: '${prefix}' is not a prefix with its length`);
+                whole = false;
+            } else if (Address.prefixOf(prefix) !== prefix) {
+                report(`${at}.${key} ${prefix} has bits past its length: write ${Address.prefixOf(prefix)}`);
+                whole = false;
+            }
+        }
+        if (whole && Address.family(Address.host(selector.local_prefix)) !== Address.family(Address.host(selector.remote_prefix))) {
+            report(`${at}: local_prefix ${selector.local_prefix} and remote_prefix ${selector.remote_prefix} differ in family`);
+            whole = false;
+        }
+        return whole;
+    }
+
+    /** Whether some packet matches both selectors: their local prefixes share addresses, and so do their remote ones. Two prefixes share addresses when one holds the other. */
+    private static overlap(one: TrafficSelector, other: TrafficSelector): boolean {
+        const share = (a: string, b: string) => Address.contains(a, b) || Address.contains(b, a);
+        return share(one.local_prefix, other.local_prefix) && share(one.remote_prefix, other.remote_prefix);
     }
 }

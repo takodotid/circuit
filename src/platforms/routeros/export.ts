@@ -438,6 +438,30 @@ export class RouterOsExport {
             type: "qkd",
         },
         "/system routerboard settings": { "enter-setup-on": "any-key" },
+        "/certificate settings": { "builtin-trust-store": "default", "crl-download": "no", "crl-store": "ram", "crl-use": "no" },
+        // As `export verbose` printed a tunnel's entries on a CHR with 7.24.6.
+        "/ip ipsec profile": {
+            "dpd-interval": "8s",
+            "dpd-maximum-failures": "4",
+            "hash-algorithm": "sha1",
+            lifetime: "1d",
+            "nat-traversal": "yes",
+            ppk: "no",
+            "prf-algorithm": "auto",
+            "proposal-check": "obey",
+        },
+        "/ip ipsec proposal": { "auth-algorithms": "sha1", lifetime: "30m", "pfs-group": "modp1024" },
+        "/ip ipsec peer": { "exchange-mode": "main", passive: "no", "send-initial-contact": "yes" },
+        "/ip ipsec identity": { "auth-method": "pre-shared-key", "generate-policy": "no", "match-by": "remote-id", "remote-id": "auto" },
+        "/ip ipsec policy": {
+            action: "encrypt",
+            "dst-port": "any",
+            "ipsec-protocols": "esp",
+            level: "require",
+            protocol: "all",
+            "src-port": "any",
+            tunnel: "no",
+        },
         "/interface ethernet switch": { "l3-hw-offloading": "no" },
         "/interface ethernet switch l3hw-settings": { autorestart: "no", "ipv6-hw": "no" },
     };
@@ -577,6 +601,10 @@ export class RouterOsExport {
         "/ipv6 dhcp-client": ["interface"],
         "/ipv6 nd": ["interface"],
         "/ipv6 nd prefix": ["prefix", "interface"],
+        "/certificate crl": ["url"],
+        // One identity per peer. A policy is known by its traffic: no two of Circuit's take the same.
+        "/ip ipsec identity": ["peer"],
+        "/ip ipsec policy": ["src-address", "dst-address"],
     };
 
     /** Menus whose entries are an ordered list without names. They are rewritten whole, in the order the render gives. */
@@ -886,6 +914,10 @@ export class RouterOsExport {
         const identity = RouterOsExport.identity(command);
         const destination = identity["dst-address"];
         if (command.menu === "/ip route" && destination && !destination.includes("/")) identity["dst-address"] = `${destination}/32`;
+        // A policy's IPv4 host compares bare, and `find` takes it whole, as a route's (TRAPS.md).
+        if (command.menu === "/ip ipsec policy")
+            for (const property of ["src-address", "dst-address"])
+                if (identity[property] && !identity[property].includes("/")) identity[property] = `${identity[property]}/32`;
         return identity;
     }
 
