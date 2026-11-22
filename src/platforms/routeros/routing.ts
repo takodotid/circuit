@@ -46,6 +46,9 @@ export class RouterOsRouting {
     /** The chain of a session that carries VPN routes only. It takes them, which their route targets pick, and rejects the rest (TRAPS.md). */
     private static readonly VPN = "VPN";
 
+    /** The VPN families, in the order a session's chain takes them. */
+    private static readonly VPN_FAMILIES = ["vpnv4", "vpnv6"] as const satisfies readonly BgpFamily[];
+
     /** A connection's `afi` for each family, in the order the device prints them. */
     private static readonly AFI = { ipv4: "ip", ipv6: "ipv6", vpnv4: "vpnv4", vpnv6: "vpnv6" } as const satisfies Record<BgpFamily, string>;
 
@@ -611,21 +614,29 @@ export class RouterOsRouting {
 
     /** The chains of sessions that carry VPN routes: each takes them, then hands the rest to the session's own chain, or rejects them. */
     private vpnChains(): void {
-        const chains = new Map<string, string | undefined>();
+        const chains = new Map<string, { next: string | undefined; families: Set<BgpFamily> }>();
         for (const neighbor of Object.values(this.device.routing!.bgp!.neighbors ?? {})) {
             const settings = this.settingsOf(neighbor);
-            if (!Derive.vpnFamilies(settings).length) continue;
+            const vpn = Derive.vpnFamilies(settings);
+            if (!vpn.length) continue;
 
             const [family] = this.familiesOf(neighbor);
             const own = family && [
                 RouterOsRouting.chainName(settings.import_policy ?? RouterOsRouting.REJECT_ALL, family),
                 RouterOsRouting.exportChain(settings, family),
             ];
-            for (const chain of own || [undefined]) chains.set(RouterOsRouting.sessionChain(chain, true)!, chain);
+            for (const next of own || [undefined]) {
+                const chain = RouterOsRouting.sessionChain(next, true)!;
+                const families = chains.get(chain)?.families ?? new Set<BgpFamily>();
+                for (const carried of vpn) families.add(carried);
+                chains.set(chain, { next, families });
+            }
         }
 
-        for (const [chain, next] of [...chains].sort(([a], [b]) => a.localeCompare(b))) {
-            this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${RouterOsRouting.AFI.vpnv4}) { accept }` });
+        for (const [chain, { next, families }] of [...chains].sort(([a], [b]) => a.localeCompare(b))) {
+            for (const family of RouterOsRouting.VPN_FAMILIES)
+                if (families.has(family))
+                    this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${RouterOsRouting.AFI[family]}) { accept }` });
             this.render.add("/routing filter rule", "add", { chain, rule: next ? `jump ${next}` : "reject" });
         }
     }
@@ -830,7 +841,7 @@ export class RouterOsRouting {
     }
 
     /**
-     * Each VRF in an L3VPN (RFC 4364) hands every route it holds to the BGP VPN table with its export targets, through its export policy's chain. It takes the VPN routes with an import target, through its import policy's chain, as MikroTik's VRF guide sets it up. One label stands for the whole VRF, not one per prefix.
+     * Each VRF in an L3VPN (RFC 4364) hands every route it holds to the BGP VPN table with its export targets, through its export policy's chain. It takes the VPN routes with an import target, through its import policy's chain, as MikroTik's VRF guide sets it up. Each prefix has a label of its own: one label for a VRF with IPv4 and IPv6 routes lost the traffic of both (TRAPS.md).
      */
     private vpns(): void {
         for (const [vrf, settings] of RouterOsSyntax.entries(this.device.routing?.vrfs)) {
@@ -847,7 +858,7 @@ export class RouterOsRouting {
                 "import.filter-chain": importPolicy && `${importPolicy}-${RouterOsRouting.FROM_VPN}`,
                 "import.route-targets": imported.length ? imported.join(",") : undefined,
                 instance: "default",
-                "label-allocation-policy": "per-vrf",
+                "label-allocation-policy": "per-prefix",
                 name: vrf,
                 "route-distinguisher": distinguisher,
                 vrf,

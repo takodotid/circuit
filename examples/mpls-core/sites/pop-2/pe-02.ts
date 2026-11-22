@@ -18,7 +18,11 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.2.1/24"] },
-            "25g-1": { description: "Bank, office 2", vrf: "bank", addresses: ["172.16.2.1/30"] },
+            "25g-1": {
+                description: "Bank, office 2",
+                vrf: "bank",
+                addresses: ["172.16.2.1/30", "2001:db8:b1:ff02::1/64"],
+            },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
             "100g-1": {
                 description: "pe-01 qsfp28-1-1",
@@ -63,7 +67,10 @@ export default as64500.device({
                 export_policy: "bank-offices",
             },
         },
-        static_routes: [{ prefix: "10.1.2.0/24", next_hop: "172.16.2.2", vrf: "bank", description: "Bank, office 2's network" }],
+        static_routes: [
+            { prefix: "10.1.2.0/24", next_hop: "172.16.2.2", vrf: "bank", description: "Bank, office 2's network" },
+            { prefix: "2001:db8:b1:2::/64", next_hop: "2001:db8:b1:ff02::2", vrf: "bank", description: "Bank, office 2's IPv6 network" },
+        ],
         // The three routers are in area 49.0001, at level 2 only. The system ID is the loopback address.
         isis: {
             net: "49.0001.0102.5500.0002.00",
@@ -87,7 +94,7 @@ export default as64500.device({
                 export_policy: "loopbacks",
             },
         },
-        // The iBGP session between the loopbacks carries the VRFs' routes, each with its label, and no other routes.
+        // The iBGP sessions between the loopbacks carry the VRFs' routes, each with its label, and no other routes. IPv4 routes go between the LSR IDs, and IPv6 routes between the IPv6 loopbacks (RFC 4659).
         bgp: {
             neighbors: {
                 "pe-01": {
@@ -97,10 +104,17 @@ export default as64500.device({
                     local_address: "10.255.0.2",
                     address_families: ["vpnv4"],
                 },
+                "pe-01-v6": {
+                    description: "pe-01, IPv6 VPN routes",
+                    address: "2001:db8:100:ffff::1",
+                    remote_as: 64500,
+                    local_address: "2001:db8:100:ffff::2",
+                    address_families: ["vpnv6"],
+                },
             },
         },
         prefix_sets: {
-            "bank-offices": { prefixes: ["10.1.0.0/16"] },
+            "bank-offices": { prefixes: ["10.1.0.0/16", "2001:db8:b1::/56"] },
             loopbacks: { prefixes: ["10.255.0.0/24", "2001:db8:100:ffff::/64"] },
         },
         policies: {

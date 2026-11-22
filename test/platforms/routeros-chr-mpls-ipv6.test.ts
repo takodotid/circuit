@@ -1,4 +1,4 @@
-// LDP for IPv6 (RFC 7552) on the three CHRs of the devices workflow, the first linked to the other two. OSPF carries the IPv4 and IPv6 loopbacks, and the link to the third has link-local IPv6 addresses alone. LDP runs for IPv4, for both families, with policies, over IPv4 with the PEs targeting each other, and for IPv4 again, in order. Skipped without the three CHRs.
+// LDP for IPv6 (RFC 7552) and vpnv6 (RFC 4659) on the three CHRs, the first linked to the other two. OSPF carries the IPv4 and IPv6 loopbacks, and the link to the third has link-local IPv6 addresses alone. LDP runs for IPv4, for both families, with policies, and over IPv4 with targets. The PEs carry a VRF as vpnv4 and vpnv6, then LDP runs for IPv4 again. Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -41,6 +41,17 @@ const LINKS: Record<Router, Record<string, string[]>> = {
 };
 
 const MANAGEMENT: Record<Router, string> = { "p-01": "10.0.0", "pe-01": "10.0.1", "pe-02": "10.0.2" };
+
+type Pe = "pe-01" | "pe-02";
+
+/** Each PE's addresses in the VRF bank, on a loopback there. */
+const BANK: Record<Pe, { v4: string; v6: string }> = {
+    "pe-01": { v4: "198.51.100.1", v6: "2001:db8:101::1" },
+    "pe-02": { v4: "198.51.100.2", v6: "2001:db8:101::2" },
+};
+
+/** The VRF's route distinguisher and its one route target. */
+const BANK_TARGET = "64500:101";
 
 /** p-01's IPv6 address on its link to pe-01, the first hop from pe-01. */
 const FIRST_HOP = "2001:db8:0:12::1";
@@ -86,11 +97,11 @@ function write(path: string, text: string): void {
     writeFileSync(join(folder, path), text);
 }
 
-/** What LDP runs with: `ipv6` for both families, and `policies` for p-01 to take no label for a link, and pe-01 to give labels for the loopbacks only. With `targets`, every router holds its sessions over IPv4, and the PEs target each other's LSR ID. */
-type Lab = { ipv6: boolean; policies?: boolean; targets?: boolean };
+/** What LDP runs with: `ipv6` for both families, and `policies` for p-01 to take no label for a link, and pe-01 to give labels for the loopbacks only. With `targets`, every router holds its sessions over IPv4, and the PEs target each other's LSR ID. With `l3vpn`, the PEs carry the VRF bank's routes to each other: vpnv4 between their LSR IDs, vpnv6 between their IPv6 addresses. */
+type Lab = { ipv6: boolean; policies?: boolean; targets?: boolean; l3vpn?: boolean };
 
 /** A router of the lab: its loopback and links in OSPF for both families, and LDP on its links. */
-function writeRouter(name: Router, chr: string, { ipv6, policies = false, targets = false }: Lab): void {
+function writeRouter(name: Router, chr: string, { ipv6, policies = false, targets = false, l3vpn = false }: Lab): void {
     const [host, port] = chr.split(":");
     const ports = Object.entries(LINKS[name])
         .map(([link, addresses]) => `"${link}": { description: "lab link", addresses: ${JSON.stringify(addresses)} },`)
@@ -112,6 +123,19 @@ function writeRouter(name: Router, chr: string, { ipv6, policies = false, target
             ? `prefix_sets: { ${policy.set}: { prefixes: ${JSON.stringify(PREFIXES[policy.set])} } },
         policies: { labels: [{ if: { prefix_set: "${policy.set}" }, then: "${policy.then}" }, { then: "${other}" }] },`
             : "";
+    const peer = { "pe-01": "pe-02", "pe-02": "pe-01" }[name as Pe] as Pe | undefined;
+    const bank = l3vpn && peer ? BANK[name as Pe] : undefined;
+    const bankLoopback = bank ? `"bank-lo": { addresses: ["${bank.v4}/32", "${bank.v6}/128"], vrf: "bank" },` : "";
+    const vpn =
+        bank && peer
+            ? `vrfs: { bank: { route_distinguisher: "${BANK_TARGET}", route_targets: { import: ["${BANK_TARGET}"], export: ["${BANK_TARGET}"] } } },
+        bgp: {
+            neighbors: {
+                "${peer}": { address: "${LOOPBACK[peer].v4}", remote_as: 64500, local_address: "${LOOPBACK[name].v4}", address_families: ["vpnv4"] },
+                "${peer}-v6": { address: "${LOOPBACK[peer].v6}", remote_as: 64500, local_address: "${LOOPBACK[name].v6}", address_families: ["vpnv6"] },
+            },
+        },`
+            : "";
     write(
         `sites/lab/${name}.ts`,
         `import { lab } from "../../circuit";
@@ -129,13 +153,14 @@ export default lab.device({
             "virtual-1": { description: "Management", addresses: ["${MANAGEMENT[name]}.1/24"] },
             ${ports}
         },
-        loopback: { loopback: { addresses: ["${LOOPBACK[name].v4}/32", "${LOOPBACK[name].v6}/128"] } },
+        loopback: { loopback: { addresses: ["${LOOPBACK[name].v4}/32", "${LOOPBACK[name].v6}/128"] }, ${bankLoopback} },
     },
     routing: {
         router_id: "${LOOPBACK[name].v4}",
         ospf: { address_families: ["ipv4", "ipv6"], areas: { "0.0.0.0": { interfaces: { loopback: { passive: true }, ${ospf} } } } },
         mpls: { ldp: { lsr_id: "${LOOPBACK[name].v4}", ${families}${targeted}${labels}interfaces: ${JSON.stringify(Object.keys(LINKS[name]))} } },
         ${policyBlocks}
+        ${vpn}
     },
 });
 `
@@ -194,6 +219,34 @@ function tracedLabel(): number | undefined {
     return label ? Number(label[1]) : undefined;
 }
 
+/** The label a PE's VRF bank uses for the other PE's address there, of one family, or nothing while it has no such route. */
+function bankLabel(pe: Pe, family: "v4" | "v6"): number | undefined {
+    const other: Pe = pe === "pe-01" ? "pe-02" : "pe-01";
+    const length = family === "v4" ? 32 : 128;
+    const output = exec(pe, `/routing route print detail where routing-table=bank and dst-address=${BANK[other][family]}/${length}`);
+    const label = /\blabel=(\d+)/.exec(output);
+    return label ? Number(label[1]) : undefined;
+}
+
+/** Whether a PE reaches the other PE's address in the VRF bank, of one family, from its own. */
+function bankPings(pe: Pe, family: "v4" | "v6"): boolean {
+    const other: Pe = pe === "pe-01" ? "pe-02" : "pe-01";
+    const output = exec(pe, `/ping ${BANK[other][family]} src-address=${BANK[pe][family]} vrf=bank count=3`);
+    return /received=[1-9]/.test(output);
+}
+
+/** What each PE holds of the L3VPN, for the job's log. */
+function logL3vpn(): void {
+    for (const device of ["pe-01", "pe-02"])
+        exec(
+            device,
+            "/routing bgp export",
+            "/routing bgp session print detail",
+            "/routing route print detail where routing-table=bank",
+            "/mpls forwarding-table print detail"
+        );
+}
+
 /** What each router holds of LDP, for the job's log. */
 function logLdp(): void {
     for (const device of ROUTERS)
@@ -208,7 +261,10 @@ function logLdp(): void {
 
 describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("LDP for IPv6 between three CHRs", () => {
     beforeAll(() => {
-        write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked port to port." } } });\n`);
+        write(
+            "circuit.ts",
+            `export const lab = circuit({ asn: 64500, sites: { lab: { description: "Three CHRs, linked port to port." } } });\n`
+        );
         writeLab({ ipv6: false });
     });
 
@@ -322,6 +378,32 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("LDP for IPv6 between thre
             );
             logLdp();
             expect(back).toBe(true);
+        },
+        TEST_MS
+    );
+
+    test(
+        "vpnv6: each apply converges, each VRF takes the other's IPv4 and IPv6 routes with a label, and the two VRFs reach each other in both families, both ways",
+        () => {
+            writeLab({ ipv6: true, l3vpn: true });
+            applyAll(["pe-01", "pe-02"]);
+
+            const arrived = eventually(() =>
+                (["pe-01", "pe-02"] as const).every((pe) => bankLabel(pe, "v4") !== undefined && bankLabel(pe, "v6") !== undefined)
+            );
+            logL3vpn();
+            expect(arrived).toBe(true);
+            expect(bankLabel("pe-02", "v6")).toBeGreaterThanOrEqual(FIRST_DYNAMIC_LABEL);
+            for (const pe of ["pe-01", "pe-02"] as const)
+                for (const family of ["v6", "v4"] as const) expect(eventually(() => bankPings(pe, family))).toBe(true);
+
+            // BGP's and LDP's own state, which an export leaves out, changes nothing to plan.
+            for (const device of ROUTERS) expect(circuit("diff", device).status).toBe(0);
+
+            // Without the L3VPN, each apply converges, and the PEs hold no VRF and no BGP.
+            writeLab({ ipv6: true });
+            applyAll(["pe-01", "pe-02"]);
+            for (const device of ["pe-01", "pe-02"]) expect(exec(device, "/routing bgp export", "/ip vrf export")).not.toMatch(/^add /m);
         },
         TEST_MS
     );

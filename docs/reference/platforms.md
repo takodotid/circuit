@@ -117,7 +117,7 @@ A note in a cell means "works, with this limit".
 | Targeted LDP                 | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |
 | LDP label policies           | ✅ /32 or prefix set    | ❌                         | ❌                       | ❌                    | ❌               |
 | LDP policies per neighbor    | ✅ /32 or prefix set    | ❌                         | ❌                       | ❌                    | ❌               |
-| L3VPN over MPLS              | ✅ IPv4, no VRF imports | ❌                         | ❌                       | ❌                    | ❌               |
+| L3VPN over MPLS              | ✅ no VRF imports       | ❌                         | ❌                       | ❌                    | ❌               |
 | VRF import/export policies   | ✅                      | ❌                         | ❌                       | ❌                    | ❌               |
 | Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496 | ❌                         | ❌                       | ❌                    | ❌               |
 | Pseudowire MTU, control word | ✅ MTU 1500 or more     | ❌                         | ❌                       | ❌                    | ❌               |
