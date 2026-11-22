@@ -48,6 +48,7 @@ export type {
     OspfInterface,
     PrefixSet,
     RadiusServer,
+    PerPrefix,
     RateLimit,
     RouterAdvertisement,
     RouteSet,

@@ -36,6 +36,7 @@
 (?i)overtemp
 (?i)policers?
 (?i)postrouting
+(?i)prerouting
 (?i)pseudowires?
 (?i)querier
 (?i)stelnet
@@ -72,6 +73,8 @@ ISPs
 Jadi
 Junos
 LAGs
+DSCPs
+PCPs
 MACsec
 Mbps
 Menlo

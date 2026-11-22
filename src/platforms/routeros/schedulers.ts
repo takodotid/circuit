@@ -23,17 +23,17 @@ export class RouterOsSchedulers {
     private static readonly RED_BURST_PARTS = 3;
 
     /**
-     * Each class's packets are marked as they leave the interface, by a marking rule's class first, then by DSCP. The first mark ends the chain, and the default class takes the rest. HTB serves every queue's `limit-at` first, then lends what is left by priority (MikroTik's manual, HTB). So a strict queue keeps its `max` at priority 1, and a weighted queue its share of what the strict queues' `max` leave.
+     * Each class's packets are marked as they leave the interface: by a marking rule's class, by DSCP, then by the PCP they arrived with (TRAPS.md). The first mark ends the chain. HTB serves every queue's `limit-at` first, then lends what is left by priority (MikroTik's manual, HTB). So a strict queue keeps its `max` at priority 1, and a weighted queue its share of what the strict queues' `max` leave.
      */
     static render(render: RouterOsRender, device: Device): void {
         const qos = device.qos;
         const fallback = qos?.default_class;
         if (!fallback) return;
 
-        // Each DSCP a class lists, with its class. The default class takes the rest, so its own DSCPs need no rule.
-        const listed = Object.entries(qos.classes ?? {}).flatMap(([each, settings]) =>
-            each === fallback ? [] : (settings?.dscp ?? []).map((dscp) => ({ each, dscp: Derive.DSCP[dscp] }))
-        );
+        // The default class takes the rest, so its own DSCPs and PCPs need no rule.
+        const others = Object.entries(qos.classes ?? {}).filter(([each]) => each !== fallback);
+        const listed = others.flatMap(([each, settings]) => (settings?.dscp ?? []).map((dscp) => ({ each, dscp: Derive.DSCP[dscp] })));
+        const tagged = others.flatMap(([each, settings]) => (settings?.pcp ?? []).map((pcp) => ({ each, pcp })));
         // Each class a marking rule sets, once.
         const marked = [...new Set((qos.marking ?? []).flatMap(({ then }) => (then.class === undefined ? [] : [then.class])))];
 
@@ -47,18 +47,25 @@ export class RouterOsSchedulers {
                 for (const each of marked)
                     render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${each}`, { "packet-mark": each }));
                 for (const { each, dscp } of listed) render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${each}`, { dscp }));
+                for (const { each, pcp } of tagged)
+                    render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${each}`, { "ingress-priority": pcp }));
                 render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${fallback}`));
             }
             RouterOsSchedulers.queues(render, root, scheduler.rate, scheduler.queues);
         }
     }
 
-    /** A mangle rule that marks what leaves `iface` for `queue`, by its DSCP or its mark when given, its properties in the order the device exports them. */
-    private static mark(iface: string, queue: string, match: { dscp?: number; "packet-mark"?: string } = {}): Record<string, Value> {
+    /** A mangle rule that marks what leaves `iface` for `queue`, by its DSCP, its ingress priority, or its mark when given, its properties in the order the device exports them. */
+    private static mark(
+        iface: string,
+        queue: string,
+        match: { dscp?: number; "ingress-priority"?: number; "packet-mark"?: string } = {}
+    ): Record<string, Value> {
         return {
             action: "mark-packet",
             chain: "postrouting",
             dscp: match.dscp,
+            "ingress-priority": match["ingress-priority"],
             "new-packet-mark": queue,
             "out-interface": iface,
             "packet-mark": match["packet-mark"],

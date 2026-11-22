@@ -444,6 +444,7 @@ export class RouterOs extends Platform {
                 "urpf",
                 "vrf-imports",
                 "rate-limit",
+                "rate-limit-per-prefix",
                 "marking",
                 "marking-class",
                 "queues",
