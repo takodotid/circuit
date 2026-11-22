@@ -103,9 +103,13 @@ test("RouterOS adds the entries in order, and removes them in the reverse order"
     ]);
 });
 
-test("RouterOS refuses a second remote access, a fast path, a name it takes for its own entries or another's, AES-GCM in IKE, an address in a VRF, and a CA beside another", () => {
+test("RouterOS refuses a second remote access, a fast path, a name it takes for its own entries or another's, two selectors, AES-GCM in IKE, an address in a VRF, and a CA beside another", () => {
     const device = withAccess("platforms--example-router", {
-        default: { ...ACCESS, ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 } },
+        default: {
+            ...ACCESS,
+            traffic_selectors: [{ local_prefix: "198.51.100.64/26" }, { local_prefix: "192.0.2.0/24" }],
+            ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
+        },
         "branch-1": {
             ...ACCESS,
             local_address: "198.51.100.129",
@@ -133,6 +137,7 @@ test("RouterOS refuses a second remote access, a fast path, a name it takes for 
             "services.ipsec_remote_access.branch-1: Circuit runs one remote access on a RouterOS router, as tested. Write one",
             "services.ipsec_remote_access beside a fast_path rule, whose flows skip IPsec's policies: take fast_path off",
             "services.ipsec_remote_access.default: the name of an IPsec entry RouterOS has itself, which the remote access's take. Write another name",
+            "services.ipsec_remote_access.default.traffic_selectors holds 2: RouterOS narrows a client that asks for all its traffic to the first alone (TRAPS.md). Write one prefix that holds them",
             "services.ipsec_remote_access.default.ike.encryption aes-256-gcm: RouterOS's IKE has no AES-GCM. Write aes-128-cbc or aes-256-cbc, with integrity",
             "services.ipsec_remote_access.branch-1, named as firewall.ipsec.branch-1: RouterOS names the IPsec entries of each after it. Give each its own name",
             "services.ipsec_remote_access.branch-1.local_address 198.51.100.129, on interfaces.vlan_interface.guests in VRF guests: RouterOS runs IKE in the main table only (TRAPS.md)",
@@ -174,7 +179,7 @@ test("validate takes a pool of IPv4 addresses without the gateway's, whole IPv4 
             "services.ipsec_remote_access.staff.traffic_selectors[0].local_prefix 198.51.100.65/26 has bits past its length: write 198.51.100.64/26",
             "services.ipsec_remote_access.staff.traffic_selectors[1].local_prefix: '2001:db8::/32' is not an IPv4 prefix with its length, such as 198.51.100.0/24",
             "services.ipsec_remote_access.staff: write radius, for users who log in with EAP, or ca_certificate, for users with certificates",
-            "services.ipsec_remote_access.guests.local_address 203.0.113.2 is in pool",
+            "services.ipsec_remote_access.guests.local_address 203.0.113.2 is in pool: write a pool without it",
             "services.ipsec_remote_access.guests.traffic_selectors is empty: write the local_prefix of each network clients reach",
             "services.ipsec_remote_access.guests.radius is empty: write the RADIUS servers that check users",
         ])

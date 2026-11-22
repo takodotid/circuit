@@ -168,7 +168,8 @@ export class IpsecChecks {
                 const range = { where, first: Address.toNumber(first)!, last: Address.toNumber(last)! };
                 if (range.first > range.last) report(`${where}.pool starts at ${first}, after its last address ${last}`);
                 const own = Address.toNumber(local);
-                if (own !== null && own >= range.first && own <= range.last) report(`${where}.local_address ${local} is in pool`);
+                if (own !== null && own >= range.first && own <= range.last)
+                    report(`${where}.local_address ${local} is in pool: write a pool without it`);
                 const shared = pools.find((other) => other.first <= range.last && range.first <= other.last);
                 if (shared) report(`${where}.pool shares addresses with ${shared.where}.pool: give each its own`);
                 pools.push(range);

@@ -193,7 +193,7 @@ Policy-based IPsec is built on RouterOS only:
 
 IPsec remote access is built on RouterOS only:
 
-- **RouterOS.** One remote access on a router, beside no `fast_path` rule, whose flows skip IPsec's policies. As for a policy-based tunnel, IKE has no AES-GCM and runs in the main table only, and `ca_certificate` must be the router's only certificate without a private key. RouterOS gives a client the selectors as the subnets of its configuration payload too. Its RADIUS servers for EAP may be in a VRF.
+- **RouterOS.** One remote access on a router, beside no `fast_path` rule, whose flows skip IPsec's policies. It takes one traffic selector: it narrows a client that asks for all its traffic to the first alone. As for a policy-based tunnel, IKE has no AES-GCM and runs in the main table only, and `ca_certificate` must be the router's only certificate without a private key. RouterOS gives a client the selectors as the subnets of its configuration payload too. Its RADIUS servers for EAP may be in a VRF.
 - **FortiOS.** Dial-up IPsec is a phase 1 of `type dynamic` with `mode-cfg`, and RADIUS users in a user group. No FortiGate in CI has proven it, so it is not built yet.
 - **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
 

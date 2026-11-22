@@ -98,6 +98,10 @@ export class RouterOsRemoteAccess {
                         `${where}, named as services.${group}.${name}: RouterOS names the address pool of each after it. Give each its own name`
                     );
 
+            if (access.traffic_selectors.length > 1)
+                found.push(
+                    `${where}.traffic_selectors holds ${access.traffic_selectors.length}: RouterOS narrows a client that asks for all its traffic to the first alone (TRAPS.md). Write one prefix that holds them`
+                );
             found.push(...RouterOsIpsec.ikeGaps(where, access.ike), ...RouterOsIpsec.localGaps(where, access.local_address, device));
             if (!access.radius) found.push(...RouterOsIpsec.caGaps(where, access.ca_certificate, device));
         }

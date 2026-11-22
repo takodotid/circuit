@@ -150,7 +150,7 @@ export default as64500.device({
                 local_address: "198.51.100.2",
                 pool: ["10.0.8.10", "10.0.8.250"],
                 dns: ["198.51.100.53", "198.51.100.54"],
-                traffic_selectors: [{ local_prefix: "100.64.0.0/17" }, { local_prefix: "100.64.128.0/24" }],
+                traffic_selectors: [{ local_prefix: "100.64.0.0/16" }],
                 certificate: "bng-01",
                 radius,
                 ike: { ...presets.ipsec_rfc8247, lifetime: 28800 },

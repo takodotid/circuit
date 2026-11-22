@@ -3,10 +3,11 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawn, spawnSync } from "node:child_process";
 import type { ChildProcess } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Address } from "../../src/core/address";
+import { Ssh } from "../../src/transport/ssh";
 
 /** Each CHR's SSH, as `host:port`. Each has the user `operator`, with the password in CIRCUIT_TEST_CHR_PASSWORD. */
 const gatewayChr = process.env.CIRCUIT_TEST_CHR;
@@ -32,6 +33,8 @@ const TEST_MS = 300_000;
 const IKE_SECONDS = 30;
 /** How long charon has to start. */
 const START_MS = 5000;
+/** The mode of a script charon runs. */
+const EXECUTABLE = 0o755;
 /** How long RADIUS accounting has to arrive. */
 const WAIT_MS = 30_000;
 const POLL_MS = 3000;
@@ -60,7 +63,7 @@ const FIRST: Offer = {
 const CHANGED: Offer = {
     pool: ["203.0.113.100", "203.0.113.120"],
     dns: ["198.51.100.54"],
-    selectors: ["198.51.100.0/25", "198.51.100.128/25"],
+    selectors: ["198.51.100.0/25"],
     // Through nat-01, in the management VRF.
     radius: `{ address: "${RUNNER_FROM_NAT}", secret_key: secret("RADIUS_SECRET"), source_address: "10.9.0.1", vrf: "management" }`,
     algorithms: `ike: { encryption: "aes-128-cbc", integrity: "hmac-sha2-512-256", prf: "hmac-sha2-512", dh_group: 19, lifetime: 86400 },
@@ -296,15 +299,21 @@ export default lab.device({
     );
 }
 
-/** The settings of the laptop's charon, among strongSwan's: its log, and the file it writes the DNS servers it gets into, which keeps the runner's own DNS as it is. */
+/**
+ * The settings of the laptop's charon, among strongSwan's: its log, and what it runs in place of resolvconf(8), which strongSwan 6 takes whenever the system has it. The stand-in keeps the DNS servers it gets in a file of the lab, so the runner's own DNS stays as it is.
+ */
 function writeCharonSettings(): void {
     write("laptop/resolv.conf", "");
+    write("laptop/resolvconf", `#!/bin/sh\nif [ "$1" = "-a" ]; then cat > ${laptop}/resolv.conf; else : > ${laptop}/resolv.conf; fi\n`);
+    chmodSync(join(laptop, "resolvconf"), EXECUTABLE);
     write(
         "laptop/zz-circuit.conf",
         `charon {
     plugins {
         resolve {
-            file = ${laptop}/resolv.conf
+            resolvconf {
+                path = ${laptop}/resolvconf
+            }
         }
     }
     filelog {
@@ -377,9 +386,11 @@ secrets {
     expect(shell(`sudo swanctl --load-conns --file ${laptop}/swanctl.conf`).status).toBe(0);
 }
 
-/** Starts the connection `name`, and whether IKE set it up with its ESP SA. */
+/** Starts the connection `name`, and whether IKE set it up with its ESP SA. When it didn't, the job's log shows why vpn-01 refused it. */
 function logIn(name: string): boolean {
-    return shell(`sudo swanctl --initiate --ike ${name} --child ${name} --timeout ${IKE_SECONDS}`).status === 0;
+    const up = shell(`sudo swanctl --initiate --ike ${name} --child ${name} --timeout ${IKE_SECONDS}`).status === 0;
+    if (!up) exec("vpn-01", '/log print where topics~"ipsec" or topics~"radius"');
+    return up;
 }
 
 /** Ends the laptop's IKE SAs. */
@@ -403,15 +414,23 @@ function inPool(address: string | undefined, [first, last]: [string, string]): b
     return value !== null && value >= Address.toNumber(first)! && value <= Address.toNumber(last)!;
 }
 
-/** The DNS servers the laptop took, each once. */
+/** The DNS servers the laptop took, each once, in order. */
 function dnsServers(): string[] {
     const servers = [...readFileSync(join(laptop, "resolv.conf"), "utf8").matchAll(/^nameserver (\S+)/gm)].map((match) => match[1]!);
-    return [...new Set(servers)];
+    return [...new Set(servers)].sort();
 }
 
 /** The ESP packets vpn-01 took, which its input rule counted. */
-function espCounted(): number {
-    return Number(/packets=(\d+)/.exec(exec("vpn-01", '/ip firewall filter print stats where comment="ESP"'))?.[1] ?? "0");
+async function espCounted(): Promise<number> {
+    const [host, port] = gatewayChr!.split(":");
+    const client = await Ssh.connect({ host: host!, port: Number(port), user: "operator+ct", password: () => password });
+    try {
+        const output = await Ssh.exec(client, ':put [/ip firewall filter get [find comment="ESP"] packets]');
+        console.log(`$ vpn-01 ESP packets\n${output}`);
+        return Number(output.trim());
+    } finally {
+        client.end();
+    }
 }
 
 /** Whether the laptop reaches host-01, through the tunnel: its namespace has no other route there. */
@@ -478,7 +497,7 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
 
         test(
             "a laptop logs in with EAP, which FreeRADIUS checks, takes an address from the pool and the DNS servers, and reaches host-01 encrypted",
-            () => {
+            async () => {
                 writeGateway("eap");
                 for (const name of ["vpn-01", "host-01", "nat-01"]) {
                     // A diff first: the first export after a boot leaves out what the apply's read would then miss (TRAPS.md).
@@ -486,7 +505,7 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
                     expect(circuit("apply", name, "--confirm").status).toBe(0);
                     expect(circuit("diff", name).status).toBe(0);
                 }
-                exec("vpn-01", "/ip firewall filter reset-counters-all");
+                const before = await espCounted();
 
                 expect(logIn("eap")).toBe(true);
                 const address = laptopAddress();
@@ -495,7 +514,7 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
                 expect(sas()).toMatch(/remote 198\.51\.100\.0\/24\n/);
                 expect(dnsServers()).toEqual(FIRST.dns!);
                 expect(reachesHost()).toBe(true);
-                expect(espCounted()).toBeGreaterThan(0);
+                expect(await espCounted()).toBeGreaterThan(before);
 
                 // vpn-01 made the laptop's policy from the template, and none holds a management network.
                 const policies = exec("vpn-01", "/ip ipsec policy print detail", "/ip ipsec active-peers print detail");
@@ -513,7 +532,7 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
         );
 
         test(
-            "a wrong password is refused, and a laptop that asks for an address outside the pool as its own doesn't get it",
+            "a wrong password is refused, and so is a laptop that asks for an address outside the pool as its own",
             () => {
                 writeLaptop(`${userPassword}-wrong`);
                 expect(logIn("eap")).toBe(false);
@@ -521,9 +540,8 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
                 expect(reachesHost()).toBe(false);
                 logOut();
 
-                // Whether IKE refuses it or gives it a pool address instead, no policy takes the address it asked for.
                 writeLaptop(userPassword);
-                logIn("outside");
+                expect(logIn("outside")).toBe(false);
                 expect(sas()).not.toContain(`local  ${OUTSIDE_POOL}/32`);
                 expect(exec("vpn-01", "/ip ipsec policy print detail")).not.toContain(OUTSIDE_POOL);
                 logOut();
@@ -532,14 +550,14 @@ describe.skipIf(!gatewayChr || !hostChr || !natChr || !namespace || !tap)(
         );
 
         test(
-            "another pool, DNS server, selectors, algorithms, and a RADIUS server in a VRF are set in place, and the laptop takes them when it logs in again",
+            "another pool, DNS server, selector, algorithms, and a RADIUS server in a VRF are set in place, and the laptop takes them when it logs in again",
             () => {
                 writeGateway("eap", CHANGED);
                 applyGateway();
 
                 expect(logIn("eap")).toBe(true);
                 expect(inPool(laptopAddress(), CHANGED.pool)).toBe(true);
-                expect(sas()).toMatch(/remote 198\.51\.100\.0\/25 198\.51\.100\.128\/25\n/);
+                expect(sas()).toMatch(/remote 198\.51\.100\.0\/25\n/);
                 expect(dnsServers()).toEqual(CHANGED.dns!);
                 expect(reachesHost()).toBe(true);
                 expect(exec("vpn-01", "/ip ipsec installed-sa print detail")).toMatch(/enc-algorithm=aes-gcm/);
