@@ -807,6 +807,8 @@ export class JunosRender {
             for (const server of relay.servers) this.out.set(`${relays} server-group ${name}`, server);
             this.out.set(`${relays} group ${name} active-server-group`, name);
             this.out.set(`${relays} group ${name} interface`, this.names.unit(relay.interface));
+            // Juniper's reference wants circuit-id or remote-id written: the circuit ID alone is the port and its VLAN.
+            if (relay.relay_agent_information) this.out.set(`${relays} group ${name} relay-option-82`, "circuit-id");
         }
     }
 

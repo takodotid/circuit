@@ -31,6 +31,10 @@ export type DhcpServer<I extends string, F extends string = string> = {
     radius?: readonly RadiusServer<F>[];
     /** Seconds between reports of each lease's use to the RADIUS servers (RFC 2869). Only at the start and the end of a lease when absent. Only with `radius`. */
     acct_interim_interval?: number;
+    /**
+     * The relay agent whose clients it serves: the relay's address, which each request it forwards carries (`giaddr`, RFC 2131). The server then answers only that relay's requests, which come in on `interface`, and `network` is the clients' network behind the relay. It serves clients on `interface` itself when absent.
+     */
+    relay?: IPv4;
 };
 
 /** Prefixes a DHCPv6 server delegates to routers that ask, such as a customer's router (IA_PD, RFC 9915). */
@@ -65,6 +69,10 @@ export type DhcpRelay<I extends string> = {
     interface: I;
     /** Where they are forwarded, in order of preference. */
     servers: readonly IP[];
+    /**
+     * Add the Relay Agent Information option (Option 82, RFC 3046) to each request it forwards to an IPv4 server. It holds an Agent Circuit ID for the line the request came in on, and an Agent Remote ID, and the platform picks what each holds. A server may then know a client by its line, and RADIUS by RFC 4679's `Agent-Circuit-Id`. Off when absent.
+     */
+    relay_agent_information?: true;
 };
 
 /** UPnP for hosts behind the device's source NAT, such as game consoles. A host can open its own ports to the outside, through the device. */

@@ -394,6 +394,7 @@ export const DEVICE = {
                 reservations: [{ address: 0, mac: 0, description: 0 }],
                 radius: [RADIUS_SERVER],
                 acct_interim_interval: 0,
+                relay: 0,
             },
         },
         dhcpv6_server: {
@@ -407,7 +408,7 @@ export const DEVICE = {
                 acct_interim_interval: 0,
             },
         },
-        dhcp_relay: { "*": { interface: 0, servers: 0 } },
+        dhcp_relay: { "*": { interface: 0, servers: 0, relay_agent_information: 0 } },
         pppoe_server: {
             "*": {
                 interfaces: 0,

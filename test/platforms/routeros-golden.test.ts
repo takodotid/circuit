@@ -34,8 +34,12 @@ function withoutRouterAdvertisements(text: string): string {
     return [...lines.slice(0, start), ...lines.slice(end)].join("\n");
 }
 
-/** What v1 writes for a key 0.x dropped, by menu: a BGP neighbor's description and a WireGuard interface's endpoint. It is left out of the comparison. */
-const NEW_IN_V1: Record<string, string> = { "/routing bgp connection": "comment", "/interface wireguard peers": "client-endpoint" };
+/** What v1 writes that 0.x didn't, by menu: a BGP neighbor's description, a WireGuard interface's endpoint, and `disabled=no` on a DHCP relay, which RouterOS adds disabled. It is left out of the comparison. */
+const NEW_IN_V1: Record<string, string> = {
+    "/routing bgp connection": "comment",
+    "/interface wireguard peers": "client-endpoint",
+    "/ip dhcp-relay": "disabled",
+};
 
 function withoutNewInV1(text: string): string {
     let menu = "";

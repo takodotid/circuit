@@ -76,6 +76,7 @@ export class ServicesChecks {
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             const where = `services.dhcp_server.${name}`;
             ServicesChecks.leaseRadius(where, server, report, ip);
+            if (server.relay !== undefined) ServicesChecks.relayAgent(`${where}.relay`, server.relay, report, ip);
 
             cidr(where, server.network);
             if (!Address.isCidr(server.network)) continue;
@@ -91,6 +92,16 @@ export class ServicesChecks {
                 if (!Address.contains(server.network, address)) report(`${where}: ${address} is outside ${server.network}`);
             }
         }
+
+        // Option 82 is DHCP's, so a relay adds it only to what it forwards to an IPv4 server.
+        for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {}))
+            if (
+                relay.relay_agent_information &&
+                !relay.servers.some((server) => Address.isValid(server) && Address.family(server) === "ipv4")
+            )
+                report(
+                    `services.dhcp_relay.${name}.relay_agent_information: Option 82 goes only to IPv4 servers, and servers lists none. Remove it, or add an IPv4 server`
+                );
 
         ServicesChecks.dhcpv6(device, report);
         for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {}))
@@ -123,6 +134,13 @@ export class ServicesChecks {
         }
 
         ServicesChecks.probes(device, report, ip);
+    }
+
+    /** A relay agent's address, which each request it forwards carries: `giaddr`, an IPv4 field (RFC 2131). */
+    private static relayAgent(where: string, relay: IP, report: Report, ip: Checker): void {
+        ip(where, relay);
+        if (Address.isValid(relay) && Address.family(relay) === "ipv6")
+            report(`${where} ${relay} is IPv6, and a relay's address in a DHCP request (giaddr) is IPv4: write the relay's IPv4 address`);
     }
 
     /** Each probe pings one address, from an address of the same family, every whole number of seconds. */

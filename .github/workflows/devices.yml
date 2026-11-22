@@ -2,7 +2,7 @@ name: devices
 
 # Circuit against emulated devices (#178): three RouterOS CHRs boot in QEMU, the first's ether2 linked to the second's ether2, and its ether3 to the third's ether2. The tests run in three groups at once, each on three CHRs of its own.
 # bgp: test/platforms/routeros-chr-pair.test.ts runs BGP between the first two, then test/platforms/routeros-chr-reflection.test.ts makes the first a route reflector for the other two, and test/platforms/routeros-chr-vrf.test.ts runs BGP, then OSPF, between the first two in a VRF of the first. test/platforms/routeros-chr-vrf-services.test.ts has the first run its services in a VRF. test/platforms/routeros-chr-probes.test.ts has the first probe the other two, one in a VRF, and an address nothing answers. test/platforms/routeros-chr-large-export.test.ts gives the first a config whose export passes the 2 MiB RouterOS sends over SSH.
-# edge: test/platforms/routeros-chr.test.ts applies the edge router example to the first, and test/platforms/routeros-chr-lag.test.ts moves its ports between the bridge and a LAG. test/platforms/routeros-chr-pppoe.test.ts makes the first a PPPoE server, checked by FreeRADIUS on the runner, and the second its PPPoE client, which takes an IPv6 prefix from it, then one FreeRADIUS sends, then one it asks for with a prefix hint. test/platforms/routeros-chr-ipoe.test.ts makes the first a DHCP server for the other two that asks FreeRADIUS about each lease. test/platforms/routeros-chr-subscriber.test.ts makes the first delegate IPv6 prefixes to the other two by DHCPv6, asking FreeRADIUS about each, then a PPPoE server again, whose sessions join an interface set its firewall matches and take a /64 by SLAAC, and the second its client, then in a VRF. test/platforms/routeros-chr-rate-limit.test.ts has the first limit what it routes between the other two. test/platforms/routeros-chr-marking.test.ts has the first mark what it routes from the second to the third, which counts each DSCP and PCP, and test/platforms/routeros-chr-queues.test.ts has it schedule what it routes there by class, over the rate, then sort by a marking rule's class, and fill a queue with a depth and with RED. test/platforms/routeros-chr-cgnat.test.ts shares a NAT pool of the first among subscribers, the second one of them and the third the internet. test/platforms/routeros-chr-ospf-virtual-links.test.ts joins the third's OSPF area to the backbone, which the first has no link into, with a virtual link from the first to the second. test/platforms/routeros-chr-qinq.test.ts has the first put the third's VLAN inside another with a QinQ port, under 802.1ad's TPID and then 802.1Q's, and the second end that VLAN inside the other with a VLAN interface.
+# edge: test/platforms/routeros-chr.test.ts applies the edge router example to the first, and test/platforms/routeros-chr-lag.test.ts moves its ports between the bridge and a LAG. test/platforms/routeros-chr-pppoe.test.ts makes the first a PPPoE server, checked by FreeRADIUS on the runner, and the second its PPPoE client, which takes an IPv6 prefix from it, then one FreeRADIUS sends, then one it asks for with a prefix hint. test/platforms/routeros-chr-ipoe.test.ts makes the first a DHCP server for the other two that asks FreeRADIUS about each lease, and test/platforms/routeros-chr-dhcp-relay.test.ts makes it a relay for the third toward a server on the second that asks FreeRADIUS, then a relay that adds Option 82, whose circuit ID FreeRADIUS lets in. test/platforms/routeros-chr-subscriber.test.ts makes the first delegate IPv6 prefixes to the other two by DHCPv6, asking FreeRADIUS about each, then a PPPoE server again, whose sessions join an interface set its firewall matches and take a /64 by SLAAC, and the second its client, then in a VRF. test/platforms/routeros-chr-rate-limit.test.ts has the first limit what it routes between the other two. test/platforms/routeros-chr-marking.test.ts has the first mark what it routes from the second to the third, which counts each DSCP and PCP, and test/platforms/routeros-chr-queues.test.ts has it schedule what it routes there by class, over the rate, then sort by a marking rule's class, and fill a queue with a depth and with RED. test/platforms/routeros-chr-cgnat.test.ts shares a NAT pool of the first among subscribers, the second one of them and the third the internet. test/platforms/routeros-chr-ospf-virtual-links.test.ts joins the third's OSPF area to the backbone, which the first has no link into, with a virtual link from the first to the second. test/platforms/routeros-chr-qinq.test.ts has the first put the third's VLAN inside another with a QinQ port, under 802.1ad's TPID and then 802.1Q's, and the second end that VLAN inside the other with a VLAN interface.
 # mpls: test/platforms/routeros-chr-mpls.test.ts runs LDP across all three, then with label policies, and a targeted session between the second and the third, then label policies per neighbor on the second. test/platforms/routeros-chr-l3vpn.test.ts runs an L3VPN between the second and the third, across the first, then with VRF policies, and test/platforms/routeros-chr-pseudowire.test.ts a pseudowire between them, then with an MTU of its own, and a VPLS among all three. test/platforms/routeros-chr-isis.test.ts runs IS-IS for IPv4 and IPv6 across all three, and test/platforms/routeros-chr-ospf-areas.test.ts OSPF, with the first the border router that sums the second's area into ranges at a cost of their own, then over NBMA and point-to-multipoint links.
 
 on:
@@ -49,7 +49,7 @@ jobs:
             # The TCP ports QEMU carries the links over: the first CHR to the second, and the first to the third.
             CHR_LINK: 127.0.0.1:10001
             CHR_LINK_C: 127.0.0.1:10002
-            # Where the runner forwards UDP to the first CHR's port for RADIUS requests (RFC 5176), the key it shares with FreeRADIUS, and the subscribers FreeRADIUS lets in: one PPPoE subscriber, a second that it sends an IPv6 prefix for (RFC 4818), the second CHR's ether2 by its MAC, as RouterOS's DHCP server sends it, and the second CHR by the MAC in its DUID, its ether1's, as RouterOS's DHCPv6 server sends it. Lab values only.
+            # Where the runner forwards UDP to the first CHR's port for RADIUS requests (RFC 5176), the key it shares with FreeRADIUS, and the subscribers FreeRADIUS lets in: one PPPoE subscriber, a second that it sends an IPv6 prefix for (RFC 4818), the second CHR's ether2 by its MAC, as RouterOS's DHCP server sends it, the second CHR by the MAC in its DUID, its ether1's, as RouterOS's DHCPv6 server sends it, and the circuit ID a RouterOS relay puts in Option 82 for the first CHR's ether3, its MAC address, as FreeRADIUS prints RFC 4679's attribute. Lab values only.
             CHR_COA: 127.0.0.1:3799
             CHR_RADIUS_SECRET: circuit-lab-secret
             CHR_SUBSCRIBER: subscriber
@@ -58,6 +58,7 @@ jobs:
             CHR_RADIUS_PREFIX: 2001:db8:100:7f00::/56
             CHR_IPOE_SUBSCRIBER: 52:54:00:00:0B:02
             CHR_DHCPV6_SUBSCRIBER: 52:54:00:00:11:01
+            CHR_RELAY_CIRCUIT_ID: "0x525400000a03"
         steps:
             - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
               with:
@@ -75,7 +76,7 @@ jobs:
                   sudo udevadm trigger --name-match=kvm
             - name: QEMU and FreeRADIUS
               run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends qemu-system-x86 freeradius freeradius-utils
-            # The CHRs reach the runner from its loopback, FreeRADIUS's own client. The subscribers go first in the users file: the PPP entry after them ends the search. The DHCP server sends an empty password, so its subscriber is let in by name.
+            # The CHRs reach the runner from its loopback, FreeRADIUS's own client. The subscribers go first in the users file: the PPP entry after them ends the search. The DHCP server sends an empty password, so its subscriber is let in by name, or by the circuit ID a relay added. FreeRADIUS keeps each access request too, as it keeps accounting.
             - name: a key and the subscribers for FreeRADIUS
               run: |
                   sudo sed -i "s/testing123/$CHR_RADIUS_SECRET/" /etc/freeradius/3.0/clients.conf
@@ -84,9 +85,11 @@ jobs:
                       "$CHR_PREFIX_SUBSCRIBER Cleartext-Password := \"$CHR_SUBSCRIBER_PASSWORD\"" \
                       "	Delegated-IPv6-Prefix = $CHR_RADIUS_PREFIX" \
                       "$CHR_IPOE_SUBSCRIBER Auth-Type := Accept" \
-                      "$CHR_DHCPV6_SUBSCRIBER Auth-Type := Accept" > "$RUNNER_TEMP/users"
+                      "$CHR_DHCPV6_SUBSCRIBER Auth-Type := Accept" \
+                      "DEFAULT ADSL-Agent-Circuit-Id == $CHR_RELAY_CIRCUIT_ID, Auth-Type := Accept" > "$RUNNER_TEMP/users"
                   sudo sh -c "cat '$RUNNER_TEMP/users' /etc/freeradius/3.0/mods-config/files/authorize > '$RUNNER_TEMP/authorize'"
                   sudo cp "$RUNNER_TEMP/authorize" /etc/freeradius/3.0/mods-config/files/authorize
+                  sudo sed -i 's/^#\tauth_log$/\tauth_log/' /etc/freeradius/3.0/sites-available/default
                   sudo systemctl restart freeradius
 
             - name: the CHR image, checked against MikroTik's checksum
@@ -172,6 +175,8 @@ jobs:
               run: bun test test/platforms/routeros-chr-pppoe.test.ts
             - if: matrix.group == 'edge'
               run: bun test test/platforms/routeros-chr-ipoe.test.ts
+            - if: matrix.group == 'edge'
+              run: bun test test/platforms/routeros-chr-dhcp-relay.test.ts
             - if: matrix.group == 'edge'
               run: bun test test/platforms/routeros-chr-subscriber.test.ts
             - if: matrix.group == 'edge'
