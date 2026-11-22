@@ -62,6 +62,8 @@ export default as64500.device({
                 user: "bng-01-oob",
                 password: secret("BNG_01_OOB_PASSWORD"),
                 mtu: 1492,
+                // An IPv6 prefix for the management VRF too. The router asks for a /60, which holds the /64 it keeps on its management port, and takes what the provider gives.
+                prefix_delegation: { prefix_length: 60, interfaces: { "1g-1": "::1" } },
                 vrf: "management",
             },
         },
@@ -133,6 +135,7 @@ export default as64500.device({
             { prefix: presets.default_routes.ipv4, next_hop: "198.51.100.1", description: "edge-01" },
             { prefix: presets.default_routes.ipv6, next_hop: "2001:db8:100:ffff::1", description: "edge-01" },
             { prefix: presets.default_routes.ipv4, interface: "oob", vrf: "management", description: "Out of band" },
+            { prefix: presets.default_routes.ipv6, interface: "oob", vrf: "management", description: "Out of band" },
         ],
     },
     firewall: {

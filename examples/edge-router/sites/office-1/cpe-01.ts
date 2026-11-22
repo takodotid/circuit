@@ -1,4 +1,4 @@
-// The router of a sales office of our own, on the OLT like any home. It logs in to bng-01 with PPPoE and takes its IPv4 address from the session. It asks for a /56 of IPv6 too, and gives the office a /64 of it, and makes its own IPv6 address on the session by SLAAC.
+// The router of a sales office of our own, on the OLT like any home. It logs in to bng-01 with PPPoE and takes its IPv4 address from the session. It asks for a /56 of IPv6 too, by its prefix, and gives the office a /64 of it, and makes its own IPv6 address on the session by SLAAC.
 
 import { as64500 } from "../../circuit";
 
@@ -18,7 +18,7 @@ export default as64500.device({
     },
     management: { allow: ["192.168.10.0/24"], ssh: {} },
 
-    // The ONT is a bridge, so the session runs on the port itself. The office's /64 is the delegated prefix with ::1 for the router, and the router announces it, so each host makes its own address.
+    // The ONT is a bridge, so the session runs on the port itself. The router asks bng-01 for the /56 written here, a prefix hint, and bng-01 gives it while no one else holds it. The office's /64 is that prefix with ::1 for the router, and the router announces it, so each host makes its own address.
     interfaces: {
         ethernet: {
             "2.5g-1": { description: "ONT" },
@@ -32,7 +32,7 @@ export default as64500.device({
                 password: secret("CPE_01_PPPOE_PASSWORD"),
                 service_name: "as64500",
                 mtu: 1492,
-                prefix_delegation: { prefix_length: 56, interfaces: { "1g-1": "::1" } },
+                prefix_delegation: { prefix: "2001:db8:100:4100::/56", interfaces: { "1g-1": "::1" } },
                 // Its own address on the session, from the /64 bng-01 announces there.
                 slaac: true,
             },
