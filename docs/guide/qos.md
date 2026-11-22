@@ -8,7 +8,7 @@ A device tells traffic apart by the DSCP each packet carries (RFC 2474). [Markin
 
 ## Classes
 
-`qos.classes` sorts packets into classes by the DSCP they leave with, RFC 2475's behavior aggregates. A DSCP is in one class at most. `default_class` takes every DSCP that no class lists, and it is needed with `classes`. RFC 4594 says which DSCP each kind of traffic takes, such as `ef` for calls and `cs6` for routing protocols.
+`qos.classes` sorts packets into classes by the DSCP they leave with, RFC 2475's behavior aggregates. A DSCP is in one class at most. `default_class` takes every packet that no other class takes, and it is needed with `classes`. RFC 4594 says which DSCP each kind of traffic takes, such as `ef` for calls and `cs6` for routing protocols.
 
 The routers of one network sort traffic alike, so the campus example writes its classes once, beside the network, and each router takes them:
 
@@ -19,6 +19,15 @@ A packet's class is decided after `qos.marking`, so a packet that a marking rule
 <<< @/../examples/campus/sites/library/library-01.ts#class
 
 A packet a marking rule gives a `class` takes that class's queue on this device, whatever its DSCP. It leaves with its DSCP unchanged, unless the rule also sets `dscp`, so the next device sorts it by its DSCP.
+
+A class can also list PCPs: the priority in the VLAN tag a packet arrives with (IEEE 802.1Q). Use it for devices that set a PCP and no DSCP, such as a switch that tags the calls of older phones, as the campus's voice class above does. A packet's class is the first of these:
+
+1. the class a marking rule gives it
+2. the class that lists the DSCP it leaves with
+3. the class that lists the PCP it arrives with
+4. `default_class`
+
+So a DSCP that a class lists goes before the PCP, as in a switch that trusts both. What `default_class` lists only shows what it holds. A packet that arrives without a tag has PCP 0, as IEEE 802.1Q gives it its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class.
 
 ## Schedulers
 

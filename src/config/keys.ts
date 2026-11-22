@@ -512,7 +512,7 @@ export const DEVICE = {
     },
     qos: {
         marking: [MARKING_RULE],
-        classes: { "*": { dscp: 0 } },
+        classes: { "*": { dscp: 0, pcp: 0 } },
         default_class: 0,
         schedulers: {
             "*": {

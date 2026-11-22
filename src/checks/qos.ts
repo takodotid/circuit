@@ -5,7 +5,7 @@ import { RateLimitChecks } from "./rate-limit";
 
 type Report = (message: string) => void;
 
-/** Marking rules write a DSCP by its IANA name, an IEEE 802.1Q priority, or a class. Classes split the DSCPs between them, and each scheduler has a queue for each class, with a depth and the thresholds of RED in whole numbers. */
+/** Marking rules write a DSCP by its IANA name, an IEEE 802.1Q priority, or a class. Classes split the DSCPs and PCPs between them, and each scheduler has a queue for each class, with a depth and the thresholds of RED in whole numbers. */
 export class QosChecks {
     /** The highest PCP, three bits (IEEE 802.1Q). */
     private static readonly MAX_PCP = 7;
@@ -26,9 +26,7 @@ export class QosChecks {
                 report(`${where}.then marks nothing: write dscp, pcp, class, or several`);
             else {
                 if (rule.then.dscp !== undefined) QosChecks.dscp(`${where}.then.dscp`, rule.then.dscp, report);
-                const pcp = rule.then.pcp;
-                if (pcp !== undefined && !(Number.isInteger(pcp) && pcp >= 0 && pcp <= QosChecks.MAX_PCP))
-                    report(`${where}.then.pcp ${pcp} is not a whole number from 0 to ${QosChecks.MAX_PCP}`);
+                if (rule.then.pcp !== undefined) QosChecks.pcp(`${where}.then.pcp`, rule.then.pcp, report);
             }
 
             const matched = rule.if?.dscp;
@@ -48,24 +46,38 @@ export class QosChecks {
         const qos = device.qos;
         const names = Object.keys(qos?.classes ?? {});
         if (names.length && qos?.default_class === undefined)
-            report(`qos.classes without default_class: write the class of every DSCP no class lists, one of ${names.join(", ")}`);
+            report(`qos.classes without default_class: write the class of every packet no other class takes, one of ${names.join(", ")}`);
         if (!names.length && Object.keys(qos?.schedulers ?? {}).length)
             report("qos.schedulers without classes: write qos.classes, the classes their queues hold");
 
-        const owner = new Map<string, string>();
+        const owners = { dscp: new Map<unknown, string>(), pcp: new Map<unknown, string>() };
         for (const [name, settings] of Object.entries(qos?.classes ?? {})) {
-            const where = `qos.classes.${name}.dscp`;
-            const dscps: unknown = settings?.dscp;
-            if (!Array.isArray(dscps) || !dscps.length) {
-                report(`${where} lists no DSCP: write at least one, such as ["ef"]`);
+            const where = `qos.classes.${name}`;
+            if (settings?.dscp === undefined && settings?.pcp === undefined) {
+                report(`${where} lists no DSCP and no PCP: write at least one, such as dscp: ["ef"]`);
                 continue;
             }
 
-            for (const dscp of dscps as unknown[]) {
-                QosChecks.dscp(where, dscp, report);
-                const first = owner.get(String(dscp));
-                if (first === undefined) owner.set(String(dscp), name);
-                else report(`${where}: ${String(dscp)} is in qos.classes.${first} too. A DSCP is in one class at most`);
+            for (const field of ["dscp", "pcp"] as const) {
+                const values: unknown = settings[field];
+                if (values === undefined) continue;
+                if (!Array.isArray(values) || !values.length) {
+                    report(
+                        `${where}.${field} lists no ${field.toUpperCase()}: write at least one, such as ${field === "dscp" ? '["ef"]' : "[5]"}, or leave it out`
+                    );
+                    continue;
+                }
+
+                for (const value of values as unknown[]) {
+                    if (field === "dscp") QosChecks.dscp(`${where}.dscp`, value, report);
+                    else QosChecks.pcp(`${where}.pcp`, value, report);
+                    const first = owners[field].get(value);
+                    if (first === undefined) owners[field].set(value, name);
+                    else
+                        report(
+                            `${where}.${field}: ${String(value)} is in qos.classes.${first} too. A ${field.toUpperCase()} is in one class at most`
+                        );
+                }
             }
         }
     }
@@ -163,6 +175,11 @@ export class QosChecks {
             const lag = kind === "ethernet" ? device.interfaces?.ethernet?.[name]?.in_lag : undefined;
             if (lag) report(`${where}.scheduler is on a member of ${lag}: write it on the LAG`);
         }
+    }
+
+    private static pcp(where: string, value: unknown, report: Report): void {
+        if (typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= QosChecks.MAX_PCP) return;
+        report(`${where} ${JSON.stringify(value)} is not a whole number from 0 to ${QosChecks.MAX_PCP}`);
     }
 
     private static dscp(where: string, value: unknown, report: Report): void {

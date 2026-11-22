@@ -92,6 +92,42 @@ test("RouterOS marks each class as it leaves the port, and queues it under the s
     ]);
 });
 
+test("RouterOS marks a class by the PCP a packet arrives with after every DSCP, and the default class's lists need no rule", () => {
+    const sample = device("routeros", "CHR", "virtual-2", {
+        qos: {
+            classes: {
+                ...CLASSES,
+                voice: { dscp: ["ef"], pcp: [5] },
+                video: { pcp: [4, 0] },
+                "best-effort": { dscp: ["cs0"], pcp: [1] },
+            },
+            default_class: "best-effort",
+            schedulers: { uplink: { rate: "400k", queues: QUEUES } },
+        },
+    });
+    const adapter = Platforms.get("routeros");
+
+    expect(queues(adapter.unsupported(sample))).toEqual([]);
+    const text = adapter.render(sample);
+    expect(adapter.plan(text, text, options).steps).toEqual([]);
+
+    const mark = (match: string, queue: string) =>
+        `add action=mark-packet chain=postrouting ${match}new-packet-mark=ether2-uplink-${queue} out-interface=ether2 passthrough=no`;
+    const marks = [
+        mark("dscp=48 ", "network"),
+        mark("dscp=56 ", "network"),
+        mark("dscp=46 ", "voice"),
+        mark("dscp=8 ", "bulk"),
+        mark("dscp=1 ", "bulk"),
+        mark("ingress-priority=5 ", "voice"),
+        mark("ingress-priority=4 ", "video"),
+        mark("ingress-priority=0 ", "video"),
+        mark("", "best-effort"),
+    ];
+    expect(menu(text, "/ip firewall mangle")).toEqual(marks);
+    expect(menu(text, "/ipv6 firewall mangle")).toEqual(marks);
+});
+
 test("RouterOS schedules a LAG and a VLAN interface by their own names", () => {
     const sample = device("routeros", "CCR2216-1G-12XS-2XQ", "25g-1", {
         switching: { vlans: { customers: { id: 20 } } },
@@ -272,7 +308,13 @@ test("validate says what is wrong in classes and schedulers", () => {
             ethernet: { "virtual-2": { addresses: ["198.51.100.1/30"], scheduler: "uplink", shaping: { algorithm: "cake", mbps: 1 } } },
         },
         qos: {
-            classes: { ...CLASSES, voice: { dscp: ["ef", "cs6"] }, empty: { dscp: [] } },
+            classes: {
+                ...CLASSES,
+                voice: { dscp: ["ef", "cs6"], pcp: [5] },
+                video: { dscp: ["af41"], pcp: [5, 9] },
+                empty: { dscp: [] },
+                none: {},
+            },
             schedulers: {
                 uplink: {
                     rate: "fast",
@@ -297,17 +339,20 @@ test("validate says what is wrong in classes and schedulers", () => {
 
     const messages = Checks.run([sample], undefined).map((finding) => finding.message);
     expect(messages.filter((message) => /qos\.|scheduler/.test(message))).toEqual([
-        "qos.classes without default_class: write the class of every DSCP no class lists, one of network, voice, video, best-effort, bulk, empty",
+        "qos.classes without default_class: write the class of every packet no other class takes, one of network, voice, video, best-effort, bulk, empty, none",
         "qos.classes.voice.dscp: cs6 is in qos.classes.network too. A DSCP is in one class at most",
-        'qos.classes.empty.dscp lists no DSCP: write at least one, such as ["ef"]',
+        "qos.classes.video.pcp: 5 is in qos.classes.voice too. A PCP is in one class at most",
+        "qos.classes.video.pcp 9 is not a whole number from 0 to 7",
+        'qos.classes.empty.dscp lists no DSCP: write at least one, such as ["ef"], or leave it out',
+        'qos.classes.none lists no DSCP and no PCP: write at least one, such as dscp: ["ef"]',
         "qos.schedulers.uplink.rate fast is not a rate above 0, such as 200M, 1.5G, or 64k",
         'qos.schedulers.uplink.queues[1].priority "first" is not one: write "strict", or a share instead',
         "qos.schedulers.uplink.queues[2].class voice has a queue already: write one queue for each class",
         "qos.schedulers.uplink.queues[3].share 40.5 is not a whole percent from 1 to 100",
         'qos.schedulers.uplink.queues[4] is neither strict nor weighted: write priority: "strict", or a share',
-        "qos.schedulers.uplink.queues has no queue for best-effort, empty: write one for each class, so none is left out",
+        "qos.schedulers.uplink.queues has no queue for best-effort, empty, none: write one for each class, so none is left out",
         "qos.schedulers.uplink.queues: the shares add up to 40. Make them add up to 100",
-        "qos.schedulers.small.queues has no queue for voice, video, best-effort, empty: write one for each class, so none is left out",
+        "qos.schedulers.small.queues has no queue for voice, video, best-effort, empty, none: write one for each class, so none is left out",
         "qos.schedulers.small: the strict queues' max add up to the rate, 1M, or more, which leaves the weighted queues nothing. Lower a max, or raise the rate",
         "interfaces.ethernet.virtual-2.scheduler beside shaping, which also shapes what leaves: write the scheduler's rate, and leave shaping out",
     ]);
