@@ -17,6 +17,7 @@ export type {
     IP,
     IPv4,
     IPv6,
+    DhGroup,
     IpsecEncryption,
     IpsecEsp,
     IpsecIdentity,
@@ -31,6 +32,7 @@ export type {
     PrefixDelegation,
     Protocol,
     Rate,
+    TrafficSelector,
 } from "./config/index";
 export type {
     Secret,
@@ -70,6 +72,10 @@ export type Vxlan = C.Vxlan<string>;
 export type EvpnVxlan = C.EvpnVxlan<string> & Partial<Record<Exclude<keyof C.Switched<string>, "access_vlan">, never>>;
 /** The settings of other interfaces an IPsec tunnel has none of are never there, so code reads them from any interface alike. */
 export type Ipsec = C.Ipsec & Partial<Record<Exclude<keyof C.Base<string>, keyof C.Ipsec>, never>>;
+/** An IPsec tunnel, route-based or policy-based. The settings only a route-based one has are never there on a policy-based one, so code reads them from either alike. */
+export type IpsecTunnel = C.IpsecTunnel & Partial<Pick<C.Ipsec, "liveness_check" | "nat_traversal" | "nat_keepalive">>;
+/** A policy-based IPsec tunnel, in `firewall.ipsec`. */
+export type PolicyIpsec = C.PolicyIpsec & Partial<Record<"nat_traversal" | "nat_keepalive", never>>;
 export type WireGuard = C.WireGuard<string, string>;
 export type Eoip = C.Eoip<string, string>;
 export type Bridge = C.Bridge<string, string>;

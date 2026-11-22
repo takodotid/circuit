@@ -355,6 +355,6 @@ test("Junos, VRP, and Raisecom ROS refuse it, since the switches don't encrypt w
 
     const router = withTunnels("platforms--example-router", { "ipsec-branch-1": TUNNEL });
     expect(Platforms.get("routeros").unsupported(router)).toContain(
-        "interfaces.ipsec.ipsec-branch-1, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)"
+        "interfaces.ipsec.ipsec-branch-1, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec"
     );
 });

@@ -522,8 +522,8 @@ export type IpsecIdentity =
           email?: never;
       };
 
-/** How each end proves who it is (RFC 7296 §2.15): with a key both ends share, or with its own certificate, signed by a CA the other end trusts. */
-export type IpsecAuthentication<C extends string> =
+/** How each end proves who it is (RFC 7296 §2.15): with a key both ends share, or with its own certificate, signed by a CA the other end trusts. `Identity` is what `remote_identity` takes: `never` where a tunnel takes none yet. */
+export type IpsecAuthentication<C extends string, Identity = IpsecIdentity> =
     | {
           /** The key both ends share. */
           pre_shared_key: Secret;
@@ -539,29 +539,36 @@ export type IpsecAuthentication<C extends string> =
            */
           ca_certificate: C;
           /** Who the peer must be: the device takes only a certificate of `ca_certificate`'s that holds this identity. Any certificate that CA signed when absent. */
-          remote_identity?: IpsecIdentity;
+          remote_identity?: Identity;
           pre_shared_key?: never;
       };
 
 /**
- * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. It carries IPv4, and IPv6 too once one of its `addresses` is IPv6. IKEv2 (RFC 7296) authenticates the peer, with a key both ends share or with certificates, and makes the keys. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
+ * What every IPsec tunnel to one peer holds, route-based or policy-based: its endpoints and the algorithms of its SAs. IKEv2 (RFC 7296) authenticates the peer with a key both ends share, or with certificates. `presets.ipsec_rfc8247` holds IKE algorithms every IKEv2 peer has.
  */
-export type Ipsec<C extends string = string> = Pick<Base<never>, "description" | "addresses"> & {
+export type IpsecTunnel<C extends string = string, Identity = IpsecIdentity> = {
     /** Our tunnel endpoint, alone or with its length. */
     local_address: HostAddress;
     /** The far tunnel endpoint. */
     remote_address: IP;
     ike: IpsecIke;
     esp: IpsecEsp;
-    /** Ask a silent peer whether it is still there, so a dead peer takes the tunnel down. With `false`, the device never asks. The device's own default when absent. */
-    liveness_check?: false | IpsecLivenessCheck;
-    /**
-     * NAT traversal (RFC 7296 §2.23). When IKE finds a NAT between the ends, both put ESP in UDP on port 4500 (RFC 3948). The end behind the NAT sends keepalives, so the NAT keeps its mapping. `always` puts ESP in UDP even when there is no NAT, for a path that drops ESP. Only when IKE finds a NAT, when absent.
-     */
-    nat_traversal?: "always";
-    /** Seconds between the NAT-keepalive packets (RFC 3948 §2.3) this end sends while it is behind a NAT. Use it for a NAT that forgets an idle mapping sooner than the device's own interval. The device's own interval when absent. */
-    nat_keepalive?: number;
-} & IpsecAuthentication<C>;
+} & IpsecAuthentication<C, Identity>;
+
+/**
+ * A route-based IPsec tunnel (RFC 4301) to one peer: what is routed into the interface leaves encrypted with ESP, so BGP or OSPF can run over it. It carries IPv4, and IPv6 too once one of its `addresses` is IPv6. For a tunnel without an interface, see `firewall.ipsec`.
+ */
+export type Ipsec<C extends string = string> = Pick<Base<never>, "description" | "addresses"> &
+    IpsecTunnel<C> & {
+        /** Ask a silent peer whether it is still there, so a dead peer takes the tunnel down. With `false`, the device never asks. The device's own default when absent. */
+        liveness_check?: false | IpsecLivenessCheck;
+        /**
+         * NAT traversal (RFC 7296 §2.23). When IKE finds a NAT between the ends, both put ESP in UDP on port 4500 (RFC 3948). The end behind the NAT sends keepalives, so the NAT keeps its mapping. `always` puts ESP in UDP even when there is no NAT, for a path that drops ESP. Only when IKE finds a NAT, when absent.
+         */
+        nat_traversal?: "always";
+        /** Seconds between the NAT-keepalive packets (RFC 3948 §2.3) this end sends while it is behind a NAT. Use it for a NAT that forgets an idle mapping sooner than the device's own interval. The device's own interval when absent. */
+        nat_keepalive?: number;
+    };
 
 /** A host and a UDP port, `host:port`, for example `203.0.113.10:51820` or `vpn.example.net:51820`. */
 export type Endpoint = `${string}:${number}`;

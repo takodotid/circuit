@@ -115,6 +115,7 @@ export class DeviceChecks {
         Nat64Checks.check(device, report);
         DeviceChecks.policies(device, report, cidr);
         DeviceChecks.firewall(device, report, cidr);
+        IpsecChecks.policyBased(device, report);
         QosChecks.check(device, report);
         ServicesChecks.check(device, report, cidr, ip);
         PppoeClientChecks.check(device, report);

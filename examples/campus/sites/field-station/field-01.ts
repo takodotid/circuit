@@ -1,4 +1,4 @@
-// The field station's router, a MikroTik RB5009, in the library's stub area for IPv4 only. A radio links it to the observatory and the boathouse, which don't hear each other. The farm's router is on a carrier's line that carries no multicast.
+// The field station's router, a MikroTik RB5009, in the library's stub area for IPv4 only. A radio links it to the observatory and the boathouse, which don't hear each other. The farm's router is on a carrier's line that carries no multicast. What the observatory and the farm send the data center crosses the radio and the line encrypted.
 
 import { campus, classes } from "../../circuit";
 
@@ -12,6 +12,11 @@ export default campus.device({
 
     system: {
         users: { operator: { role: "admin", password: secret("FIELD_01_PASSWORD") } },
+        // The campus's own CA signs a certificate for each end of a tunnel. The private key stays out of git.
+        certificates: {
+            "campus-ipsec-ca": { certificate_file: "certificates/campus-ipsec-ca.pem" },
+            "field-01": { certificate_file: "certificates/field-01.pem", private_key: secretFile("certificates/field-01.key") },
+        },
     },
     management: { allow: ["10.0.0.0/24"], ssh: {} },
 
@@ -42,6 +47,34 @@ export default campus.device({
                         loopback: { passive: true },
                     },
                 },
+            },
+        },
+    },
+
+    // Anyone in range can listen to the radio, and the carrier can read what crosses its line. So what the observatory and the farm send the servers in the data center crosses each encrypted, through a tunnel to the station's own router, whatever route OSPF gives it. OSPF and the routers' own traffic stay outside the tunnels.
+    firewall: {
+        ipsec: {
+            observatory: {
+                description: "The observatory's router, over the radio",
+                local_address: "10.1.4.1",
+                remote_address: "10.1.4.2",
+                traffic_selectors: [{ local_prefix: "10.2.0.0/24", remote_prefix: "10.1.8.0/24" }],
+                pre_shared_key: secret("OBSERVATORY_IPSEC_KEY"),
+                ike: { ...presets.ipsec_rfc8247, lifetime: 28800 },
+                esp: { encryption: "aes-256-cbc", integrity: "hmac-sha2-256-128", pfs_group: 14, lifetime: 3600 },
+                // The radio fades for a few seconds in heavy rain. Without liveness checks, a fade doesn't take the tunnel down.
+                liveness_check: false,
+            },
+            // The farm's router holds a certificate the campus's CA signed.
+            farm: {
+                description: "The farm's router, over the carrier's line",
+                local_address: "10.1.5.1",
+                remote_address: "10.1.5.2",
+                traffic_selectors: [{ local_prefix: "10.2.0.0/24", remote_prefix: "10.1.6.0/24" }],
+                certificate: "field-01",
+                ca_certificate: "campus-ipsec-ca",
+                ike: { ...presets.ipsec_rfc8247, lifetime: 28800 },
+                esp: { encryption: "aes-256-gcm", pfs_group: 19, lifetime: 3600 },
             },
         },
     },

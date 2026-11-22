@@ -427,8 +427,9 @@ export class Vrp extends Platform {
 
     /** Each filter chain is refused with what stands in its way. `Derive.unbuilt` refuses TCP MSS clamps. */
     private static firewallGaps(device: Device): string[] {
-        const { filter, tcp_mss: _tcpMss, ...rest } = device.firewall ?? {};
+        const { filter, tcp_mss: _tcpMss, ipsec, ...rest } = device.firewall ?? {};
         const found = Object.keys(rest).map((key) => `firewall.${key}`);
+        if (ipsec) found.push("firewall.ipsec, IPsec: a CloudEngine switch does not encrypt the traffic it forwards");
 
         if (filter?.input)
             found.push(

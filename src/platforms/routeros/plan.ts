@@ -68,6 +68,12 @@ export class RouterOsPlan {
         "/ipv6 firewall address-list",
         "/ip firewall",
         "/ipv6 firewall",
+        // A peer names its profile, an identity its peer and certificate, and a policy its peer and proposal.
+        "/ip ipsec profile",
+        "/ip ipsec proposal",
+        "/ip ipsec peer",
+        "/ip ipsec identity",
+        "/ip ipsec policy",
         "/routing rpki",
         "/routing filter rule",
         "/routing bgp instance",
