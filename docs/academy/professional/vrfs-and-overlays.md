@@ -241,9 +241,9 @@ With many sites, that is a pseudowire from each PE to each other PE, and a new s
 
 ```ts
 // pe-01.ts, in switching.vlans
-school: {
-    id: 301,
-    vpls: { route_distinguisher: "64500:301", route_targets: { import: ["64500:301"], export: ["64500:301"] }, site_id: 1 },
+museum: {
+    id: 303,
+    vpls: { route_distinguisher: "64500:303", route_targets: { import: ["64500:303"], export: ["64500:303"] }, site_id: 1 },
 },
 ```
 

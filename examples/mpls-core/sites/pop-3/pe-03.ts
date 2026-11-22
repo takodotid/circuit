@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216, one link away from pe-02. IS-IS carries its loopback, and LDP labels each loopback. pe-01 is no neighbor, so a targeted LDP session joins the two across pe-02. BGP joins the school's campuses at pe-01 and pe-02, and the library's branch at pe-01 (VPLS). A pseudowire carries the TV station's two VLANs to pe-02, with their tags.
+// A provider edge router, a MikroTik CCR2216, one link away from pe-02. IS-IS carries its loopback, and LDP labels each loopback. pe-01 is no neighbor, so a targeted LDP session joins the two across pe-02. BGP joins the museum's sites at pe-01 and pe-02, and the library's branch at pe-01 (VPLS). A pseudowire carries the TV station's two VLANs to pe-02, with their tags.
 
 import { as64500 } from "../../circuit";
 
@@ -18,7 +18,7 @@ export default as64500.device({
     interfaces: {
         ethernet: {
             "1g-1": { description: "Management", addresses: ["10.0.3.1/24"] },
-            "25g-1": { description: "School, campus 3", access_vlan: "school" },
+            "25g-4": { description: "Museum, site 3", access_vlan: "museum" },
             "25g-2": { description: "Library, branch 2", access_vlan: "library" },
             "25g-3": { description: "TV station, site 2", trunk_vlans: ["tv-studio", "tv-news"] },
             "100g-1": {
@@ -43,11 +43,11 @@ export default as64500.device({
             // The TV station's two VLANs cross the core to pe-02 on one pseudowire, each frame with its tag.
             "tv-studio": { id: 401, description: "TV station, studio" },
             "tv-news": { id: 402, description: "TV station, newsroom" },
-            // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
-            school: {
-                id: 301,
-                description: "School, campuses 1 to 3",
-                vpls: { route_distinguisher: "64500:301", route_targets: { import: ["64500:301"], export: ["64500:301"] }, site_id: 3 },
+            // The museum's three sites share one LAN: BGP finds the other PEs with the museum's route target, and sets up a pseudowire to each.
+            museum: {
+                id: 303,
+                description: "Museum, sites 1 to 3",
+                vpls: { route_distinguisher: "64500:303", route_targets: { import: ["64500:303"], export: ["64500:303"] }, site_id: 3 },
             },
             // The library's two branches share one LAN as well: BGP finds the other PE, and LDP sets up the pseudowire (RFC 6074).
             library: {
@@ -89,7 +89,7 @@ export default as64500.device({
                 neighbors: { "10.255.0.1": { import_policy: "pe-01-loopback", export_policy: "own-loopback" } },
             },
         },
-        // The iBGP sessions between the loopbacks carry the school's and the library's VPLS routes, and no other routes.
+        // The iBGP sessions between the loopbacks carry the museum's and the library's VPLS routes, and no other routes.
         bgp: {
             neighbors: {
                 "pe-01": {

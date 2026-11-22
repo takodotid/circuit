@@ -74,7 +74,7 @@ test("each VRF in an L3VPN has a route distinguisher of its own and route target
     const withoutBgp: Device = { ...pe01, routing: { ...pe01.routing, bgp: undefined } };
     expect(errors(withoutBgp)).toEqual([
         "routing.vrfs.bank is in an L3VPN, and BGP carries its routes. Write routing.bgp, with a neighbor whose address_families has vpnv4 or vpnv6",
-        "switching.vlans.school.vpls: BGP finds the VPLS's other PEs, and no BGP neighbor carries l2vpn-vpls. Write a neighbor in routing.bgp whose address_families has l2vpn-vpls",
+        "switching.vlans.museum.vpls: BGP finds the VPLS's other PEs, and no BGP neighbor carries l2vpn-vpls. Write a neighbor in routing.bgp whose address_families has l2vpn-vpls",
         "switching.vlans.library.vpls: BGP finds the VPLS's other PEs, and no BGP neighbor carries l2vpn-vpls. Write a neighbor in routing.bgp whose address_families has l2vpn-vpls",
     ]);
 });

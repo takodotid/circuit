@@ -66,7 +66,7 @@ test("a pseudowire is in its VLANs one way, and a trunk carries each VLAN once",
     expect(errors(withPseudowire("pe-03", "pw-tv", { ...tv, trunk_vlans: undefined }))).toEqual([
         "interfaces.pseudowire.pw-tv is in no VLAN. Write access_vlan, trunk_vlans, or qinq_vlan",
     ]);
-    expect(errors(withPseudowire("pe-03", "pw-tv", { ...tv, access_vlan: "school", qinq_vlan: "library" }))).toEqual([
+    expect(errors(withPseudowire("pe-03", "pw-tv", { ...tv, access_vlan: "museum", qinq_vlan: "library" }))).toEqual([
         "interfaces.pseudowire.pw-tv has access_vlan and trunk_vlans and qinq_vlan: write one of them",
     ]);
     expect(errors(withPseudowire("pe-03", "pw-tv", { ...tv, trunk_vlans: [] }))).toEqual([

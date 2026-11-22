@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the bank's VRF to pe-01 (L3VPN). Pseudowires carry the clinic's frames and the ISP's to pe-01, and the TV station's to pe-03 (VPWS). BGP joins the school's campuses at pe-01 and pe-03 (VPLS).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the bank's VRF to pe-01 (L3VPN). Pseudowires carry the clinic's frames and the ISP's to pe-01, and the TV station's to pe-03 (VPWS). BGP joins the museum's sites at pe-01 and pe-03 (VPLS).
 
 import { as64500 } from "../../circuit";
 
@@ -24,7 +24,7 @@ export default as64500.device({
                 addresses: ["172.16.2.1/30", "2001:db8:b1:ff02::1/64"],
             },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
-            "25g-3": { description: "School, campus 2", access_vlan: "school" },
+            "25g-6": { description: "Museum, site 2", access_vlan: "museum" },
             "25g-4": { description: "TV station, site 1", trunk_vlans: ["tv-studio", "tv-news"] },
             "25g-5": { description: "ISP, handoff 2", qinq_vlan: "isp" },
             "100g-1": {
@@ -68,11 +68,11 @@ export default as64500.device({
             // The TV station's two VLANs cross the core to pe-03 on one pseudowire, each frame with its tag.
             "tv-studio": { id: 401, description: "TV station, studio" },
             "tv-news": { id: 402, description: "TV station, newsroom" },
-            // The school's campuses share one LAN: BGP finds the other PEs with the school's route target, and sets up a pseudowire to each.
-            school: {
-                id: 301,
-                description: "School, campuses 1 to 3",
-                vpls: { route_distinguisher: "64500:301", route_targets: { import: ["64500:301"], export: ["64500:301"] }, site_id: 2 },
+            // The museum's three sites share one LAN: BGP finds the other PEs with the museum's route target, and sets up a pseudowire to each.
+            museum: {
+                id: 303,
+                description: "Museum, sites 1 to 3",
+                vpls: { route_distinguisher: "64500:303", route_targets: { import: ["64500:303"], export: ["64500:303"] }, site_id: 2 },
             },
         },
     },
