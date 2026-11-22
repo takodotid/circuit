@@ -7,7 +7,7 @@ import { RouterOsSyntax } from "./syntax";
 /** RSVP-TE head-end tunnels under `/mpls traffic-eng`, as MikroTik's TE guide sets them up, and what RouterOS can't take of them. */
 export class RouterOsRsvpTe {
     /**
-     * MPLS and RSVP-TE on each link, each with its bandwidth and admin groups, then each tunnel's paths and the tunnel. Its primary path is named after it, and each secondary path by its key. A tunnel starts at the LSR ID: RouterOS sends a pseudowire into the tunnel whose ends are its own, and starts one without `from-address` at its lowest address (TRAPS.md).
+     * MPLS and RSVP-TE on each link, each with its bandwidth and admin groups, then each tunnel's paths and the tunnel. Its primary path is named after it, and each secondary path by its key. A tunnel starts at the LSR ID, a loopback the IGP carries. RouterOS starts one without `from-address` at its lowest address, and carries in it the pseudowires to its far end (TRAPS.md).
      */
     static render(render: RouterOsRender, device: Device): void {
         const mpls = device.routing?.mpls;
