@@ -18,6 +18,25 @@ test("a property whose value is a secret, such as a community's name, is left as
     ).toEqual(['/snmp community set [ find default=yes ] name="<secret:SNMP_COMMUNITY>"']);
 });
 
+test("a firewall rule writes ESP and AH as ipsec-esp and ipsec-ah, as RouterOS takes them", () => {
+    const rendered = Platforms.get("routeros").render({
+        ...router,
+        firewall: {
+            filter: {
+                input: {
+                    rules: [
+                        { description: "ESP", if: { protocol: "esp" }, then: "accept" },
+                        { description: "AH", if: { protocol: "ah" }, then: "accept" },
+                    ],
+                },
+            },
+        },
+    });
+
+    expect(rendered).toContain("add action=accept chain=input comment=ESP protocol=ipsec-esp");
+    expect(rendered).toContain("add action=accept chain=input comment=AH protocol=ipsec-ah");
+});
+
 test("untracked prefixes skip connection tracking both ways, in their own family", async () => {
     const rendered = Platforms.get("routeros").render({
         ...router,
