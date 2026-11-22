@@ -74,35 +74,32 @@ test("the device validates, and RouterOS writes OSPF's traffic engineering, RSVP
         "/mpls traffic-eng tunnel add bandwidth=1500M from-address=192.0.2.255 name=pe-02 primary-path=pe-02 to-address=192.0.2.2",
         '/mpls traffic-eng tunnel add comment="pe-03, the clinic\'s pseudowire" from-address=192.0.2.255 name=pe-03 primary-path=pe-03 to-address=192.0.2.3',
     ]);
-    // `unset mpls-te-area` crashed the routing process, and removing the instance did not. Its area points at it again once it is back (TRAPS.md).
-    expect(sent(without, desired)).toEqual([
-        "/routing ospf instance remove [ find name=ospf-v2 ]",
-        "/routing ospf instance add name=ospf-v2 redistribute=connected,static router-id=192.0.2.255 version=2",
-        // A `set` right after the instance came back did not hold, so it is sent until it does.
-        ':local tries 0; :while ($tries < 30) do={ /routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2; :delay 1s; :if ([/routing ospf area get [ find name=ospf-v2-0.0.0.0 ] instance] = "ospf-v2") do={ :set tries 30 } else={ :set tries ($tries + 1) } }',
-        "/mpls traffic-eng tunnel remove [ find name=pe-02 ]",
-        "/mpls traffic-eng tunnel remove [ find name=pe-03 ]",
-        "/mpls traffic-eng path remove [ find name=pe-02 ]",
-        "/mpls traffic-eng path remove [ find name=pe-03 ]",
-        "/mpls traffic-eng interface remove [ find interface=uplink ]",
-    ]);
+    // OSPF keeps its traffic engineering, which the plan doesn't turn off (TRAPS.md).
+    const ospfTeAlone = routeros.render(withRsvpTe(undefined));
+    expect(routeros.plan(ospfTeAlone, desired, options)).toEqual({
+        steps: [
+            expect.objectContaining({
+                send: ["/mpls traffic-eng tunnel remove [ find name=pe-02 ]", "/mpls traffic-eng tunnel remove [ find name=pe-03 ]"],
+            }),
+            expect.objectContaining({
+                send: ["/mpls traffic-eng path remove [ find name=pe-02 ]", "/mpls traffic-eng path remove [ find name=pe-03 ]"],
+            }),
+            expect.objectContaining({ send: ["/mpls traffic-eng interface remove [ find interface=uplink ]"] }),
+        ],
+        problems: [],
+    });
 });
 
-test("RouterOS takes traffic engineering off an OSPF instance it removes, before it removes the instance's area, which crashed its routing otherwise", () => {
+test("RouterOS stops a plan that turns OSPF's traffic engineering off, which crashed its routing process each way it was tried", () => {
     const device = withRsvpTe(RSVP_TE);
     const desired = routeros.render(device);
-    const withoutOspf = routeros.render({ ...device, routing: { ...device.routing, ospf: undefined, mpls: undefined } });
-    const steps = sent(withoutOspf, desired);
-
-    expect(steps.slice(0, 3)).toEqual([
-        "/routing ospf instance remove [ find name=ospf-v2 ]",
-        "/routing ospf instance add name=ospf-v2 redistribute=connected,static router-id=192.0.2.255 version=2",
-        // A `set` right after the instance came back did not hold, so it is sent until it does.
-        ':local tries 0; :while ($tries < 30) do={ /routing ospf area set [ find name=ospf-v2-0.0.0.0 ] instance=ospf-v2; :delay 1s; :if ([/routing ospf area get [ find name=ospf-v2-0.0.0.0 ] instance] = "ospf-v2") do={ :set tries 30 } else={ :set tries ($tries + 1) } }',
-    ]);
-    const area = steps.findIndex((line) => line.startsWith("/routing ospf area remove"));
-    expect(steps.lastIndexOf("/routing ospf instance remove [ find name=ospf-v2 ]")).toBeGreaterThan(area);
-    expect(steps.filter((line) => line.includes("mpls-te"))).toEqual([]);
+    const problem =
+        "/routing ospf instance ospf-v2: Circuit doesn't turn OSPF's traffic engineering off, since RouterOS 7.24's routing process crashed each way that was tried (TRAPS.md). Keep traffic_engineering on the area, or turn it off by hand when every routing protocol of the router may restart, then apply";
+    expect(routeros.plan(routeros.render(withRsvpTe(undefined, false)), desired, options).problems).toEqual([problem]);
+    expect(
+        routeros.plan(routeros.render({ ...device, routing: { ...device.routing, ospf: undefined, mpls: undefined } }), desired, options)
+            .problems
+    ).toEqual([problem]);
 });
 
 test("RouterOS changes a tunnel in place: CSPF in place of its hops, and back, and without its bandwidth", () => {
@@ -149,13 +146,11 @@ test("RSVP-TE runs on links with an IPv4 address and a bandwidth, and its tunnel
     ]);
 });
 
-test("CSPF needs OSPF's traffic engineering, which needs RSVP-TE, OSPFv2, and the main table", () => {
+test("CSPF needs OSPF's traffic engineering, which needs OSPFv2 and the main table", () => {
     expect(errors(withRsvpTe(RSVP_TE, false))).toEqual([
         "routing.mpls.rsvp_te.tunnels.pe-03.cspf computes the path from each link's bandwidth, which OSPF tells the routers. Write traffic_engineering: true on the OSPF area of routing.mpls.rsvp_te.interfaces",
     ]);
-    expect(errors(withRsvpTe(undefined))).toEqual([
-        "routing.ospf.areas.0.0.0.0.traffic_engineering tells the other routers the bandwidth of the links that run RSVP-TE, and this router runs none. Write routing.mpls.rsvp_te, or remove it",
-    ]);
+    expect(errors(withRsvpTe(undefined))).toEqual([]);
 
     const ipv6 = withRsvpTe(RSVP_TE);
     const ospf = { ...ipv6.routing!.ospf!, address_families: ["ipv6" as const] };

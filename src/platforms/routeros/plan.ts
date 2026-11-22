@@ -171,14 +171,6 @@ export class RouterOsPlan {
 
     private static readonly OSPF_INSTANCE = "/routing ospf instance";
 
-    private static readonly OSPF_AREA = "/routing ospf area";
-
-    /** An OSPF instance's traffic engineering, which the device can't take back: unsetting `mpls-te-area`, changing it, or removing the instance's area crashed the routing process (TRAPS.md). */
-    private static readonly OSPF_TE = ["mpls-te-area", "mpls-te-address"];
-
-    /** How long the plan points an area at its instance added again, until it holds. */
-    private static readonly AREA_JOIN_SECONDS = 30;
-
     /** How long the plan waits for the session of a disabled BGP connection to close. */
     private static readonly SESSION_CLOSE_SECONDS = 30;
 
@@ -217,9 +209,9 @@ export class RouterOsPlan {
 
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
         const want = RouterOsExport.parse(desired);
-        const teOff = RouterOsPlan.ospfTeOff(want, RouterOsExport.parse(current));
-        const have = teOff.have;
+        const have = RouterOsExport.parse(current);
         const planner = new RouterOsPlan(options.secrets);
+        planner.problems.push(...RouterOsPlan.ospfTeOff(want, have));
 
         // A list from a registry that the render did not fetch keeps the entries the device holds.
         const owned = (command: Command) => !(command.menu.endsWith("address-list") && want.generated.has(command.attrs.list ?? ""));
@@ -237,7 +229,7 @@ export class RouterOsPlan {
         const menus = [...new Set([...wantedByMenu.keys(), ...existingByMenu.keys()])].sort(
             (a, b) => RouterOsPlan.rank(a) - RouterOsPlan.rank(b) || a.localeCompare(b)
         );
-        const first: Step[] = teOff.step ? [teOff.step] : [];
+        const first: Step[] = [];
         const last: Step[] = [];
 
         for (const menu of menus) {
@@ -379,39 +371,19 @@ export class RouterOsPlan {
         return [...cleared.map((property) => `${menu} unset ${selector} ${property}`), ...set];
     }
 
-    /** Points an OSPF area at an instance added again, each second until it holds, for up to `AREA_JOIN_SECONDS`. A `set` right after the instance came back did not hold (TRAPS.md). */
-    private static untilAreaJoins(area: string, instance: string): string {
-        const selector = RouterOsPlan.find(RouterOsPlan.OSPF_AREA, { name: area });
-        const set = RouterOsPlan.line(RouterOsPlan.OSPF_AREA, "set", selector, [], { instance });
-        const joined = `[${RouterOsPlan.OSPF_AREA} get ${selector} instance] = "${instance}"`;
-        return `:local tries 0; :while ($tries < ${RouterOsPlan.AREA_JOIN_SECONDS}) do={ ${set}; :delay 1s; :if (${joined}) do={ :set tries ${RouterOsPlan.AREA_JOIN_SECONDS} } else={ :set tries ($tries + 1) } }`;
-    }
-
     /**
-     * Takes traffic engineering off each OSPF instance that has it and is not to keep it, first. Removing the instance did not crash the routing process. The instance is added again without it, and its areas point at it again, as they did. The rest of the plan then starts from that, so it never unsets `mpls-te-area` itself (TRAPS.md).
+     * Each OSPF instance whose traffic engineering would go off, which the plan does not send. RouterOS 7.24.6 crashed its routing process each way that was tried. It did so on an `unset` of `mpls-te-area`, on another area, and on removing the instance's area or the instance, where a tunnel ran. The process came back, but an apply then failed and restored its backup (TRAPS.md).
      */
-    private static ospfTeOff(want: Parsed, have: Parsed): { step?: Step; have: Parsed } {
-        const step: Step = { title: RouterOsPlan.OSPF_INSTANCE, show: [], send: [] };
-        const commands = have.commands.map((command) => {
-            if (command.menu !== RouterOsPlan.OSPF_INSTANCE || command.attrs["mpls-te-area"] === undefined) return command;
+    private static ospfTeOff(want: Parsed, have: Parsed): string[] {
+        return have.commands.flatMap((command) => {
+            if (command.menu !== RouterOsPlan.OSPF_INSTANCE || command.attrs["mpls-te-area"] === undefined) return [];
             const name = command.attrs.name ?? "";
             const wanted = want.commands.find((other) => other.menu === command.menu && other.attrs.name === name);
-            if (wanted?.attrs["mpls-te-area"] === command.attrs["mpls-te-area"]) return command;
-
-            const attrs = Object.fromEntries(
-                Object.entries(command.attrs).filter(([property]) => !RouterOsPlan.OSPF_TE.includes(property))
-            );
-            const plain: Command = { ...command, attrs };
-            step.show.push(`~ ${name}: traffic engineering off, by removing the instance and adding it again, which restarts OSPF`);
-            step.send.push(
-                `${command.menu} remove ${RouterOsPlan.find(command.menu, { name })}`,
-                RouterOsPlan.line(command.menu, "add", "", plain.flags, attrs)
-            );
-            for (const area of have.commands.filter((other) => other.menu === RouterOsPlan.OSPF_AREA && other.attrs.instance === name))
-                step.send.push(RouterOsPlan.untilAreaJoins(area.attrs.name ?? "", name));
-            return plain;
+            if (wanted?.attrs["mpls-te-area"] !== undefined) return [];
+            return [
+                `${command.menu} ${name}: Circuit doesn't turn OSPF's traffic engineering off, since RouterOS 7.24's routing process crashed each way that was tried (TRAPS.md). Keep traffic_engineering on the area, or turn it off by hand when every routing protocol of the router may restart, then apply`,
+            ];
         });
-        return step.send.length ? { step, have: { ...have, commands } } : { have };
     }
 
     /**

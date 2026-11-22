@@ -94,8 +94,8 @@ const THROUGH_P = [
 /** The tunnel pe-01 starts: how it finds its path, and what it reserves. */
 type Tunnel = { path: "explicit" | "cspf"; bandwidth: string };
 
-/** What the lab runs on its links: nothing, OSPF and LDP with the pseudowire, or RSVP-TE and OSPF's traffic engineering as well. */
-type Mode = "bare" | "ldp" | "te";
+/** What the lab runs beside OSPF, LDP, and the pseudowire: nothing, OSPF's traffic engineering alone, or RSVP-TE as well. */
+type Mode = "ldp" | "ospf-te" | "te";
 
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
@@ -128,6 +128,7 @@ function write(path: string, text: string): void {
 /** A router of the lab, running what `mode` says, and pe-01's tunnel to pe-02 when `tunnel`. */
 function writeRouter(router: Router, mode: Mode, tunnel?: Tunnel): void {
     const te = mode === "te";
+    const ospfTe = mode !== "ldp";
     const [host, port] = router.chr.split(":");
     const links = Object.keys(router.links);
     const ports = Object.entries(router.links)
@@ -135,14 +136,13 @@ function writeRouter(router: Router, mode: Mode, tunnel?: Tunnel): void {
         .join("\n            ");
     const ospf = links.map((link) => `"${link}": { network: "point-to-point" },`).join(" ");
     const far = router === FIRST_PE ? SECOND_PE : FIRST_PE;
-    const vpws =
-        router.vpws && mode !== "bare"
-            ? {
-                  vlan: `switching: { vlans: { vpws: { id: ${VPWS.id} } } },`,
-                  interfaces: `vlan_interface: { "vlan-vpws": { vlan: "vpws", mtu: ${VLAN_MTU}, addresses: ["${router.vpws}/26"] } },
+    const vpws = router.vpws
+        ? {
+              vlan: `switching: { vlans: { vpws: { id: ${VPWS.id} } } },`,
+              interfaces: `vlan_interface: { "vlan-vpws": { vlan: "vpws", mtu: ${VLAN_MTU}, addresses: ["${router.vpws}/26"] } },
         pseudowire: { "pw-vpws": { peer: "${far.loopback}", pw_id: ${VPWS.pw}, access_vlan: "vpws" } },`,
-              }
-            : { vlan: "", interfaces: "" };
+          }
+        : { vlan: "", interfaces: "" };
     const path = tunnel?.path === "cspf" ? "cspf: true" : `explicit_path: ${JSON.stringify(THROUGH_P)}`;
     const tunnels = tunnel
         ? `tunnels: { "pe-02": { destination: "${SECOND_PE.loopback}", bandwidth: "${tunnel.bandwidth}", ${path} } },`
@@ -150,12 +150,9 @@ function writeRouter(router: Router, mode: Mode, tunnel?: Tunnel): void {
     const rsvpTe = te
         ? `rsvp_te: { interfaces: { ${links.map((link) => `"${link}": { bandwidth: "${LINK_BANDWIDTH}" }`).join(", ")} }, ${tunnels} },`
         : "";
-    const routing =
-        mode === "bare"
-            ? ""
-            : `routing: {
+    const routing = `routing: {
         router_id: "${router.loopback}",
-        ospf: { areas: { "0.0.0.0": { ${te ? "traffic_engineering: true," : ""} interfaces: { loopback: { passive: true }, ${ospf} } } } },
+        ospf: { areas: { "0.0.0.0": { ${ospfTe ? "traffic_engineering: true," : ""} interfaces: { loopback: { passive: true }, ${ospf} } } } },
         mpls: {
             ldp: { lsr_id: "${router.loopback}", interfaces: ${JSON.stringify(links)} },
             ${rsvpTe}
@@ -359,28 +356,29 @@ describe.skipIf(!pChr || !firstPeChr || !secondPeChr)("RSVP-TE between three CHR
     );
 
     test(
-        "without RSVP-TE in the config, each apply removes it, and OSPF's traffic engineering with it, with no crash",
+        "without RSVP-TE in the config, each apply removes its tunnel and interfaces, with no crash, and OSPF keeps its traffic engineering",
         () => {
-            writeLab("ldp");
+            writeLab("ospf-te");
             applyWithoutCrash([FIRST_PE, P, SECOND_PE]);
             for (const { name } of ROUTERS) {
                 expect(exec(name, "/mpls traffic-eng export")).not.toMatch(/^add /m);
-                expect(exec(name, "/routing ospf instance export")).not.toContain("mpls-te");
+                expect(exec(name, "/routing ospf instance export")).toContain("mpls-te-area=0.0.0.0");
             }
         },
         TEST_MS
     );
 
     test(
-        "without OSPF and MPLS in the config, each apply removes OSPF with its traffic engineering, with no crash",
+        "without OSPF's traffic engineering in the config, the plan stops with why, and sends nothing",
         () => {
-            writeLab("te", { path: "cspf", bandwidth: TUNNEL_BANDWIDTH });
-            apply();
-            expect(eventually(() => tunnelNextHop() === SECOND_PE.links["virtual-2"])).toBe(true);
-
-            writeLab("bare");
-            applyWithoutCrash([FIRST_PE, P, SECOND_PE]);
-            for (const { name } of ROUTERS) expect(exec(name, "/routing ospf export", "/mpls traffic-eng export")).not.toMatch(/^add /m);
+            writeLab("ldp");
+            for (const { name } of ROUTERS) {
+                const planned = circuit("diff", name);
+                expect(planned.status).not.toBe(0);
+                expect(planned.output).toContain("Circuit doesn't turn OSPF's traffic engineering off");
+                expect(circuit("apply", name, "--confirm").status).not.toBe(0);
+                expect(exec(name, "/routing ospf instance export")).toContain("mpls-te-area=0.0.0.0");
+            }
         },
         TEST_MS
     );

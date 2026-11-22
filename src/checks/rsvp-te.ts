@@ -23,15 +23,11 @@ export class RsvpTeChecks {
         return Object.entries(device.routing?.ospf?.areas ?? {}).flatMap(([id, area]) => (area.traffic_engineering ? [id] : []));
     }
 
-    /** OSPFv2 carries the bandwidth of the links in the main table, for a router that runs RSVP-TE. */
+    /** OSPFv2 carries the bandwidth of the links in the main table. */
     private static ospf(device: Device, report: Report): void {
         const ospf = device.routing?.ospf;
         for (const id of RsvpTeChecks.teAreas(device)) {
             const at = `routing.ospf.areas.${id}.traffic_engineering`;
-            if (!device.routing?.mpls?.rsvp_te)
-                report(
-                    `${at} tells the other routers the bandwidth of the links that run RSVP-TE, and this router runs none. Write routing.mpls.rsvp_te, or remove it`
-                );
             if (!(ospf?.address_families ?? ["ipv4"]).includes("ipv4"))
                 report(`${at} is OSPFv2's (RFC 3630), and routing.ospf.address_families has no ipv4. Add ipv4, or remove it`);
             if (ospf?.vrf) report(`${at} is in VRF ${ospf.vrf}, and MPLS runs in the main table. Remove it`);
