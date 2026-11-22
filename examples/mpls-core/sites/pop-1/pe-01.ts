@@ -55,10 +55,10 @@ export default as64500.device({
             clinic: { id: 201, description: "Clinic, sites 1 and 2" },
             // The ISP's own VLANs cross the core inside this one.
             isp: { id: 500, description: "ISP, handoffs 1 and 2" },
-            // The museum's three sites share one LAN: BGP finds the other PEs with the museum's route target, and sets up a pseudowire to each.
+            // The museum's two sites share one LAN: BGP finds the other PE with the museum's route target, and sets up a pseudowire to it.
             museum: {
                 id: 303,
-                description: "Museum, sites 1 to 3",
+                description: "Museum, sites 1 and 2",
                 vpls: { route_distinguisher: "64500:303", route_targets: { import: ["64500:303"], export: ["64500:303"] }, site_id: 1 },
             },
             // The library's two branches share one LAN as well: BGP finds the other PE, and LDP sets up the pseudowire (RFC 6074).

@@ -249,7 +249,52 @@ museum: {
 
 Each PE announces its VPLS over iBGP, with `l2vpn-vpls` in the session's `address_families`, and sets up a pseudowire to each PE that announces the same target. A new site is then a change at its own PE alone. Write `vpls_id`, the same at every PE, in place of `site_id`, and BGP only finds the PEs, while LDP sets up the pseudowires, as some other vendors' routers expect.
 
-Circuit doesn't do the rest of this lesson: **no EVPN.** Each VXLAN tunnel is point to point, with its far end written by hand, and the routes through it are static.
+## EVPN in Circuit
+
+A VPLS needs a pseudowire from each PE to every other one, and each PE learns where a MAC address is by flooding. With EVPN over VXLAN, the PEs tell each other instead, over iBGP. Each announces that it is a VTEP of the customer's segment, in a type 3 route, so the others know where to send a copy of each broadcast. Each also announces the MAC addresses it learned on its ports, in type 2 routes, so the others send frames for them straight to it.
+
+In Circuit, such a segment is a VXLAN with `evpn`, a port of the PE in a VLAN, as a pseudowire is. It has no far end written: BGP finds the far VTEPs. Put the customer's port in the same VLAN:
+
+```ts
+// pe-02.ts, in interfaces
+ethernet: {
+    "25g-3": { description: "School, campus 2", access_vlan: "school" },
+},
+vxlan: {
+    "vxlan-school": {
+        description: "School, to campus 3 at pe-03",
+        vni: 10301,
+        local_address: "10.255.0.2",
+        access_vlan: "school",
+        evpn: {
+            route_distinguisher: "10.255.0.2:301",
+            route_targets: { import: ["64500:10301"], export: ["64500:10301"] },
+        },
+    },
+},
+```
+
+One iBGP session between the loopbacks carries the EVPN routes:
+
+```ts
+// pe-02.ts, in routing.bgp
+neighbors: {
+    "pe-03": { address: "10.255.0.3", remote_as: 64500, local_address: "10.255.0.2", address_families: ["l2vpn-evpn"] },
+},
+```
+
+| Field                              | What it does                                                                                             |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `vni`                              | The segment's number in each VXLAN header. Every PE of the segment writes the same.                      |
+| `local_address`                    | This PE's VTEP address, its loopback. The other PEs send the segment's frames to it.                     |
+| `access_vlan`                      | The VLAN the segment is a port of. The frames cross without its tag, so each PE may give it another ID.  |
+| `evpn.route_distinguisher`         | Keeps this PE's routes for the segment apart inside BGP: the PE's loopback and a number of the segment.  |
+| `evpn.route_targets`               | The tags on this PE's routes, and the tags of the routes it takes. Every PE of the segment writes these. |
+| `l2vpn-evpn` in `address_families` | The session carries the EVPN routes, from the VTEP address, inside your own AS.                          |
+
+`pe-03` writes the same segment with its own loopback and route distinguisher, and a session back to `pe-02`. Another campus is another PE with the segment and a session to each PE of it.
+
+The core carries the VXLAN packets as any other IP packet, so it needs no MPLS for this: IS-IS or OSPF carrying the loopbacks is enough. The [MPLS core example](/guide/examples#an-mpls-core) runs it beside the bank's L3VPN and the clinic's pseudowire. RouterOS runs EVPN over VXLAN only: no EVPN over MPLS, no EVPN pseudowires (EVPN-VPWS), and no customer site on two PEs at once (multihoming). The routes carry MAC addresses only, so a router between two segments is a VLAN interface in each, as on any LAN. [Platforms](/reference/platforms) says what each platform builds.
 
 ## Further reading
 

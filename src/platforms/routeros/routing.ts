@@ -17,6 +17,7 @@ import type {
     PolicyRule,
     RouteRule,
 } from "../../model";
+import { RouterOsEvpn } from "./evpn";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
@@ -56,6 +57,7 @@ export class RouterOsRouting {
         "l2vpn-vpls": "l2vpn,l2vpn-cisco",
         vpnv4: "vpnv4",
         vpnv6: "vpnv6",
+        "l2vpn-evpn": "evpn",
     } as const satisfies Record<BgpFamily, string>;
 
     /** The TTL a session with GTSM sends with and requires on arrival, the highest there is (RFC 5082). */
@@ -111,6 +113,7 @@ export class RouterOsRouting {
             routing.bgpConnections();
             routing.vrfImports();
             routing.vpns();
+            RouterOsEvpn.instances(render, device);
         }
 
         routing.ospf();

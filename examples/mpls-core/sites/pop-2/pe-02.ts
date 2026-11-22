@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback, so traffic between them crosses the core by label. iBGP carries the bank's VRF to pe-01 (L3VPN). Pseudowires carry the clinic's frames and the ISP's to pe-01, and the TV station's to pe-03 (VPWS). BGP joins the museum's sites at pe-01 and pe-03 (VPLS).
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-01 and pe-03, and LDP labels each loopback. iBGP carries the bank's VRF to pe-01 (L3VPN), and joins the museum's sites here and there (VPLS). Pseudowires carry the clinic's frames and the ISP's to pe-01, and the TV station's to pe-03. A VXLAN segment joins the school's campuses here and at pe-03 (EVPN).
 
 import { as64500 } from "../../circuit";
 
@@ -24,9 +24,10 @@ export default as64500.device({
                 addresses: ["172.16.2.1/30", "2001:db8:b1:ff02::1/64"],
             },
             "25g-2": { description: "Clinic, site 2", access_vlan: "clinic" },
-            "25g-6": { description: "Museum, site 2", access_vlan: "museum" },
+            "25g-3": { description: "School, campus 2", access_vlan: "school" },
             "25g-4": { description: "TV station, site 1", trunk_vlans: ["tv-studio", "tv-news"] },
             "25g-5": { description: "ISP, handoff 2", qinq_vlan: "isp" },
+            "25g-6": { description: "Museum, site 2", access_vlan: "museum" },
             "100g-1": {
                 description: "pe-01 qsfp28-1-1",
                 addresses: ["10.0.12.2/30", "2001:db8:100:12::2/64"],
@@ -57,21 +58,36 @@ export default as64500.device({
                 trunk_vlans: ["tv-studio", "tv-news"],
             },
         },
+        // The school's frames cross the core in VXLAN to pe-03, which has the same VNI and route targets. EVPN over iBGP finds pe-03 and the MAC addresses behind it, so no far end is written here.
+        vxlan: {
+            "vxlan-school": {
+                description: "School, to campus 3 at pe-03",
+                vni: 10301,
+                local_address: "10.255.0.2",
+                access_vlan: "school",
+                evpn: {
+                    route_distinguisher: "10.255.0.2:301",
+                    route_targets: { import: ["64500:10301"], export: ["64500:10301"] },
+                },
+            },
+        },
     },
 
     switching: {
         vlans: {
             // The clinic's port and its pseudowire, alone in one VLAN.
             clinic: { id: 201, description: "Clinic, sites 1 and 2" },
+            // The school's port and its VXLAN segment in another.
+            school: { id: 301, description: "School, campuses 2 and 3" },
             // The ISP's own VLANs cross the core inside this one.
             isp: { id: 500, description: "ISP, handoffs 1 and 2" },
             // The TV station's two VLANs cross the core to pe-03 on one pseudowire, each frame with its tag.
             "tv-studio": { id: 401, description: "TV station, studio" },
             "tv-news": { id: 402, description: "TV station, newsroom" },
-            // The museum's three sites share one LAN: BGP finds the other PEs with the museum's route target, and sets up a pseudowire to each.
+            // The museum's two sites share one LAN: BGP finds the other PE with the museum's route target, and sets up a pseudowire to it.
             museum: {
                 id: 303,
-                description: "Museum, sites 1 to 3",
+                description: "Museum, sites 1 and 2",
                 vpls: { route_distinguisher: "64500:303", route_targets: { import: ["64500:303"], export: ["64500:303"] }, site_id: 2 },
             },
         },
@@ -117,7 +133,7 @@ export default as64500.device({
                 export_policy: "loopbacks",
             },
         },
-        // The iBGP sessions between the loopbacks carry the VRFs' routes, each with its label, and the VPLS routes, and no other routes. IPv4 and VPLS routes go between the LSR IDs, and IPv6 routes between the IPv6 loopbacks (RFC 4659).
+        // The iBGP sessions to pe-01 carry the VRFs' routes, each with its label, and the museum's VPLS routes, and no other routes. IPv4 and VPLS routes go between the LSR IDs, and IPv6 routes between the IPv6 loopbacks (RFC 4659). The one to pe-03's loopback carries the EVPN routes of the school's segment, from the segment's own address.
         bgp: {
             neighbors: {
                 "pe-01": {
@@ -127,19 +143,19 @@ export default as64500.device({
                     local_address: "10.255.0.2",
                     address_families: ["vpnv4", "l2vpn-vpls"],
                 },
-                "pe-03": {
-                    description: "pe-03, VPLS routes",
-                    address: "10.255.0.3",
-                    remote_as: 64500,
-                    local_address: "10.255.0.2",
-                    address_families: ["l2vpn-vpls"],
-                },
                 "pe-01-v6": {
                     description: "pe-01, IPv6 VPN routes",
                     address: "2001:db8:100:ffff::1",
                     remote_as: 64500,
                     local_address: "2001:db8:100:ffff::2",
                     address_families: ["vpnv6"],
+                },
+                "pe-03": {
+                    description: "pe-03, EVPN routes",
+                    address: "10.255.0.3",
+                    remote_as: 64500,
+                    local_address: "10.255.0.2",
+                    address_families: ["l2vpn-evpn"],
                 },
             },
         },

@@ -10,6 +10,7 @@ import { Derive } from "../core/derive";
 import { Platforms } from "../platforms";
 import { IpsecChecks } from "./ipsec";
 import { IsisChecks } from "./isis";
+import { EvpnChecks } from "./evpn";
 import { L3vpnChecks } from "./l3vpn";
 import { RateLimitChecks } from "./rate-limit";
 import { MplsChecks } from "./mpls";
@@ -107,6 +108,7 @@ export class DeviceChecks {
         IsisChecks.check(device, report);
         MplsChecks.check(device, report);
         L3vpnChecks.check(device, report);
+        EvpnChecks.check(device, report);
         PseudowireChecks.check(device, report);
         VplsChecks.check(device, report);
         NatChecks.check(device, report);
@@ -437,9 +439,10 @@ export class DeviceChecks {
             if (Catalog.isPort(device.platform, device.model, name)) report(`${where} has the name of a port`);
 
             if (kind === "gre" || kind === "vxlan" || kind === "ipsec" || kind === "eoip") {
-                const tunnel = settings as Extract<Interface, { remote_address: string }>;
+                const tunnel = settings as Extract<Interface, { local_address: string }>;
                 ip(where, tunnel.local_address);
-                ip(where, tunnel.remote_address);
+                // A VXLAN segment in EVPN has no far end of its own: BGP finds its VTEPs.
+                if (tunnel.remote_address !== undefined) ip(where, tunnel.remote_address);
             }
 
             if (kind === "ipsec") IpsecChecks.check(where, settings as Ipsec, device.system?.certificates ?? {}, report);

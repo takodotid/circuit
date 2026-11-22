@@ -453,8 +453,9 @@ export class Topology {
             ...Object.entries(device.interfaces?.gre ?? {}).flatMap(([name, iface]) =>
                 iface ? [{ device, name, kind: "GRE" as const, iface }] : []
             ),
+            // A VXLAN segment in EVPN has no far end of its own: BGP finds its VTEPs.
             ...Object.entries(device.interfaces?.vxlan ?? {}).flatMap(([name, iface]) =>
-                iface ? [{ device, name, kind: "VXLAN" as const, iface, vni: iface.vni }] : []
+                iface && !iface.evpn ? [{ device, name, kind: "VXLAN" as const, iface, vni: iface.vni }] : []
             ),
             ...Object.entries(device.interfaces?.ipsec ?? {}).flatMap(([name, iface]) =>
                 iface ? [{ device, name, kind: "IPsec" as const, iface }] : []

@@ -12,6 +12,7 @@ import type {
     Device,
     Dhcpv6Server,
     Dscp,
+    EvpnVxlan,
     Family,
     FilterRule,
     Interface,
@@ -380,7 +381,9 @@ export class Derive {
 
     /** The VPN families a BGP session carries between PEs: `vpnv4`, `vpnv6`, and `l2vpn-vpls`. */
     static vpnFamilies(settings: Pick<NeighborSettings, "address_families">): BgpFamily[] {
-        return (settings.address_families ?? []).filter((family) => family !== "ipv4" && family !== "ipv6");
+        return (settings.address_families ?? []).filter(
+            (family) => family === "vpnv4" || family === "vpnv6" || family === Derive.VPLS_FAMILY
+        );
     }
 
     /** Where the device writes an L3VPN: each VRF's route distinguisher, route targets, and policies, and each neighbor or group that carries `vpnv4` or `vpnv6`. */
@@ -397,6 +400,33 @@ export class Derive {
             if (families.length) found.push(`${where}.address_families ${families.join(" and ")}`);
         }
         return found;
+    }
+
+    /** Whether a BGP session carries EVPN routes, `l2vpn-evpn`. */
+    static carriesEvpn(settings: Pick<NeighborSettings, "address_families">): boolean {
+        return (settings.address_families ?? []).includes("l2vpn-evpn");
+    }
+
+    /** Each VXLAN segment in EVPN, by its name. */
+    static evpnVxlans(device: Device): [string, EvpnVxlan][] {
+        return Object.entries(device.interfaces?.vxlan ?? {}).flatMap(([name, vxlan]) =>
+            vxlan?.evpn ? [[name, vxlan as EvpnVxlan] as [string, EvpnVxlan]] : []
+        );
+    }
+
+    /** Where the device writes EVPN: each VXLAN segment in it, and each neighbor or group that carries `l2vpn-evpn`. */
+    static evpn(device: Device): string[] {
+        const bgp = device.routing?.bgp;
+        const sessions = [
+            ...Object.entries(bgp?.neighbor_groups ?? {}).map(([name, settings]) => ({ where: `neighbor_groups.${name}`, settings })),
+            ...Object.entries(bgp?.neighbors ?? {}).map(([name, settings]) => ({ where: `neighbors.${name}`, settings })),
+        ];
+        return [
+            ...Derive.evpnVxlans(device).map(([name]) => `interfaces.vxlan.${name}`),
+            ...sessions
+                .filter(({ settings }) => Derive.carriesEvpn(settings ?? {}))
+                .map(({ where }) => `routing.bgp.${where}.address_families l2vpn-evpn`),
+        ];
     }
 
     /** Where the device writes a VPLS whose PEs BGP finds (RFC 4761, RFC 6074): each VLAN's `vpls`, and each neighbor or group that carries `l2vpn-vpls`. */
