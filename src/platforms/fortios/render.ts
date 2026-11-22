@@ -60,6 +60,7 @@ export class FortiOsRender {
     static readonly SECTIONS = [
         "vpn certificate local",
         "vpn certificate ca",
+        "vpn certificate crl",
         "vpn certificate setting",
         "user peer",
         "system global",
@@ -311,7 +312,7 @@ export class FortiOsRender {
 
         const section = (name: Section) => root.block(name);
 
-        FortiOsRender.certificates(section("vpn certificate local"), section("vpn certificate ca"), device);
+        FortiOsRender.certificates(section("vpn certificate local"), section("vpn certificate ca"), section("vpn certificate crl"), device);
         FortiOsRender.global(section("system global"), device);
         if (device.system?.banner) section(FortiOsRender.BANNER).set("buffer", FortiOsTree.quote(device.system.banner));
         // A bridge needs transparent mode, and transparent mode needs a management address.
@@ -374,8 +375,8 @@ export class FortiOsRender {
         for (const [section, block] of vdom.blocks) root.blocks.set(FortiOsVdoms.key(management.name, section), block);
     }
 
-    /** A certificate with its key is the device's own; one without is only trusted. */
-    private static certificates(local: FortiOsNode, trusted: FortiOsNode, device: Device): void {
+    /** A certificate with its key is the device's own; one without is only trusted. A CA's list of what it revoked is an entry of its name, which the device fetches from the URL, as Fortinet's 6.2 reference has it. */
+    private static certificates(local: FortiOsNode, trusted: FortiOsNode, lists: FortiOsNode, device: Device): void {
         for (const [name, certificate] of Object.entries(device.system?.certificates ?? {})) {
             if (!certificate) continue;
 
@@ -387,6 +388,7 @@ export class FortiOsRender {
                     .set("private-key", FortiOsTree.quote(Secrets.marker(certificate.private_key)))
                     .set("certificate", text);
             else trusted.entry(name).set("ca", text);
+            if (certificate.crl_url) lists.entry(name).set("http-url", FortiOsTree.quote(certificate.crl_url));
         }
     }
 

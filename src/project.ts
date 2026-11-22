@@ -545,6 +545,11 @@ export class Project {
                 need("port, LAG, or VLAN interface", x.interface, `${at}.interface`, written);
                 need("interface", Project.keys(x.prefix_delegation?.interfaces), `${at}.prefix_delegation.interfaces`, written);
             }
+        for (const [t, x] of Object.entries<Json>(d.firewall?.ipsec ?? {})) {
+            const written = writtenAt(d.firewall.ipsec, t, ["ipsec", t]);
+            need("certificate", x.certificate, `firewall.ipsec.${t}.certificate`, written);
+            need("certificate", x.ca_certificate, `firewall.ipsec.${t}.ca_certificate`, written);
+        }
         if (typeof d.switching?.lldp === "object") need("interface", d.switching.lldp.interfaces, "switching.lldp.interfaces");
         for (const [a, rules] of Object.entries<Json>(d.switching?.acls ?? {}))
             rules.forEach((r: Json, i: number) =>
@@ -792,9 +797,11 @@ export class Project {
         if (NUMBERED_VLANS.includes(d.platform)) for (const vlan of Object.values<Json>(d.switching?.vlans ?? {})) delete vlan.description;
 
         if (d.system?.ntp?.servers) d.system.ntp.servers = d.system.ntp.servers.map(Project.alone);
-        for (const kind of ["gre", "vxlan", "ipsec", "eoip"])
-            for (const tunnel of Object.values<Json>(d.interfaces?.[kind] ?? {}))
-                tunnel.local_address = Project.alone(tunnel.local_address);
+        for (const tunnel of [
+            ...["gre", "vxlan", "ipsec", "eoip"].flatMap((kind) => Object.values<Json>(d.interfaces?.[kind] ?? {})),
+            ...Object.values<Json>(d.firewall?.ipsec ?? {}),
+        ])
+            tunnel.local_address = Project.alone(tunnel.local_address);
         for (const wg of Object.values<Json>(d.interfaces?.wireguard ?? {})) if (wg.endpoint) wg.endpoint = Project.alone(wg.endpoint);
         for (const route of [
             ...(d.routing?.static_routes ?? []),

@@ -218,6 +218,8 @@ export class FortiOsPlan {
     private static readonly KEPT: Record<string, readonly string[]> = {
         "vpn certificate local": ["certificate", "private-key"],
         "vpn certificate ca": ["ca"],
+        // A list's entry also holds the list the device fetched, and where it keeps it.
+        "vpn certificate crl": ["http-url"],
     };
 
     /** A policy denies unless told otherwise. */

@@ -299,6 +299,15 @@ test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the
     ]);
 });
 
+test("FortiOS puts the tunnel's interface in its VRF, from the vendor's documentation, and names it experimental", () => {
+    const device = withTunnels("platforms--example-firewall", { "ipsec-branch-1": { ...TUNNEL, vrf: "guests" } });
+    const desired = fortios.render(device);
+
+    expect(desired).toMatch(/edit "ipsec-branch-1"\n {8}set vdom "root"\n {8}set type tunnel\n[\s\S]*?set vrf 1\n/);
+    expect(fortios.experimental?.(device)).toContain("interfaces.ipsec.ipsec-branch-1.vrf");
+    expect(fortios.plan(desired, desired, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
+});
+
 test("FortiOS refuses one hash for integrity and another for the pseudorandom function, a lifetime, a liveness check, or a NAT keepalive out of its range, and an address it can't hold", () => {
     const device = withTunnels("platforms--example-firewall", {
         "ipsec-branch-1": {
@@ -355,6 +364,6 @@ test("Junos, VRP, and Raisecom ROS refuse it, since the switches don't encrypt w
 
     const router = withTunnels("platforms--example-router", { "ipsec-branch-1": TUNNEL });
     expect(Platforms.get("routeros").unsupported(router)).toContain(
-        "interfaces.ipsec.ipsec-branch-1, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md)"
+        "interfaces.ipsec.ipsec-branch-1, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec"
     );
 });

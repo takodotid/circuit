@@ -271,6 +271,7 @@ export class RaisecomRosUnsupported {
         }
         if (device.services?.pppoe_server)
             found.push("services.pppoe_server, Raisecom ROS has no PPPoE server: it only adds PPPoE+ tags as an intermediate agent");
+        if (device.firewall?.ipsec) found.push("firewall.ipsec, IPsec: the switch does not encrypt the traffic it forwards");
 
         const management = device.management ?? {};
 

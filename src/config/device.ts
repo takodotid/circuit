@@ -117,8 +117,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     services?: Services<NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>, NoInfer<N["interfaceSet"]>>;
     /** Where packets go: routing tables, VRFs, policy routing, static routes, BGP, OSPF, BFD, RPKI, route policies, and prefix sets. */
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
-    /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, and connection-tracking helpers. */
-    firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"]>;
+    /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, connection-tracking helpers, and policy-based IPsec. */
+    firewall?: Firewall<N["addressSet"], NoInfer<N["anyInterface"]>, N["interfaceSet"], NoInfer<N["certificate"]>>;
     /** How traffic is told apart by its class, and how each class is sent: marking, classes, and schedulers. */
     qos?: Qos<NoInfer<N["anyInterface"]>, NoInfer<N["addressSet"]>, NoInfer<N["interfaceSet"]>, N["qosClass"], N["scheduler"]>;
 };

@@ -1,4 +1,5 @@
 import type { Family, HostAddress, IP, IPv4, Named, OneOrMore, Ordered, Prefix } from "./common";
+import type { IpsecTunnel } from "./interfaces";
 
 /** An IP protocol. `icmp` means ICMPv6 in an IPv6 rule. */
 export type Protocol = "tcp" | "udp" | "icmp" | "gre" | "esp" | "ah" | "ospf" | "vrrp";
@@ -161,8 +162,30 @@ export type TcpMssRule<I extends string, AS extends string, IS extends string> =
 /** Connection-tracking helpers, which rewrite application payloads. Only the ones you list run. */
 export type Helper = "ftp" | "tftp" | "sip" | "h323" | "pptp" | "rtsp" | "irc";
 
-/** What the device filters and translates. `AS` is the device's address set names, `I` its ports and interfaces, `IS` its interface set names. */
-export type Firewall<AS extends string, I extends string, IS extends string> = {
+/** Traffic between two prefixes of one family, both ways: one entry of RFC 4301's security policy database, of any protocol and port. */
+export type TrafficSelector = {
+    /** The prefix on our side: the hosts this end protects. */
+    local_prefix: Prefix;
+    /** The prefix on the peer's side, behind its end of the tunnel. */
+    remote_prefix: Prefix;
+};
+
+/**
+ * A policy-based IPsec tunnel (RFC 4301) to one peer, with no interface. Traffic from a `local_prefix` to its `remote_prefix` leaves encrypted with ESP to the peer, whatever route it takes, and traffic back arrives the same way. IKEv2 (RFC 7296) authenticates the peer and agrees on the traffic selectors with it. Both ends write the same selectors, each from its own side.
+ */
+export type PolicyIpsec<C extends string = string> = {
+    /** Shown beside the tunnel on the device. */
+    description?: string;
+    /**
+     * The traffic the tunnel carries, as RFC 7296's traffic selectors. Two tunnels of a device never carry the same traffic. Keep the address Circuit connects to out of them, or a tunnel that goes down cuts Circuit off.
+     */
+    traffic_selectors: readonly TrafficSelector[];
+    /** `false` turns liveness checks off (RFC 7296 §2.4): the device never asks a silent peer whether it is still there. The device checks as it does by default when absent. */
+    liveness_check?: false;
+} & IpsecTunnel<C, never>;
+
+/** What the device filters, translates, and encrypts. `AS` is the device's address set names, `I` its ports and interfaces, `IS` its interface set names, `C` its certificates. */
+export type Firewall<AS extends string, I extends string, IS extends string, C extends string = string> = {
     /** Named groups of addresses and prefixes, of either family. Rules match on them with `src_address_set` and `dst_address_set`. */
     address_sets?: Named<AS, readonly (IP | Prefix)[]>;
     /**
@@ -195,4 +218,6 @@ export type Firewall<AS extends string, I extends string, IS extends string> = {
      * An address in these prefixes that NAT uses stays tracked: a source translation's `to_address`, or a destination translation's `to_address` or matched `dst`. Circuit writes two accept rules for each such address, for traffic to it and from it, before the untracked rules. Without them, a reply to that address would skip tracking and never be translated back.
      */
     untracked?: readonly Prefix[];
+    /** Policy-based IPsec tunnels, keyed by name: the traffic between their prefixes leaves encrypted, as RFC 4301's security policy database decides, whatever route it takes. For a tunnel that is an interface, see `interfaces.ipsec`. */
+    ipsec?: Named<string, PolicyIpsec<C>>;
 };

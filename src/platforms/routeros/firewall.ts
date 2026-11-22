@@ -12,6 +12,9 @@ export class RouterOsFirewall {
     /** A kind of frame as a switch rule's `mac-protocol` names it. */
     private static readonly MAC_PROTOCOLS: Record<Ethertype, string> = { ipv4: "ip", ipv6: "ipv6", arp: "arp" };
 
+    /** The IPsec protocols as a firewall rule's `protocol` names them: `protocol=esp` is a syntax error (TRAPS.md). */
+    private static readonly PROTOCOLS: Partial<Record<NonNullable<FilterMatch["protocol"]>, string>> = { esp: "ipsec-esp", ah: "ipsec-ah" };
+
     /** Helpers the platform has, all stated so that one the config does not list is off. */
     private static readonly HELPERS = ["ftp", "tftp", "irc", "h323", "sip", "pptp", "rtsp"] as const;
 
@@ -239,7 +242,8 @@ export class RouterOsFirewall {
 
     /** The match properties of a rule, as the platform names them. */
     private matchProperties(match: FilterMatch | undefined, family: Family) {
-        const protocol = match?.protocol === "icmp" && family === "ipv6" ? "icmpv6" : match?.protocol;
+        const named = match?.protocol && (RouterOsFirewall.PROTOCOLS[match.protocol] ?? match.protocol);
+        const protocol = named === "icmp" && family === "ipv6" ? "icmpv6" : named;
         const setFlags = match?.tcp_flags?.set ?? [];
         const unsetFlags = (match?.tcp_flags?.unset ?? []).map((flag) => `!${flag}`);
         const flags = match?.tcp_flags ? [...setFlags, ...unsetFlags].join(",") : undefined;
