@@ -152,6 +152,7 @@ A note in a cell means "works, with this limit".
 | Classes by PCP                     | ✅ routed, as it arrives   | ❌                    | ❌                         | ❌                       | ❌                                              |
 | Queue depth and RED                | ✅ RED counts bytes        | ❌                    | ❌                         | ❌                       | ❌                                              |
 | Policing with two rates (RFC 2698) | ❌ none on the device      | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Trust for each port                | ❌ switch chip only        | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DHCP server                        | ✅                         | 🧪                    | ❌                         | ✅                       | ✅                                              |
 | DHCPv6 server                      | ✅ pool is a prefix        | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
 | DHCP relay                         | ✅                         | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
@@ -196,6 +197,8 @@ A scheduler on RouterOS needs its `rate`, and each strict queue its `max`. Route
 A queue with `depth_packets` takes a queue type of its own on RouterOS: a FIFO of that many packets, or RED. RouterOS's RED counts bytes, not packets, so Circuit counts a packet as 1500 bytes: a queue of full-size packets holds `depth_packets`, and one of smaller packets holds more of them. The thresholds of RED are rounded down to whole packets, and RouterOS refuses two that come to the same number. RouterOS has no setting for how often RED drops between its thresholds.
 
 Policing with two rates, RFC 2698's two-rate three-color marker, is built on no platform. RouterOS has none: a queue's `limit-at` and `max-limit` shape with HTB, holding what comes above them, and the firewall's `limit` matcher polices one rate. The other platforms don't build it yet.
+
+Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with, is built on no platform. RouterOS keeps a routed packet's DSCP unless a marking rule changes it, and sends it with PCP 0 unless a marking rule sets one. Its bridge passes both as they came. RouterOS has trust settings only in the switch chip of some CRS3xx, CRS5xx, CCR2116, and CCR2216 models, from 7.15, which a CHR lacks, so no test can prove them.
 
 ### Management and monitoring
 

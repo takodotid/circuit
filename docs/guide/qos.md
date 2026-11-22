@@ -29,6 +29,10 @@ A class can also list PCPs: the priority in the VLAN tag a packet arrives with (
 
 So a DSCP that a class lists goes before the PCP, as in a switch that trusts both. What `default_class` lists only shows what it holds. A packet that arrives without a tag has PCP 0, as IEEE 802.1Q gives it its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class.
 
+## What a port keeps
+
+A device keeps the DSCP of a packet it routes, unless a marking rule changes it. To overwrite what a port lets in, such as a customer that marks everything EF, write a [marking](/guide/rules#marking) rule with `in_interface` that sets the DSCP you trust. A VLAN tag ends at the router, so a routed packet leaves with the PCP a marking rule sets. Trust settings for each port, as a switch chip has them, are not built: [Platforms](/reference/platforms#firewall-and-services) says why.
+
 ## Schedulers
 
 A scheduler sends what leaves an interface: one queue for each class. A port, a LAG, or a VLAN interface takes one with `scheduler`:
