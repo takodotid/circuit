@@ -1,11 +1,11 @@
 import { closest } from "../config/keys";
 import { Derive } from "../core/derive";
-import type { Device, Port, Scheduler } from "../model";
+import type { Device, Port, Queue, Scheduler } from "../model";
 import { RateLimitChecks } from "./rate-limit";
 
 type Report = (message: string) => void;
 
-/** Marking rules write a DSCP by its IANA name, or an IEEE 802.1Q priority. Classes split the DSCPs between them, and each scheduler has a queue for each class. */
+/** Marking rules write a DSCP by its IANA name, an IEEE 802.1Q priority, or a class. Classes split the DSCPs between them, and each scheduler has a queue for each class, with a depth and the thresholds of RED in whole numbers. */
 export class QosChecks {
     /** The highest PCP, three bits (IEEE 802.1Q). */
     private static readonly MAX_PCP = 7;
@@ -19,9 +19,11 @@ export class QosChecks {
             const then: unknown = rule.then;
 
             if (!then || typeof then !== "object")
-                report(`${where}.then ${JSON.stringify(then)} is no marking: write it as { dscp: "ef" }, { pcp: 5 }, or both`);
-            else if (rule.then.dscp === undefined && rule.then.pcp === undefined)
-                report(`${where}.then marks nothing: write dscp, pcp, or both`);
+                report(
+                    `${where}.then ${JSON.stringify(then)} is no marking: write it as { dscp: "ef" }, { pcp: 5 }, { class: "voice" }, or several`
+                );
+            else if (rule.then.dscp === undefined && rule.then.pcp === undefined && rule.then.class === undefined)
+                report(`${where}.then marks nothing: write dscp, pcp, class, or several`);
             else {
                 if (rule.then.dscp !== undefined) QosChecks.dscp(`${where}.then.dscp`, rule.then.dscp, report);
                 const pcp = rule.then.pcp;
@@ -87,6 +89,7 @@ export class QosChecks {
         let strictBits = 0;
         scheduler.queues.forEach((queue, index) => {
             const at = `${where}.queues[${index}]`;
+            QosChecks.management(at, queue, report);
             if (seen.has(queue.class)) report(`${at}.class ${queue.class} has a queue already: write one queue for each class`);
             seen.add(queue.class);
 
@@ -119,6 +122,31 @@ export class QosChecks {
             report(
                 `${where}: the strict queues' max add up to the rate, ${rate}, or more, which leaves the weighted queues nothing. Lower a max, or raise the rate`
             );
+    }
+
+    /** A queue's depth is a whole number of packets. The thresholds of RED are whole percents of it, the lower one first. */
+    private static management(at: string, queue: Queue, report: Report): void {
+        const depth = queue.depth_packets;
+        if (depth !== undefined && !(Number.isInteger(depth) && depth >= 1))
+            report(`${at}.depth_packets ${depth} is not a whole number of packets above 0`);
+
+        const red: unknown = queue.red;
+        if (red === undefined) return;
+        if (!red || typeof red !== "object") {
+            report(`${at}.red ${JSON.stringify(red)} is no RED: write it as { min_threshold_percent: 20, max_threshold_percent: 80 }`);
+            return;
+        }
+        if (depth === undefined) report(`${at}.red without depth_packets: write the queue's depth, which the thresholds are percents of`);
+
+        const { min_threshold_percent: min, max_threshold_percent: max } = queue.red!;
+        const whole = (value: number) => Number.isInteger(value) && value >= 0 && value <= QosChecks.PERCENT;
+        for (const [key, value] of [
+            ["min_threshold_percent", min],
+            ["max_threshold_percent", max],
+        ] as const)
+            if (!whole(value)) report(`${at}.red.${key} ${value} is not a whole percent from 0 to ${QosChecks.PERCENT}`);
+        if (whole(min) && whole(max) && min >= max)
+            report(`${at}.red.min_threshold_percent ${min} is not below max_threshold_percent, ${max}: lower it, or raise the other`);
     }
 
     /** A scheduler is the one thing that shapes what leaves an interface, on the LAG rather than its members. */

@@ -155,19 +155,22 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 
 ## Quality of service
 
-| Feature                                           | Standard                                                             | In model                       |
-| ------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------ |
-| DSCP, class selectors `cs0` to `cs7`              | RFC 2474, with the names of the IANA DSCP registry                   | marking `dscp`                 |
-| Marking where a network's DiffServ begins         | Practice: RFC 2475 (Informational)                                   | `qos.marking`                  |
-| Assured forwarding `af11` to `af43`               | RFC 2597                                                             | marking `dscp`                 |
-| Expedited forwarding `ef`, `voice-admit`          | RFC 3246, RFC 5865                                                   | marking `dscp`                 |
-| Lower effort `le`, non-queue-building `nqb`       | RFC 8622, RFC 9956                                                   | marking `dscp`                 |
-| Which DSCP each kind of traffic takes             | Practice: RFC 4594 (Informational)                                   | marking `dscp`, `qos.classes`  |
-| Priority in a VLAN tag (PCP)                      | IEEE 802.1Q-2022                                                     | marking `pcp`                  |
-| Classes by DSCP (behavior aggregates)             | Practice: RFC 2475 (Informational)                                   | `qos.classes`, `default_class` |
-| A queue sent first, capped so it starves no other | RFC 3246, section 2.10; practice: RFC 4594 (Informational)           | strict queue, `max`            |
-| Bandwidth kept for each class                     | RFC 2597, section 1                                                  | weighted queue, `share`        |
-| Schedulers, and the interface that takes one      | Names from OpenConfig `openconfig-qos`: scheduler, `priority` STRICT | `qos.schedulers`, `scheduler`  |
+| Feature                                           | Standard                                                                                                                                                  | In model                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| DSCP, class selectors `cs0` to `cs7`              | RFC 2474, with the names of the IANA DSCP registry                                                                                                        | marking `dscp`                 |
+| Marking where a network's DiffServ begins         | Practice: RFC 2475 (Informational)                                                                                                                        | `qos.marking`                  |
+| Assured forwarding `af11` to `af43`               | RFC 2597                                                                                                                                                  | marking `dscp`                 |
+| Expedited forwarding `ef`, `voice-admit`          | RFC 3246, RFC 5865                                                                                                                                        | marking `dscp`                 |
+| Lower effort `le`, non-queue-building `nqb`       | RFC 8622, RFC 9956                                                                                                                                        | marking `dscp`                 |
+| Which DSCP each kind of traffic takes             | Practice: RFC 4594 (Informational)                                                                                                                        | marking `dscp`, `qos.classes`  |
+| Priority in a VLAN tag (PCP)                      | IEEE 802.1Q-2022                                                                                                                                          | marking `pcp`                  |
+| Classes by DSCP (behavior aggregates)             | Practice: RFC 2475 (Informational)                                                                                                                        | `qos.classes`, `default_class` |
+| A queue sent first, capped so it starves no other | RFC 3246, section 2.10; practice: RFC 4594 (Informational)                                                                                                | strict queue, `max`            |
+| Bandwidth kept for each class                     | RFC 2597, section 1                                                                                                                                       | weighted queue, `share`        |
+| Schedulers, and the interface that takes one      | Names from OpenConfig `openconfig-qos`: scheduler, `priority` STRICT                                                                                      | `qos.schedulers`, `scheduler`  |
+| A class set by a marking rule                     | Names from OpenConfig `openconfig-qos`: a classifier's `target-group`                                                                                     | marking `class`                |
+| A queue's depth, and tail drop                    | Names from OpenConfig `openconfig-qos`: `max-queue-depth-packets`, `DROP_TAIL`                                                                            | `depth_packets`                |
+| Random early detection (RED)                      | RFC 2309 (Informational), replaced by RFC 7567 (BCP 197); names from OpenConfig `openconfig-qos`: `red`, `min-threshold-percent`, `max-threshold-percent` | `red`                          |
 
 ## Monitoring and management
 

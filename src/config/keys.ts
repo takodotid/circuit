@@ -79,7 +79,7 @@ const { tcp_flags: _flags, connection_state: _connection, connection_nat_state: 
 const MARKING_RULE = {
     description: 0,
     if: { ...MARKING_MATCH, dscp: 0 },
-    then: { dscp: 0, pcp: 0 },
+    then: { dscp: 0, pcp: 0, class: 0 },
 } as const satisfies ShapeOf<MarkingRule<string, string, string>>;
 export const ACL_RULE = {
     description: 0,
@@ -514,7 +514,21 @@ export const DEVICE = {
         marking: [MARKING_RULE],
         classes: { "*": { dscp: 0 } },
         default_class: 0,
-        schedulers: { "*": { rate: 0, queues: [{ class: 0, priority: 0, max: 0, share: 0 }] } },
+        schedulers: {
+            "*": {
+                rate: 0,
+                queues: [
+                    {
+                        class: 0,
+                        priority: 0,
+                        max: 0,
+                        share: 0,
+                        depth_packets: 0,
+                        red: { min_threshold_percent: 0, max_threshold_percent: 0 },
+                    },
+                ],
+            },
+        },
     },
 } as const satisfies ShapeOf<AnyDevice>;
 
