@@ -12,6 +12,7 @@ import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsIpsec } from "./ipsec";
+import { RouterOsRemoteAccess } from "./remote-access";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
 import { RouterOsPseudowire } from "./pseudowire";
@@ -109,6 +110,7 @@ export class RouterOsRender {
         RouterOsSchedulers.render(render, device);
         RouterOsFirewall.render(render, device);
         RouterOsIpsec.render(render, device);
+        RouterOsRemoteAccess.render(render, device);
         RouterOsRouting.render(render, device);
         RouterOsPseudowire.render(render, device);
         render.management();

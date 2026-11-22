@@ -96,6 +96,16 @@ test("a NAT pool and its subscribers, and a PPPoE server's pools, are address sp
     expect(ours6?.blocks).toContainEqual({ prefix: "2001:db8:100:1000::/52", what: "sessions' /64s of PPPoE server olt-1 on bng-01" });
 });
 
+test("an IPsec remote access pool is address space in use, a range placed by the prefix that holds it", () => {
+    const report = AddressSpace.report(Object.values(access.devices), access.settings.prefixes);
+
+    expect(report.elsewhere.blocks).toContainEqual({
+        prefix: "10.0.8.0/24",
+        range: "10.0.8.10-10.0.8.250",
+        what: "IPsec remote access pool support on bng-01",
+    });
+});
+
 test("the text prints a pool as its range, and asking for the pool's prefix shows what uses it", () => {
     const text = AddressSpace.text(AddressSpace.report(Object.values(access.devices), access.settings.prefixes));
     expect(text).toContain("  100.64.0.2-100.64.63.254  PPPoE pool olt-1 on bng-01");

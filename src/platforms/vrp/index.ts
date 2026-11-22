@@ -257,6 +257,8 @@ export class Vrp extends Platform {
 
         if (device.services?.pppoe_server)
             found.push("services.pppoe_server, VRP serves PPPoE subscribers on NE routers (BRAS) only, which Circuit does not support");
+        if (device.services?.ipsec_remote_access)
+            found.push("services.ipsec_remote_access, IPsec: a CloudEngine switch does not encrypt the traffic it forwards");
 
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
             if (!device.interfaces?.vlan_interface?.[relay.interface])

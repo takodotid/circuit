@@ -113,8 +113,8 @@ export type Groups<N extends Names, Ethernet, Part extends boolean = false, Net 
     >;
     /** Layer 2 settings the ports share: VLANs, STP, LLDP, and ACLs. */
     switching?: Switching<N["vlan"], N["acl"], NoInfer<N["anyInterface"]>, Net["untrusted"]>;
-    /** What the device serves to hosts: DHCP server, DHCP relay, PPPoE server, DNS server, NTP server, and UPnP. */
-    services?: Services<NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>, NoInfer<N["interfaceSet"]>>;
+    /** What the device serves to hosts: DHCP server, DHCP relay, PPPoE server, IPsec remote access, DNS server, NTP server, and UPnP. */
+    services?: Services<NoInfer<N["anyInterface"]>, NoInfer<N["vrf"]>, NoInfer<N["interfaceSet"]>, NoInfer<N["certificate"]>>;
     /** Where packets go: routing tables, VRFs, policy routing, static routes, BGP, OSPF, BFD, RPKI, route policies, and prefix sets. */
     routing?: Routing<N["policy"], N["prefixSet"], N["neighborGroup"], N["table"], N["vrf"], NoInfer<N["anyInterface"]>, Part, Net>;
     /** Which packets pass, and how they are rewritten: address sets, interface sets, filter, NAT, TCP MSS clamps, untracked prefixes, connection-tracking helpers, and policy-based IPsec. */

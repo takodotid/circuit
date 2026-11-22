@@ -160,6 +160,8 @@ A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes
 | TCP MSS clamp                      | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
 | IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE       | ❌                    | ❌                         | ❌                       | ❌                                              |
 | IPsec, policy-based, certificates  | ✅ one CA on the device    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec remote access, EAP           | ✅ one on the device       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec remote access, certificates  | ✅ one CA on the device    | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DSCP, PCP, and class marking       | ✅ not with fast path      | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
 | Classes and schedulers             | ✅ not with fast path      | ❌                    | ❌                         | ❌                       | ❌                                              |
 | Classes by PCP                     | ✅ routed, as it arrives   | ❌                    | ❌                         | ❌                       | ❌                                              |
@@ -187,6 +189,12 @@ Policy-based IPsec is built on RouterOS only:
 
 - **RouterOS.** The IKE daemon has no AES-GCM, and runs in the main table only, so a tunnel's `local_address` is outside every VRF. It takes a peer's certificate that any certificate it holds signed, so `ca_certificate` must be its only certificate without a private key. It has no setting for a liveness check's retries, ESP in UDP without a NAT, or the NAT keepalive interval, and its remote ID matches the identity the peer sends. So a policy-based tunnel takes none of these yet, nor `remote_identity`.
 - **FortiOS.** A policy-based tunnel is a phase 1 and a phase 2 without an interface, and a firewall policy with `action ipsec`. No FortiGate in CI has proven one, so it is not built yet.
+- **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
+
+IPsec remote access is built on RouterOS only:
+
+- **RouterOS.** One remote access on a router, beside no `fast_path` rule, whose flows skip IPsec's policies. It takes one traffic selector: it narrows a client that asks for all its traffic to the first alone. As for a policy-based tunnel, IKE has no AES-GCM and runs in the main table only, and `ca_certificate` must be the router's only certificate without a private key. RouterOS gives a client the selectors as the subnets of its configuration payload too. Its RADIUS servers for EAP may be in a VRF.
+- **FortiOS.** Dial-up IPsec is a phase 1 of `type dynamic` with `mode-cfg`, and RADIUS users in a user group. No FortiGate in CI has proven it, so it is not built yet.
 - **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
 
 No platform writes IKEv1. RFC 9395 deprecates it.

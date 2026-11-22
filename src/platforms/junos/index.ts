@@ -364,6 +364,8 @@ export class Junos extends Platform {
 
         if (device.firewall !== undefined) found.push("firewall");
         if (device.firewall?.ipsec) found.push("firewall.ipsec, IPsec: a QFX switch does not encrypt the traffic it forwards");
+        if (device.services?.ipsec_remote_access)
+            found.push("services.ipsec_remote_access, IPsec: a QFX switch does not encrypt the traffic it forwards");
         if (system.hardware_offload !== undefined) found.push("system.hardware_offload");
         if (system.certificates !== undefined) found.push("system.certificates");
 

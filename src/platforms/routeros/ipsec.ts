@@ -3,8 +3,8 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, DhGroup, IpsecEncryption, IpsecIntegrity, PolicyIpsec } from "../../model";
-import type { RouterOsRender } from "./render";
+import type { Device, DhGroup, IpsecEncryption, IpsecEsp, IpsecIke, IpsecIntegrity, PolicyIpsec } from "../../model";
+import type { RouterOsRender, Value } from "./render";
 import { RouterOsSyntax } from "./syntax";
 
 export class RouterOsIpsec {
@@ -32,35 +32,42 @@ export class RouterOsIpsec {
         21: "ecp521",
     };
 
-    /** The profile and the proposal every RouterOS has, which a tunnel's own can't be named. */
-    private static readonly BUILT_IN = "default";
+    /** The profile, the proposal, and the policy group every RouterOS has, which a tunnel's own can't be named. */
+    static readonly BUILT_IN = "default";
 
     static tunnels(device: Device): [string, PolicyIpsec][] {
         return RouterOsSyntax.entries(device.firewall?.ipsec);
     }
 
-    /**
-     * Each tunnel as the export prints it. The peer starts IKEv2 from `local_address`. A policy's `peer` gives its SA's ends, and `tunnel=yes` makes it tunnel mode. A proposal with AES-GCM takes `auth-algorithms=""`: without it, RouterOS refuses it. `dpd-interval=disable-dpd` turns liveness checks off, and the IKE SA is still made again at its lifetime (TRAPS.md).
-     */
+    /** A profile of the IKE SA's algorithms. `dpd-interval=disable-dpd` turns liveness checks off, and the IKE SA is still made again at its lifetime (TRAPS.md). */
+    static profile(name: string, ike: IpsecIke, livenessCheck?: false): Record<string, Value> {
+        return {
+            "dh-group": RouterOsIpsec.DH_GROUP[ike.dh_group],
+            "dpd-interval": livenessCheck === false && "disable-dpd",
+            "enc-algorithm": RouterOsIpsec.IKE_ENCRYPTION[ike.encryption],
+            "hash-algorithm": ike.integrity && RouterOsIpsec.HASH[ike.integrity],
+            lifetime: RouterOsSyntax.duration(ike.lifetime),
+            name,
+            "prf-algorithm": RouterOsIpsec.HASH[ike.prf],
+        };
+    }
+
+    /** A proposal of the ESP SA's algorithms. One with AES-GCM takes `auth-algorithms=""`: without it, RouterOS refuses it (TRAPS.md). */
+    static proposal(name: string, esp: IpsecEsp): Record<string, Value> {
+        return {
+            "auth-algorithms": esp.integrity ? RouterOsIpsec.HASH[esp.integrity] : "",
+            "enc-algorithms": esp.encryption,
+            lifetime: RouterOsSyntax.duration(esp.lifetime),
+            name,
+            "pfs-group": esp.pfs_group ? RouterOsIpsec.DH_GROUP[esp.pfs_group] : "none",
+        };
+    }
+
+    /** Each tunnel as the export prints it. The peer starts IKEv2 from `local_address`. A policy's `peer` gives its SA's ends, and `tunnel=yes` makes it tunnel mode. */
     static render(render: RouterOsRender, device: Device): void {
         for (const [name, tunnel] of RouterOsIpsec.tunnels(device)) {
-            const { ike, esp } = tunnel;
-            render.add("/ip ipsec profile", "add", {
-                "dh-group": RouterOsIpsec.DH_GROUP[ike.dh_group],
-                "dpd-interval": tunnel.liveness_check === false && "disable-dpd",
-                "enc-algorithm": RouterOsIpsec.IKE_ENCRYPTION[ike.encryption],
-                "hash-algorithm": ike.integrity && RouterOsIpsec.HASH[ike.integrity],
-                lifetime: RouterOsSyntax.duration(ike.lifetime),
-                name,
-                "prf-algorithm": RouterOsIpsec.HASH[ike.prf],
-            });
-            render.add("/ip ipsec proposal", "add", {
-                "auth-algorithms": esp.integrity ? RouterOsIpsec.HASH[esp.integrity] : "",
-                "enc-algorithms": esp.encryption,
-                lifetime: RouterOsSyntax.duration(esp.lifetime),
-                name,
-                "pfs-group": esp.pfs_group ? RouterOsIpsec.DH_GROUP[esp.pfs_group] : "none",
-            });
+            render.add("/ip ipsec profile", "add", RouterOsIpsec.profile(name, tunnel.ike, tunnel.liveness_check));
+            render.add("/ip ipsec proposal", "add", RouterOsIpsec.proposal(name, tunnel.esp));
 
             const remote = tunnel.remote_address;
             const length = Address.bits(Address.family(remote));
@@ -91,40 +98,44 @@ export class RouterOsIpsec {
         }
     }
 
-    /**
-     * What RouterOS 7.24 can't express. Its IKE daemon has no AES-GCM, and runs in the main table only. It takes a peer's certificate that any certificate it holds signed, not only `ca_certificate` (TRAPS.md).
-     */
+    /** What RouterOS 7.24 can't express in a policy-based tunnel. */
     static unsupported(device: Device): string[] {
         const found: string[] = [];
-        const holders = Derive.holders(device);
 
         for (const [name, tunnel] of RouterOsIpsec.tunnels(device)) {
             const where = `firewall.ipsec.${name}`;
             if (name === RouterOsIpsec.BUILT_IN)
                 found.push(`${where}: the name of RouterOS's own IPsec profile and proposal, which the tunnel's take. Write another name`);
-            if (!RouterOsIpsec.IKE_ENCRYPTION[tunnel.ike.encryption])
-                found.push(
-                    `${where}.ike.encryption ${tunnel.ike.encryption}: RouterOS's IKE has no AES-GCM. Write aes-128-cbc or aes-256-cbc, with integrity`
-                );
-
-            const local = Address.host(tunnel.local_address);
-            const holder = holders.find(({ settings }) =>
-                (settings.addresses ?? []).some((entry) => Address.host(typeof entry === "string" ? entry : entry.address) === local)
-            );
-            if (!holder) found.push(`${where}.local_address ${local}: no port or interface of the device holds it`);
-            else if (holder.settings.vrf)
-                found.push(
-                    `${where}.local_address ${local}, on ${holder.where} in VRF ${holder.settings.vrf}: RouterOS runs IKE in the main table only (TRAPS.md)`
-                );
-
+            found.push(...RouterOsIpsec.ikeGaps(where, tunnel.ike), ...RouterOsIpsec.localGaps(where, tunnel.local_address, device));
             if (tunnel.certificate) found.push(...RouterOsIpsec.caGaps(where, tunnel.ca_certificate, device));
         }
 
         return found;
     }
 
-    /** A tunnel with certificates takes a peer's certificate that any certificate RouterOS holds signed (TRAPS.md). So `ca_certificate` must be the device's only certificate without a private key, which the device holds. */
-    private static caGaps(where: string, ca: string | undefined, device: Device): string[] {
+    /** RouterOS's IKE daemon has no AES-GCM (TRAPS.md). */
+    static ikeGaps(where: string, ike: IpsecIke): string[] {
+        if (RouterOsIpsec.IKE_ENCRYPTION[ike.encryption]) return [];
+        return [
+            `${where}.ike.encryption ${ike.encryption}: RouterOS's IKE has no AES-GCM. Write aes-128-cbc or aes-256-cbc, with integrity`,
+        ];
+    }
+
+    /** IKE runs from an address that a port or interface of the device holds, in the main table only (TRAPS.md). */
+    static localGaps(where: string, address: string, device: Device): string[] {
+        const local = Address.host(address);
+        const holder = Derive.holders(device).find(({ settings }) =>
+            (settings.addresses ?? []).some((entry) => Address.host(typeof entry === "string" ? entry : entry.address) === local)
+        );
+        if (!holder) return [`${where}.local_address ${local}: no port or interface of the device holds it`];
+        if (!holder.settings.vrf) return [];
+        return [
+            `${where}.local_address ${local}, on ${holder.where} in VRF ${holder.settings.vrf}: RouterOS runs IKE in the main table only (TRAPS.md)`,
+        ];
+    }
+
+    /** IKE takes a peer's certificate that any certificate RouterOS holds signed (TRAPS.md). So `ca_certificate` must be the device's only certificate without a private key, which the device holds. */
+    static caGaps(where: string, ca: string | undefined, device: Device): string[] {
         const certificates = Object.entries(device.system?.certificates ?? {});
         if (!ca) return [`${where}.ca_certificate is left out: RouterOS needs the CA that signed the peer's certificate`];
         if (!device.system?.certificates?.[ca])
