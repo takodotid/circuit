@@ -639,6 +639,23 @@ export class FortiOsUnsupported {
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
                 found.push(`services.dhcp_server.${name}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
+            if (server.relay !== undefined)
+                found.push(
+                    `services.dhcp_server.${name}.relay, FortiOS 6.2 has no setting for a relay's clients: relay-agent comes in 7.4`
+                );
+        }
+
+        // An interface has one relay, so its relays add Option 82 alike.
+        const relays = Object.entries(device.services?.dhcp_relay ?? {});
+        for (const [name, relay] of relays) {
+            const other = relays.find(
+                ([, each]) =>
+                    each.interface === relay.interface && Boolean(each.relay_agent_information) !== Boolean(relay.relay_agent_information)
+            );
+            if (other && relay.relay_agent_information)
+                found.push(
+                    `services.dhcp_relay.${name}.relay_agent_information, FortiOS has one relay on ${relay.interface}, and services.dhcp_relay.${other[0]} adds no Option 82: write it on both or neither`
+                );
         }
 
         for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {

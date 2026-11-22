@@ -121,6 +121,9 @@ export class FortiOs extends Platform {
         for (const group of ["dhcp_server", "dhcpv6_server"] as const)
             for (const [name, server] of Object.entries(device.services?.[group] ?? {}))
                 if (FortiOsNames.settingsOf(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
+        // Option 82 on a relay is from Fortinet's reference, not tried on a FortiGate.
+        for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {}))
+            if (relay.relay_agent_information) found.push(`services.dhcp_relay.${name}.relay_agent_information`);
         // A tunnel takes the subject in the read back, but no IKE peer has sent a certificate to it.
         for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
             if (tunnel?.remote_identity) found.push(`interfaces.ipsec.${name}.remote_identity`);
