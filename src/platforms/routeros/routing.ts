@@ -48,12 +48,13 @@ export class RouterOsRouting {
     private static readonly VPN = "VPN";
 
     /** The VPN families, in the order a session's chain takes them. */
-    private static readonly VPN_FAMILIES = ["vpnv4", "vpnv6"] as const satisfies readonly BgpFamily[];
+    private static readonly VPN_FAMILIES = ["vpnv4", "vpnv6", "l2vpn-vpls"] as const satisfies readonly BgpFamily[];
 
-    /** A connection's `afi` for each family, in the order the device prints them. */
+    /** A connection's `afi` for each family, in the order the device prints them. `l2vpn-vpls` is one AFI and SAFI, which RouterOS splits by its NLRI: `l2vpn` for RFC 4761, and `l2vpn-cisco` for RFC 6074 (TRAPS.md). */
     private static readonly AFI = {
         ipv4: "ip",
         ipv6: "ipv6",
+        "l2vpn-vpls": "l2vpn,l2vpn-cisco",
         vpnv4: "vpnv4",
         vpnv6: "vpnv6",
         "l2vpn-evpn": "evpn",
@@ -642,9 +643,10 @@ export class RouterOsRouting {
         }
 
         for (const [chain, { next, families }] of [...chains].sort(([a], [b]) => a.localeCompare(b))) {
-            for (const family of RouterOsRouting.VPN_FAMILIES)
-                if (families.has(family))
-                    this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${RouterOsRouting.AFI[family]}) { accept }` });
+            // A VPLS's routes are of two kinds, each with an `afi` of its own (TRAPS.md).
+            for (const family of RouterOsRouting.VPN_FAMILIES.filter((carried) => families.has(carried)))
+                for (const afi of RouterOsRouting.AFI[family].split(","))
+                    this.render.add("/routing filter rule", "add", { chain, rule: `if (afi ${afi}) { accept }` });
             this.render.add("/routing filter rule", "add", { chain, rule: next ? `jump ${next}` : "reject" });
         }
     }

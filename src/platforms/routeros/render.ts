@@ -13,6 +13,7 @@ import { RouterOsEvpn } from "./evpn";
 import { RouterOsFirewall } from "./firewall";
 import { RouterOsMonitoring } from "./monitoring";
 import { RouterOsPppoe } from "./pppoe";
+import { RouterOsPseudowire } from "./pseudowire";
 import { RouterOsQueues } from "./queues";
 import { RouterOsRouting } from "./routing";
 import { RouterOsSchedulers } from "./schedulers";
@@ -42,9 +43,6 @@ export class RouterOsRender {
 
     /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
     private static readonly ISOLATED_HORIZON = 1;
-
-    /** The split horizon of every pseudowire, so a frame from one never leaves by another (RFC 4762, section 4.4). */
-    private static readonly PSEUDOWIRE_HORIZON = 2;
 
     /** Destination of spanning tree BPDUs, so a filter can drop them on one port. */
     private static readonly BPDU_DESTINATION = "01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF";
@@ -110,6 +108,7 @@ export class RouterOsRender {
         RouterOsSchedulers.render(render, device);
         RouterOsFirewall.render(render, device);
         RouterOsRouting.render(render, device);
+        RouterOsPseudowire.render(render, device);
         render.management();
         render.system();
 
@@ -250,7 +249,11 @@ export class RouterOsRender {
     /** One VLAN-filtering bridge carries every switched port and VXLAN segment in EVPN, with their one TPID. A loopback is a bridge with no ports, the platform's idiom for one. */
     private bridge(): void {
         const { device } = this;
-        const ports = this.switched().length + this.declaredVlanInterfaces().length + Derive.evpnVxlans(device).length;
+        const ports =
+            this.switched().length +
+            this.declaredVlanInterfaces().length +
+            Derive.evpnVxlans(device).length +
+            RouterOsPseudowire.vplsVlans(device).length;
         if (ports > 0) {
             const stp = device.switching?.stp;
             this.add("/interface bridge", "add", {
@@ -474,7 +477,9 @@ export class RouterOsRender {
         }
     }
 
-    /** A pseudowire is a VPLS interface that LDP sets up with the PWid FEC, MikroTik's `cisco-static-id` (RFC 8077). Its `pw-l2mtu` is the MTU it tells the far PE. The device adds one disabled (TRAPS.md). */
+    /**
+     * A pseudowire is a VPLS interface that LDP sets up with the PWid FEC, MikroTik's `cisco-static-id` (RFC 8077). Its `pw-l2mtu` is the MTU it tells the far PE. A trunk's frames keep their tags, which `pw-type=tagged-ethernet` signals as PW type 4. The device adds one disabled (TRAPS.md).
+     */
     private pseudowires(): void {
         for (const [name, pseudowire] of RouterOsSyntax.entries(this.device.interfaces?.pseudowire)) {
             const controlWord = pseudowire.control_word;
@@ -486,6 +491,7 @@ export class RouterOsRender {
                 peer: pseudowire.peer,
                 "pw-control-word": controlWord === undefined ? undefined : controlWord ? "enabled" : "disabled",
                 "pw-l2mtu": pseudowire.mtu,
+                "pw-type": pseudowire.trunk_vlans ? "tagged-ethernet" : undefined,
             });
         }
     }
@@ -525,7 +531,7 @@ export class RouterOsRender {
     /** The split horizon of a bridge port: an isolated port's, a pseudowire's, or none. */
     private horizon(port: string, isolated: boolean): number | undefined {
         if (isolated) return RouterOsRender.ISOLATED_HORIZON;
-        return this.device.interfaces?.pseudowire?.[port] ? RouterOsRender.PSEUDOWIRE_HORIZON : undefined;
+        return this.device.interfaces?.pseudowire?.[port] ? RouterOsPseudowire.HORIZON : undefined;
     }
 
     /** A VLAN is tagged on every trunk carrying it, and on the bridge itself when the router has an interface in it. */

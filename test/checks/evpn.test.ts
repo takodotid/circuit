@@ -23,16 +23,17 @@ const school = (): EvpnVxlan => pe03.interfaces!.vxlan!["vxlan-school"] as EvpnV
 /** pe-03 with these VXLAN segments. */
 const withSegments = (vxlan: Record<string, EvpnVxlan>): Device => ({ ...pe03, interfaces: { ...pe03.interfaces, vxlan } });
 
-/** pe-03 with its session to pe-02 changed. */
+/** pe-03 with its session to pe-02 changed, beside its session to pe-01, which carries the library's VPLS routes. */
 function withSession(settings: Partial<Neighbor>): Device {
     const bgp = pe03.routing!.bgp!;
-    return { ...pe03, routing: { ...pe03.routing, bgp: { ...bgp, neighbors: { "pe-02": { ...bgp.neighbors!["pe-02"]!, ...settings } } } } };
+    const neighbors = { "pe-01": bgp.neighbors!["pe-01"]!, "pe-02": { ...bgp.neighbors!["pe-02"]!, ...settings } };
+    return { ...pe03, routing: { ...pe03.routing, bgp: { ...bgp, neighbors } } };
 }
 
 test("each segment has a VNI and a VLAN of its own, an address of the device, its own route distinguisher, and route targets", () => {
     expect(errors(pe03)).toEqual([]);
 
-    const vlans = { ...pe03.switching!.vlans, guests: { id: 302 } };
+    const vlans = { ...pe03.switching!.vlans, guests: { id: 304 } };
     const device: Device = {
         ...withSegments({
             "vxlan-school": { ...school(), vni: 16_777_216 },
@@ -72,6 +73,7 @@ test("a segment needs a BGP session that carries its routes", () => {
     const { bgp: _bgp, ...routing } = pe03.routing!;
     expect(errors({ ...pe03, routing })).toEqual([
         "interfaces.vxlan.vxlan-school is in EVPN, and BGP carries its routes. Write routing.bgp, with a neighbor whose address_families has l2vpn-evpn",
+        "switching.vlans.library.vpls: BGP finds the VPLS's other PEs, and no BGP neighbor carries l2vpn-vpls. Write a neighbor in routing.bgp whose address_families has l2vpn-vpls",
     ]);
     expect(errors(withSession({ address_families: ["ipv4"] }))).toContain(
         "interfaces.vxlan.vxlan-school is in EVPN, and BGP carries its routes. Write routing.bgp, with a neighbor whose address_families has l2vpn-evpn"

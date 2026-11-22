@@ -113,8 +113,8 @@ export class RouterOsExport {
             "tag-stacking": "no",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
-        // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md). `pw-l2mtu` and `pw-control-word` set to these print them.
-        "/interface vpls": { disabled: "yes", "pw-l2mtu": "1500", "pw-control-word": "default" },
+        // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md). `pw-l2mtu` and `pw-control-word` set to these print them, and one without `pw-type` runs raw mode.
+        "/interface vpls": { disabled: "yes", "pw-l2mtu": "1500", "pw-control-word": "default", "pw-type": "raw-ethernet" },
         // A CHR prints `disable-running-check=no` on every port, as it ships. A RouterBOARD has no such property, so this changes nothing there (TRAPS.md).
         "/interface ethernet": { mtu: "1500", "auto-negotiation": "yes", "disable-running-check": "no" },
         "/interface ethernet switch port": {

@@ -48,14 +48,15 @@ test("the example validates, and RouterOS renders the VRF's VPN entry and a VPN 
         'add chain=bank-offices-V4 rule="if (dst in bank-offices) { accept }"\nadd chain=bank-offices-V4 rule=reject\n'
     );
     expect(desired).toContain(
-        'add afi=vpnv4 as=64500 comment="pe-02, VPN routes" input.filter=VPN instance=default local.address=10.255.0.1 local.role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 remote.as=64500'
+        'add afi="l2vpn,l2vpn-cisco,vpnv4" as=64500 comment="pe-02, VPN routes" input.filter=VPN instance=default local.address=10.255.0.1 local.role=ibgp name=pe-02 output.filter-chain=VPN remote.address=10.255.0.2/32 remote.as=64500'
     );
     // Its IPv6 routes go between the IPv6 loopbacks, on a session of their own, which takes them through the same chain.
     expect(desired).toContain(
         'add afi=vpnv6 as=64500 comment="pe-02, IPv6 VPN routes" input.filter=VPN instance=default local.address=2001:db8:100:ffff::1 local.role=ibgp name=pe-02-v6 output.filter-chain=VPN remote.address=2001:db8:100:ffff::2/128 remote.as=64500'
     );
+    // The sessions carry the VPLS routes of the museum and the library too, which their own afi matches.
     expect(desired).toContain(
-        'add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule="if (afi vpnv6) { accept }"\nadd chain=VPN rule=reject\n'
+        'add chain=VPN rule="if (afi vpnv4) { accept }"\nadd chain=VPN rule="if (afi vpnv6) { accept }"\nadd chain=VPN rule="if (afi l2vpn) { accept }"\nadd chain=VPN rule="if (afi l2vpn-cisco) { accept }"\nadd chain=VPN rule=reject\n'
     );
     expect(desired).not.toContain("REJECT-ALL");
 

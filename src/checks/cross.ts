@@ -2,7 +2,7 @@
 
 import { X509Certificate } from "node:crypto";
 import { Address } from "../core/address";
-import type { Device, Finding, Gre, Ipsec, Prefix, Routed, Switched, Vxlan } from "../model";
+import type { Device, Finding, Gre, Ipsec, Prefix, Pseudowire, Routed, Switched, Vxlan } from "../model";
 import { Derive } from "../core/derive";
 import { Utils } from "../core/utils";
 import { DeviceChecks } from "./device";
@@ -68,6 +68,7 @@ export class CrossChecks {
             ...CrossChecks.vrrp(holders),
             ...CrossChecks.tunnels(devices, owners),
             ...CrossChecks.pseudowires(devices),
+            ...CrossChecks.vplsSites(devices),
             ...CrossChecks.ldpTargets(devices),
             ...CrossChecks.virtualLinks(devices),
         ];
@@ -379,7 +380,7 @@ export class CrossChecks {
         );
     }
 
-    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). */
+    /** A pseudowire to the LSR ID of another of our PEs has one back there, with the same `pw_id` and `mtu` (RFC 8077). The two carry the same VLANs tagged, or both carry them untagged. */
     private static pseudowires(devices: readonly Device[]): Finding[] {
         const byLsrId = CrossChecks.byLsrId(devices);
 
@@ -392,14 +393,8 @@ export class CrossChecks {
                 const back = Object.values(far.interfaces?.pseudowire ?? {}).find(
                     (other) => other?.peer === own && other?.pw_id === pseudowire.pw_id
                 );
-                if (back && back.mtu !== pseudowire.mtu)
-                    return [
-                        {
-                            level: "error",
-                            device: device.name,
-                            message: `interfaces.pseudowire.${name}.mtu is ${pseudowire.mtu ?? "left out"}, and ${far.name}'s pseudowire back has ${back.mtu ?? "none"}: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`,
-                        },
-                    ];
+                const problem = back && CrossChecks.pseudowireBack(device, far, pseudowire, back);
+                if (problem) return [{ level: "error", device: device.name, message: `interfaces.pseudowire.${name}${problem}` }];
                 if (back) return [];
                 return [
                     {
@@ -409,6 +404,58 @@ export class CrossChecks {
                     },
                 ];
             });
+        });
+    }
+
+    /** What a pseudowire's way back at the far PE has otherwise, after the pseudowire's own path, or nothing. A tagged frame keeps its VLAN ID across, so both ends carry the same IDs tagged, or both carry none (RFC 4448, section 3). */
+    private static pseudowireBack(device: Device, far: Device, pseudowire: Pseudowire, back: Pseudowire): string | undefined {
+        if (back.mtu !== pseudowire.mtu)
+            return `.mtu is ${pseudowire.mtu ?? "left out"}, and ${far.name}'s pseudowire back has ${back.mtu ?? "none"}: a pseudowire runs only with the same MTU at both ends (RFC 8077). Write the same mtu at both`;
+
+        const ids = (owner: Device, vlans: readonly string[]) =>
+            vlans
+                .map((vlan) => owner.switching?.vlans?.[vlan]?.id ?? 0)
+                .sort((a, b) => a - b)
+                .join(", ");
+        const near = pseudowire.trunk_vlans && ids(device, pseudowire.trunk_vlans);
+        const away = back.trunk_vlans && ids(far, back.trunk_vlans);
+        if (near === away) return undefined;
+        const tagged = "both ends tagged, or both untagged. Write trunk_vlans at both ends, or at neither";
+        if (near === undefined)
+            return ` carries its frames untagged, and ${far.name}'s pseudowire back carries VLANs tagged: RFC 4448 wants ${tagged}`;
+        if (away === undefined)
+            return `.trunk_vlans carries VLANs tagged, and ${far.name}'s pseudowire back carries its frames untagged: RFC 4448 wants ${tagged}`;
+        return `.trunk_vlans carries VLAN IDs ${near}, and ${far.name}'s pseudowire back carries ${away}: a frame keeps its VLAN ID across. Write the same VLAN IDs at both ends`;
+    }
+
+    /**
+     * Two PEs of one VPLS, where one takes the routes of the other, set up its pseudowires alike. Each has a site ID of its own (RFC 4761, section 3.2.1), or each has the same VPLS-id (RFC 6074, section 3.2.1).
+     */
+    private static vplsSites(devices: readonly Device[]): Finding[] {
+        const vlans = devices.flatMap((device) =>
+            Object.entries(device.switching?.vlans ?? {}).flatMap(([name, vlan]) => (vlan?.vpls ? [{ device, name, vpls: vlan.vpls }] : []))
+        );
+
+        return vlans.flatMap(({ device, name, vpls }): Finding[] => {
+            const at = `switching.vlans.${name}.vpls`;
+            const problems = vlans.flatMap((far): string[] => {
+                const takes = far.vpls.route_targets.export?.some((target) => vpls.route_targets.import?.includes(target));
+                if (far.device === device || !takes) return [];
+
+                const there = `${far.device.name}'s VLAN ${far.name}, whose VPLS routes this VLAN takes`;
+                if ((vpls.site_id === undefined) !== (far.vpls.site_id === undefined))
+                    return [
+                        `${at} has ${vpls.site_id === undefined ? "vpls_id" : "site_id"}, and ${there}, has ${far.vpls.site_id === undefined ? "vpls_id" : "site_id"}: BGP and LDP set up no pseudowire between the two. Write the same one at every PE of the VPLS`,
+                    ];
+                if (vpls.site_id !== undefined && vpls.site_id === far.vpls.site_id)
+                    return [`${at}.site_id ${vpls.site_id} is also the site_id of ${there}. Give each PE of the VPLS its own site_id`];
+                if (vpls.vpls_id !== undefined && vpls.vpls_id !== far.vpls.vpls_id)
+                    return [
+                        `${at}.vpls_id ${vpls.vpls_id}, and ${there}, has ${far.vpls.vpls_id}: LDP sets up no pseudowire between the two. Write the same vpls_id at every PE of the VPLS`,
+                    ];
+                return [];
+            });
+            return problems.slice(0, 1).map((message) => ({ level: "error", device: device.name, message }));
         });
     }
 

@@ -53,8 +53,8 @@ export type PrefixLimit =
           restart_after?: never;
       };
 
-/** What a BGP session carries: `ipv4` or `ipv6` routes, or the routes of VRFs with route targets, `vpnv4` (RFC 4364) or `vpnv6` (RFC 4659). `l2vpn-evpn` carries the EVPN routes of VXLAN segments (RFC 7432, RFC 8365). */
-export type BgpFamily = Family | "vpnv4" | "vpnv6" | "l2vpn-evpn";
+/** What a BGP session carries: `ipv4` or `ipv6` routes, or the routes of VRFs with route targets, `vpnv4` (RFC 4364) or `vpnv6` (RFC 4659). `l2vpn-vpls` carries those of VLANs with `vpls` (RFC 4761), OpenConfig's `L2VPN_VPLS`. `l2vpn-evpn` carries the EVPN routes of VXLAN segments (RFC 7432, RFC 8365). */
+export type BgpFamily = Family | "vpnv4" | "vpnv6" | "l2vpn-vpls" | "l2vpn-evpn";
 
 /** Settings a BGP neighbor can set itself or take from its group. `P` is the device's policies, `T` its tables, `F` its VRFs, `Net` what the network writes. */
 export type NeighborSettings<P extends string, T extends string, F extends string = string, Net extends NetworkFacts = AnyFacts> = {
@@ -87,7 +87,7 @@ export type NeighborSettings<P extends string, T extends string, F extends strin
     /** Seconds between keepalive messages. */
     keepalive?: number;
     /**
-     * The address families the session carries. The family of the neighbor's address when absent. `vpnv4` and `vpnv6` carry the routes of each VRF with `route_targets` to another PE, and bring back the far VRFs' routes. Write them on an iBGP session from this router's LSR ID, `local_address`, to the far PE's, with `routing.mpls`: the routes' traffic crosses the core by label. Route targets pick the VPN routes a VRF takes, so `import_policy` and `export_policy` apply to `ipv4` and `ipv6` routes only.
+     * The address families the session carries. The family of the neighbor's address when absent. `vpnv4` and `vpnv6` carry the routes of each VRF with `route_targets` to another PE, and bring back the far VRFs' routes. `l2vpn-vpls` does the same for each VLAN with `vpls`, so the PEs find each other and set up its pseudowires. Write them on an iBGP session from this router's LSR ID, `local_address`, to the far PE's, with `routing.mpls`: the traffic crosses the core by label. Route targets pick the VPN routes a VRF or a VPLS takes, so `import_policy` and `export_policy` apply to `ipv4` and `ipv6` routes only.
      *
      * `l2vpn-evpn` carries the EVPN routes of each VXLAN with `evpn` to another VTEP, and brings back the far VTEPs' routes. Write it on an iBGP session from the VXLANs' `local_address` to the far VTEP's. Route targets pick these routes too.
      */

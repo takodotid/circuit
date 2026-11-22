@@ -103,7 +103,7 @@ export class RouterOsVlanTags {
     }
 
     /** The VLANs with an inner VLAN interface and no plain one, whose outer VLAN interface the render makes. */
-    private static madeOuter(device: Device): string[] {
+    static madeOuter(device: Device): string[] {
         const declared = RouterOsSyntax.entries(device.interfaces?.vlan_interface).map(([, iface]) => iface);
         const outer = new Set(declared.filter((iface) => iface.inner_vlan_id !== undefined).map((iface) => iface.vlan));
         for (const iface of declared) if (iface.inner_vlan_id === undefined) outer.delete(iface.vlan);
@@ -135,6 +135,8 @@ export class RouterOsVlanTags {
                 if (device.switching?.[field]) found.push(`switching.${field}, ${RouterOsVlanTags.UNTESTED}`);
             for (const name of Object.keys(device.interfaces?.pseudowire ?? {}))
                 found.push(`interfaces.pseudowire.${name}, ${RouterOsVlanTags.UNTESTED}`);
+            for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
+                if (vlan.vpls) found.push(`switching.vlans.${name}.vpls, ${RouterOsVlanTags.UNTESTED}`);
             for (const { where, settings } of holders) {
                 // An 802.1ad bridge sends its BPDUs to another address than the one `stp: false` drops (MikroTik's manual, Bridging and Switching).
                 if (settings.stp === false) found.push(`${where}.stp false, ${RouterOsVlanTags.UNTESTED}`);

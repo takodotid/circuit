@@ -1,4 +1,4 @@
-// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP labels each loopback, so traffic between the two crosses the core by label. iBGP carries the routes of the bank's VRF to pe-02 (L3VPN, RFC 4364). A pseudowire carries the clinic's frames to its other site there (VPWS). A targeted LDP session joins it to pe-03, across pe-02.
+// A provider edge router, a MikroTik CCR2216. IS-IS carries its loopback to pe-02, and LDP labels each loopback, so traffic crosses the core by label. iBGP carries the bank's VRF to pe-02 (L3VPN), and joins the museum and the library to their other sites (VPLS). Pseudowires carry the clinic's frames and the ISP's to pe-02 (VPWS). A targeted LDP session joins it to pe-03, across pe-02.
 
 import { as64500 } from "../../circuit";
 
@@ -24,6 +24,9 @@ export default as64500.device({
                 addresses: ["172.16.1.1/30", "2001:db8:b1:ff01::1/64"],
             },
             "25g-2": { description: "Clinic, site 1", access_vlan: "clinic" },
+            "25g-3": { description: "Museum, site 1", access_vlan: "museum" },
+            "25g-4": { description: "Library, branch 1", access_vlan: "library" },
+            "25g-5": { description: "ISP, handoff 1", qinq_vlan: "isp" },
             "100g-1": {
                 description: "pe-02 qsfp28-1-1",
                 addresses: ["10.0.12.1/30", "2001:db8:100:12::1/64"],
@@ -41,12 +44,34 @@ export default as64500.device({
                 mtu: 1500,
                 control_word: true,
             },
+            // A QinQ port of the ISP's VLAN, as the ISP's port is: the ISP's frames cross with their own tags.
+            "pw-isp": { description: "ISP, to handoff 2 at pe-02", peer: "10.255.0.2", pw_id: 500, qinq_vlan: "isp" },
         },
     },
 
     switching: {
-        // The clinic's port and its pseudowire, alone in one VLAN.
-        vlans: { clinic: { id: 201, description: "Clinic, sites 1 and 2" } },
+        vlans: {
+            // The clinic's port and its pseudowire, alone in one VLAN.
+            clinic: { id: 201, description: "Clinic, sites 1 and 2" },
+            // The ISP's own VLANs cross the core inside this one.
+            isp: { id: 500, description: "ISP, handoffs 1 and 2" },
+            // The museum's two sites share one LAN: BGP finds the other PE with the museum's route target, and sets up a pseudowire to it.
+            museum: {
+                id: 303,
+                description: "Museum, sites 1 and 2",
+                vpls: { route_distinguisher: "64500:303", route_targets: { import: ["64500:303"], export: ["64500:303"] }, site_id: 1 },
+            },
+            // The library's two branches share one LAN as well: BGP finds the other PE, and LDP sets up the pseudowire (RFC 6074).
+            library: {
+                id: 302,
+                description: "Library, branches 1 and 2",
+                vpls: {
+                    route_distinguisher: "64500:302",
+                    route_targets: { import: ["64500:302"], export: ["64500:302"] },
+                    vpls_id: "64500:302",
+                },
+            },
+        },
     },
 
     routing: {
@@ -91,7 +116,7 @@ export default as64500.device({
                 neighbors: { "10.255.0.3": { import_policy: "pe-03-loopback", export_policy: "own-loopback" } },
             },
         },
-        // The iBGP sessions between the loopbacks carry the VRFs' routes, each with its label, and no other routes. IPv4 routes go between the LSR IDs, and IPv6 routes between the IPv6 loopbacks (RFC 4659).
+        // The iBGP sessions between the loopbacks carry the VRFs' routes, each with its label, and the VPLS routes, and no other routes. IPv4 and VPLS routes go between the LSR IDs, and IPv6 routes between the IPv6 loopbacks (RFC 4659).
         bgp: {
             neighbors: {
                 "pe-02": {
@@ -99,7 +124,14 @@ export default as64500.device({
                     address: "10.255.0.2",
                     remote_as: 64500,
                     local_address: "10.255.0.1",
-                    address_families: ["vpnv4"],
+                    address_families: ["vpnv4", "l2vpn-vpls"],
+                },
+                "pe-03": {
+                    description: "pe-03, VPLS routes",
+                    address: "10.255.0.3",
+                    remote_as: 64500,
+                    local_address: "10.255.0.1",
+                    address_families: ["l2vpn-vpls"],
                 },
                 "pe-02-v6": {
                     description: "pe-02, IPv6 VPN routes",

@@ -369,7 +369,7 @@ export const DEVICE = {
             },
         },
         eoip: { "*": { ...BASE, local_address: 0, remote_address: 0, tunnel_id: 0, in_lag: 0 } },
-        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0, mtu: 0, control_word: 0 } },
+        pseudowire: { "*": { description: 0, peer: 0, pw_id: 0, access_vlan: 0, trunk_vlans: 0, qinq_vlan: 0, mtu: 0, control_word: 0 } },
         pppoe_client: {
             "*": {
                 interface: 0,
@@ -385,7 +385,15 @@ export const DEVICE = {
         },
     },
     switching: {
-        vlans: { "*": { id: 0, description: 0, untrusted: 0, private_vlan: { primary: 0, type: 0 } } },
+        vlans: {
+            "*": {
+                id: 0,
+                description: 0,
+                untrusted: 0,
+                private_vlan: { primary: 0, type: 0 },
+                vpls: { route_distinguisher: 0, route_targets: { import: 0, export: 0 }, site_id: 0, vpls_id: 0 },
+            },
+        },
         stp: { mode: 0, priority: 0 },
         dhcp_snooping: 0,
         arp_inspection: 0,

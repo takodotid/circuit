@@ -181,6 +181,9 @@ export class Derive {
     /** IPv6 link-local addresses (RFC 4291). */
     private static readonly LINK_LOCAL = "fe80::/10";
 
+    /** The family that carries VPLS routes between PEs (RFC 4761, RFC 6074). */
+    static readonly VPLS_FAMILY = "l2vpn-vpls";
+
     /** The fewest seconds between two router advertisements (RFC 4861, MinRtrAdvInterval). */
     private static readonly MIN_RA_INTERVAL = 3;
     /** The least interval between router advertisements is the most divided by this (RFC 4861). */
@@ -376,12 +379,14 @@ export class Derive {
         return families.filter((family): family is Family => family === "ipv4" || family === "ipv6");
     }
 
-    /** The VPN families a BGP session carries, `vpnv4` and `vpnv6`. */
+    /** The VPN families a BGP session carries between PEs: `vpnv4`, `vpnv6`, and `l2vpn-vpls`. */
     static vpnFamilies(settings: Pick<NeighborSettings, "address_families">): BgpFamily[] {
-        return (settings.address_families ?? []).filter((family) => family === "vpnv4" || family === "vpnv6");
+        return (settings.address_families ?? []).filter(
+            (family) => family === "vpnv4" || family === "vpnv6" || family === Derive.VPLS_FAMILY
+        );
     }
 
-    /** Where the device writes an L3VPN: each VRF's route distinguisher, route targets, and policies, and each neighbor or group that carries a VPN family. */
+    /** Where the device writes an L3VPN: each VRF's route distinguisher, route targets, and policies, and each neighbor or group that carries `vpnv4` or `vpnv6`. */
     static l3vpn(device: Device): string[] {
         const found: string[] = [];
         for (const [name, vrf] of Object.entries(device.routing?.vrfs ?? {})) {
@@ -390,14 +395,9 @@ export class Derive {
             for (const way of ["import_policy", "export_policy"] as const) if (vrf?.[way]) found.push(`routing.vrfs.${name}.${way}`);
         }
 
-        const bgp = device.routing?.bgp;
-        const sessions = [
-            ...Object.entries(bgp?.neighbor_groups ?? {}).map(([name, settings]) => ({ where: `neighbor_groups.${name}`, settings })),
-            ...Object.entries(bgp?.neighbors ?? {}).map(([name, settings]) => ({ where: `neighbors.${name}`, settings })),
-        ];
-        for (const { where, settings } of sessions) {
-            const families = Derive.vpnFamilies(settings ?? {});
-            if (families.length) found.push(`routing.bgp.${where}.address_families ${families.join(" and ")}`);
+        for (const { where, settings } of Derive.bgpSessions(device)) {
+            const families = Derive.vpnFamilies(settings).filter((family) => family !== Derive.VPLS_FAMILY);
+            if (families.length) found.push(`${where}.address_families ${families.join(" and ")}`);
         }
         return found;
     }
@@ -427,6 +427,29 @@ export class Derive {
                 .filter(({ settings }) => Derive.carriesEvpn(settings ?? {}))
                 .map(({ where }) => `routing.bgp.${where}.address_families l2vpn-evpn`),
         ];
+    }
+
+    /** Where the device writes a VPLS whose PEs BGP finds (RFC 4761, RFC 6074): each VLAN's `vpls`, and each neighbor or group that carries `l2vpn-vpls`. */
+    static vpls(device: Device): string[] {
+        const vlans = Object.entries(device.switching?.vlans ?? {}).flatMap(([name, vlan]) =>
+            vlan?.vpls ? [`switching.vlans.${name}.vpls`] : []
+        );
+        const sessions = Derive.bgpSessions(device).flatMap(({ where, settings }) =>
+            settings.address_families?.includes(Derive.VPLS_FAMILY) ? [`${where}.address_families ${Derive.VPLS_FAMILY}`] : []
+        );
+        return [...vlans, ...sessions];
+    }
+
+    /** Each BGP neighbor group and neighbor, with where it is written: `routing.bgp.neighbors.pe-02`. */
+    private static bgpSessions(device: Device): { where: string; settings: NeighborSettings }[] {
+        const bgp = device.routing?.bgp;
+        return [
+            ...Object.entries(bgp?.neighbor_groups ?? {}).map(([name, settings]) => ({
+                where: `routing.bgp.neighbor_groups.${name}`,
+                settings,
+            })),
+            ...Object.entries(bgp?.neighbors ?? {}).map(([name, settings]) => ({ where: `routing.bgp.neighbors.${name}`, settings })),
+        ].flatMap(({ where, settings }) => (settings ? [{ where, settings }] : []));
     }
 
     /** A neighbor's prefix limit in its long form, or none. */

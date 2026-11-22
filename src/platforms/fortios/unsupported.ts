@@ -67,6 +67,7 @@ export class FortiOsUnsupported {
         if (device.routing?.mpls) found.push("routing.mpls, FortiOS has no MPLS");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN: FortiOS has no MPLS`);
         for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for FortiOS yet`);
+        for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS: FortiOS has no MPLS`);
         // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 

@@ -22,6 +22,7 @@ import { PseudowireChecks } from "./pseudowire";
 import { QosChecks } from "./qos";
 import { ServicesChecks } from "./services";
 import { VlanTagChecks } from "./vlan-tag";
+import { VplsChecks } from "./vpls";
 
 type Report = (message: string) => void;
 
@@ -109,6 +110,7 @@ export class DeviceChecks {
         L3vpnChecks.check(device, report);
         EvpnChecks.check(device, report);
         PseudowireChecks.check(device, report);
+        VplsChecks.check(device, report);
         NatChecks.check(device, report);
         Nat64Checks.check(device, report);
         DeviceChecks.policies(device, report, cidr);

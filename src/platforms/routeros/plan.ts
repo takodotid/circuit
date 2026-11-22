@@ -76,6 +76,8 @@ export class RouterOsPlan {
         "/routing bgp vpn",
         // An EVPN entry names its instance, and takes the VXLAN interface of its VNI.
         "/routing bgp evpn",
+        // A BGP VPLS entry names the bridge its pseudowires join.
+        "/routing bgp vpls",
         "/routing ospf instance",
         "/routing ospf area",
         // A range and a static neighbor name their area.
