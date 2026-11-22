@@ -496,8 +496,6 @@ export class RouterOsExport {
             "input.limit-process-routes-ipv4",
             "input.limit-process-routes-ipv6",
         ],
-        // `unset` clears an EVPN entry's route distinguisher (CHR, 7.24.6).
-        "/routing bgp evpn": ["rd", "export.route-targets", "import.route-targets"],
         // An empty `import.filter-chain` prints as `""` (CHR, 7.24.6).
         "/routing bgp vpn": [
             "export.redistribute",
