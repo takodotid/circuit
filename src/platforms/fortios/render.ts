@@ -22,6 +22,7 @@ import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
 import { FortiOsShaping } from "./shaping";
 import { FortiOsNames } from "./names";
+import { FortiOsPppoe } from "./pppoe";
 import { FortiOsRouting } from "./routing";
 import { FortiOsNode, FortiOsTree } from "./tree";
 import { FortiOsVdoms } from "./vdoms";
@@ -71,6 +72,7 @@ export class FortiOsRender {
         "system interface",
         "system gre-tunnel",
         "system vxlan",
+        FortiOsPppoe.SECTION,
         "vpn ipsec phase1-interface",
         "vpn ipsec phase2-interface",
         "system dns",
@@ -327,6 +329,8 @@ export class FortiOsRender {
         FortiOsRender.users(section("system accprofile"), section("system admin"), device);
         FortiOsRender.aaa(root, device);
         FortiOsRender.interfaces(root, device);
+        for (const entry of FortiOsPppoe.render(section(FortiOsPppoe.SECTION), section("system interface"), device))
+            FortiOsRender.redirects(entry, device);
         FortiOsIpsec.render(
             section("vpn ipsec phase1-interface"),
             section("vpn ipsec phase2-interface"),
