@@ -79,9 +79,7 @@ export class RouterOsRemoteAccess {
 
         for (const [name] of entries.slice(1))
             found.push(`services.ipsec_remote_access.${name}: Circuit runs one remote access on a RouterOS router, as tested. Write one`);
-        // A flow on the fast path skips IPsec's policies, so what goes to a client would leave in the clear (MikroTik's manual, Packet Flow).
-        const fastPath = Object.values(device.firewall?.filter ?? {}).some((chain) => chain?.rules?.some((rule) => rule.fast_path));
-        if (fastPath && entries.length)
+        if (entries.length && RouterOsIpsec.fastPath(device))
             found.push("services.ipsec_remote_access beside a fast_path rule, whose flows skip IPsec's policies: take fast_path off");
 
         for (const [name, access] of entries) {
