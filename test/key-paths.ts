@@ -26,7 +26,6 @@ export class KeyPaths {
      */
     static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
         "interfaces.ipsec.*.remote_identity": "FortiOS only, where no IKE peer sent a certificate to the FG-3700D",
-        "interfaces.ipsec.*.vrf": "FortiOS only, from Fortinet's documentation, as no FortiGate is in CI",
         "routing.isis.multi_topology":
             "Junos, where only `commit check` ran on a QFX5100, and VRP, where IS-IS on an interface is experimental",
         "routing.isis.level2_to_level1":

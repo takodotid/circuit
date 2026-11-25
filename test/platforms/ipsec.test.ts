@@ -299,12 +299,13 @@ test("in multi-VDOM mode, root's phase 1 makes the tunnel's interface before the
     ]);
 });
 
-test("FortiOS puts the tunnel's interface in its VRF, from the vendor's documentation, and names it experimental", () => {
+// On a FG-3700D with 6.2.2, a tunnel to a second VDOM routed its network in VRF 1 and ran IKE in VRF 0. Pings crossed it. It was then moved out of the VRF and removed, each plan empty after.
+test("FortiOS puts the tunnel's interface in its VRF", () => {
     const device = withTunnels("platforms--example-firewall", { "ipsec-branch-1": { ...TUNNEL, vrf: "guests" } });
     const desired = fortios.render(device);
 
     expect(desired).toMatch(/edit "ipsec-branch-1"\n {8}set vdom "root"\n {8}set type tunnel\n[\s\S]*?set vrf 1\n/);
-    expect(fortios.experimental?.(device)).toContain("interfaces.ipsec.ipsec-branch-1.vrf");
+    expect(fortios.experimental?.(device)).not.toContain("interfaces.ipsec.ipsec-branch-1.vrf");
     expect(fortios.plan(desired, desired, { secrets: false, rollback: 10 })).toEqual({ steps: [], problems: [] });
 });
 

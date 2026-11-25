@@ -60,12 +60,13 @@ export default as64500.device({
                 liveness_check: { interval: 10, retries: 3 },
                 nat_traversal: "always",
             },
-            // Out-of-band access for the operators, from the jump host, over the office's internet line.
+            // Out-of-band access for the operators, from the jump host, over the office's internet line, in a VRF of its own.
             // This end is behind the office router's NAT, which forgets an idle UDP mapping after 30 seconds.
             // So it sends a NAT keepalive every 20 seconds. With no other path to fail over to, it doesn't check its peer.
             "ipsec-oob": {
                 description: "Out-of-band, to the jump host",
                 addresses: [{ address: "10.255.12.9/30", peer_address: "10.255.12.10" }],
+                vrf: "oob",
                 local_address: "192.168.10.2",
                 remote_address: "192.0.2.40",
                 pre_shared_key: secret("IPSEC_OOB"),
@@ -79,6 +80,7 @@ export default as64500.device({
 
     routing: {
         router_id: "10.255.2.1",
+        vrfs: { oob: {} },
         static_routes: [
             { prefix: as64500.prefixes.ours.v4, blackhole: true },
             { prefix: "10.21.0.0/16", interface: "ipsec-branch-1", description: "Branch office 1" },
