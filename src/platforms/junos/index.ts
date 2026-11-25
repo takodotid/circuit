@@ -17,6 +17,7 @@ import { BgpHealth } from "../bgp-health";
 import { JunosBgp } from "./bgp";
 import { JunosBgpSessions } from "./bgp-sessions";
 import { JunosDhcp } from "./dhcp";
+import { JunosEvpn } from "./evpn";
 import { JunosIsis } from "./isis";
 import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
@@ -129,6 +130,8 @@ export class Junos extends Platform {
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         // RPM's tests passed `commit check` only, in a candidate that was never committed.
         for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
+        // EVPN-VXLAN passed `commit check` only, with warnings for the licenses the QFX5100 lacks.
+        found.push(...Derive.evpn(device));
         return found;
     }
 
@@ -155,8 +158,7 @@ export class Junos extends Platform {
         // MPLS here passed `commit check` only, on a QFX5100 without the license to run it.
         for (const where of Derive.l3vpn(device))
             found.push(`${where}, L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
-        // Juniper documents EVPN-VXLAN on a QFX5100, as a VTEP that bridges and doesn't route between VXLANs. No switch here has run it.
-        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for Junos yet`);
+        found.push(...JunosEvpn.unsupported(device));
         for (const where of Derive.vpls(device))
             found.push(`${where}, a VPLS by BGP, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`);
         const names = new JunosNames(device);
@@ -285,6 +287,8 @@ export class Junos extends Platform {
         for (const { name, kind, settings } of interfaces) {
             const where = `interfaces.${kind}.${name}`;
 
+            // A segment in EVPN is a port of its VLAN, which `JunosEvpn.unsupported()` looks at.
+            if (kind === "vxlan" && device.interfaces?.vxlan?.[name]?.evpn) continue;
             if (kind === "vxlan" || kind === "wireguard") {
                 found.push(`${where}, a ${kind}`);
                 continue;
