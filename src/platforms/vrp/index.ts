@@ -80,7 +80,7 @@ export class Vrp extends Platform {
         first: /^(authentication-mode|network-entity) /,
         canon: Vrp.canon,
         order: Vrp.order,
-        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? VrpIsis.head(line) ?? Vrp.head(line),
+        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? VrpIsis.head(line) ?? VrpOspf.head(line) ?? Vrp.head(line),
     };
 
     /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy, then the DiffServ domain ports trust. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */

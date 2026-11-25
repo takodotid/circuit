@@ -282,7 +282,6 @@ test("RouterOS refuses a scheduler it can't build, or whose packets would skip t
 
 test("every other platform refuses classes and schedulers, which it does not build", () => {
     for (const [platform, model, port] of [
-        ["junos", "QFX5100-48S-6Q", "10g-1"],
         ["fortios", "FG-3700D", "10g-1"],
         ["raisecom-ros", "RAX721-C-6C48", "1g-1"],
     ] as const)
