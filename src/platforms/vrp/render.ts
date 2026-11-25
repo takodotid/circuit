@@ -8,6 +8,7 @@ import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
+import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpOspf } from "./ospf";
@@ -139,6 +140,7 @@ export class VrpRender {
 
         this.system();
         this.vlanBlocks();
+        this.lines.push(...VrpEvpn.lines(device));
         this.managementAcl();
         this.snmpAcl();
         this.ethertypeAclBlocks();
@@ -166,6 +168,8 @@ export class VrpRender {
         for (const port of Catalog.ports(device.platform, device.model)) {
             this.block(`interface ${this.nameOf(port)}`, this.physicalPort(port, device.interfaces?.ethernet?.[port]));
         }
+
+        this.lines.push(...VrpEvpn.nve(device));
 
         this.staticRoutes();
         this.ospf();
