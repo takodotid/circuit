@@ -132,7 +132,6 @@
         "routing.bgp.neighbors.*.communities.blackhole",
         "routing.bgp.neighbors.*.neighbor_group",
         "routing.ospf.vrf",
-        "routing.bfd",
         "routing.rpki",
         "routing.policies.*[].if.as_path_length.max",
         "routing.policies.*[].if.large_community",
@@ -199,7 +198,7 @@
         },
         "vrp": {
             "silent": [],
-            "untried": ["monitoring.flow_export.collectors[].port", "interfaces.lag.*.stp"]
+            "untried": ["monitoring.flow_export.collectors[].port"]
         },
         "raisecom-ros": {
             "silent": [],

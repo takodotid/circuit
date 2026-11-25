@@ -614,7 +614,7 @@ export class FortiOsRouting {
         // The FortiOS 6.2 CLI reference lists `password` and `md5` for `auth-mode-l1` and `auth-mode-l2`, and a key chain's key has no algorithm.
         for (const { where, authentication } of Derive.isisAuthentications(device))
             if (authentication.algorithm !== "hmac-md5")
-                found.push(`${where}.algorithm ${authentication.algorithm}, FortiOS 6.2 signs IS-IS with hmac-md5 only`);
+                found.push(`${where}, FortiOS 6.2 signs IS-IS with hmac-md5 only, not ${authentication.algorithm}`);
         // The FortiOS 6.2 CLI reference lists `redistribute-l2` in `router isis`, with an access list in `redistribute-l2-list`.
         if (routing?.isis?.level2_to_level1)
             found.push("routing.isis.level2_to_level1, not built yet, since no device of the platform has run it");

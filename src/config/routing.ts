@@ -318,7 +318,7 @@ export type Isis<I extends string, P extends string = string> = {
     multi_topology?: boolean;
     /** Sign every IS-IS packet with one key, at each level the device runs. For a key per level, write it in `levels` instead. */
     authentication?: IsisAuthentication;
-    /** Settings of level 1 or level 2, such as `{ 2: { authentication: { algorithm: "hmac-md5", key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. */
+    /** Settings of level 1 or level 2, such as `{ 2: { authentication: { algorithm: "hmac-md5", key: secret("ISIS_L2_KEY") } } }`. Only levels the device runs. VRP takes a key for each level on broadcast links only: a point-to-point link sends one hello for both. */
     levels?: { 1?: IsisLevel; 2?: IsisLevel };
     /** The device's ports and interfaces that run IS-IS, each with its settings. */
     interfaces: Named<I, IsisInterface>;
