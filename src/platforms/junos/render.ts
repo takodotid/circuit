@@ -207,12 +207,6 @@ export class JunosRender {
                 this.out.set(term, "then accept");
                 this.out.set(`interfaces ${physical} unit 0 family ethernet-switching filter input`, limiter);
             }
-
-            if (rateLimit.output)
-                this.out.set(
-                    `class-of-service interfaces ${physical} shaping-rate`,
-                    JunosStatements.amount(Derive.bitsPerSecond(Derive.limit(rateLimit.output).rate))
-                );
         }
     }
 
