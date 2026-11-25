@@ -218,10 +218,10 @@ NAT64 and DNS64 are built on FortiOS only:
 - **VRP.** Circuit builds no NAT there. Huawei's FAQ on NAT in CloudEngine switches gives it to the CE12800 with a firewall card only, and Huawei builds NAT64 on NE routers with a CGN board.
 - **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.
 
-Option 82 on a DHCP relay is proven on RouterOS. Two platforms write it from the vendor's reference:
+Option 82 on a DHCP relay is proven on RouterOS. Two platforms build it, but no request relayed through them has shown what they add:
 
 - **Junos.** `relay-option-82 circuit-id` in the relay's group. The circuit ID is the port and its VLAN, and there is no remote ID. No QFX5100 has tried it.
-- **FortiOS.** `dhcp-relay-agent-option enable` on the interface. Fortinet's documentation doesn't say what the circuit ID holds, and has a relay add Option 82 on its own once it is on. Circuit writes nothing without `relay_agent_information`, so a FortiGate relay may add Option 82 then too. No FortiGate has tried it.
+- **FortiOS.** `dhcp-relay-agent-option` on the interface. A FortiGate relay adds Option 82 unless told not to, so without `relay_agent_information` Circuit writes `disable`. A FG-3700D took the setting both ways, and each change and removal left an empty plan, but no request was relayed. Fortinet's documentation doesn't say what the circuit ID holds.
 
 A DHCP server for a relay's clients is built on RouterOS only. FortiOS 6.2 has no setting for it, which comes in 7.4 as `relay-agent`. Junos picks the pool whose network holds the relay's address, which no QFX5100 has tried. VRP and Raisecom ROS build neither.
 

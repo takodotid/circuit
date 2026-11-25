@@ -712,8 +712,8 @@ export class FortiOsRender {
         if (relayed4.length) {
             entry.set("dhcp-relay-service", "enable");
             entry.set("dhcp-relay-ip", FortiOsTree.quoteAll(relayed4));
-            // One relay per interface: unsupported() refuses relays there that differ.
-            if (relays.some((relay) => relay.relay_agent_information)) entry.set("dhcp-relay-agent-option", "enable");
+            // The platform's relay adds Option 82 unless told not to, and doesn't print it; the config adds it only when asked. One relay per interface: unsupported() refuses relays there that differ.
+            if (!relays.some((relay) => relay.relay_agent_information)) entry.set("dhcp-relay-agent-option", "disable");
         }
 
         // LLDP follows the device unless a port says otherwise, or the device lists where it runs.

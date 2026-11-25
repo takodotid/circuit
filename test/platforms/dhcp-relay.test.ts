@@ -70,14 +70,38 @@ test("Junos adds Option 82 to the relay's group, as experimental, and refuses a 
     ]);
 });
 
-test("FortiOS adds Option 82 to the interface's relay, as experimental, and refuses a server for a relay's clients", () => {
+test("FortiOS leaves Option 82 on only when asked, as experimental, and refuses a server for a relay's clients", () => {
     const fortios = Platforms.get("fortios");
     const device = relaying("platforms--example-firewall", "servers");
 
-    expect(fortios.render(device)).toContain("set dhcp-relay-agent-option enable");
+    expect(fortios.render(device)).not.toContain("dhcp-relay-agent-option");
+    expect(fortios.render(Fixtures.device("platforms--example-firewall"))).toContain("set dhcp-relay-agent-option disable");
     expect(fortios.experimental!(device)).toContain("services.dhcp_relay.guests.relay_agent_information");
     expect(refusedDhcp("fortios", device)).toEqual([
         "services.dhcp_server.relayed.relay, FortiOS 6.2 has no setting for a relay's clients: relay-agent comes in 7.4",
+    ]);
+});
+
+test("FortiOS converges a relay with and without Option 82, and unsets the option and the servers before the relay", () => {
+    const fortios = Platforms.get("fortios");
+    const plain = Fixtures.device("platforms--example-firewall");
+    const none = structuredClone(plain);
+    delete none.services!.dhcp_relay!.guests;
+    const sent = (device: Device, current: string) =>
+        fortios.plan(fortios.render(device), current, options).steps.flatMap((step) => step.send);
+
+    // A FG-3700D on FortiOS 6.2.2 prints the option only once it is `disable`.
+    const withoutOption = fortios.render(plain);
+    const withOption = withoutOption.replace(/^ *set dhcp-relay-agent-option disable\n/m, "");
+
+    expect(sent(relaying("platforms--example-firewall"), withOption)).toEqual([]);
+    expect(sent(relaying("platforms--example-firewall"), withoutOption)).toContain("unset dhcp-relay-agent-option");
+    expect(sent(plain, withOption)).toContain("set dhcp-relay-agent-option disable");
+    // With the relay off, the device hides its servers and the option but keeps them, and unsetting either is a parse error.
+    expect(sent(none, withoutOption).filter((line) => line.startsWith("unset dhcp-relay"))).toEqual([
+        "unset dhcp-relay-agent-option",
+        "unset dhcp-relay-ip",
+        "unset dhcp-relay-service",
     ]);
 });
 
