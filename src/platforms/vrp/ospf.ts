@@ -54,6 +54,11 @@ export class VrpOspf {
         return found;
     }
 
+    /** Each passive interface, and each source of redistributed routes, is a setting of its own: a new one leaves the others in place. Undefined for any other line. */
+    static head(line: string): string | undefined {
+        return /^(silent-interface \S+|import-route (direct|static))$/.test(line) ? line : undefined;
+    }
+
     /** A range is undone by its address and mask, without its options, and the process by its number, without its router ID. Undefined for any other line. */
     static undo(line: string): string | undefined {
         const summary = /^abr-summary \S+ \S+/.exec(line);

@@ -162,6 +162,27 @@ test("VRP undoes a range by its address and mask, a priority and a network type 
     ]);
 });
 
+// The CE6855 committed `before` with `commit trial`, and the plan after it was empty. The move went into a candidate, and the plan against `display configuration candidate merge` was empty.
+test("VRP keys each passive interface and each redistributed source by itself, so a move undoes the old one", () => {
+    const before: Ospf = {
+        redistribute: ["connected"],
+        areas: { "0.0.0.0": { interfaces: { "nbma-a": { passive: true }, p2mp: {} } } },
+    };
+    const after: Ospf = {
+        redistribute: ["static"],
+        areas: { "0.0.0.0": { interfaces: { "nbma-a": {}, p2mp: { passive: true } } } },
+    };
+
+    expect(sent(vrp.render(routed(after)), vrp.render(routed(before)))).toEqual([
+        "ospf 1 router-id 192.0.2.1",
+        "undo silent-interface Vlanif3991",
+        "undo import-route direct",
+        "import-route static",
+        "silent-interface Vlanif3992",
+        "quit",
+    ]);
+});
+
 test("VRP refuses the neighbors of a point-to-multipoint link", () => {
     const multicast: Ospf = {
         areas: { "0.0.0.0": { interfaces: { p2mp: { network: "point-to-multipoint", neighbors: ["198.51.100.2"] } } } },
