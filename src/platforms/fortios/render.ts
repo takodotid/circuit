@@ -77,6 +77,8 @@ export class FortiOsRender {
         FortiOsPppoe.SECTION,
         "vpn ipsec phase1-interface",
         "vpn ipsec phase2-interface",
+        "vpn ipsec phase1",
+        "vpn ipsec phase2",
         "system dns",
         "system dns-server",
         "system ntp",
@@ -342,6 +344,7 @@ export class FortiOsRender {
             section("vpn certificate setting"),
             device
         );
+        FortiOsIpsec.renderPolicyBased(section("vpn ipsec phase1"), section("vpn ipsec phase2"), section("user peer"), device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
         FortiOsMonitoring.snmp(root, device);

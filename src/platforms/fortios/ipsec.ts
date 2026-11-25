@@ -2,7 +2,7 @@
 
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
-import type { Device, Ipsec, IpsecEncryption, IpsecEsp, IpsecIke, IpsecIntegrity } from "../../model";
+import type { Device, Ipsec, IpsecEncryption, IpsecEsp, IpsecIke, IpsecIntegrity, IpsecTunnel, PolicyIpsec } from "../../model";
 import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
@@ -36,6 +36,9 @@ export class FortiOsIpsec {
     /** What the phase 2 for IPv6 adds to the tunnel's name, as other entries of one family do. */
     private static readonly IPV6_SUFFIX = "-v6";
 
+    /** The most characters the name of a phase 1 or a phase 2 has. */
+    private static readonly MAX_NAME = 35;
+
     /** The NAT keepalive interval when nothing says, which `show` doesn't print, and the fewest and most seconds `keepalive` takes. */
     private static readonly KEEPALIVE = { interval: 10, min: 10, max: 900 } as const;
 
@@ -50,13 +53,12 @@ export class FortiOsIpsec {
         if (FortiOsIpsec.tunnels(device).some(([, tunnel]) => tunnel.remote_identity)) certificates.set("subject-match", "value");
 
         for (const [name, tunnel] of FortiOsIpsec.tunnels(device)) {
-            const outgoing = FortiOsNames.holderOf(device, Address.host(tunnel.local_address));
             const ipv6 = Address.family(tunnel.remote_address) === "ipv6";
             const { ike, esp } = tunnel;
             const check = tunnel.liveness_check || undefined;
 
             // The version, the family, and the way to authenticate come first: the settings after them exist only once they are set. A new tunnel takes any peer ID and makes no kernel device of its own, and prints both (TRAPS.md).
-            const entry = phase1.entry(name).set("interface", outgoing ? FortiOsTree.quote(FortiOsNames.of(device, outgoing)) : '""');
+            const entry = phase1.entry(name).set("interface", FortiOsIpsec.outgoing(device, tunnel.local_address));
             if (ipv6) entry.set("ip-version", 6);
             entry.set("ike-version", 2).set(ipv6 ? "local-gw6" : "local-gw", Address.host(tunnel.local_address));
             if (tunnel.certificate) entry.set("authmethod", "signature");
@@ -72,15 +74,7 @@ export class FortiOsIpsec {
             const keepalive = tunnel.nat_keepalive;
             if (keepalive !== undefined && keepalive !== FortiOsIpsec.KEEPALIVE.interval) entry.set("keepalive", keepalive);
             entry.set("dhgrp", ike.dh_group).set(ipv6 ? "remote-gw6" : "remote-gw", tunnel.remote_address);
-            if (tunnel.pre_shared_key) entry.set("psksecret", FortiOsTree.quote(Secrets.marker(tunnel.pre_shared_key)));
-            if (tunnel.certificate) entry.set("certificate", FortiOsTree.quote(tunnel.certificate));
-            if (tunnel.ca_certificate) {
-                const subject = tunnel.remote_identity?.distinguished_name;
-                const peer = subject === undefined ? tunnel.ca_certificate : name;
-                entry.set("peer", FortiOsTree.quote(peer));
-                peers.entry(peer).set("ca", FortiOsTree.quote(tunnel.ca_certificate));
-                if (subject !== undefined) peers.entry(peer).set("subject", FortiOsTree.quote(subject));
-            }
+            FortiOsIpsec.credentials(entry, peers, name, tunnel, tunnel.remote_identity?.distinguished_name);
             if (check && check.retries !== FortiOsIpsec.LIVENESS.retries) entry.set("dpd-retrycount", check.retries);
             if (check && check.interval !== FortiOsIpsec.LIVENESS.interval) entry.set("dpd-retryinterval", check.interval);
 
@@ -91,6 +85,76 @@ export class FortiOsIpsec {
                     .set("src-addr-type", "subnet6")
                     .set("dst-addr-type", "subnet6");
         }
+    }
+
+    /**
+     * The tunnel's key, or its certificate and the `user peer` that takes the peer's: named after the CA, or after the tunnel when it checks the peer's subject too.
+     */
+    private static credentials(entry: FortiOsNode, peers: FortiOsNode, name: string, tunnel: IpsecTunnel, subject?: string): void {
+        if (tunnel.pre_shared_key) entry.set("psksecret", FortiOsTree.quote(Secrets.marker(tunnel.pre_shared_key)));
+        if (tunnel.certificate) entry.set("certificate", FortiOsTree.quote(tunnel.certificate));
+        if (!tunnel.ca_certificate) return;
+
+        const peer = subject === undefined ? tunnel.ca_certificate : name;
+        entry.set("peer", FortiOsTree.quote(peer));
+        peers.entry(peer).set("ca", FortiOsTree.quote(tunnel.ca_certificate));
+        if (subject !== undefined) peers.entry(peer).set("subject", FortiOsTree.quote(subject));
+    }
+
+    /** The interface that holds a tunnel's local address, which IKE and ESP leave from. */
+    static outgoing(device: Device, local: string): string {
+        const holder = FortiOsNames.holderOf(device, Address.host(local));
+        return holder ? FortiOsTree.quote(FortiOsNames.of(device, holder)) : '""';
+    }
+
+    static policyTunnels(device: Device): [string, PolicyIpsec][] {
+        return Object.entries(device.firewall?.ipsec ?? {}).flatMap(([name, tunnel]) => (tunnel ? [[name, tunnel]] : []));
+    }
+
+    /** The phase 2 of a policy-based tunnel's selector, by its place among them. */
+    private static selectorName(name: string, index: number): string {
+        return `${name}-${index + 1}`;
+    }
+
+    /**
+     * A policy-based tunnel is a phase 1 that makes no interface, and a phase 2 for each selector, IPv4 only on 6.2 (TRAPS.md). A new phase 1 prints `peertype any`. `FortiOsFirewall` writes a policy for each selector, which sends its traffic into the tunnel.
+     */
+    static renderPolicyBased(phase1: FortiOsNode, phase2: FortiOsNode, peers: FortiOsNode, device: Device): void {
+        for (const [name, tunnel] of FortiOsIpsec.policyTunnels(device)) {
+            const { ike, esp } = tunnel;
+            const entry = phase1.entry(name).set("interface", FortiOsIpsec.outgoing(device, tunnel.local_address));
+            entry.set("ike-version", 2).set("local-gw", Address.host(tunnel.local_address));
+            if (tunnel.certificate) entry.set("authmethod", "signature");
+            if (ike.lifetime !== FortiOsIpsec.DEFAULT_LIFETIME.ike) entry.set("keylife", ike.lifetime);
+            entry.set("peertype", tunnel.ca_certificate ? "peer" : "any").set("proposal", FortiOsIpsec.ikeProposal(ike));
+            if (tunnel.liveness_check === false) entry.set("dpd", "disable");
+            entry.set("dhgrp", ike.dh_group).set("remote-gw", tunnel.remote_address);
+            FortiOsIpsec.credentials(entry, peers, name, tunnel);
+
+            tunnel.traffic_selectors.forEach((selector, index) =>
+                FortiOsIpsec.child(phase2.entry(FortiOsIpsec.selectorName(name, index)), name, esp)
+                    .set("src-subnet", FortiOsNames.subnet(selector.local_prefix))
+                    .set("dst-subnet", FortiOsNames.subnet(selector.remote_prefix))
+            );
+        }
+    }
+
+    /**
+     * The ports and interfaces a selector's local traffic arrives on: those whose network holds its local prefix or lies inside it, and those a static route inside it leaves through. The policy that sends the traffic into the tunnel names them, as 6.2 takes no `any` there (TRAPS.md).
+     */
+    static inward(device: Device, prefix: string): string[] {
+        const overlaps = (network: string) => Address.contains(prefix, network) || Address.contains(network, prefix);
+        const found = FortiOsNames.addressed(device).filter((name) =>
+            FortiOsNames.addressesOf(FortiOsNames.settingsOf(device, name)).some((address) => overlaps(FortiOsNames.network(address)))
+        );
+
+        for (const route of device.routing?.static_routes ?? []) {
+            if (!Address.contains(prefix, route.prefix)) continue;
+            const via = route.interface ?? (route.next_hop ? FortiOsNames.interfaceFor(device, route.next_hop, route.vrf) : undefined);
+            if (via && !found.includes(via)) found.push(via);
+        }
+
+        return found;
     }
 
     /** A phase 2 of the phase 1 `name`, with the ESP SA's algorithms. */
@@ -114,29 +178,76 @@ export class FortiOsIpsec {
         );
     }
 
+    /** What a tunnel of either kind can't have: a local address no interface holds, a hash for integrity other than the pseudorandom function's, or a key's lifetime out of range. */
+    private static tunnelGaps(where: string, tunnel: IpsecTunnel, device: Device): string[] {
+        const found: string[] = [];
+        const { ike, esp } = tunnel;
+
+        if (!FortiOsNames.holderOf(device, Address.host(tunnel.local_address)))
+            found.push(`${where}.local_address, no interface holds ${Address.host(tunnel.local_address)}`);
+        if (ike.integrity && FortiOsIpsec.HASH[ike.integrity] !== FortiOsIpsec.HASH[ike.prf])
+            found.push(`${where}.ike.prf ${ike.prf} with integrity ${ike.integrity}: the platform uses one hash for both`);
+
+        for (const [sa, lifetime] of [
+            ["ike", ike.lifetime],
+            ["esp", esp.lifetime],
+        ] as const) {
+            const { min, max } = FortiOsIpsec.LIFETIME;
+            if (lifetime < min || lifetime > max) found.push(`${where}.${sa}.lifetime ${lifetime}, the platform takes ${min} to ${max}`);
+        }
+
+        return found;
+    }
+
+    /**
+     * What a policy-based tunnel can't have on 6.2: IPv6, whose phase 1 takes no `ip-version 6`, phase 2 no `subnet6`, and `firewall policy6` no `action ipsec` (TRAPS.md). A local prefix that no interface leads to, which the tunnel's policy can't name. A name too long for its phase 2s.
+     */
+    private static policyGaps(device: Device): string[] {
+        const found: string[] = [];
+
+        for (const [name, tunnel] of FortiOsIpsec.policyTunnels(device)) {
+            const where = `firewall.ipsec.${name}`;
+            found.push(...FortiOsIpsec.tunnelGaps(where, tunnel, device));
+
+            for (const key of ["local_address", "remote_address"] as const)
+                if (Address.family(Address.host(tunnel[key])) === "ipv6")
+                    found.push(
+                        `${where}.${key}, IPv6: a FortiOS 6.2 policy-based tunnel runs over IPv4 only. Write a route-based tunnel in interfaces.ipsec`
+                    );
+
+            tunnel.traffic_selectors.forEach((selector, index) => {
+                const at = `${where}.traffic_selectors[${index}]`;
+                if (FortiOsNames.familyOfPrefix(selector.local_prefix) === "ipv6") {
+                    found.push(
+                        `${at}, IPv6: a FortiOS 6.2 policy-based tunnel carries IPv4 only. Write a route-based tunnel in interfaces.ipsec`
+                    );
+                    return;
+                }
+                if (!FortiOsIpsec.inward(device, selector.local_prefix).length)
+                    found.push(
+                        `${at}.local_prefix ${selector.local_prefix}: no interface has a network in it or holding it, and no static route inside it leaves through one. FortiOS's policy for the tunnel names the interfaces this traffic arrives on`
+                    );
+            });
+
+            const longest = FortiOsIpsec.selectorName(name, tunnel.traffic_selectors.length - 1);
+            if (longest.length > FortiOsIpsec.MAX_NAME)
+                found.push(
+                    `${where}, a name of ${name.length} characters: its last phase 2, ${longest}, passes the ${FortiOsIpsec.MAX_NAME} the platform takes`
+                );
+        }
+
+        return found;
+    }
+
     /**
      * What the platform can't express. A phase 1 proposal has one hash for integrity and the pseudorandom function. A key lives 120 to 172800 seconds. A liveness check waits up to 3600 seconds and retries up to 10 times. A NAT keepalive goes every 10 to 900 seconds, never with NAT traversal forced. The tunnel's interface holds one IPv4 address, with its peer, and one IPv6 address.
      */
     static gaps(device: Device): string[] {
-        const found: string[] = [];
+        const found: string[] = FortiOsIpsec.policyGaps(device);
 
         for (const [name, tunnel] of FortiOsIpsec.tunnels(device)) {
             const where = `interfaces.ipsec.${name}`;
-            const { ike, esp } = tunnel;
-
-            if (!FortiOsNames.holderOf(device, Address.host(tunnel.local_address)))
-                found.push(`${where}.local_address, no interface holds ${Address.host(tunnel.local_address)}`);
-            if (ike.integrity && FortiOsIpsec.HASH[ike.integrity] !== FortiOsIpsec.HASH[ike.prf])
-                found.push(`${where}.ike.prf ${ike.prf} with integrity ${ike.integrity}: the platform uses one hash for both`);
-
-            for (const [sa, lifetime] of [
-                ["ike", ike.lifetime],
-                ["esp", esp.lifetime],
-            ] as const) {
-                const { min, max } = FortiOsIpsec.LIFETIME;
-                if (lifetime < min || lifetime > max)
-                    found.push(`${where}.${sa}.lifetime ${lifetime}, the platform takes ${min} to ${max}`);
-            }
+            found.push(...FortiOsIpsec.tunnelGaps(where, tunnel, device));
 
             const { maxInterval, maxRetries } = FortiOsIpsec.LIVENESS;
             const check = tunnel.liveness_check || undefined;

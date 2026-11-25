@@ -26,7 +26,6 @@ export class KeyPaths {
      */
     static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
         "interfaces.ipsec.*.remote_identity": "FortiOS only, where no IKE peer sent a certificate to the FG-3700D",
-        "interfaces.ipsec.*.vrf": "FortiOS only, from Fortinet's documentation, as no FortiGate is in CI",
         "interfaces.ethernet.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
         "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
         "services.dns64": "FortiOS only, where no host asked its DNS server on the FG-3700D",

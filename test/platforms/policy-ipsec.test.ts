@@ -1,4 +1,4 @@
-// Policy-based IPsec tunnels, `firewall.ipsec`. RouterOS was proven on two CHRs with 7.24.6 (test/platforms/routeros-chr-ipsec.test.ts). The other platforms refuse them.
+// Policy-based IPsec tunnels, `firewall.ipsec`. RouterOS was proven on two CHRs with 7.24.6 (test/platforms/routeros-chr-ipsec.test.ts). FortiOS was proven on a FG-3700D with 6.2.2, against a second VDOM. The switches refuse them.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -163,18 +163,167 @@ test("RouterOS refuses a policy-based tunnel beside a fast_path rule, whose flow
     );
 });
 
-test("Junos, VRP, and Raisecom ROS refuse a policy-based tunnel, since the switches don't encrypt what they forward, and FortiOS hasn't built it yet", () => {
+test("Junos, VRP, and Raisecom ROS refuse a policy-based tunnel, since the switches don't encrypt what they forward", () => {
     for (const fixture of ["platforms--example-aggregation-switch", "platforms--example-switch", "platforms--example-core-switch"]) {
         const device = withTunnels(fixture, { "branch-1": TUNNEL });
         expect(Platforms.get(device.platform).unsupported(device)).toContainEqual(
             expect.stringMatching(/^firewall\.ipsec, IPsec: .* does not encrypt the traffic it forwards$/)
         );
     }
+});
 
-    const firewall = withTunnels("platforms--example-firewall", { "branch-1": TUNNEL });
-    expect(Platforms.get("fortios").unsupported(firewall)).toContain(
-        "firewall.ipsec, a policy-based IPsec tunnel, not built yet: write a route-based tunnel in interfaces.ipsec"
-    );
+const fortios = Platforms.get("fortios");
+
+const sent = (desired: string, current: string) => fortios.plan(desired, current, options).steps.flatMap((step) => step.send);
+
+/** A tunnel from the firewall fixture's uplink, for its servers and its lab host. */
+const FORTIOS_TUNNEL: PolicyIpsec = {
+    ...TUNNEL,
+    local_address: "203.0.113.10",
+    traffic_selectors: [
+        { local_prefix: "198.51.100.32/27", remote_prefix: "203.0.113.128/25" },
+        { local_prefix: "198.51.100.192/27", remote_prefix: "203.0.113.128/25" },
+    ],
+};
+
+/** The tunnel's phases as the FG-3700D on 6.2.2 printed them, with names and addresses replaced: `peertype any`, the key encrypted, no `keylife` at its default. */
+const FORTIOS_PRINTED = `config vpn ipsec phase1
+    edit "branch-1"
+        set interface "uplink"
+        set ike-version 2
+        set local-gw 203.0.113.10
+        set keylife 28800
+        set peertype any
+        set proposal aes256-sha256
+        set dhgrp 14
+        set remote-gw 192.0.2.30
+        set psksecret ENC 1fA4w60vgis30hpvpwQiVAaM0yTPLvs/YNN+T13CoucyTPqBvUXTMcEvAqLXsIUYLi0923qedzC4ji7Lf
+    next
+end
+config vpn ipsec phase2
+    edit "branch-1-1"
+        set phase1name "branch-1"
+        set proposal aes256-sha256
+        set dhgrp 19
+        set keylifeseconds 3600
+        set src-subnet 198.51.100.32 255.255.255.224
+        set dst-subnet 203.0.113.128 255.255.255.128
+    next
+    edit "branch-1-2"
+        set phase1name "branch-1"
+        set proposal aes256-sha256
+        set dhgrp 19
+        set keylifeseconds 3600
+        set src-subnet 198.51.100.192 255.255.255.224
+        set dst-subnet 203.0.113.128 255.255.255.128
+    next
+end
+`;
+
+const phases = /^config vpn ipsec phase[12]\n[\s\S]*?^end\n/gm;
+
+// Against a second VDOM over a link between the two, both selectors' SAs came up, and pings crossed both ways in ESP, with a key, then with certificates.
+test("FortiOS writes a phase 1 and a phase 2 for each selector, and a policy that sends each selector's traffic into the tunnel, ahead of the forward chain", () => {
+    const device = withTunnels("platforms--example-firewall", { "branch-1": FORTIOS_TUNNEL });
+    const desired = fortios.render(device);
+
+    expect(fortios.unsupported(device).filter((gap) => gap.startsWith("firewall.ipsec"))).toEqual([]);
+    expect(desired.match(phases)!.join("")).toBe(`config vpn ipsec phase1
+    edit "branch-1"
+        set interface "uplink"
+        set ike-version 2
+        set local-gw 203.0.113.10
+        set keylife 28800
+        set peertype any
+        set proposal aes256-sha256
+        set dhgrp 14
+        set remote-gw 192.0.2.30
+        set psksecret "<secret:IPSEC_KEY>"
+    next
+end
+config vpn ipsec phase2
+    edit "branch-1-1"
+        set phase1name "branch-1"
+        set proposal aes256-sha256
+        set dhgrp 19
+        set keylifeseconds 3600
+        set src-subnet 198.51.100.32 255.255.255.224
+        set dst-subnet 203.0.113.128 255.255.255.128
+    next
+    edit "branch-1-2"
+        set phase1name "branch-1"
+        set proposal aes256-sha256
+        set dhgrp 19
+        set keylifeseconds 3600
+        set src-subnet 198.51.100.192 255.255.255.224
+        set dst-subnet 203.0.113.128 255.255.255.128
+    next
+end
+`);
+    expect(desired).toContain(`config firewall policy
+    edit 1
+        set srcintf "servers"
+        set dstintf "uplink"
+        set srcaddr "198.51.100.32/27"
+        set dstaddr "203.0.113.128/25"
+        set action ipsec
+        set schedule "always"
+        set service "ALL"
+        set inbound enable
+        set vpntunnel "branch-1"
+        set comments "Branch office"
+    next
+    edit 2
+        set srcintf "port6"
+`);
+    expect(
+        sent(
+            desired,
+            desired.replace(/^config vpn ipsec phase1\n[\s\S]*?^end\n(?:config vpn ipsec phase2\n[\s\S]*?^end\n)/m, FORTIOS_PRINTED)
+        )
+    ).toEqual([]);
+});
+
+// With certificates, the firewall printed no `peertype peer`, as for a route-based tunnel.
+test("FortiOS writes a policy-based tunnel's certificate, its CA's user peer, and no liveness checks, and adds its entries before the policies that name them", () => {
+    const tunnel = {
+        ...FORTIOS_TUNNEL,
+        pre_shared_key: undefined,
+        certificate: "web",
+        ca_certificate: "web",
+        liveness_check: false,
+    } as PolicyIpsec;
+    const device = withTunnels("platforms--example-firewall", { "branch-1": tunnel });
+    const desired = fortios.render(device);
+    const phase1 = desired.match(phases)![0];
+
+    for (const line of ["set authmethod signature", "set peertype peer", "set dpd disable", 'set certificate "web"', 'set peer "web"'])
+        expect(phase1).toContain(line);
+    expect(sent(desired, desired.replace("        set peertype peer\n", ""))).toEqual([]);
+
+    const titles = fortios
+        .plan(desired, fortios.render(Fixtures.device("platforms--example-firewall")), options)
+        .steps.map((step) => step.title)
+        .filter((title) => /^(user peer|vpn ipsec|firewall (address|policy))/.test(title));
+    expect(titles).toEqual(["user peer", "vpn ipsec phase1", "vpn ipsec phase2", "firewall address", "firewall policy"]);
+});
+
+test("FortiOS refuses IPv6 in a policy-based tunnel, a local prefix no interface leads to, and a name too long for its phase 2s", () => {
+    const device = withTunnels("platforms--example-firewall", {
+        "branch-1": TUNNEL,
+        "branch-2": { ...FORTIOS_TUNNEL, traffic_selectors: [{ local_prefix: "10.20.0.0/16", remote_prefix: "203.0.113.0/26" }] },
+        "a-tunnel-whose-name-has-34-letters": {
+            ...FORTIOS_TUNNEL,
+            traffic_selectors: [{ local_prefix: "198.51.100.32/28", remote_prefix: "203.0.113.64/26" }],
+        },
+    });
+
+    expect(fortios.unsupported(device).filter((gap) => gap.startsWith("firewall.ipsec"))).toEqual([
+        "firewall.ipsec.branch-1.local_address, no interface holds 203.0.113.2",
+        "firewall.ipsec.branch-1.traffic_selectors[1], IPv6: a FortiOS 6.2 policy-based tunnel carries IPv4 only. Write a route-based tunnel in interfaces.ipsec",
+        "firewall.ipsec.branch-2.traffic_selectors[0].local_prefix 10.20.0.0/16: no interface has a network in it or holding it, and no static route inside it leaves through one. FortiOS's policy for the tunnel names the interfaces this traffic arrives on",
+        "firewall.ipsec.a-tunnel-whose-name-has-34-letters, a name of 34 characters: its last phase 2, a-tunnel-whose-name-has-34-letters-1, passes the 35 the platform takes",
+    ]);
 });
 
 test("validate takes whole prefixes of one family, at least one selector, and no traffic two selectors share", () => {

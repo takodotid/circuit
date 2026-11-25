@@ -269,10 +269,14 @@ export class FortiOsVdoms {
             found.push(
                 `system.vdoms with GRE or VXLAN tunnels (${tunnels.map(({ name }) => name).join(", ")}), whose tables belong to a VDOM`
             );
-        for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {})) {
+        const ipsec = [
+            ...Object.entries(device.interfaces?.ipsec ?? {}).map(([name, tunnel]) => [`interfaces.ipsec.${name}`, tunnel] as const),
+            ...Object.entries(device.firewall?.ipsec ?? {}).map(([name, tunnel]) => [`firewall.ipsec.${name}`, tunnel] as const),
+        ];
+        for (const [where, tunnel] of ipsec) {
             const outgoing = tunnel && FortiOsNames.holderOf(device, tunnel.local_address);
             if (outgoing && FortiOsVdoms.of(device, outgoing) !== FortiOsVdoms.ROOT)
-                found.push(`interfaces.ipsec.${name}.local_address, on ${outgoing} in system.vdoms.management: a tunnel goes in root`);
+                found.push(`${where}.local_address, on ${outgoing} in system.vdoms.management: a tunnel goes in root`);
         }
         if (FortiOsNames.isTransparent(device)) found.push("system.vdoms with a bridge, which needs transparent mode");
 

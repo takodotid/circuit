@@ -78,7 +78,7 @@ A note in a cell means "works, with this limit".
 | IPsec carrying IPv6             | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅ one IPv6 address, without a peer             |
 | IPsec with certificates         | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅                                              |
 | IPsec, the peer's identity      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | 🧪 its subject only                             |
-| IPsec, the tunnel in a VRF      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | 🧪 the tunnel's interface                       |
+| IPsec, the tunnel in a VRF      | ❌                                                                                         | ❌                | ❌                                  | ❌                                                                         | ✅ the tunnel's interface                       |
 | WireGuard                       | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                                              |
 | PPPoE client                    | ✅ with a delegated IPv6 prefix and a prefix or length hint, SLAAC, and in a VRF           | ❌                | ❌                                  | ❌                                                                         | 🧪 SLAAC, in a VRF; no MTU, no delegated prefix |
 | EoIP                            | ✅                                                                                         | ❌                | ❌                                  | ❌                                                                         | ❌                                              |
@@ -91,7 +91,7 @@ A note in a cell means "works, with this limit".
 | IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                | ❌                                  | ✅                                                                         | ✅                                              |
 | uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4    | ❌                                  | ✅ strict                                                                  | 🧪 strict, one mode for the VDOM                |
 
-A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes `vrf` on any interface, and its FortiGate-6000 handbook for 6.2 puts a tunnel's interface in one, but no FortiGate in CI has tried it. RouterOS runs IKE in the main table only, so a policy-based tunnel there takes no VRF.
+A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and the routes through it in the VRF, while IKE and ESP leave from `local_address` in the table that holds it. RouterOS runs IKE in the main table only, so a policy-based tunnel there takes no VRF.
 
 ### Routing
 
@@ -164,8 +164,8 @@ A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes
 | CGNAT pool, block timeout          | ❌                                       | ❌                    | ❌                         | ❌                       | ✅ 3 to 300 seconds                             |
 | NAT64                              | ❌                                       | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
 | TCP MSS clamp                      | ✅                                       | ❌                    | ❌                         | ❌                       | ❌                                              |
-| IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE, not with fast path | ❌                    | ❌                         | ❌                       | ❌                                              |
-| IPsec, policy-based, certificates  | ✅ one CA on the device                  | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE, not with fast path | ❌                    | ❌                         | ❌                       | ✅ IPv4                                         |
+| IPsec, policy-based, certificates  | ✅ one CA on the device                  | ❌                    | ❌                         | ❌                       | ✅ IPv4                                         |
 | IPsec remote access, EAP           | ✅ one on the device, not with fast path | ❌                    | ❌                         | ❌                       | ❌                                              |
 | IPsec remote access, certificates  | ✅ one CA on the device                  | ❌                    | ❌                         | ❌                       | ❌                                              |
 | DSCP, PCP, and class marking       | ✅ not with fast path                    | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
@@ -191,10 +191,10 @@ A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes
 | NTP client                         | ✅                                       | ✅                    | ✅                         | ✅                       | ✅                                              |
 | NTP server                         | ✅                                       | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
 
-Policy-based IPsec is built on RouterOS only:
+Policy-based IPsec:
 
 - **RouterOS.** The IKE daemon has no AES-GCM, and runs in the main table only, so a tunnel's `local_address` is outside every VRF. It takes a peer's certificate that any certificate it holds signed, so `ca_certificate` must be its only certificate without a private key. It has no setting for a liveness check's retries, ESP in UDP without a NAT, or the NAT keepalive interval, and its remote ID matches the identity the peer sends. So a policy-based tunnel takes none of these yet, nor `remote_identity`.
-- **FortiOS.** A policy-based tunnel is a phase 1 and a phase 2 without an interface, and a firewall policy with `action ipsec`. No FortiGate in CI has proven one, so it is not built yet.
+- **FortiOS.** A policy-based tunnel is a phase 1 without an interface, a phase 2 for each traffic selector, and a firewall policy with `action ipsec` for each, which sends the selector's traffic into the tunnel and lets the far end's in. The policies come before those of `firewall.filter.forward`, so they take the selectors' traffic whatever the forward chain says. FortiOS 6.2 takes such a policy only with named interfaces: its `srcintf` is each interface whose network holds the local prefix or lies inside it, or that a static route inside it leaves through, so a local prefix needs one. 6.2 runs policy-based tunnels for IPv4 only: write a route-based tunnel for IPv6.
 - **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
 
 IPsec remote access is built on RouterOS only:
