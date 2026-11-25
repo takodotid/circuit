@@ -196,11 +196,11 @@ export type OspfInterface = {
     network?: "broadcast" | "point-to-point" | "point-to-multipoint" | "non-broadcast";
     /** The address on this link of each OSPF neighbor, for a link that carries no multicast: the device sends its hellos to each address. With `network` `non-broadcast`, or `point-to-multipoint`, which without them finds its neighbors by multicast. */
     neighbors?: readonly IPv4[];
-    /** This device's priority, 0 to 255, in the election of the link's designated router (DR) and its backup (RFC 2328, section 9.4). The highest wins, and 0 never becomes either. On `broadcast` and `non-broadcast` links. The platform's own when absent: 128 on RouterOS. */
+    /** This device's priority, 0 to 255, in the election of the link's designated router (DR) and its backup (RFC 2328, section 9.4). The highest wins, and 0 never becomes either. On `broadcast` and `non-broadcast` links. The platform's own when absent: 128 on RouterOS, 1 on FortiOS. */
     priority?: number;
-    /** Seconds between hello packets, 1 to 65535. Every router on the link uses the same. 10 when absent. */
+    /** Seconds between hello packets, 1 to 65535. Every router on the link uses the same. 10 when absent, but 30 on FortiOS's `non-broadcast` and `point-to-multipoint` links. */
     hello_interval?: number;
-    /** Seconds without a hello before a neighbor is down, more than `hello_interval` and up to 65535. Every router on the link uses the same. 40 when both are absent; write it with `hello_interval`, since platforms differ without it. */
+    /** Seconds without a hello before a neighbor is down, more than `hello_interval` and up to 65535. Every router on the link uses the same. 40 when both are absent, but 120 on FortiOS's `non-broadcast` and `point-to-multipoint` links; write it with `hello_interval`, since platforms differ without it. */
     dead_interval?: number;
     /** Sign every packet, so the device ignores a router without the key. OSPFv2 only. */
     authentication?: OspfAuthentication;

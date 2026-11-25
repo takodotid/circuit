@@ -30,7 +30,7 @@ export class KeyPaths {
         "routing.isis.multi_topology":
             "Junos, where only `commit check` ran on a QFX5100, and VRP, where IS-IS on an interface is experimental",
         "routing.isis.level2_to_level1":
-            "VRP, where IS-IS on an interface is experimental, and Junos, where only `commit check` ran on a QFX5100",
+            "VRP, where IS-IS on an interface is experimental, Junos, where only `commit check` ran on a QFX5100, and FortiOS, where no IS-IS neighbor sent the FG-3700D a route to leak",
         "routing.isis.authentication.key_id": "Junos only, with HMAC-SHA-1, where only `commit check` ran on a QFX5100",
         "routing.isis.levels.1.authentication.key_id": "Junos only, with HMAC-SHA-1, where only `commit check` ran on a QFX5100",
         "routing.isis.levels.2.authentication.key_id": "Junos only, with HMAC-SHA-1, where only `commit check` ran on a QFX5100",

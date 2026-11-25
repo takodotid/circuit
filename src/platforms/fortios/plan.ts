@@ -225,8 +225,9 @@ export class FortiOsPlan {
     /** A policy denies unless told otherwise. */
     private static readonly DENY = { action: "deny" };
 
-    /** An OSPF area's and an interface's settings, as `show full-configuration` printed them on FortiOS 6.2.2. */
+    /** An OSPF area's, a range's, and an interface's settings, as `show full-configuration` printed them on FortiOS 6.2.2. */
     private static readonly OSPF_DEFAULTS = {
+        advertise: "enable",
         "default-cost": "10",
         "nssa-default-information-originate-metric": "10",
         "hello-interval": "10",

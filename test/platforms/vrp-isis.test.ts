@@ -222,7 +222,7 @@ test("only a router on both levels leaks, through a policy that picks prefixes a
     ]);
 });
 
-test("RouterOS and FortiOS refuse leaking between levels", () => {
+test("RouterOS refuses leaking between levels, and FortiOS builds it experimentally", () => {
     const withLeak = (fixture: string, link: string): Device => {
         const device = Fixtures.device(fixture);
         return {
@@ -238,7 +238,11 @@ test("RouterOS and FortiOS refuse leaking between levels", () => {
     expect(Platforms.get("routeros").unsupported(withLeak("platforms--example-router", "uplink"))).toContain(
         "routing.isis.level2_to_level1, RouterOS 7.24 leaks every level 2 route into level 1, and l1.out-filter-chain holds none back (TRAPS.md)"
     );
-    expect(Platforms.get("fortios").unsupported(withLeak("platforms--example-firewall", "10g-2"))).toContain(
-        "routing.isis.level2_to_level1, not built yet, since no device of the platform has run it"
-    );
+    const fortios = withLeak("platforms--example-firewall", "10g-2");
+    expect(
+        Platforms.get("fortios")
+            .unsupported(fortios)
+            .filter((gap) => gap.startsWith("routing.isis"))
+    ).toEqual([]);
+    expect(Platforms.get("fortios").experimental!(fortios)).toContain("routing.isis.level2_to_level1");
 });
