@@ -308,6 +308,9 @@ export class FortiOsVdoms {
         const ipsec = [
             ...Object.entries(device.interfaces?.ipsec ?? {}).map(([name, tunnel]) => [`interfaces.ipsec.${name}`, tunnel] as const),
             ...Object.entries(device.firewall?.ipsec ?? {}).map(([name, tunnel]) => [`firewall.ipsec.${name}`, tunnel] as const),
+            ...Object.entries(device.services?.ipsec_remote_access ?? {}).map(
+                ([name, access]) => [`services.ipsec_remote_access.${name}`, access] as const
+            ),
         ];
         for (const [where, tunnel] of ipsec) {
             const outgoing = tunnel && FortiOsNames.holderOf(device, tunnel.local_address);

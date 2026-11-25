@@ -132,6 +132,9 @@ export class FortiOs extends Platform {
             if (certificate?.crl_url) found.push(`system.certificates.${name}.crl_url`);
         // Applied, read back, changed, and removed, but no route was seen to leak: IS-IS takes neither a link between VDOMs nor a GRE tunnel, so no neighbor sent one.
         if (device.routing?.isis?.level2_to_level1) found.push("routing.isis.level2_to_level1");
+        // Applied, read back, changed, and removed, but no client used EAP: no RADIUS server was in reach of the test.
+        for (const [name, access] of Object.entries(device.services?.ipsec_remote_access ?? {}))
+            if (access?.radius) found.push(`services.ipsec_remote_access.${name}.radius`);
         // Applied, read back, changed, and removed, but no session came up: 6.2 has no PPPoE server to dial, and no other was in reach.
         for (const [name] of FortiOsPppoe.clients(device)) found.push(`interfaces.pppoe_client.${name}`);
 

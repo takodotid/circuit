@@ -25,6 +25,7 @@ import { FortiOsQos } from "./qos";
 import { FortiOsShaping } from "./shaping";
 import { FortiOsNames } from "./names";
 import { FortiOsPppoe } from "./pppoe";
+import { FortiOsRemoteAccess } from "./remote-access";
 import { FortiOsRouting } from "./routing";
 import { FortiOsNode, FortiOsTree } from "./tree";
 import { FortiOsVdoms } from "./vdoms";
@@ -348,6 +349,7 @@ export class FortiOsRender {
             device
         );
         FortiOsIpsec.renderPolicyBased(section("vpn ipsec phase1"), section("vpn ipsec phase2"), section("user peer"), device);
+        FortiOsRemoteAccess.render(root, device);
         FortiOsRender.dns(section("system dns"), section("system dns-server"), device);
         FortiOsRender.ntp(section("system ntp"), device);
         FortiOsMonitoring.snmp(root, device);
