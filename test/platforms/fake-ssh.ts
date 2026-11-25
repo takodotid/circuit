@@ -18,6 +18,13 @@ export type FakeParts = { parts: { text: string; after: number }[] };
 export class FakeSshDevice {
     static readonly PASSWORD = "lab-pass";
 
+    /** One RSA host key for every fake device: a port the system gives again in the same run then shows the key known_hosts holds for it. */
+    private static readonly HOST_KEY = generateKeyPairSync("rsa", {
+        modulusLength: 2048,
+        privateKeyEncoding: { type: "pkcs1", format: "pem" },
+        publicKeyEncoding: { type: "pkcs1", format: "pem" },
+    }).privateKey;
+
     readonly commands: string[] = [];
     /** The lines typed into a shell, which `commands` holds too. */
     readonly shellLines: string[] = [];
@@ -30,13 +37,7 @@ export class FakeSshDevice {
         private readonly answer: (command: string) => string | FakeParts,
         private readonly shell?: FakeShell
     ) {
-        const { privateKey } = generateKeyPairSync("rsa", {
-            modulusLength: 2048,
-            privateKeyEncoding: { type: "pkcs1", format: "pem" },
-            publicKeyEncoding: { type: "pkcs1", format: "pem" },
-        });
-
-        this.server = new Server({ hostKeys: [privateKey] }, (client) => {
+        this.server = new Server({ hostKeys: [FakeSshDevice.HOST_KEY] }, (client) => {
             client.on("authentication", (context) => {
                 const allowed =
                     context.method === "password" &&

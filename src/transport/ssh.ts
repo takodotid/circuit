@@ -5,8 +5,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Duplex } from "node:stream";
 import { AgentProtocol, BaseAgent, Client, createAgent, utils } from "ssh2";
-import type { AnyAuthMethod, ClientChannel, IdentityCallback, ParsedKey, SignCallback, SigningRequestOptions } from "ssh2";
+import type { AnyAuthMethod, ClientChannel, ConnectConfig, IdentityCallback, ParsedKey, SignCallback, SigningRequestOptions } from "ssh2";
 import type { Device } from "../model";
+import { KnownHosts } from "./known-hosts";
 
 export type Login = {
     host: string;
@@ -106,11 +107,11 @@ export class Ssh {
     /** The devices Circuit logged in to in this run, by host and port. The first login to each is `retrying`, since it can come seconds after another command's commit. */
     static readonly loggedIn = new Set<string>();
 
-    /** What ssh2 calls a login the device refused, and one it never answered. Neither is tried again. */
-    private static readonly FINAL_LEVELS = new Set(["client-authentication", "client-timeout"]);
+    /** What ssh2 calls a login the device refused, and one it never answered, and a host key Circuit refused. None is tried again. */
+    private static readonly FINAL_LEVELS = new Set(["client-authentication", "client-timeout", KnownHosts.LEVEL]);
 
-    /** Where Circuit says how it logged in to a device, once per device and way. Set by the command line; silent when absent. */
-    static report: ((message: string, refused: boolean) => void) | undefined;
+    /** Where Circuit says how it logged in to a device, once per device and way, and a first login's host key. Set by the command line; silent when absent. */
+    static report: ((message: string, warning: boolean) => void) | undefined;
 
     /** Where Circuit says it waits for the SSH agent, such as while 1Password asks the person. Gives back what takes the line away. */
     static waiting: ((message: string) => () => void) | undefined;
@@ -212,6 +213,21 @@ export class Ssh {
             );
     }
 
+    /**
+     * What makes ssh2 check the host key of `host` against known_hosts, as OpenSSH's `StrictHostKeyChecking accept-new` does. Every login, a console's jump host's too, takes these options. `explain` turns ssh2's error for a refused key into one that says what to fix.
+     *
+     * `allowed` are the host key algorithms the platform takes.
+     */
+    static hostKey(host: string, port: number, allowed?: readonly string[]) {
+        const check = KnownHosts.files().check(host, port, allowed, (message) => Ssh.report?.(message, true));
+        const options: Pick<ConnectConfig, "hostVerifier" | "algorithms"> = {
+            hostVerifier: check.verify,
+            ...(check.algorithms ? { algorithms: { serverHostKey: check.algorithms } } : {}),
+        };
+
+        return { options, explain: check.explain };
+    }
+
     /** A device without a management address is reached only through its console. */
     static hostOf(device: Device): string {
         if (!device.connection.host) throw new Error(`${device.name} has no management address; it is reached through its console`);
@@ -257,9 +273,11 @@ export class Ssh {
         }
     }
 
-    /** One connection, trying `ways` in order. */
+    /** One connection, trying `ways` in order once the device's host key is checked. */
     private static attempt(login: Login, ways: readonly Way[], agentRefused = ""): Promise<Client> {
         return new Promise((resolve, reject) => {
+            const port = login.port ?? Ssh.PORT;
+            const hostKey = Ssh.hostKey(login.host, port, login.hostKeys);
             const client = new Client();
             let used: Way | undefined;
             let next = 0;
@@ -273,7 +291,7 @@ export class Ssh {
                 })
                 // An agent that won't sign, such as 1Password when the person declines, refuses that key only: ssh2 goes on to the next way.
                 .on("error", (error: Error & { level?: string }) => {
-                    if (error.level !== "agent") return reject(error);
+                    if (error.level !== "agent") return reject(hostKey.explain(error));
                     agentRefused = error.message;
                     Ssh.agentDeclined = true;
                 })
@@ -284,10 +302,10 @@ export class Ssh {
                 })
                 .connect({
                     host: login.host,
-                    port: login.port ?? Ssh.PORT,
+                    port,
                     username: login.user,
                     readyTimeout: Ssh.READY_TIMEOUT_MS,
-                    ...(login.hostKeys ? { algorithms: { serverHostKey: login.hostKeys as never } } : {}),
+                    ...hostKey.options,
                     authHandler: (_left, _partial, done) => {
                         used = ways[next++];
                         // `false` ends the tries, which ssh2 takes though its types leave it out.
