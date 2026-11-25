@@ -40,6 +40,8 @@ jobs:
 
 These commands need the password that opens your secrets. So does `sync` when the target's token is a secret. Put the password in your CI's secrets, and give it to the step as `CIRCUIT_SECRETS_PASSWORD`.
 
+Circuit checks each device's [host key](/guide/apply#host-keys) against `~/.ssh/known_hosts`. A self-hosted runner keeps that file from one run to the next. A runner that starts empty would take any key the first time it logs in, so write the keys first, in a step such as `mkdir -p ~/.ssh && cat known_hosts >> ~/.ssh/known_hosts`, from a `known_hosts` file you keep in the repository.
+
 This workflow applies `edge-01` every night, which keeps [prefix sets from a registry](/guide/apply#prefix-sets-from-a-registry) current:
 
 ```yaml
