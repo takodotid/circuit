@@ -1,5 +1,5 @@
 import { Derive } from "../../core/derive";
-import type { Device, Rate } from "../../model";
+import type { Device, Rate, RsvpTe, RsvpTeTunnel, TunnelPath } from "../../model";
 import { RouterOsQueues } from "./queues";
 import type { RouterOsRender } from "./render";
 import { RouterOsSyntax } from "./syntax";
@@ -7,7 +7,7 @@ import { RouterOsSyntax } from "./syntax";
 /** RSVP-TE head-end tunnels under `/mpls traffic-eng`, as MikroTik's TE guide sets them up, and what RouterOS can't take of them. */
 export class RouterOsRsvpTe {
     /**
-     * MPLS and RSVP-TE on each link, each with its bandwidth, then a path and a tunnel for each tunnel, both named after it. A tunnel starts at the LSR ID: RouterOS sends a pseudowire into the tunnel whose ends are its own, and starts one without `from-address` at its lowest address (TRAPS.md).
+     * MPLS and RSVP-TE on each link, each with its bandwidth and admin groups, then each tunnel's paths and the tunnel. Its primary path is named after it, and each secondary path by its key. A tunnel starts at the LSR ID, a loopback the IGP carries. RouterOS starts one without `from-address` at its lowest address, and carries in it the pseudowires to its far end (TRAPS.md).
      */
     static render(render: RouterOsRender, device: Device): void {
         const mpls = device.routing?.mpls;
@@ -18,22 +18,57 @@ export class RouterOsRsvpTe {
         for (const [iface, settings] of RouterOsSyntax.entries(rsvpTe.interfaces)) {
             const name = render.name(iface);
             if (!ldp.includes(name)) render.add("/mpls interface", "add", { interface: name });
-            render.add("/mpls traffic-eng interface", "add", { bandwidth: RouterOsRsvpTe.bandwidth(settings.bandwidth), interface: name });
+            // A link's admin groups print in hex, upper case, and a path's in decimal (TRAPS.md).
+            const groups = RouterOsRsvpTe.mask(rsvpTe, settings.admin_groups);
+            render.add("/mpls traffic-eng interface", "add", {
+                bandwidth: RouterOsRsvpTe.bandwidth(settings.bandwidth),
+                interface: name,
+                "resource-class": groups === undefined ? undefined : `0x${groups.toString(16).toUpperCase()}`,
+            });
         }
 
         for (const [name, tunnel] of Object.entries(rsvpTe.tunnels ?? {})) {
-            const hops = tunnel.explicit_path?.map((hop) => `${hop.address}/${hop.hop_type}`).join(",");
-            // A path without `use-cspf` follows its hops alone (TRAPS.md).
-            render.add("/mpls traffic-eng path", "add", { hops, name, "use-cspf": tunnel.cspf ? "yes" : undefined });
+            const secondaries = Object.entries(tunnel.secondary_paths ?? {});
+            for (const [path, settings] of [[name, tunnel] as const, ...secondaries])
+                render.add("/mpls traffic-eng path", "add", RouterOsRsvpTe.path(rsvpTe, tunnel, path, settings));
+
             render.add("/mpls traffic-eng tunnel", "add", {
                 bandwidth: tunnel.bandwidth && RouterOsRsvpTe.bandwidth(tunnel.bandwidth),
                 comment: tunnel.description,
                 "from-address": mpls.ldp.lsr_id,
                 name,
                 "primary-path": name,
+                "secondary-paths": secondaries.length ? secondaries.map(([path]) => path).join(",") : undefined,
+                "secondary-standby": secondaries[0]?.[1].standby ? "yes" : undefined,
                 "to-address": tunnel.destination,
             });
         }
+    }
+
+    /**
+     * One path of a tunnel: its hops, or CSPF with the admin groups it keeps to. The tunnel's priorities and record route go on each of its paths, as RouterOS signals a path's and ignores the tunnel's own (TRAPS.md). A path without `use-cspf` follows its hops alone (TRAPS.md).
+     */
+    private static path(rsvpTe: RsvpTe, tunnel: RsvpTeTunnel, name: string, path: TunnelPath): Record<string, string | undefined> {
+        const groups = path.admin_groups;
+        const mask = (names: readonly string[] | undefined) => RouterOsRsvpTe.mask(rsvpTe, names)?.toString();
+        return {
+            "affinity-exclude": mask(groups?.exclude_group),
+            "affinity-include-all": mask(groups?.include_all_group),
+            "affinity-include-any": mask(groups?.include_any_group),
+            "holding-priority": tunnel.hold_priority?.toString(),
+            hops: path.explicit_path?.map((hop) => `${hop.address}/${hop.hop_type}`).join(","),
+            name,
+            "record-route": tunnel.record_route ? "yes" : undefined,
+            "setup-priority": tunnel.setup_priority?.toString(),
+            "use-cspf": path.cspf ? "yes" : undefined,
+        };
+    }
+
+    /** Admin groups as RFC 3630's 32 bits: 5 for bits 0 and 2. */
+    private static mask(rsvpTe: RsvpTe, groups: readonly string[] | undefined): number | undefined {
+        if (!groups?.length) return undefined;
+        // `>>> 0` keeps bit 31 a positive number.
+        return groups.reduce((mask, group) => (mask | (1 << (rsvpTe.admin_groups?.[group] ?? 0))) >>> 0, 0);
     }
 
     /** A bandwidth in the largest unit that keeps a whole number: `1500M` for `1.5G`. */
@@ -41,15 +76,22 @@ export class RouterOsRsvpTe {
         return RouterOsQueues.rate(Derive.bitsPerSecond(rate));
     }
 
-    /** OSPF tells its routers the links' bandwidth in one area at most: an instance's `mpls-te-area` is one area. */
+    /** OSPF tells its routers the links' bandwidth in one area at most: an instance's `mpls-te-area` is one area. A tunnel sets up ahead its first secondary path that comes up, and no other (TRAPS.md). */
     static unsupported(device: Device): string[] {
         const areas = Object.entries(device.routing?.ospf?.areas ?? {}).filter(([, area]) => area.traffic_engineering);
-        if (areas.length < 2) return [];
-        return areas
+        const found = areas
             .slice(1)
             .map(
                 ([id]) =>
                     `routing.ospf.areas.${id}.traffic_engineering, a second area with it: RouterOS runs traffic engineering in one OSPF area. Write it on one area`
             );
+
+        for (const [name, tunnel] of Object.entries(device.routing?.mpls?.rsvp_te?.tunnels ?? {}))
+            for (const [path, settings] of Object.entries(tunnel.secondary_paths ?? {}).slice(1))
+                if (settings.standby)
+                    found.push(
+                        `routing.mpls.rsvp_te.tunnels.${name}.secondary_paths.${path}.standby, not on the first secondary path: RouterOS sets up ahead one secondary path, the first that comes up. Write standby on the first one alone`
+                    );
+        return found;
     }
 }

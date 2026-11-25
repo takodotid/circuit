@@ -97,6 +97,7 @@ export class CrossChecks {
             ...CrossChecks.vplsSites(devices),
             ...CrossChecks.ldpTargets(devices),
             ...CrossChecks.rsvpTeTunnels(devices, owners),
+            ...CrossChecks.adminGroups(devices),
             ...CrossChecks.virtualLinks(devices),
         ];
     }
@@ -514,11 +515,19 @@ export class CrossChecks {
         return devices.flatMap((device) =>
             Object.entries(device.routing?.mpls?.rsvp_te?.tunnels ?? {}).flatMap(([name, tunnel]): Finding[] => {
                 const at = `routing.mpls.rsvp_te.tunnels.${name}`;
+                const paths = [
+                    [at, tunnel] as const,
+                    ...Object.entries(tunnel.secondary_paths ?? {}).map(
+                        ([path, settings]) => [`${at}.secondary_paths.${path}`, settings] as const
+                    ),
+                ];
                 const crossed = [
-                    ...(tunnel.explicit_path ?? []).map((hop, index) => ({
-                        where: `${at}.explicit_path[${index}].address ${hop.address}`,
-                        far: owners.get(Topology.keyOf(hop.address) ?? "")?.device,
-                    })),
+                    ...paths.flatMap(([where, path]) =>
+                        (path.explicit_path ?? []).map((hop, index) => ({
+                            where: `${where}.explicit_path[${index}].address ${hop.address}`,
+                            far: owners.get(Topology.keyOf(hop.address) ?? "")?.device,
+                        }))
+                    ),
                     { where: `${at}.destination ${tunnel.destination}`, far: byLsrId.get(tunnel.destination) },
                 ];
                 return crossed.flatMap(({ where, far }): Finding[] =>
@@ -532,6 +541,29 @@ export class CrossChecks {
                           ]
                         : []
                 );
+            })
+        );
+    }
+
+    /** An admin group is one bit on every router, which OSPF tells the others (RFC 3630): a name with another bit elsewhere keeps a path to links it never meant. */
+    private static adminGroups(devices: readonly Device[]): Finding[] {
+        const first = new Map<string, { device: string; bit: number }>();
+        return devices.flatMap((device) =>
+            Object.entries(device.routing?.mpls?.rsvp_te?.admin_groups ?? {}).flatMap(([name, bit]): Finding[] => {
+                if (bit === undefined) return [];
+                const seen = first.get(name);
+                if (!seen) {
+                    first.set(name, { device: device.name, bit });
+                    return [];
+                }
+                if (seen.bit === bit) return [];
+                return [
+                    {
+                        level: "error",
+                        device: device.name,
+                        message: `routing.mpls.rsvp_te.admin_groups.${name} is bit ${bit}, and bit ${seen.bit} on ${seen.device}. Write the same bit on every router`,
+                    },
+                ];
             })
         );
     }

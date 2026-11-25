@@ -366,10 +366,12 @@ export type Ldp<I extends string, P extends string = string> = {
     neighbors?: Readonly<Record<IPv4, LdpNeighbor<P>>>;
 };
 
-/** RSVP-TE on one port or interface. */
-export type RsvpTeInterface = {
+/** RSVP-TE on one port or interface. `A` is the device's admin groups. */
+export type RsvpTeInterface<A extends string = string> = {
     /** The bandwidth the tunnels that cross the link may reserve on it, all of them together, such as `"40G"`: RFC 3630's maximum reservable bandwidth. With `traffic_engineering` in OSPF, the other routers learn it, and CSPF counts it. */
     bandwidth: Rate;
+    /** The admin groups the link is in, from `routing.mpls.rsvp_te.admin_groups`, such as `["red"]`: RFC 3630's administrative group. With `traffic_engineering` in OSPF, the other routers learn them, and a path's `admin_groups` keeps it to the links of some groups, or away from them. */
+    admin_groups?: readonly A[];
 };
 
 /** One hop of an explicit path (RFC 3209, section 4.3.3), with OpenConfig's names. */
@@ -380,43 +382,79 @@ export type ExplicitHop = {
     hop_type: "strict" | "loose";
 };
 
-/** The path a tunnel takes: the hops written out, or one CSPF computes. */
-type TunnelPath =
+/** The links a path may cross, by their admin groups (RFC 3209, section 4.7.4), with OpenConfig's names. Each is a list of groups from `routing.mpls.rsvp_te.admin_groups`. */
+export type AdminGroupConstraints<A extends string = string> = {
+    /** The path crosses no link that is in any of these groups. */
+    exclude_group?: readonly A[];
+    /** The path crosses only links that are in each of these groups. */
+    include_all_group?: readonly A[];
+    /** The path crosses only links that are in at least one of these groups. */
+    include_any_group?: readonly A[];
+};
+
+/** A path of a tunnel: the hops written out, or one CSPF computes. */
+export type TunnelPath<A extends string = string> =
     | {
           /** The routers the tunnel crosses, in order, the router it ends at last, such as `[{ address: "10.0.12.2", hop_type: "strict" }, { address: "10.0.23.2", hop_type: "strict" }]`. */
           explicit_path: readonly ExplicitHop[];
           cspf?: never;
+          admin_groups?: never;
       }
     | {
           /** The router computes the path itself with CSPF: the shortest path whose links all have `bandwidth` left. Needs `traffic_engineering` on an OSPF area, which tells the routers each link's bandwidth. */
           cspf: true;
           explicit_path?: never;
+          /** The links CSPF may take for the path, by their admin groups, such as `{ exclude_group: ["red"] }`. Every link when absent. */
+          admin_groups?: AdminGroupConstraints<A>;
       };
 
-/** A tunnel this router starts (RFC 3209): a path of labels to another router, with bandwidth reserved on each link it crosses. */
-export type RsvpTeTunnel = TunnelPath & {
+/** A path a tunnel moves to while its primary path is down. */
+export type SecondaryPath<A extends string = string> = TunnelPath<A> & {
+    /** Set the path up ahead, beside the primary path, so the tunnel moves to it at once when the primary path fails. Without it, the tunnel sets the path up only then. */
+    standby?: true;
+};
+
+/** A priority of RSVP-TE (RFC 3209, section 4.7.1): 0 is the highest, 7 the lowest. */
+export type TePriority = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+/** A tunnel this router starts (RFC 3209): a path of labels to another router, with bandwidth reserved on each link it crosses. Its own `explicit_path` or `cspf` is its primary path. `A` is the device's admin groups. */
+export type RsvpTeTunnel<A extends string = string> = TunnelPath<A> & {
     /** What the tunnel is for. */
     description?: string;
     /** The LSR ID of the router the tunnel ends at, such as `10.255.0.3`. It starts at this router's `routing.mpls.ldp.lsr_id`. */
     destination: IPv4;
     /** The bandwidth the tunnel reserves on each link it crosses, such as `"1G"`. A link without that much left takes no part in the path, and with no path left, the tunnel stays down. Nothing is reserved when absent. */
     bandwidth?: Rate;
+    /**
+     * The paths the tunnel moves to while its primary path is down, keyed by name, tried in the order written, such as `{ "pe-03-around": { cspf: true, admin_groups: { exclude_group: ["red"] } } }`. Once the primary path is up again, the tunnel moves back. Each name is a path on the device, beside the primary path named after its tunnel, so it is unique among the device's tunnels and their paths.
+     */
+    secondary_paths?: Readonly<Record<string, SecondaryPath<A>>>;
+    /** How the tunnel ranks for taking bandwidth that other tunnels hold (RFC 3209, section 4.7). Where a link has too little left, it takes the bandwidth of tunnels whose `hold_priority` is lower, which go down. Write `hold_priority` beside it. */
+    setup_priority?: TePriority;
+    /** How the tunnel ranks for keeping its bandwidth: only a tunnel whose `setup_priority` is higher takes it. As high as `setup_priority`, or higher (RFC 3209, section 4.7.3). Write `setup_priority` beside it. */
+    hold_priority?: TePriority;
+    /** Each router the tunnel crosses records its address and label in the tunnel's messages, so this router learns the path the tunnel took (RFC 3209, section 4.4). */
+    record_route?: true;
 };
 
-/** RSVP-TE (RFC 3209): tunnels across the core along paths of your choice, each with bandwidth reserved for it. */
-export type RsvpTe<I extends string> = {
+/** RSVP-TE (RFC 3209): tunnels across the core along paths of your choice, each with bandwidth reserved for it. `A` is the device's admin groups. */
+export type RsvpTe<I extends string, A extends string = string> = {
+    /**
+     * Admin groups, keyed by name, each with its bit, 0 to 31, of RFC 3630's administrative group, such as `{ red: 0, blue: 1 }`. A link is in some of them, and a tunnel's path keeps to the links of some, or away from them. Write the same bit for a name on every router.
+     */
+    admin_groups?: Named<A, number>;
     /** The ports and interfaces that run RSVP-TE, each toward another RSVP-TE router, with the bandwidth tunnels may reserve on it, such as `{ "100g-1": { bandwidth: "40G" } }`. Every router a tunnel crosses, the last too, writes its links here. */
-    interfaces: Named<I, RsvpTeInterface>;
+    interfaces: Named<I, RsvpTeInterface<NoInfer<A>>>;
     /** The tunnels this router starts, keyed by name, such as `{ "pe-03": { destination: "10.255.0.3", bandwidth: "1G", cspf: true } }`. Each pseudowire to a tunnel's `destination` crosses the core in it. */
-    tunnels?: Readonly<Record<string, RsvpTeTunnel>>;
+    tunnels?: Readonly<Record<string, RsvpTeTunnel<NoInfer<A>>>>;
 };
 
-/** MPLS (RFC 3031): packets cross the network by their labels. */
-export type Mpls<I extends string, P extends string = string> = {
+/** MPLS (RFC 3031): packets cross the network by their labels. `A` is the device's admin groups. */
+export type Mpls<I extends string, P extends string = string, A extends string = string> = {
     /** LDP gives the labels. */
     ldp: Ldp<I, P>;
     /** RSVP-TE tunnels, beside LDP, such as one that reserves bandwidth for a pseudowire along a path of your choice. */
-    rsvp_te?: RsvpTe<I>;
+    rsvp_te?: RsvpTe<I, A>;
 };
 
 /** A routing table beside the main one. It holds no interfaces. Routes go into it from static routes and BGP neighbors that give it in `routing_table`. `routing.policy_routing` sends traffic to it. */
@@ -691,7 +729,7 @@ export function policyRuleProblem(rule: unknown): string | undefined {
 }
 
 /**
- * Where packets go. The type parameters are the names the device declares: `P` policies, `S` prefix sets, `G` neighbor groups, `T` tables, `F` VRFs; `I` is its ports and interfaces. `Part` is true in a part, where BGP holds only what the part adds. `Net` is what the network writes.
+ * Where packets go. The type parameters are the names the device declares: `P` policies, `S` prefix sets, `G` neighbor groups, `T` tables, `F` VRFs, `A` admin groups; `I` is its ports and interfaces. `Part` is true in a part, where BGP holds only what the part adds. `Net` is what the network writes.
  */
 export type Routing<
     P extends string,
@@ -700,6 +738,7 @@ export type Routing<
     T extends string,
     F extends string,
     I extends string,
+    A extends string,
     Part extends boolean = false,
     Net extends NetworkFacts = AnyFacts,
 > = {
@@ -722,7 +761,7 @@ export type Routing<
     /** IS-IS, in the main table. */
     isis?: Isis<I, NoInfer<P>>;
     /** MPLS, in the main table, such as `{ ldp: { lsr_id: "192.0.2.1", interfaces: ["100g-1", "100g-2"] } }`. */
-    mpls?: Mpls<I, NoInfer<P>>;
+    mpls?: Mpls<I, NoInfer<P>, A>;
     /** BFD timers for every BFD session on the device: BGP, OSPF, IS-IS, and static routes. Both ends of a link should use the same timers. The platform's defaults when absent. Junos has no default, so there Circuit sends every 300 ms. */
     bfd?: Bfd;
     /** The RPKI validators the device asks for route origin validation. */
