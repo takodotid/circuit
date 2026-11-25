@@ -49,9 +49,10 @@ const ALIKE: Record<string, string> = {
 /** Sections v1 manages and 0.x did not. These fixtures leave them empty, and 0.x did not print them. */
 const SINCE_V1 = ["router aspath-list"];
 
-/** The render without the empty sections 0.x did not print. */
+/** The render without the empty sections 0.x did not print. It also leaves out turning Option 82 off on a relay, which 0.x left on (TRAPS.md). */
 function as0x(render: string): string {
-    return SINCE_V1.reduce((text, section) => text.replace(`config ${section}\nend\n`, ""), render);
+    const sections = SINCE_V1.reduce((text, section) => text.replace(`config ${section}\nend\n`, ""), render);
+    return sections.replace(/^ *set dhcp-relay-agent-option disable\n/gm, "");
 }
 
 describe("0.x's FortiOS devices", () => {
