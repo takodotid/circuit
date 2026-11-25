@@ -28,16 +28,17 @@ Only maintainers release. AI agents use the skill `release`.
 2. Create a GitHub release from `main` with the tag `vX.Y.Z`. A release candidate is `vX.Y.Z-rc.N`, marked as a pre-release. A backport is released from a branch for its line.
 3. `.github/workflows/release.yml` runs the typecheck and the tests, and builds a binary for each system. It signs their `SHA256SUMS`, attaches the binaries, the signatures, and the installers to the release, and publishes the package to npm.
 
-| Release           | Example                | npm dist-tag                                   | On GitHub         | Website     |
-| ----------------- | ---------------------- | ---------------------------------------------- | ----------------- | ----------- |
-| Stable            | `1.2.0`                | `latest`                                       | Marked Latest     | Rebuilt     |
-| Release candidate | `1.2.0-rc.1`           | `rc`                                           | A pre-release     | Not changed |
-| Backport          | `1.9.5` after `1.16.0` | `latest-<major>.<minor>`, such as `latest-1.9` | Not marked Latest | Not changed |
+| Release           | Example                | npm dist-tag                                   | On GitHub         | Website and Homebrew tap |
+| ----------------- | ---------------------- | ---------------------------------------------- | ----------------- | ------------------------ |
+| Stable            | `1.2.0`                | `latest`                                       | Marked Latest     | Updated                  |
+| Release candidate | `1.2.0-rc.1`           | `rc`                                           | A pre-release     | Not changed              |
+| Backport          | `1.9.5` after `1.16.0` | `latest-<major>.<minor>`, such as `latest-1.9` | Not marked Latest | Not changed              |
 
 A backport is a stable version older than npm's `latest` of the same major version.
 
 - The workflow signs with the repository secret `RELEASE_SIGNING_KEY`, and stops without it. [Signed releases](SECURITY.md#signed-releases) says how to change the key.
 - npm takes the package through npm Trusted Publishing, without a token.
+- The formula in [Tako's Homebrew tap](https://github.com/takodotid/homebrew-tap) is written by `scripts/homebrew.ts`, and pushed with the secret `HOMEBREW_TAP_TOKEN` of the `release` environment: a fine-grained token that may write the contents of `takodotid/homebrew-tap` only.
 - Each step skips what is already done, so you can run a failed workflow again.
 - Circuit updates itself only within its major version, so a new major version reaches nobody by itself.
 - Before a release candidate goes stable, run `circuit diff` with it against a real network's devices.

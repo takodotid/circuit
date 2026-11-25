@@ -1,6 +1,6 @@
 name: release
 
-# A published GitHub release builds the binaries, signs SHA256SUMS, attaches them and the installers to the release, and publishes to npm. A stable release also rebuilds the site. CONTRIBUTING.md explains the kinds of release and their dist-tags; SECURITY.md explains the signing.
+# A published GitHub release builds the binaries, signs SHA256SUMS, attaches them and the installers to the release, and publishes to npm. A stable release also rebuilds the site and updates the Homebrew tap. CONTRIBUTING.md explains the kinds of release and their dist-tags; SECURITY.md explains the signing.
 #
 # npm publish takes no token: npm trusts this workflow (Trusted Publishing). Each step skips what is already done, so a failed run can run again.
 
@@ -87,6 +87,23 @@ jobs:
                       echo "$VERSION is already on npm"
                   else
                       npx -y npm@12.2.2 publish --access public --provenance --tag "$DIST_TAG"
+                  fi
+
+            # Tako's Homebrew tap follows stable releases only, as the site does. HOMEBREW_TAP_TOKEN may write to takodotid/homebrew-tap's contents, and nothing else.
+            - name: update the Homebrew tap
+              if: ${{ !contains(github.ref_name, '-') && steps.tag.outputs.backport != 'true' }}
+              env:
+                  HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+              run: |
+                  test -n "$HOMEBREW_TAP_TOKEN" || { echo "HOMEBREW_TAP_TOKEN is not set: add it to the release environment, then run this workflow again"; exit 1; }
+                  tap="$RUNNER_TEMP/homebrew-tap"
+                  git clone --depth 1 "https://x-access-token:$HOMEBREW_TAP_TOKEN@github.com/takodotid/homebrew-tap.git" "$tap"
+                  bun scripts/homebrew.ts "$VERSION" dist/release/SHA256SUMS > "$tap/Formula/circuit.rb"
+                  if git -C "$tap" diff --quiet; then
+                      echo "the tap has $VERSION already"
+                  else
+                      git -C "$tap" -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -qam "circuit $VERSION"
+                      git -C "$tap" push -q
                   fi
 
     # The site, rebuilt for a stable release only: a release candidate or a backport leaves the site as it is.
