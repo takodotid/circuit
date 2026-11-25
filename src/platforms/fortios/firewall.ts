@@ -9,12 +9,15 @@ import type {
     FilterMatch,
     FilterRule,
     NatRule,
+    PolicyIpsec,
     Ports,
     Prefix,
     Protocol,
     Service,
+    TrafficSelector,
 } from "../../model";
 import { Derive } from "../../core/derive";
+import { FortiOsIpsec } from "./ipsec";
 import { FortiOsNames } from "./names";
 
 import { FortiOsNode, FortiOsTree } from "./tree";
@@ -227,6 +230,11 @@ export class FortiOsFirewall {
         const forward = fw?.filter?.forward;
         const policies = { ipv4: 0, ipv6: 0 };
 
+        // A policy-based tunnel's policies come first: a forward rule before one would let its traffic out unencrypted (decision 219).
+        for (const [name, tunnel] of FortiOsIpsec.policyTunnels(device))
+            for (const selector of tunnel.traffic_selectors)
+                FortiOsFirewall.ipsecPolicy(root.block("firewall policy").entry(++policies.ipv4), objects, device, name, tunnel, selector);
+
         for (const rule of forward?.rules ?? []) {
             if (FortiOsFirewall.isImplied(rule)) continue;
 
@@ -346,6 +354,32 @@ export class FortiOsFirewall {
         if (rule.then === "accept" && !device.system?.hardware_offload && !rule.fast_path) entry.set("auto-asic-offload", "disable");
         if (rule.description) entry.set("comments", FortiOsTree.quote(rule.description));
         if (rule.then === "reject") entry.set("send-deny-packet", "enable");
+    }
+
+    /**
+     * A policy-based tunnel's policy for one selector. Traffic from the local prefix to the remote prefix, arriving on the interfaces toward the local prefix, goes into the tunnel, and `inbound` lets the far end's traffic in. 6.2 takes `action ipsec` only with named interfaces, the tunnel's own as `dstintf`.
+     */
+    private static ipsecPolicy(
+        entry: FortiOsNode,
+        objects: Objects,
+        device: Device,
+        name: string,
+        tunnel: PolicyIpsec,
+        selector: TrafficSelector
+    ): void {
+        // `unsupported()` refuses a selector with no interface toward it, and IPv6.
+        const inward = FortiOsIpsec.inward(device, selector.local_prefix).map((each) => FortiOsNames.of(device, each));
+        entry.set("srcintf", FortiOsTree.quoteAll(inward));
+        entry.set("dstintf", FortiOsIpsec.outgoing(device, tunnel.local_address));
+        entry.set("srcaddr", FortiOsTree.quote(objects.address(selector.local_prefix, undefined, "ipv4")));
+        entry.set("dstaddr", FortiOsTree.quote(objects.address(selector.remote_prefix, undefined, "ipv4")));
+        entry.set("action", "ipsec");
+        entry.set("schedule", FortiOsTree.quote("always"));
+        entry.set("service", FortiOsTree.quote(objects.service(undefined, "ipv4")));
+        if (!device.system?.hardware_offload) entry.set("auto-asic-offload", "disable");
+        entry.set("inbound", "enable");
+        entry.set("vpntunnel", FortiOsTree.quote(name));
+        if (tunnel.description) entry.set("comments", FortiOsTree.quote(tunnel.description));
     }
 
     private static localIn(entry: FortiOsNode, objects: Objects, device: Device, rule: FilterRule, family: Family): void {

@@ -514,9 +514,6 @@ export class FortiOsUnsupported {
         if (!fw) return found;
 
         if (fw.filter?.output) found.push("firewall.filter.output, the platform filters no traffic it sends itself");
-        // A policy-based tunnel is a phase 1 and phase 2 without an interface, and a firewall policy with `action ipsec`, which no FortiGate in CI has proven.
-        if (fw.ipsec)
-            found.push("firewall.ipsec, a policy-based IPsec tunnel, not built yet: write a route-based tunnel in interfaces.ipsec");
         if (fw.untracked) found.push("firewall.untracked, every session is tracked");
         if (fw.interface_sets) found.push("firewall.interface_sets, which Circuit writes out as each rule's interfaces");
 
