@@ -1,7 +1,7 @@
-// OSPF area types, timers, and keys, tested on RouterOS 7.24.6, Junos 21.4R3, and FortiOS 6.2.2 (TRAPS.md). RouterOS's ranges, priorities, and NBMA and point-to-multipoint links ran on CHRs, and Junos's are in junos-ospf.test.ts. Each was set, changed, and taken away. The lines each device printed are fed to the adapters, with names and addresses replaced.
+// OSPF area types, timers, and keys on RouterOS 7.24.6, Junos 21.4R3, and FortiOS 6.2.2 (TRAPS.md). Ranges, priorities, NBMA and point-to-multipoint links, and virtual links ran on CHRs, and on a FG-3700D against a second VDOM; Junos's are in junos-ospf.test.ts. The lines each device printed are fed to the adapters, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
-import type { Device, Ospf } from "../../src/model";
+import type { Device, Ospf, OspfInterface } from "../../src/model";
 import { Platforms } from "../../src/platforms";
 import { Fixtures } from "../fixtures";
 
@@ -268,9 +268,8 @@ test("RouterOS sets a range's advertise and a template's priority and type back,
     ]);
 });
 
-test("FortiOS and Raisecom ROS refuse ranges, priorities, and point-to-multipoint and NBMA links until one of their devices runs them", () => {
+test("Raisecom ROS refuses ranges, priorities, and point-to-multipoint and NBMA links until one of its devices runs them", () => {
     const fixtures = {
-        fortios: "platforms--example-firewall",
         "raisecom-ros": "platforms--example-core-switch",
     };
     const untried = "not built yet, since no device of the platform has run it";
@@ -357,9 +356,8 @@ test("RouterOS unsets a range's cost, and removes a virtual link before its tran
     ]);
 });
 
-test("FortiOS and Raisecom ROS refuse a virtual link and a range's cost until one of their devices runs them", () => {
+test("Raisecom ROS refuses a virtual link and a range's cost until one of its devices runs them", () => {
     const fixtures = {
-        fortios: "platforms--example-firewall",
         "raisecom-ros": "platforms--example-core-switch",
     };
     const untried = "not built yet, since no device of the platform has run it";
@@ -370,4 +368,221 @@ test("FortiOS and Raisecom ROS refuse a virtual link and a range's cost until on
                 `routing.ospf.areas.0.0.0.2.ranges[0].cost, ${untried}`,
             ])
         );
+});
+
+/** What `show router ospf` prints after the section's own settings when nothing is redistributed. */
+const FORTIOS_REDISTRIBUTE = ["connected", "static", "rip", "bgp", "isis"]
+    .map((source) => `    config redistribute "${source}"\n    end\n`)
+    .join("");
+
+/** A border router whose uplink is NBMA, with its neighbor and the highest priority, and whose area 1 is summarized. A FG-3700D on 6.2.2 ran it against a second VDOM. */
+const fortiosNbma: Ospf = {
+    areas: {
+        "0.0.0.0": { interfaces: { loopback: {}, uplink: { network: "non-broadcast", neighbors: ["203.0.113.9"], priority: 200 } } },
+        "0.0.0.1": {
+            ranges: [
+                { prefix: "198.51.100.0/25", advertise: true },
+                { prefix: "192.0.2.128/25", advertise: false },
+            ],
+            interfaces: { servers: {}, management: { cost: 300 } },
+        },
+    },
+};
+
+/** `fortiosNbma` as the firewall printed it: `advertise enable` left out, the neighbors after the networks. */
+const FORTIOS_NBMA_PRINTED = `config router ospf
+    set router-id 198.51.100.255
+    config area
+        edit 0.0.0.0
+        next
+        edit 0.0.0.1
+            config range
+                edit 1
+                    set prefix 198.51.100.0 255.255.255.128
+                next
+                edit 2
+                    set prefix 192.0.2.128 255.255.255.128
+                    set advertise disable
+                next
+            end
+        next
+    end
+    config ospf-interface
+        edit "uplink"
+            set interface "uplink"
+            set priority 200
+            set network-type non-broadcast
+        next
+        edit "management"
+            set interface "management"
+            set cost 300
+        next
+    end
+    config network
+        edit 1
+            set prefix 198.51.100.255 255.255.255.255
+        next
+        edit 2
+            set prefix 203.0.113.8 255.255.255.252
+        next
+        edit 3
+            set prefix 198.51.100.32 255.255.255.224
+            set area 0.0.0.1
+        next
+        edit 4
+            set prefix 192.0.2.128 255.255.255.192
+            set area 0.0.0.1
+        next
+        edit 5
+            set prefix 192.0.2.160 255.255.255.224
+            set area 0.0.0.1
+        next
+    end
+    config neighbor
+        edit 1
+            set ip 203.0.113.9
+        next
+    end
+${FORTIOS_REDISTRIBUTE}end
+`;
+
+/** The OSPF sections of a FortiOS render. */
+const fortiosOspf = (ospf: Ospf) =>
+    Platforms.get("fortios")
+        .render(withOspf("platforms--example-firewall", ospf))
+        .match(/^config router ospf6?\n[\s\S]*?^end\n/gm)!
+        .join("");
+
+const fortiosGaps = (ospf: Ospf) =>
+    Platforms.get("fortios")
+        .unsupported(withOspf("platforms--example-firewall", ospf))
+        .filter((gap) => gap.startsWith("routing.ospf"));
+
+// The second VDOM elected the firewall its DR, and took the range at the largest cost inside it, 300, and not the range that isn't advertised.
+test("FortiOS writes ranges, a priority, and an NBMA link with its neighbor, and plans nothing against how the firewall prints them", () => {
+    const desired = fortiosOspf(fortiosNbma);
+
+    expect(desired).toContain(
+        "            config range\n                edit 1\n                    set prefix 198.51.100.0 255.255.255.128\n"
+    );
+    expect(fortiosGaps(fortiosNbma)).toEqual([]);
+    expect(sent("fortios", desired, FORTIOS_NBMA_PRINTED)).toEqual([]);
+});
+
+test("FortiOS sets a range, a priority, and a link type in place, and deletes a neighbor and a range", () => {
+    const changed: Ospf = {
+        areas: {
+            "0.0.0.0": { interfaces: { loopback: {}, uplink: { priority: 0 } } },
+            "0.0.0.1": { ranges: [{ prefix: "192.0.2.128/25", advertise: true }], interfaces: { servers: {}, management: { cost: 300 } } },
+        },
+    };
+
+    // The firewall took the neighbor's deletion while its link was still NBMA, and a range's prefix that another range held until the next line.
+    expect(sent("fortios", fortiosOspf(changed), FORTIOS_NBMA_PRINTED)).toEqual([
+        "config router ospf",
+        "config neighbor",
+        "delete 1",
+        "end",
+        "config area",
+        "edit 0.0.0.1",
+        "config range",
+        "edit 1",
+        "set prefix 192.0.2.128 255.255.255.128",
+        "next",
+        "delete 2",
+        "end",
+        "next",
+        "end",
+        "config ospf-interface",
+        'edit "uplink"',
+        "unset network-type",
+        "set priority 0",
+        "next",
+        "end",
+        "end",
+    ]);
+});
+
+// The firewall refused a neighbor without a cost on a point-to-multipoint link: `Cost should not be empty for point to multipoint network.`
+test("FortiOS sends a point-to-multipoint link's hellos to its neighbors alone, each at the link's cost, and refuses neighbors without one", () => {
+    const p2mp = (uplink: OspfInterface): Ospf => ({ areas: { "0.0.0.0": { interfaces: { uplink } } } });
+
+    const unicast = fortiosOspf(p2mp({ network: "point-to-multipoint", neighbors: ["203.0.113.9"], cost: 10 }));
+    expect(unicast).toContain(
+        '        edit "uplink"\n            set interface "uplink"\n            set cost 10\n            set network-type point-to-multipoint-non-broadcast\n'
+    );
+    expect(unicast).toContain("    config neighbor\n        edit 1\n            set ip 203.0.113.9\n            set cost 10\n");
+    expect(fortiosOspf(p2mp({ network: "point-to-multipoint", cost: 10 }))).toContain("set network-type point-to-multipoint\n");
+
+    expect(fortiosGaps(p2mp({ network: "point-to-multipoint", neighbors: ["203.0.113.9"] }))).toEqual([
+        "routing.ospf.areas.0.0.0.0.interfaces.uplink.neighbors on a point-to-multipoint link without cost, FortiOS 6.2 needs a cost for each neighbor there. Write cost on uplink",
+    ]);
+});
+
+/** A border router joined to the backbone across area 1 by a virtual link, for both versions, with a range of each family. */
+const fortiosVirtual: Ospf = {
+    address_families: ["ipv4", "ipv6"],
+    areas: {
+        "0.0.0.0": { virtual_links: [{ transit_area_id: "0.0.0.1", router_id: "192.0.2.2" }], interfaces: { loopback: {} } },
+        "0.0.0.1": {
+            ranges: [
+                { prefix: "198.51.100.0/25", advertise: true },
+                { prefix: "2001:db8:40::/47", advertise: true },
+            ],
+            interfaces: { uplink: { priority: 200 }, servers: {} },
+        },
+    },
+};
+
+/** The OSPFv3 part of `fortiosVirtual` as the firewall printed it: each interface's area before its name. */
+const FORTIOS_VIRTUAL_PRINTED6 = `config router ospf6
+    set router-id 198.51.100.255
+    config area
+        edit 0.0.0.0
+        next
+        edit 0.0.0.1
+            config range
+                edit 1
+                    set prefix6 2001:db8:40::/47
+                next
+            end
+            config virtual-link
+                edit "192.0.2.2"
+                    set peer 192.0.2.2
+                next
+            end
+        next
+    end
+    config ospf6-interface
+        edit "loopback"
+            set interface "loopback"
+        next
+        edit "uplink"
+            set area-id 0.0.0.1
+            set interface "uplink"
+            set priority 200
+        next
+        edit "servers"
+            set area-id 0.0.0.1
+            set interface "servers"
+        next
+    end
+${FORTIOS_REDISTRIBUTE}end
+`;
+
+// Both versions' virtual links came up at once, and each carried the far area's networks to the firewall.
+test("FortiOS writes a virtual link under the area it crosses, for OSPF and OSPFv3, and plans nothing against how the firewall prints them", () => {
+    const desired = fortiosOspf(fortiosVirtual);
+
+    expect(desired).toContain(
+        '            config virtual-link\n                edit "192.0.2.2"\n                    set peer 192.0.2.2\n'
+    );
+    expect(fortiosGaps(fortiosVirtual)).toEqual([]);
+    expect(sent("fortios", desired, `${desired.slice(0, desired.indexOf("config router ospf6"))}${FORTIOS_VIRTUAL_PRINTED6}`)).toEqual([]);
+});
+
+test("FortiOS refuses a range's cost, which its ranges have no setting for", () => {
+    expect(fortiosGaps(cutOff)).toContain(
+        "routing.ospf.areas.0.0.0.2.ranges[0].cost, FortiOS 6.2 has no cost for a range, which takes the largest cost inside it"
+    );
 });

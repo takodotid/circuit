@@ -96,6 +96,8 @@ export class FortiOsRender {
         "router static6",
         "router prefix-list",
         "router prefix-list6",
+        "router access-list",
+        "router access-list6",
         "router community-list",
         "router aspath-list",
         "router route-map",

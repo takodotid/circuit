@@ -196,11 +196,11 @@ export type OspfInterface = {
     network?: "broadcast" | "point-to-point" | "point-to-multipoint" | "non-broadcast";
     /** The address on this link of each OSPF neighbor, for a link that carries no multicast: the device sends its hellos to each address. With `network` `non-broadcast`, or `point-to-multipoint`, which without them finds its neighbors by multicast. VRP takes them on `non-broadcast` only. */
     neighbors?: readonly IPv4[];
-    /** This device's priority, 0 to 255, in the election of the link's designated router (DR) and its backup (RFC 2328, section 9.4). The highest wins, and 0 never becomes either. On `broadcast` and `non-broadcast` links. The platform's own when absent: 128 on RouterOS, 1 on VRP. */
+    /** This device's priority, 0 to 255, in the election of the link's designated router (DR) and its backup (RFC 2328, section 9.4). The highest wins, and 0 never becomes either. On `broadcast` and `non-broadcast` links. The platform's own when absent: 128 on RouterOS, 1 on VRP and FortiOS. */
     priority?: number;
-    /** Seconds between hello packets, 1 to 65535. Every router on the link uses the same. 10 when absent, and 30 on a VRP `non-broadcast` or `point-to-multipoint` link. */
+    /** Seconds between hello packets, 1 to 65535. Every router on the link uses the same. 10 when absent, and 30 on a VRP or FortiOS `non-broadcast` or `point-to-multipoint` link. */
     hello_interval?: number;
-    /** Seconds without a hello before a neighbor is down, more than `hello_interval` and up to 65535. Every router on the link uses the same. 40 when both are absent, and 120 on a VRP `non-broadcast` or `point-to-multipoint` link; write it with `hello_interval`, since platforms differ without it. */
+    /** Seconds without a hello before a neighbor is down, more than `hello_interval` and up to 65535. Every router on the link uses the same. 40 when both are absent, and 120 on a VRP or FortiOS `non-broadcast` or `point-to-multipoint` link; write it with `hello_interval`, since platforms differ without it. */
     dead_interval?: number;
     /** Sign every packet, so the device ignores a router without the key. OSPFv2 only. */
     authentication?: OspfAuthentication;

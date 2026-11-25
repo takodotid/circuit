@@ -3,7 +3,19 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, OspfArea, PolicyRule, PrefixSet, RouteMatch, RouteRule } from "../../model";
+import type {
+    Device,
+    Family,
+    Neighbor,
+    NeighborSettings,
+    Ospf,
+    OspfArea,
+    OspfInterface,
+    PolicyRule,
+    PrefixSet,
+    RouteMatch,
+    RouteRule,
+} from "../../model";
 import { FortiOsNames } from "./names";
 import type { FortiOsNode } from "./tree";
 import { FortiOsTree } from "./tree";
@@ -176,6 +188,8 @@ export class FortiOsRouting {
 
     static readonly PREFIX_LIST = { ipv4: "router prefix-list", ipv6: "router prefix-list6" } as const;
 
+    static readonly ACCESS_LIST = { ipv4: "router access-list", ipv6: "router access-list6" } as const;
+
     /** The longest prefix of each family. */
     static readonly BITS = { ipv4: 32, ipv6: 128 } as const;
 
@@ -295,7 +309,9 @@ export class FortiOsRouting {
             .map(FortiOsNames.network);
     }
 
-    /** An area runs on the networks of its interfaces. An interface with a cost, a link type, or BFD has an entry of its own. */
+    /**
+     * An area runs on the networks of its interfaces. An interface with a cost, a link type, a priority, or BFD has an entry of its own. The neighbors a link sends its hellos to are the router's, each found on the link whose network holds it.
+     */
     private static ospf(root: FortiOsNode, device: Device): void {
         const ospf = device.routing?.ospf;
         if (!ospf || !(ospf.address_families ?? ["ipv4"]).includes("ipv4")) return;
@@ -305,9 +321,10 @@ export class FortiOsRouting {
 
         const passive: string[] = [];
         let networks = 0;
+        let neighbors = 0;
 
         for (const [areaId, area] of Object.entries(ospf.areas)) {
-            FortiOsRouting.ospfArea(block.block("area").entry(areaId, true), area);
+            FortiOsRouting.ospfArea(block.block("area").entry(areaId, true), area, "ipv4");
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 const iface = FortiOsNames.of(device, name);
@@ -318,7 +335,9 @@ export class FortiOsRouting {
                     const entry = block.block("ospf-interface").entry(iface);
                     entry.set("interface", FortiOsTree.quote(iface));
                     if (own.cost !== undefined) entry.set("cost", own.cost);
-                    if (own.network === "point-to-point") entry.set("network-type", "point-to-point");
+                    if (own.priority !== undefined) entry.set("priority", own.priority);
+                    const type = FortiOsRouting.networkType(own);
+                    if (type) entry.set("network-type", type);
                     if (own.hello_interval !== undefined) entry.set("hello-interval", own.hello_interval);
                     if (own.dead_interval !== undefined) entry.set("dead-interval", own.dead_interval);
                     // `unsupported()` refuses HMAC-SHA.
@@ -327,6 +346,12 @@ export class FortiOsRouting {
                         entry.block("md5-keys").entry(own.authentication.key_id).set("key-string", Secrets.marker(own.authentication.key));
                     }
                     if (own.bfd) entry.set("bfd", "enable");
+                }
+
+                for (const address of settings?.neighbors ?? []) {
+                    const neighbor = block.block("neighbor").entry(++neighbors).set("ip", address);
+                    // The device needs each neighbor's cost on a point-to-multipoint link (TRAPS.md); `unsupported()` refuses one without the link's.
+                    if (settings?.network === "point-to-multipoint" && settings.cost !== undefined) neighbor.set("cost", settings.cost);
                 }
 
                 for (const prefix of FortiOsRouting.networksOf(device, name, "ipv4")) {
@@ -338,12 +363,34 @@ export class FortiOsRouting {
             }
         }
 
+        FortiOsRouting.virtualLinks(block, ospf.areas);
         if (passive.length) block.set("passive-interface", FortiOsTree.quoteAll(passive));
         for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
     }
 
-    /** A stub area or an NSSA, the same in OSPF and OSPFv3. A border router announces a default route into an NSSA with summaries only when told to (TRAPS.md). */
-    private static ospfArea(entry: FortiOsNode, area: OspfArea): void {
+    /** A point-to-multipoint link with neighbors sends its hellos to them alone, as an NBMA link does. Broadcast is the default and is not printed. */
+    private static networkType(settings: OspfInterface): string | undefined {
+        if (settings.network === "point-to-multipoint")
+            return settings.neighbors?.length ? "point-to-multipoint-non-broadcast" : "point-to-multipoint";
+        return settings.network === "broadcast" ? undefined : settings.network;
+    }
+
+    /** The backbone's virtual links, each under the area it crosses, named after the far router's ID (RFC 2328, section 15). */
+    private static virtualLinks(block: FortiOsNode, areas: Ospf["areas"]): void {
+        for (const link of areas["0.0.0.0"]?.virtual_links ?? [])
+            block.block("area").entry(link.transit_area_id, true).block("virtual-link").entry(link.router_id).set("peer", link.router_id);
+    }
+
+    /** A stub area or an NSSA, the same in OSPF and OSPFv3, and the area's ranges of `family`. A border router announces a default route into an NSSA with summaries only when told to (TRAPS.md). */
+    private static ospfArea(entry: FortiOsNode, area: OspfArea, family: Family): void {
+        const ranges = (area.ranges ?? []).filter((range) => FortiOsNames.familyOfPrefix(range.prefix) === family);
+        // `unsupported()` refuses a range's cost, which the device has no setting for.
+        ranges.forEach((range, index) => {
+            const each = entry.block("range").entry(index + 1);
+            each.set(family === "ipv4" ? "prefix" : "prefix6", FortiOsRouting.listPrefix(range.prefix, family));
+            each.set("advertise", range.advertise ? "enable" : "disable");
+        });
+
         if (!area.type) return;
 
         entry.set("type", area.type);
@@ -370,7 +417,7 @@ export class FortiOsRouting {
         const passive: string[] = [];
 
         for (const [areaId, area] of Object.entries(ospf.areas)) {
-            FortiOsRouting.ospfArea(block.block("area").entry(areaId, true), area);
+            FortiOsRouting.ospfArea(block.block("area").entry(areaId, true), area, "ipv6");
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
                 const iface = FortiOsNames.of(device, name);
@@ -380,6 +427,7 @@ export class FortiOsRouting {
                 entry.set("interface", FortiOsTree.quote(iface));
                 if (areaId !== "0.0.0.0") entry.set("area-id", areaId);
                 if (settings?.cost !== undefined) entry.set("cost", settings.cost);
+                if (settings?.priority !== undefined) entry.set("priority", settings.priority);
                 if (settings?.network === "point-to-point") entry.set("network-type", "point-to-point");
                 if (settings?.hello_interval !== undefined) entry.set("hello-interval", settings.hello_interval);
                 if (settings?.dead_interval !== undefined) entry.set("dead-interval", settings.dead_interval);
@@ -387,6 +435,7 @@ export class FortiOsRouting {
             }
         }
 
+        FortiOsRouting.virtualLinks(block, ospf.areas);
         if (passive.length) block.set("passive-interface", FortiOsTree.quoteAll(passive));
         for (const source of ospf.redistribute ?? []) block.block(`redistribute "${source}"`).set("status", "enable");
     }
@@ -437,6 +486,41 @@ export class FortiOsRouting {
         }
 
         if (isis.overload_bit) block.set("overload-bit", "enable");
+
+        // Each family leaks through an access list: `redistribute-l2-list` takes no prefix list or route map (TRAPS.md).
+        const leak = isis.level2_to_level1?.import_policy;
+        if (!leak) return;
+        for (const family of isis.address_families) {
+            const suffix = family === "ipv4" ? "" : "6";
+            block.set(`redistribute${suffix}-l2`, "enable");
+            block.set(`redistribute${suffix}-l2-list`, FortiOsTree.quote(FortiOsRouting.accessList(root, device, leak, family)));
+        }
+    }
+
+    /**
+     * A policy that picks prefixes, as an access list of one family, named after it. Each rule matches its prefix alone, with `exact-match`, or each prefix of its set and what lies inside it. A rule without either matches `any`. The list permits unless told to deny, and denies what no rule matches.
+     */
+    private static accessList(root: FortiOsNode, device: Device, policy: string, family: Family): string {
+        const rules = root.block(FortiOsRouting.ACCESS_LIST[family]).entry(policy).block("rule");
+        const key = family === "ipv4" ? "prefix" : "prefix6";
+        let number = 0;
+
+        for (const rule of FortiOsRouting.flatten(device, policy)) {
+            const only = FortiOsRouting.familyOfRule(device, rule);
+            if (only && only !== family) continue;
+
+            const match = rule.if ?? {};
+            const set = match.prefix_set ? device.routing?.prefix_sets?.[match.prefix_set] : undefined;
+            const prefixes = match.prefix ? [match.prefix] : match.prefix_set ? (FortiOsRouting.listed(set) ?? []) : [undefined];
+            for (const prefix of prefixes) {
+                const entry = rules.entry(++number);
+                if (rule.then === "reject") entry.set("action", "deny");
+                entry.set(key, prefix ? FortiOsRouting.listPrefix(prefix, family) : "any");
+                if (match.prefix) entry.set("exact-match", "enable");
+            }
+        }
+
+        return policy;
     }
 
     private static bgp(root: FortiOsNode, device: Device): void {
@@ -570,6 +654,16 @@ export class FortiOsRouting {
         return flat;
     }
 
+    /** A policy and each one it calls, at any depth. */
+    private static called(device: Device, policy: string, seen: string[] = []): string[] {
+        if (seen.includes(policy)) return seen;
+        seen.push(policy);
+
+        for (const rule of device.routing?.policies?.[policy] ?? [])
+            if ("call" in rule && rule.call !== undefined) FortiOsRouting.called(device, rule.call, seen);
+        return seen;
+    }
+
     /** Whether a policy rule is a rule on routes, not a call or a `{ communities }` rule. */
     static isRouteRule(rule: PolicyRule): rule is RouteRule {
         return !("call" in rule && rule.call !== undefined) && !("communities" in rule && rule.communities !== undefined);
@@ -590,7 +684,20 @@ export class FortiOsRouting {
         if (ospf?.vrf) found.push("routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
+            // `config range` holds a prefix, `advertise`, and a prefix to announce in its place, but no cost.
+            (area.ranges ?? []).forEach((range, index) => {
+                if (range.cost !== undefined)
+                    found.push(
+                        `routing.ospf.areas.${areaId}.ranges[${index}].cost, FortiOS 6.2 has no cost for a range, which takes the largest cost inside it`
+                    );
+            });
+
             for (const [name, settings] of Object.entries(area.interfaces)) {
+                if (settings?.network === "point-to-multipoint" && settings.neighbors?.length && settings.cost === undefined)
+                    found.push(
+                        `routing.ospf.areas.${areaId}.interfaces.${name}.neighbors on a point-to-multipoint link without cost, FortiOS 6.2 needs a cost for each neighbor there. Write cost on ${name}`
+                    );
+
                 const authentication = settings?.authentication;
                 const where = `routing.ospf.areas.${areaId}.interfaces.${name}.authentication`;
                 if (authentication && authentication.algorithm !== "md5")
@@ -615,9 +722,15 @@ export class FortiOsRouting {
         for (const { where, authentication } of Derive.isisAuthentications(device))
             if (authentication.algorithm !== "hmac-md5")
                 found.push(`${where}, FortiOS 6.2 signs IS-IS with hmac-md5 only, not ${authentication.algorithm}`);
-        // The FortiOS 6.2 CLI reference lists `redistribute-l2` in `router isis`, with an access list in `redistribute-l2-list`.
-        if (routing?.isis?.level2_to_level1)
-            found.push("routing.isis.level2_to_level1, not built yet, since no device of the platform has run it");
+        // An access list matches a prefix, or what lies inside it, with no range of lengths.
+        const leak = routing?.isis?.level2_to_level1?.import_policy;
+        for (const name of leak ? FortiOsRouting.called(device, leak) : [])
+            (routing?.policies?.[name] ?? []).forEach((rule, index) => {
+                if (FortiOsRouting.isRouteRule(rule) && rule.if?.prefix_length)
+                    found.push(
+                        `routing.policies.${name}[${index}].if.prefix_length, in routing.isis.level2_to_level1: FortiOS leaks through an access list, which matches no prefix length. Match prefix or prefix_set`
+                    );
+            });
         for (const [name, settings] of Object.entries(routing?.isis?.interfaces ?? {})) {
             const where = `routing.isis.interfaces.${name}`;
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
