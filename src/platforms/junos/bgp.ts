@@ -24,6 +24,9 @@ export class JunosBgp {
 
     private static readonly RPKI_GROUP = "circuit";
 
+    /** The first policy of each session that carries EVPN routes: it accepts them, so the session's own policies see only its other routes, as route targets pick EVPN routes. */
+    private static readonly EVPN = "circuit-evpn";
+
     /** A comment in the render naming a prefix list from a registry that it did not fetch, as Studio renders it, so the plan keeps what the device holds there. */
     static readonly GENERATED = "# generated ";
 
@@ -140,6 +143,7 @@ export class JunosBgp {
         const defaults = new Map<string, Set<Family>>();
         let rejectAll = false;
         let exports = false;
+        let evpn = false;
 
         // One group per session: a group holds one type, internal or external, and the config's neighbor groups are only shared settings.
         for (const [name, neighbor] of Object.entries(bgp.neighbors ?? {})) {
@@ -166,7 +170,11 @@ export class JunosBgp {
             if (settings.vrf && this.device.routing?.router_id)
                 this.out.set(`${instance}routing-options router-id`, this.device.routing.router_id);
 
+            const carriesEvpn = Derive.carriesEvpn(settings);
+            evpn ||= carriesEvpn;
+            if (carriesEvpn) this.out.set(group, "import", JunosBgp.EVPN);
             this.out.set(group, "import", settings.import_policy ?? JunosBgp.REJECT_ALL);
+            if (carriesEvpn) this.out.set(group, "export", JunosBgp.EVPN);
 
             const families = Derive.unicastFamilies(settings, neighbor.address);
             if (settings.send_default_route) {
@@ -202,10 +210,17 @@ export class JunosBgp {
                 this.out.set(nlri, "prefix-limit teardown idle-timeout", idle);
             }
 
+            // `unsupported()` refuses a prefix limit beside EVPN routes.
+            if (carriesEvpn) this.out.set(group, "family evpn signaling");
+
             this.out.set(group, "neighbor", neighbor.address);
         }
 
         if (rejectAll) this.out.set(`policy-options policy-statement ${JunosBgp.REJECT_ALL} then reject`);
+        if (evpn) {
+            this.out.set(`policy-options policy-statement ${JunosBgp.EVPN} term evpn from family evpn`);
+            this.out.set(`policy-options policy-statement ${JunosBgp.EVPN} term evpn then accept`);
+        }
 
         if (exports) this.origin();
 

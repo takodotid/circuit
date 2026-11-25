@@ -1,4 +1,4 @@
-// OSPF area types, timers, and keys, tested on RouterOS 7.24.6, Junos 21.4R3, and FortiOS 6.2.2 (TRAPS.md). Ranges, priorities, NBMA and point-to-multipoint links, and virtual links ran on CHRs, and on a FG-3700D against a second VDOM over a link between the two. Each was set, changed, and taken away. The lines each device printed are fed to the adapters, with names and addresses replaced.
+// OSPF area types, timers, and keys on RouterOS 7.24.6, Junos 21.4R3, and FortiOS 6.2.2 (TRAPS.md). Ranges, priorities, NBMA and point-to-multipoint links, and virtual links ran on CHRs, and on a FG-3700D against a second VDOM; Junos's are in junos-ospf.test.ts. The lines each device printed are fed to the adapters, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import type { Device, Ospf, OspfInterface } from "../../src/model";
@@ -268,9 +268,8 @@ test("RouterOS sets a range's advertise and a template's priority and type back,
     ]);
 });
 
-test("Junos, VRP, and Raisecom ROS refuse ranges, priorities, and point-to-multipoint and NBMA links until one of their devices runs them", () => {
+test("VRP and Raisecom ROS refuse ranges, priorities, and point-to-multipoint and NBMA links until one of their devices runs them", () => {
     const fixtures = {
-        junos: "platforms--example-aggregation-switch",
         vrp: "platforms--example-switch",
         "raisecom-ros": "platforms--example-core-switch",
     };
@@ -358,9 +357,8 @@ test("RouterOS unsets a range's cost, and removes a virtual link before its tran
     ]);
 });
 
-test("Junos, VRP, and Raisecom ROS refuse a virtual link and a range's cost until one of their devices runs them", () => {
+test("VRP and Raisecom ROS refuse a virtual link and a range's cost until one of their devices runs them", () => {
     const fixtures = {
-        junos: "platforms--example-aggregation-switch",
         vrp: "platforms--example-switch",
         "raisecom-ros": "platforms--example-core-switch",
     };

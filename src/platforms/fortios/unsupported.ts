@@ -669,6 +669,11 @@ export class FortiOsUnsupported {
         // An interface has one relay, so its relays add Option 82 alike.
         const relays = Object.entries(device.services?.dhcp_relay ?? {});
         for (const [name, relay] of relays) {
+            // A loopback takes no `dhcp-relay-service` (TRAPS.md).
+            if (device.interfaces?.loopback?.[relay.interface])
+                found.push(
+                    `services.dhcp_relay.${name}.interface ${relay.interface}, a loopback, which takes no DHCP relay on FortiOS: write the interface the clients are on`
+                );
             const other = relays.find(
                 ([, each]) =>
                     each.interface === relay.interface && Boolean(each.relay_agent_information) !== Boolean(relay.relay_agent_information)

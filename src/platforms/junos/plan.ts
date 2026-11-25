@@ -22,6 +22,7 @@ export class JunosPlan {
     private static readonly NAMED_LISTS = new Set([
         "address",
         "area",
+        "area-range",
         "as-list",
         "as-path",
         "class",
@@ -66,6 +67,9 @@ export class JunosPlan {
         "vlan",
         "vrrp-group",
     ]);
+
+    /** Lists whose entries are named by several words, each with how many: a delete names them all, `virtual-link neighbor-id 192.0.2.2 transit-area 0.0.0.1`, and stops at none of them (TRAPS.md). */
+    private static readonly KEYED_LISTS = new Map([["virtual-link", 4]]);
 
     /** A statement only the render holds is set. One only the device holds is deleted at the shortest path that holds nothing the render wants, so a removed port goes whole and a changed value goes alone. */
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
@@ -238,9 +242,14 @@ export class JunosPlan {
         return JunosPlan.wordsOf(canonical).slice(1).map(JunosPlan.bare);
     }
 
-    /** Whether a delete may stop after `path[index]`. Below the top level a named list may not; `vlan` names a list except in `vlan members`. */
+    /** Whether a delete may stop after `path[index]`. Below the top level a named list may not, nor a word of a key of several; `vlan` names a list except in `vlan members`. */
     private static canStopAt(path: string[], index: number): boolean {
-        if (index === 0 || !JunosPlan.NAMED_LISTS.has(path[index]!)) return true;
+        if (index === 0) return true;
+        for (const [list, words] of JunosPlan.KEYED_LISTS) {
+            const at = path.lastIndexOf(list, index);
+            if (at !== -1 && index < at + words) return false;
+        }
+        if (!JunosPlan.NAMED_LISTS.has(path[index]!)) return true;
 
         return path[index] === "vlan" && path[index + 1] === "members";
     }
