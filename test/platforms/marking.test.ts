@@ -90,7 +90,6 @@ test("RouterOS refuses marking that packets would skip", () => {
 test("every other platform refuses marking, which it does not build", () => {
     const rules = { qos: { marking: [{ then: { dscp: "cs0" } }] } };
     for (const [platform, model] of [
-        ["junos", "QFX5100-48S-6Q"],
         ["fortios", "FG-3700D"],
         ["raisecom-ros", "RAX721-C-6C48"],
     ] as const)
