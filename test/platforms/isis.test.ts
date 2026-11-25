@@ -408,6 +408,155 @@ end
     expect(fortios.unsupported(bfd)).toContain("routing.isis.interfaces.10g-2.bfd, FortiOS 6.2 has no BFD for IS-IS");
 });
 
+/** The firewall fixture with this IS-IS, and a policy that leaks its loopbacks of each family, a prefix of its own, and nothing else. */
+function fortiosLeaking(isis: Isis): Device {
+    const fixture = Fixtures.device("platforms--example-firewall");
+    return {
+        ...fixture,
+        routing: {
+            ...fixture.routing,
+            prefix_sets: {
+                ...fixture.routing?.prefix_sets,
+                "loopbacks-v4": { prefixes: ["192.0.2.0/25"] },
+                "loopbacks-v6": { prefixes: ["2001:db8:2::/48"] },
+            },
+            policies: {
+                ...fixture.routing?.policies,
+                loopbacks: [
+                    { if: { prefix_set: "loopbacks-v4" }, then: "accept" },
+                    { if: { prefix: "198.51.100.128/26" }, then: "accept" },
+                    { if: { prefix_set: "loopbacks-v6" }, then: "accept" },
+                    { then: "reject" },
+                ],
+            },
+            isis,
+        },
+    };
+}
+
+/** The leak's access lists, and IS-IS on both levels and families, as the firewall printed them: `permit` and `exact-match disable` left out. */
+const FORTIOS_LEAK_PRINTED = `config router access-list
+    edit "loopbacks"
+        config rule
+            edit 1
+                set prefix 192.0.2.0 255.255.255.128
+            next
+            edit 2
+                set prefix 198.51.100.128 255.255.255.192
+                set exact-match enable
+            next
+            edit 3
+                set action deny
+                set prefix any
+            next
+        end
+    next
+end
+config router access-list6
+    edit "loopbacks"
+        config rule
+            edit 1
+                set prefix6 2001:db8:2::/48
+            next
+            edit 2
+                set action deny
+                set prefix6 any
+            next
+        end
+    next
+end
+config router isis
+    set metric-style wide
+    set redistribute-l2 enable
+    set redistribute-l2-list "loopbacks"
+    set redistribute6-l2 enable
+    set redistribute6-l2-list "loopbacks"
+    config isis-net
+        edit 1
+            set net 49.0001.1920.0000.2255.00
+        next
+    end
+    config isis-interface
+        edit "loopback"
+            set status enable
+            set status6 enable
+            set network-type loopback
+            set wide-metric-l1 50
+            set wide-metric-l2 50
+        next
+        edit "port6"
+            set status enable
+            set status6 enable
+            set wide-metric-l1 200
+            set wide-metric-l2 200
+        next
+    end
+end
+`;
+
+// A FG-3700D on 6.2.2 took a prefix list for the leak as `entry not found in datasource`. No IS-IS neighbor sent it a level 2 route: IS-IS takes neither a link between VDOMs nor a GRE tunnel.
+test("FortiOS leaks level 2 routes into level 1 through an access list for each family, experimentally, and plans nothing against how the firewall printed them", () => {
+    const fortios = Platforms.get("fortios");
+    const sections = /^config router (?:access-list6?|isis)\n[\s\S]*?^end\n/gm;
+    const render = (isis: Isis) => fortios.render(fortiosLeaking(isis)).match(sections)!.join("");
+    const device = fortiosLeaking({ ...both("10g-2"), level2_to_level1: { import_policy: "loopbacks" } });
+
+    expect(fortios.experimental!(device)).toContain("routing.isis.level2_to_level1");
+    expect(fortios.unsupported(device).filter((gap) => gap.startsWith("routing.isis"))).toEqual([]);
+    expect(sent("fortios", render({ ...both("10g-2"), level2_to_level1: { import_policy: "loopbacks" } }), FORTIOS_LEAK_PRINTED)).toEqual(
+        []
+    );
+
+    // Without IPv6, its leak goes, then its list. The firewall took each line, and planned nothing after.
+    const ipv4: Isis = { ...both("10g-2"), address_families: ["ipv4"], level2_to_level1: { import_policy: "loopbacks" } };
+    expect(sent("fortios", render(ipv4), FORTIOS_LEAK_PRINTED)).toEqual([
+        "config router isis",
+        "unset redistribute6-l2-list",
+        "unset redistribute6-l2",
+        "config isis-interface",
+        'edit "loopback"',
+        "unset status6",
+        "next",
+        'edit "port6"',
+        "unset status6",
+        "next",
+        "end",
+        "end",
+        "config router access-list6",
+        'delete "loopbacks"',
+        "end",
+    ]);
+
+    // Without the leak, both lists go after it.
+    expect(sent("fortios", render(both("10g-2")), FORTIOS_LEAK_PRINTED)).toEqual([
+        "config router isis",
+        "unset redistribute6-l2-list",
+        "unset redistribute6-l2",
+        "unset redistribute-l2-list",
+        "unset redistribute-l2",
+        "end",
+        "config router access-list6",
+        'delete "loopbacks"',
+        "end",
+        "config router access-list",
+        'delete "loopbacks"',
+        "end",
+    ]);
+});
+
+test("FortiOS refuses a prefix length in the leak's policy, which an access list can't match", () => {
+    const device = fortiosLeaking({ ...both("10g-2"), level2_to_level1: { import_policy: "loopbacks" } });
+    const policies = {
+        ...device.routing?.policies,
+        loopbacks: [{ call: "short" }],
+        short: [{ if: { prefix_length: { max: 24 } }, then: "accept" as const }],
+    };
+
+    expect(Platforms.get("fortios").unsupported({ ...device, routing: { ...device.routing, policies } })).toContain(
+        "routing.policies.short[0].if.prefix_length, in routing.isis.level2_to_level1: FortiOS leaks through an access list, which matches no prefix length. Match prefix or prefix_set"
+    );
+});
+
 test("Junos routes IPv6 in a topology of its own with the interface's one metric, experimentally, and plans nothing against how the switch printed it", () => {
     const junos = Platforms.get("junos");
     const single: Isis = { ...core({ passive: true }, "10g-48"), address_families: ["ipv4", "ipv6"] };
