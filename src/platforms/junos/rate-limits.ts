@@ -28,11 +28,11 @@ export class JunosRateLimits {
                 if (input.burst === undefined) found.push(JunosRateLimits.noBurst(`${where}.rate_limit.input`, input.rate));
             }
 
-            if (rateLimit.output && Derive.limit(rateLimit.output).burst !== undefined)
-                found.push(`${where}.rate_limit.output.bc, the platform's port shaper takes no burst: write the rate alone`);
-            if (rateLimit.output && kind === "lag")
-                found.push(`${where}.rate_limit.output, on a LAG the platform shapes each member to the rate`);
-            if (rateLimit.output && kind === "vlan_interface") found.push(`${where}.rate_limit.output, the platform shapes ports only`);
+            // `commit check` passes a port's shaping-rate, but `show class-of-service` marks it ignored (TRAPS.md).
+            if (rateLimit.output)
+                found.push(
+                    `${where}.rate_limit.output, which a QFX5100 doesn't keep: Junos ignores a port's shaping-rate there. Limit it where the traffic comes in, or on the far device`
+                );
             if (rateLimit.per_prefix)
                 found.push(
                     `${where}.rate_limit.per_prefix, which a QFX5100 can't police: Junos ignores prefix-action, its policer for each prefix, there`
