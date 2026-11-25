@@ -98,6 +98,16 @@ system: {
 
 The password keeps working beside the keys. On RouterOS, Circuit writes `/ip ssh password-authentication=yes` for that.
 
+## Host keys
+
+Before it sends a password or a key, Circuit checks the device's SSH host key against `~/.ssh/known_hosts` and `/etc/ssh/ssh_known_hosts`, as OpenSSH does with `StrictHostKeyChecking accept-new`. It checks a console's jump host the same way. The first login to a device adds its key to `~/.ssh/known_hosts` and says so:
+
+```text
+First login to 10.99.0.1: its ED25519 key SHA256:JiA4TR3eOWTrYajJppowRhhBnyWefsh7IYZSuRNttCM is now in ~/.ssh/known_hosts.
+```
+
+After that, Circuit asks the device only for the key types known for it, and refuses a key that matches none of them: someone may be in the middle, posing as the device to take the password. If you replaced or reinstalled the device, remove its old key with `ssh-keygen -R 10.99.0.1`, or `ssh-keygen -R '[10.99.0.1]:2222'` for SSH on another port, and connect again.
+
 ## Prefix sets from a registry
 
 Circuit fetches a prefix set with a `source` each time you run `diff` or `apply`. This one holds every prefix that AS64501 announces, from RIPEstat:

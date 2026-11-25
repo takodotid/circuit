@@ -129,16 +129,23 @@ $port.Close()
     /** Terminal escape sequences: cursor moves, screen clears, character sets, and modes. */
     private static readonly ESCAPES = /\u001b(?:\[[0-9;?]*[A-Za-z]|[()][A-Z0-9]|[=>78c])/g;
 
-    /** A session to a jump host, through `cloudflared access ssh` when it sits behind a Cloudflare Tunnel. */
+    /** A session to a jump host, through `cloudflared access ssh` when it sits behind a Cloudflare Tunnel. Its host key is checked as a device's is. */
     private static connectJump(jump: Jump): Promise<Client> {
         return new Promise((done, fail) => {
+            const port = jump.port ?? Ssh.PORT;
+            const hostKey = Ssh.hostKey(jump.host, port);
             const client = new Client();
-            const login = { username: jump.user, password: Secrets.reveal(jump.password), readyTimeout: Ssh.READY_TIMEOUT_MS };
+            const login = {
+                username: jump.user,
+                password: Secrets.reveal(jump.password),
+                readyTimeout: Ssh.READY_TIMEOUT_MS,
+                ...hostKey.options,
+            };
 
-            client.on("ready", () => done(client)).on("error", fail);
+            client.on("ready", () => done(client)).on("error", (error) => fail(hostKey.explain(error)));
 
             if (!jump.cloudflared) {
-                client.connect({ ...login, host: jump.host, port: jump.port ?? Ssh.PORT });
+                client.connect({ ...login, host: jump.host, port });
                 return;
             }
 

@@ -98,6 +98,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | NetFlow v9                         | Practice: RFC 3954 (Informational)                                                          | `flow_export` `netflow-v9`                     |
 | IPFIX                              | STD 77 (RFC 7011)                                                                           | `flow_export` `ipfix`                          |
 | SSH, user keys                     | RFC 4251 to RFC 4254 (keys: RFC 4252)                                                       | `management.ssh`, user `ssh_keys`              |
+| A device's SSH host key, checked   | RFC 4251 §4.1. Practice: OpenSSH's `known_hosts` with `StrictHostKeyChecking accept-new`    | [How Circuit logs in](/guide/apply#host-keys)  |
 | Certificates in PEM                | RFC 5280 (X.509), RFC 7468 (PEM)                                                            | `system.certificates`                          |
 | Alarm severities                   | ITU-T X.733                                                                                 | `system.alarms`                                |
 | Time zones                         | IANA Time Zone Database (BCP 175, RFC 6557)                                                 | `system.timezone`                              |
