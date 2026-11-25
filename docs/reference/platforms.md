@@ -91,6 +91,8 @@ A note in a cell means "works, with this limit".
 | IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                | ❌                                  | ✅                                                                                            | ✅                                              |
 | uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4    | ❌                                  | ✅ strict                                                                                     | 🧪 strict, one mode for the VDOM                |
 
+A FortiOS tunnel's `remote_identity` stays experimental: in a test between two VDOMs of one FortiGate, the tunnel took a certificate of its CA with another subject. A tunnel with `ca_certificate` alone took a certificate of a CA the VDOM doesn't hold. The other VDOM of the same FortiGate held each of those certificates, which may be why. A test against a peer on another device is still to do.
+
 A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and the routes through it in the VRF, while IKE and ESP leave from `local_address` in the table that holds it. RouterOS runs IKE in the main table only, so a policy-based tunnel there takes no VRF.
 
 ### Routing
@@ -261,7 +263,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
 
 - **RouterOS.** It checks certificates against the lists for the whole router, so each CA of the device takes a `crl_url` once one does. It refuses a certificate that points to the list of its CA while it holds no list of that CA.
-- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet.
+- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet: no HTTP server was in reach of the test VDOMs.
 
 OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
 
