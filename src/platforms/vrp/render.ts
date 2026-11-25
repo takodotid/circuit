@@ -12,6 +12,7 @@ import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
+import { VrpQos } from "./qos";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -144,6 +145,7 @@ export class VrpRender {
         this.ethertypeAclBlocks();
         this.lines.push(...VrpAcls.blocks(device));
         this.lines.push(...VrpMarking.lines(device));
+        this.lines.push(...VrpQos.lines(device));
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
@@ -524,6 +526,7 @@ export class VrpRender {
         if (settings.description) lines.push(`description ${settings.description}`);
         lines.push(...this.switching(settings));
         lines.push(...VrpRender.rateLimitLines(port, settings.rate_limit));
+        lines.push(...VrpQos.portLines(this.device, settings));
         if (settings.lldp === false) lines.push("lldp disable");
         if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
