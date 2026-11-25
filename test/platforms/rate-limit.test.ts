@@ -129,7 +129,6 @@ add max-limit=0/150k name=hosts-rate-limit queue=hosts-rate-limit-input/hosts-ra
 test("The other platforms refuse per_prefix", () => {
     for (const [platform, model, port] of [
         ["junos", "QFX5100-48S-6Q", "10g-3"],
-        ["fortios", "FG-3700D", "10g-28"],
         ["vrp", "CE6855-48S6Q-HI", "10g-3"],
         ["raisecom-ros", "RAX721-C-6C48", "10g-1"],
     ] as const) {

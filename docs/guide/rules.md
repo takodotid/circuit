@@ -95,4 +95,4 @@ FortiOS builds NAT64 and DNS64 behind `--experimental`, and the other platforms 
 
 A DSCP is written by its name in the IANA DSCP registry, such as `ef` (RFC 3246), `af41` (RFC 2597), `cs6` (RFC 2474), or `le` (RFC 8622). RFC 4594 says which DSCP each kind of traffic takes. `pcp` writes a priority, 0 to 7, in the VLAN tag the packet leaves with (IEEE 802.1Q), for the switches on the way. A packet that leaves without a tag carries none.
 
-RouterOS marks, and VRP marks the DSCP only, as an experiment: see [Platforms](/reference/platforms). A device that sends each class from its own queue sorts packets by the DSCP they leave with, after marking, or by the `class` a marking rule gives them: see [Quality of service](/guide/qos).
+RouterOS marks, FortiOS marks the DSCP of each session, and VRP marks the DSCP only, as an experiment: see [Platforms](/reference/platforms). A device that sends each class from its own queue sorts packets by the DSCP they leave with, after marking, or by the `class` a marking rule gives them: see [Quality of service](/guide/qos).
