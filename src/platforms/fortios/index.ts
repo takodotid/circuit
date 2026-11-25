@@ -357,6 +357,13 @@ export class FortiOs extends Platform {
         }
     }
 
+    /** Any command prints a password or a key as an `ENC` cipher, and a key chain's key or a certificate's key in clear. */
+    override scrubOutput(text: string): string {
+        return text
+            .replace(/\bENC \S+/g, "ENC <redacted>")
+            .replace(new RegExp(`^(\\s*set (?:${[...FortiOsPlan.SECRET_KEYS].join("|")}) )(?:"[^"]*"|\\S+)`, "gm"), '$1"<redacted>"');
+    }
+
     /** The device prints a password or an SNMPv3 key as an `ENC` cipher, a certificate's key encrypted, and the SNMP community and a key chain's key in clear. None leave the read. */
     private static scrub(text: string): string {
         const root = FortiOsTree.parse(text);

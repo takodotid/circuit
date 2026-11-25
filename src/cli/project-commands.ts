@@ -402,7 +402,8 @@ export class ProjectCommands {
                 let output: string;
 
                 try {
-                    output = await Ui.step(command, () => session.run(command, timeout));
+                    const answer = await Ui.step(command, () => session.run(command, timeout));
+                    output = adapter.scrubOutput?.(answer) ?? answer;
                 } catch (error) {
                     output = `stopped: ${(error as Error).message}`;
                     failed = true;

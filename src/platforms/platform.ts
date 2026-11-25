@@ -121,6 +121,8 @@ export abstract class Platform {
     abstract readOnly(command: string): boolean;
     /** Log in for commands that only read, over SSH or the console, as the platform's read does. */
     abstract session(device: Device, options?: ReadOptions): Promise<ReadSession>;
+    /** A command's output as `exec` prints it: the stored credentials a read hides, such as reversible ciphers, hidden too. Absent on a platform whose output holds none. */
+    scrubOutput?(text: string): string;
     /** Each BGP neighbor in the config, in its order, with its live session. Absent on a platform `circuit bgp` doesn't support yet. */
     bgpSessions?(device: Device, session: ReadSession): Promise<BgpSession[]>;
     /** The device's BGP log lines from the last `minutes`, by the device's own clock. */
