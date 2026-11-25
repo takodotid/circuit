@@ -78,7 +78,7 @@ export class Vrp extends Platform {
         first: /^(authentication-mode|network-entity) /,
         canon: Vrp.canon,
         order: Vrp.order,
-        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? Vrp.head(line),
+        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? VrpIsis.head(line) ?? Vrp.head(line),
     };
 
     /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
@@ -402,7 +402,7 @@ export class Vrp extends Platform {
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
-        found.push(...VrpBgp.experimental(device), ...VrpIsis.experimental(device), ...VrpMarking.experimental(device));
+        found.push(...VrpBgp.experimental(device), ...VrpMarking.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -721,7 +721,7 @@ export class Vrp extends Platform {
     /** Secrets the device prints as ciphers and the render writes as markers compare equal. */
     private static canon(line: string): string {
         return line
-            .replace(/((?:password|community read|-mode \S+(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>")
+            .replace(/((?:password|community read|-mode \S+(?: key-id)?(?: \d+)?) )(?:irreversible-)?cipher \S+/g, "$1cipher <secret>")
             .replace(/(shared-key(?:-| )cipher) \S+/g, "$1 <secret>");
     }
 

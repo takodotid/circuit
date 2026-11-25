@@ -1,5 +1,5 @@
 ---
-description: Seven whole projects to copy from, tested on every change to Circuit.
+description: Eight whole projects to copy from, tested on every change to Circuit.
 ---
 
 # Example projects
@@ -107,6 +107,20 @@ Five routers on private IPv4 addresses and the campus's own IPv6 prefix, running
 <<< @/../examples/campus/sites/museum/museum-01.ts
 
 <<< @/../examples/campus/sites/museum/museum-02.ts
+
+:::
+
+## A data center on IS-IS
+
+The first hall of a data center, on private IPv4 addresses and the data center's own IPv6 prefix: its spine switch and a leaf switch, both Huawei CloudEngines that route between VLAN interfaces. IS-IS carries both families, IPv6 in a topology of its own, and BFD watches each link. The leaf is on level 1 of the hall's area, with the hall's key. The spine is on both levels, with a key for each: it joins hall 2's spine at level 2, and leaks hall 2's networks into the hall's area, so a leaf takes the nearest spine to them.
+
+::: code-group
+
+<<< @/../examples/data-center/circuit.ts
+
+<<< @/../examples/data-center/sites/hall-1/spine-11.ts
+
+<<< @/../examples/data-center/sites/hall-1/leaf-11.ts
 
 :::
 

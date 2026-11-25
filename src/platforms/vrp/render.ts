@@ -10,6 +10,7 @@ import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpPolicies } from "./policies";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -456,11 +457,14 @@ export class VrpRender {
         // Binding to a VRF clears the addresses, so it comes first.
         if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
 
-        for (const entry of iface.addresses ?? []) {
-            const address = typeof entry === "string" ? entry : entry.address;
+        // The switch takes an IPv6 address, or IS-IS for IPv6, only once IPv6 is on.
+        const addresses = (iface.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+        if (addresses.some((address) => Address.family(address) === "ipv6") || VrpIsis.runsIpv6(device, name)) lines.push("ipv6 enable");
+
+        for (const address of addresses) {
             if (Address.family(address) === "ipv4")
                 lines.push(`ip address ${Address.host(address)} ${Address.netmask(Address.split(address).len)}`);
-            else lines.push(`ipv6 address ${address}`);
+            else lines.push(`ipv6 address ${VrpPolicies.spell(address)}`);
         }
 
         // Loose, the CloudEngine command reference's only mode on a VLAN interface. `unsupported()` refuses the rest.
@@ -490,7 +494,7 @@ export class VrpRender {
             if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
         }
 
-        lines.push(...VrpIsis.interfaceLines(device, name));
+        lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
         return lines;
     }
 
@@ -615,7 +619,7 @@ export class VrpRender {
         const onOspf = areas.some((area) => Object.values(area.interfaces).some((settings) => settings?.bfd));
         const onStatic = (this.device.routing?.static_routes ?? []).some((route) => route.bfd);
 
-        return onOspf || onStatic;
+        return onOspf || onStatic || VrpIsis.wantsBfd(this.device);
     }
 
     private flowExport(): void {

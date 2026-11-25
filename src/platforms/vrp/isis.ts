@@ -1,7 +1,11 @@
-// IS-IS on VRP: one process, `isis 1`, and the VLAN interfaces that run it. The commands are from Huawei's CloudEngine command reference. A CE6855 on V200R005C00SPC800 committed the process, with no interface, and showed how it prints it (TRAPS.md).
+// IS-IS on VRP: one process, `isis 1`, and the VLAN interfaces that run it. The commands are from Huawei's CloudEngine command reference. A CE6855 on V200R005C00SPC800 committed the process, VLAN interfaces that run it, its keys, and BFD, and showed how it prints them (TRAPS.md).
 
-import type { Device, Isis } from "../../model";
+import { Secrets } from "../../core/secrets";
+import type { Device, Isis, IsisAuthentication } from "../../model";
 import type { Group } from "../line-diff";
+
+/** A level the device runs. */
+type Level = 1 | 2;
 
 export class VrpIsis {
     /** One process per device, as for OSPF. */
@@ -20,6 +24,12 @@ export class VrpIsis {
         ipv6: "ipv6 import-route isis level-2 into level-1 filter-policy route-policy",
     } as const;
 
+    /** Each algorithm the platform signs with. V200R005 has no HMAC-SHA-1: the CE6855 refused `hmac-sha1`. */
+    static readonly AUTH: Partial<Record<IsisAuthentication["algorithm"], string>> = { "hmac-md5": "md5", "hmac-sha-256": "hmac-sha256" };
+
+    /** The process's line that signs a level's LSPs and sequence number packets: level 1's area, and level 2's domain. */
+    private static readonly LEVEL_AUTH: Record<Level, string> = { 1: "area-authentication-mode", 2: "domain-authentication-mode" };
+
     /** The process's header: `isis 1`. */
     private static readonly HEADER = /^isis \d+$/;
 
@@ -30,7 +40,7 @@ export class VrpIsis {
     }
 
     /**
-     * The process: its level, wide metrics, its NET, and the leak for each family. IPv6 shares IPv4's topology (RFC 5308), `topology standard`, unless `multi_topology` gives it its own, `topology ipv6`. The switch prints the IPv6 lines in a section of their own, after ` #`, which the read ignores.
+     * The process: its level, wide metrics, its NET, each level's key, and the leak for each family. IPv6 shares IPv4's topology (RFC 5308), `topology standard`, unless `multi_topology` gives it its own, `topology ipv6`. The switch prints the IPv6 lines in a section of their own, after ` #`, which the read ignores.
      */
     static lines(device: Device): string[] {
         const isis = device.routing?.isis;
@@ -40,10 +50,14 @@ export class VrpIsis {
         const policy = isis.level2_to_level1?.import_policy;
         const ipv4 = isis.address_families.includes("ipv4");
         const ipv6 = isis.address_families.includes("ipv6");
+        const keys = Object.entries(VrpIsis.keys(isis)).map(
+            ([at, key]) => `${VrpIsis.LEVEL_AUTH[Number(at) as Level]} ${VrpIsis.signed(key)}`
+        );
         const lines = [
             ...(level ? [`is-level ${level}`] : []),
             "cost-style wide",
             `network-entity ${isis.net}`,
+            ...keys,
             ...(policy && ipv4 ? [`${VrpIsis.LEAK.ipv4} ${policy}`] : []),
             ...(isis.overload_bit ? ["set-overload"] : []),
             ...(ipv6 ? [`ipv6 enable topology ${isis.multi_topology ? "ipv6" : "standard"}`] : []),
@@ -53,14 +67,22 @@ export class VrpIsis {
         return [`isis ${VrpIsis.PROCESS}`, ...lines.map((line) => ` ${line}`), "#"];
     }
 
-    /** A VLAN interface's IS-IS: the process for each family, its link type, its metric, and whether it is silent. In a topology of its own, IPv6 has a metric of its own, which the config's one metric sets too. */
-    static interfaceLines(device: Device, name: string): string[] {
+    /**
+     * A VLAN interface's IS-IS: the process for each family, its link type, its metric, whether it is silent, the key of its hellos, and BFD with `bfd`, the device's timers. In a topology of its own, IPv6 has a metric of its own, which the config's one metric sets too. A hello is signed with the key of its level, or with the one key when both levels have it.
+     */
+    static interfaceLines(device: Device, name: string, bfd: readonly string[]): string[] {
         const isis = device.routing?.isis;
         const settings = isis?.interfaces[name];
         if (!isis || !(name in isis.interfaces)) return [];
 
         const families = isis.address_families;
         const metric = settings?.metric;
+        const keys = Object.entries(VrpIsis.keys(isis)).map(([level, key]) => [level, VrpIsis.signed(key)] as const);
+        const oneKey = new Set(keys.map(([, signed]) => signed)).size === 1;
+        const hellos = oneKey
+            ? [`isis authentication-mode ${keys[0]![1]}`]
+            : keys.map(([level, signed]) => `isis authentication-mode ${signed} level-${level}`);
+
         return [
             ...(families.includes("ipv4") ? [`isis enable ${VrpIsis.PROCESS}`] : []),
             ...(families.includes("ipv6") ? [`isis ipv6 enable ${VrpIsis.PROCESS}`] : []),
@@ -68,17 +90,58 @@ export class VrpIsis {
             ...(metric === undefined ? [] : [`isis cost ${metric}`]),
             ...(metric !== undefined && isis.multi_topology ? [`isis ipv6 cost ${metric}`] : []),
             ...(settings?.passive ? ["isis silent"] : []),
+            ...(keys.length ? hellos : []),
+            ...(settings?.bfd ? ["isis bfd enable", ...bfd] : []),
         ];
+    }
+
+    /** Whether a VLAN interface runs IS-IS for IPv6, which the switch takes only once IPv6 is on there. */
+    static runsIpv6(device: Device, name: string): boolean {
+        const isis = device.routing?.isis;
+        return Boolean(isis && name in isis.interfaces && isis.address_families.includes("ipv6"));
+    }
+
+    /** Whether any interface runs BFD for IS-IS. */
+    static wantsBfd(device: Device): boolean {
+        return Object.values(device.routing?.isis?.interfaces ?? {}).some((settings) => settings?.bfd);
+    }
+
+    /** Each level the device runs that has a key: the level's own, or the device's one key. */
+    private static keys(isis: Isis): Partial<Record<Level, IsisAuthentication>> {
+        const runs: Record<Level, boolean> = { 1: isis.level_capability !== "level-2", 2: isis.level_capability !== "level-1" };
+        const keys: Partial<Record<Level, IsisAuthentication>> = {};
+
+        for (const level of [1, 2] as const) {
+            const key = isis.levels?.[level]?.authentication ?? isis.authentication;
+            if (runs[level] && key && VrpIsis.AUTH[key.algorithm]) keys[level] = key;
+        }
+
+        return keys;
+    }
+
+    /** A key as the platform writes it: its algorithm, the key ID that HMAC-SHA-256 carries, and the key. */
+    private static signed(key: IsisAuthentication): string {
+        const id = key.key_id === undefined ? "" : ` key-id ${key.key_id}`;
+        return `${VrpIsis.AUTH[key.algorithm]}${id} cipher ${Secrets.marker(key.key)}`;
+    }
+
+    /** A hello's key is one setting for each level, and a level's key one setting of the process: a new one is sent over the old. Undefined for any other line. */
+    static head(line: string): string | undefined {
+        const hello = /^isis authentication-mode .*?( level-\d)?$/.exec(line);
+        if (hello) return `isis authentication-mode${hello[1] ?? ""}`;
+        return /^(area|domain)-authentication-mode /.exec(line)?.[0].trim();
     }
 
     /** The lines taken away by their keyword alone, or without the policy they name. Undefined for any other line. */
     static undo(line: string, path: readonly string[]): string | undefined {
         if (line.startsWith("isis circuit-type ")) return "undo isis circuit-type";
+        const hello = /^isis authentication-mode .*?( level-\d)?$/.exec(line);
+        if (hello) return `undo isis authentication-mode${hello[1] ?? ""}`;
         if (!path[0] || !VrpIsis.HEADER.test(path[0])) return undefined;
 
         const leak = /^((?:ipv6 )?import-route isis level-2 into level-1) /.exec(line);
         if (leak) return `undo ${leak[1]}`;
-        const keyword = /^(is-level|cost-style|ipv6 enable) /.exec(line);
+        const keyword = /^(is-level|cost-style|ipv6 enable|area-authentication-mode|domain-authentication-mode) /.exec(line);
         return keyword ? `undo ${keyword[1]}` : undefined;
     }
 
@@ -89,29 +152,32 @@ export class VrpIsis {
         return gone;
     }
 
-    /** What IS-IS can't do here yet. VRP routes on VLAN interfaces only. Authentication and BFD are not built. */
+    /** What IS-IS can't do here. VRP routes on VLAN interfaces only, signs with HMAC-MD5 or HMAC-SHA-256, and sends one hello for both levels on a point-to-point link. */
     static unsupported(device: Device): string[] {
         const isis = device.routing?.isis;
         if (!isis) return [];
 
-        const notBuilt = "not built yet";
         const found: string[] = [];
-        if (isis.authentication) found.push(`routing.isis.authentication, ${notBuilt}`);
-        for (const [level, settings] of Object.entries(isis.levels ?? {}))
-            if (settings?.authentication) found.push(`routing.isis.levels.${level}.authentication, ${notBuilt}`);
+        const keys = [
+            ["routing.isis.authentication", isis.authentication],
+            ["routing.isis.levels.1.authentication", isis.levels?.[1]?.authentication],
+            ["routing.isis.levels.2.authentication", isis.levels?.[2]?.authentication],
+        ] as const;
+        for (const [where, key] of keys)
+            if (key && !VrpIsis.AUTH[key.algorithm])
+                found.push(`${where}.algorithm ${key.algorithm}, the platform signs IS-IS with hmac-md5 or hmac-sha-256`);
 
+        const signed = new Set(Object.values(VrpIsis.keys(isis)).map((key) => VrpIsis.signed(key)));
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const where = `routing.isis.interfaces.${name}`;
             if (!device.interfaces?.vlan_interface?.[name])
                 found.push(`${where}, not a VLAN interface: the platform routes on VLAN interfaces`);
-            if (settings?.bfd) found.push(`${where}.bfd, ${notBuilt}`);
+            if (settings?.network === "point-to-point" && signed.size > 1)
+                found.push(
+                    `${where}.network point-to-point with a key for each level: the platform signs the one hello it sends there for both levels with one key. Write routing.isis.authentication`
+                );
         }
 
         return found;
-    }
-
-    /** A CE6855 committed the process with no interface. How it prints IS-IS on a VLAN interface is not known. */
-    static experimental(device: Device): string[] {
-        return Object.keys(device.routing?.isis?.interfaces ?? {}).map((name) => `routing.isis.interfaces.${name}`);
     }
 }
