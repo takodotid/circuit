@@ -37,7 +37,7 @@ export type Around = (group: Group) => { before: string[]; after: string[] };
 export class LineDiff {
     /** What a switch prints in place of a secret: the cipher of a password, a community, or a key, and a Raisecom community in clear. Never an algorithm list such as `ssh server cipher`. */
     private static readonly STORED_CREDENTIAL =
-        /((?:password|community read|-mode \S+(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community|shared-key(?:-| )cipher)( +)\S+/gm;
+        /((?:password|community read|-mode \S+(?: key-id)?(?: \d+)?) (?:irreversible-)?cipher|^snmp-server community|shared-key(?:-| )cipher)( +)\S+/gm;
 
     private static indentOf(raw: string): number {
         return raw.length - raw.trimStart().length;

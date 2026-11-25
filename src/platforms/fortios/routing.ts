@@ -721,7 +721,7 @@ export class FortiOsRouting {
         // The FortiOS 6.2 CLI reference lists `password` and `md5` for `auth-mode-l1` and `auth-mode-l2`, and a key chain's key has no algorithm.
         for (const { where, authentication } of Derive.isisAuthentications(device))
             if (authentication.algorithm !== "hmac-md5")
-                found.push(`${where}.algorithm ${authentication.algorithm}, FortiOS 6.2 signs IS-IS with hmac-md5 only`);
+                found.push(`${where}, FortiOS 6.2 signs IS-IS with hmac-md5 only, not ${authentication.algorithm}`);
         // An access list matches a prefix, or what lies inside it, with no range of lengths.
         const leak = routing?.isis?.level2_to_level1?.import_policy;
         for (const name of leak ? FortiOsRouting.called(device, leak) : [])

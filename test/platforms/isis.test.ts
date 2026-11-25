@@ -712,7 +712,7 @@ test("Junos 21.4 refuses HMAC-SHA2 and a key ID over 63, FortiOS 6.2 signs IS-IS
 
     const fortios = withIsis("platforms--example-firewall", { ...core({}, "10g-2"), authentication: sha1 });
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
-        "routing.isis.authentication.algorithm hmac-sha-1, FortiOS 6.2 signs IS-IS with hmac-md5 only"
+        "routing.isis.authentication, FortiOS 6.2 signs IS-IS with hmac-md5 only, not hmac-sha-1"
     );
 
     const device = withIsis("platforms--example-router", { ...core({}, "uplink"), authentication: { ...sha1, key_id: 65_536 } });

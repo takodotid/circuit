@@ -1,4 +1,4 @@
-// IS-IS on VRP, tried on a CE6855 on V200R005C00SPC800 with a process that has no interface, so it formed no adjacency. Circuit's plan from nothing was committed with `commit trial`, and the plan after it was empty. A change and the removal went into a candidate during the trial, and were cleared. `PRINTED` is what the switch printed, with the names of this file.
+// IS-IS's process on VRP, tried on a CE6855 on V200R005C00SPC800 with no interface, so it formed no adjacency. Circuit's plan from nothing was committed with `commit trial`, and the plan after it was empty. A change and the removal went into a candidate during the trial. `PRINTED` is what the switch printed, with the names of this file.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -157,7 +157,7 @@ test("VRP adds a new NET before it undoes the old one, changes a leak's policy a
     );
 });
 
-test("VRP runs IS-IS on VLAN interfaces, which is experimental, and refuses what it does not build", () => {
+test("VRP runs IS-IS on VLAN interfaces, with IPv6 on there first, and lets go of both before the process goes", () => {
     const isis: Isis = {
         ...leak,
         level_capability: "level-2",
@@ -169,9 +169,10 @@ test("VRP runs IS-IS on VLAN interfaces, which is experimental, and refuses what
 
     expect(desired).toContain(" is-level level-2\n");
     expect(desired).toContain(
-        "interface Vlanif10\n ip address 192.168.10.2 255.255.255.0\n isis enable 1\n isis ipv6 enable 1\n isis circuit-type p2p\n isis cost 100\n isis ipv6 cost 100\n isis silent\n#"
+        "interface Vlanif10\n ipv6 enable\n ip address 192.168.10.2 255.255.255.0\n isis enable 1\n isis ipv6 enable 1\n isis circuit-type p2p\n isis cost 100\n isis ipv6 cost 100\n isis silent\n#"
     );
-    expect(vrp.experimental(routed(isis))).toEqual(["routing.isis.interfaces.mgmt"]);
+    expect(vrp.unsupported(routed(isis))).toEqual([]);
+    expect(vrp.experimental(routed(isis))).toEqual([]);
     // Each VLAN interface lets go of the process before it goes.
     expect(sent(vrp.render(base), desired)).toEqual([
         "interface Vlanif10",
@@ -181,20 +182,28 @@ test("VRP runs IS-IS on VLAN interfaces, which is experimental, and refuses what
         "undo isis circuit-type",
         "undo isis ipv6 enable 1",
         "undo isis enable 1",
+        "undo ipv6 enable",
         "quit",
         "undo isis 1",
         "undo ip ipv6-prefix loopbacks index 10",
         "undo ip ip-prefix loopbacks index 10",
     ]);
+});
 
+test("VRP refuses an algorithm it lacks, a key for each level on a point-to-point link, and IS-IS on a port", () => {
     const refused: Isis = {
-        ...isis,
-        authentication: { algorithm: "hmac-md5", key: { secret: "ISIS_KEY" } },
-        interfaces: { mgmt: { bfd: true }, "10g-2": {} },
+        ...leak,
+        authentication: { algorithm: "hmac-sha-1", key_id: 1, key: { secret: "ISIS_KEY" } },
+        levels: {
+            1: { authentication: { algorithm: "hmac-sha-256", key_id: 1, key: { secret: "ISIS_L1_KEY" } } },
+            2: { authentication: { algorithm: "hmac-md5", key: { secret: "ISIS_L2_KEY" } } },
+        },
+        interfaces: { mgmt: { network: "point-to-point" }, "10g-2": {} },
     };
+
     expect(vrp.unsupported(routed(refused))).toEqual([
-        "routing.isis.authentication, not built yet",
-        "routing.isis.interfaces.mgmt.bfd, not built yet",
+        "routing.isis.authentication.algorithm hmac-sha-1, the platform signs IS-IS with hmac-md5 or hmac-sha-256",
+        "routing.isis.interfaces.mgmt.network point-to-point with a key for each level: the platform signs the one hello it sends there for both levels with one key. Write routing.isis.authentication",
         "routing.isis.interfaces.10g-2, not a VLAN interface: the platform routes on VLAN interfaces",
     ]);
 });
