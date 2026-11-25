@@ -1,10 +1,11 @@
-// Marking on VRP, with Huawei's MQC. Each rule has, for each family, an ACL and a traffic classifier with the ACL and the DSCP a packet arrives with. A behavior sets each DSCP. A policy for each family binds them in order, applied to all the switch receives. A CE6855 on V200R005C00SPC800 took them on a spare port (TRAPS.md).
+// Marking on VRP, with Huawei's MQC. Each rule has, for each family, an ACL and a traffic classifier with the ACL and the DSCP a packet arrives with. A behavior sets each DSCP, and the queue of a class (`VrpQos`). A policy for each family binds them in order, applied to all the switch receives. A CE6855 on V200R005C00SPC800 took them on a spare port (TRAPS.md).
 
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { AclRule, Device, Dscp, Family, MarkingRule, Prefix } from "../../model";
 import type { Group } from "../line-diff";
 import { VrpAcls } from "./acls";
+import { VrpQos } from "./qos";
 
 /** A rule of one family: its number, from 1 in `qos.marking`, and its ACL's lines. */
 type FamilyRule = { number: number; rule: MarkingRule; matches: string[] };
@@ -65,19 +66,28 @@ export class VrpMarking {
             }
         }
 
-        const marked = [...new Set(rules.flatMap((rule) => (rule.then.dscp ? [rule.then.dscp] : [])))];
-        for (const dscp of marked)
-            lines.push(`traffic behavior ${VrpMarking.behavior(dscp)}`, ` remark dscp ${VrpMarking.spell(dscp)}`, "#");
+        // One behavior for each DSCP the rules write, which also sets the queue of the DSCP's class, and one for each rule that gives a class.
+        const behaviors = new Map<string, string[]>();
+        for (const [index, rule] of rules.entries()) {
+            const queue = VrpQos.markedClass(device, rule);
+            const name = VrpMarking.behavior(rule, index + 1);
+            if (!name || behaviors.has(name)) continue;
+            behaviors.set(name, [
+                ...(rule.then.dscp ? [` remark dscp ${VrpMarking.spell(rule.then.dscp)}`] : []),
+                ...(queue ? [` remark local-precedence ${queue}`] : []),
+            ]);
+        }
+        for (const [name, body] of behaviors) lines.push(`traffic behavior ${name}`, ...body, "#");
 
         const applied: string[] = [];
         for (const { family, rules: own } of byFamily) {
-            const bound = own.filter(({ rule }) => rule.then.dscp);
+            const bound = own.filter(({ rule, number }) => VrpMarking.behavior(rule, number));
             if (!bound.length) continue;
 
             lines.push(`traffic policy ${VrpMarking.policy(family)}`);
             bound.forEach(({ number, rule }, at) =>
                 lines.push(
-                    ` classifier ${VrpMarking.classifier(number, family)} behavior ${VrpMarking.behavior(rule.then.dscp!)} precedence ${(at + 1) * VrpMarking.STEP}`
+                    ` classifier ${VrpMarking.classifier(number, family)} behavior ${VrpMarking.behavior(rule, number)} precedence ${(at + 1) * VrpMarking.STEP}`
                 )
             );
             lines.push("#");
@@ -173,9 +183,10 @@ export class VrpMarking {
         return `${VrpMarking.name(number)}-${family}`;
     }
 
-    /** The behavior that sets one DSCP, by its name in the IANA registry: `circuit-dscp-ef`. */
-    private static behavior(dscp: Dscp): string {
-        return `circuit-dscp-${dscp}`;
+    /** The behavior that writes a DSCP, by its name in the IANA registry: `circuit-dscp-ef`. A rule that gives a class has one of its own, named after the rule as its ACL is, since the switch refuses a long name. Undefined for a rule that writes neither. */
+    private static behavior(rule: MarkingRule, number: number): string | undefined {
+        if (rule.then.class !== undefined) return VrpMarking.name(number);
+        return rule.then.dscp ? `circuit-dscp-${rule.then.dscp}` : undefined;
     }
 
     private static policy(family: Family): string {

@@ -127,12 +127,7 @@ add max-limit=0/150k name=hosts-rate-limit queue=hosts-rate-limit-input/hosts-ra
 });
 
 test("The other platforms refuse per_prefix", () => {
-    for (const [platform, model, port] of [
-        ["junos", "QFX5100-48S-6Q", "10g-3"],
-        ["fortios", "FG-3700D", "10g-28"],
-        ["vrp", "CE6855-48S6Q-HI", "10g-3"],
-        ["raisecom-ros", "RAX721-C-6C48", "10g-1"],
-    ] as const) {
+    for (const [platform, model, port] of [["raisecom-ros", "RAX721-C-6C48", "10g-1"]] as const) {
         const sample = device(platform, model, {
             ethernet: { [port]: { access_vlan: "hosts", rate_limit: { per_prefix: { ipv4: 32, ipv6: 64, output: "20M" } } } },
         });
@@ -142,9 +137,19 @@ test("The other platforms refuse per_prefix", () => {
     }
 });
 
-test("Junos polices what arrives on a switched port and shapes what leaves, in the numbers the switch prints", () => {
+// A CE6855 on V200R005C00SPC800 refused `qos car inbound source-ip-address ... per-address` and `ip car` (TRAPS.md).
+test("VRP refuses per_prefix, as the CE6855 has no rate for each address", () => {
+    const sample = device("vrp", "CE6855-48S6Q-HI", {
+        ethernet: { "10g-3": { access_vlan: "hosts", rate_limit: { per_prefix: { ipv4: 32, ipv6: 64, output: "20M" } } } },
+    });
+    expect(Platforms.get("vrp").unsupported(sample)).toContain(
+        "interfaces.ethernet.10g-3.rate_limit.per_prefix, the CE6855 has no rate for each address: its CAR polices a port or a traffic class as a whole"
+    );
+});
+
+test("Junos polices what arrives on a switched port, in the numbers the switch prints", () => {
     const sample = device("junos", "QFX5100-48S-6Q", {
-        ethernet: { "10g-3": { access_vlan: "hosts", rate_limit: { input: { cir: "1500M", bc: 250_000 }, output: "200M" } } },
+        ethernet: { "10g-3": { access_vlan: "hosts", rate_limit: { input: { cir: "1500M", bc: 250_000 } } } },
     });
 
     expect(rateLimits(Platforms.get("junos").unsupported(sample))).toEqual([]);
@@ -156,7 +161,6 @@ test("Junos polices what arrives on a switched port and shapes what leaves, in t
         "set firewall family ethernet-switching filter circuit-rate-limit-xe-0-0-2 term limit then policer circuit-rate-limit-xe-0-0-2",
         "set firewall family ethernet-switching filter circuit-rate-limit-xe-0-0-2 term limit then accept",
         "set interfaces xe-0/0/2 unit 0 family ethernet-switching filter input circuit-rate-limit-xe-0-0-2",
-        "set class-of-service interfaces xe-0/0/2 shaping-rate 200m",
     ])
         expect(text).toContain(line);
 });
@@ -178,9 +182,9 @@ test("Junos refuses a rate without the burst its policer needs, and what it has 
     expect(rateLimits(Platforms.get("junos").unsupported(sample))).toEqual([
         "interfaces.ethernet.10g-3.rate_limit.input with an ingress_acl, the port takes one filter",
         'interfaces.ethernet.10g-3.rate_limit.input without bc, the platform\'s policer needs a burst: write { cir: "200M", bc: 250000 }, 10 ms at the rate, or a burst of your own',
-        "interfaces.ethernet.10g-3.rate_limit.output.bc, the platform's port shaper takes no burst: write the rate alone",
+        "interfaces.ethernet.10g-3.rate_limit.output, which a QFX5100 doesn't keep: Junos ignores a port's shaping-rate there. Limit it where the traffic comes in, or on the far device",
         "interfaces.ethernet.10g-4.rate_limit.input, on a port or LAG that switches no VLAN, which is not built yet",
-        "interfaces.vlan_interface.hosts.rate_limit.output, the platform shapes ports only",
+        "interfaces.vlan_interface.hosts.rate_limit.output, which a QFX5100 doesn't keep: Junos ignores a port's shaping-rate there. Limit it where the traffic comes in, or on the far device",
         'switching.acls.edge[0].rate without bc, the platform\'s policer needs a burst: write { cir: "1G", bc: 1250000 }, 10 ms at the rate, or a burst of your own',
     ]);
 });

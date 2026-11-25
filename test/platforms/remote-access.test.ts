@@ -146,18 +146,13 @@ test("RouterOS refuses a second remote access, a fast path, a name it takes for 
     );
 });
 
-test("Junos, VRP, and Raisecom ROS refuse remote access, since the switches don't encrypt what they forward, and FortiOS hasn't built it yet", () => {
+test("Junos, VRP, and Raisecom ROS refuse remote access, since the switches don't encrypt what they forward", () => {
     for (const fixture of ["platforms--example-aggregation-switch", "platforms--example-switch", "platforms--example-core-switch"]) {
         const device = withAccess(fixture, { staff: ACCESS });
         expect(Platforms.get(device.platform).unsupported(device)).toContainEqual(
             expect.stringMatching(/^services\.ipsec_remote_access, IPsec: .* does not encrypt the traffic it forwards$/)
         );
     }
-
-    const firewall = withAccess("platforms--example-firewall", { staff: ACCESS });
-    expect(Platforms.get("fortios").unsupported(firewall)).toContain(
-        "services.ipsec_remote_access, IPsec remote access, not built yet for FortiOS"
-    );
 });
 
 test("validate takes a pool of IPv4 addresses without the gateway's, whole IPv4 selectors, and RADIUS or a CA, one of the two", () => {

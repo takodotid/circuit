@@ -9,6 +9,8 @@ import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
 import { FortiOsPppoe } from "./pppoe";
+import { FortiOsQos } from "./qos";
+import { FortiOsRemoteAccess } from "./remote-access";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsShaping } from "./shaping";
@@ -41,6 +43,7 @@ export class FortiOsUnsupported {
         for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
         found.push(...FortiOsIpsec.gaps(device));
         found.push(...FortiOsPppoe.gaps(device));
+        found.push(...FortiOsRemoteAccess.gaps(device));
         found.push(...FortiOsRender.sourceCheck(device).gaps);
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
@@ -73,12 +76,16 @@ export class FortiOsUnsupported {
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
-        // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for.
+        // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for, and FortiOsShaping.gaps a rate for each prefix.
         found.push(
             ...Derive.unbuilt(device, [
                 "proxy-arp",
                 "urpf",
                 "rate-limit",
+                "rate-limit-per-prefix",
+                "marking",
+                "marking-class",
+                "queues",
                 "ospf-ranges",
                 "ospf-range-cost",
                 "ospf-priority",
@@ -87,6 +94,13 @@ export class FortiOsUnsupported {
             ])
         );
         found.push(...FortiOsShaping.gaps(device));
+        found.push(...FortiOsQos.gaps(device));
+        (device.qos?.marking ?? []).forEach((rule, index) => {
+            const where = `qos.marking[${index}]`;
+            found.push(...FortiOsUnsupported.listGaps(where, rule.if));
+            if ((rule.if?.src && rule.if.src_address_set) || (rule.if?.dst && rule.if.dst_address_set))
+                found.push(`${where}.if, a prefix and a set on one side`);
+        });
 
         return found;
     }
@@ -649,9 +663,6 @@ export class FortiOsUnsupported {
     private static serviceGaps(device: Device): string[] {
         const found: string[] = [];
         if (device.services?.pppoe_server) found.push("services.pppoe_server, FortiOS has a PPPoE client only, no server");
-        // Dial-up IPsec is a phase 1 of `type dynamic` with `mode-cfg`, and RADIUS users in a user group, which no FortiGate in CI has proven.
-        if (device.services?.ipsec_remote_access)
-            found.push("services.ipsec_remote_access, IPsec remote access, not built yet for FortiOS");
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for FortiOS`);
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {

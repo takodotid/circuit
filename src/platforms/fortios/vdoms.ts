@@ -4,6 +4,7 @@ import type { Device } from "../../model";
 import { Derive } from "../../core/derive";
 import type { Plan, Step } from "../platform";
 import { FortiOsNames } from "./names";
+import { FortiOsQos } from "./qos";
 import { FortiOsNode, FortiOsTree } from "./tree";
 
 /** Where a section lives in multi-VDOM mode: the device's own, or one VDOM's. */
@@ -33,6 +34,9 @@ export class FortiOsVdoms {
 
     /** The interfaces of tunnels, which their own tables create, as the plan compares them: a section of their own, after those tables. */
     static readonly TUNNELS = "system interface, tunnels";
+
+    /** What a scheduler sets on an interface, as the plan compares it: a section of its own, after the shaping profiles it points to. */
+    static readonly SHAPING = "system interface, shaping";
 
     private static readonly INTERFACES = "system interface";
 
@@ -153,8 +157,8 @@ export class FortiOsVdoms {
             : { steps: [], problems: [] };
         const inScope = (scope: Scope, step: Step): Step => ({ ...step, send: FortiOsVdoms.wrap(scope, step.send) });
         const removal = (step: Step) => step.title.endsWith(", removed");
-        const tunnels = (step: Step) => step.title === FortiOsVdoms.TUNNELS;
-        // An IPsec tunnel's interface is global, and root's phase 1 makes it. So the tunnels' interfaces, and the global sections after the interfaces, which may name one, such as NTP's, wait for the VDOMs' additions. The VDOMs' removals wait for them in turn.
+        const tunnels = (step: Step) => step.title === FortiOsVdoms.TUNNELS || step.title === FortiOsVdoms.SHAPING;
+        // An IPsec tunnel's interface is global, and root's phase 1 makes it. So the tunnels' interfaces, what names a VDOM's shaping profile, and the global sections after the interfaces, which may name one, such as NTP's, wait for the VDOMs' additions. The VDOMs' removals wait for them in turn.
         const sections = [...FortiOsVdoms.GLOBAL];
         const later = (step: Step) =>
             tunnels(step) || sections.indexOf(step.title.split(",")[0]!) > sections.indexOf(FortiOsVdoms.INTERFACES);
@@ -232,6 +236,38 @@ export class FortiOsVdoms {
         return root;
     }
 
+    /**
+     * The tree with each interface's scheduler settings moved from `system interface` to a section of their own, after the shaping profiles. An interface that `held` has them for, and that the tree keeps without them, gets an empty entry, so the plan unsets them before its profile goes.
+     */
+    static separateShaping(root: FortiOsNode, held?: FortiOsNode): FortiOsNode {
+        const shaping = new FortiOsNode();
+        const interfaces = root.blocks.get(FortiOsVdoms.INTERFACES);
+
+        for (const entry of interfaces?.entries.values() ?? []) {
+            const settings = FortiOsQos.INTERFACE_SETTINGS.filter((setting) => entry.block.settings.has(setting));
+            if (!settings.length) continue;
+
+            const moved = shaping.entry(FortiOsTree.bare(entry.id));
+            for (const setting of settings) {
+                moved.set(setting, entry.block.settings.get(setting)!);
+                entry.block.settings.delete(setting);
+            }
+        }
+
+        for (const key of held?.blocks.get(FortiOsVdoms.SHAPING)?.entries.keys() ?? [])
+            if (interfaces?.entries.has(key)) shaping.entry(key);
+
+        const sections = [...root.blocks];
+        root.blocks.clear();
+        for (const [section, block] of sections) {
+            root.blocks.set(section, block);
+            if (section === "firewall shaping-profile") root.blocks.set(FortiOsVdoms.SHAPING, shaping);
+        }
+
+        if (!root.blocks.has(FortiOsVdoms.SHAPING)) root.blocks.set(FortiOsVdoms.SHAPING, shaping);
+        return root;
+    }
+
     /** Mistakes in a management VDOM: named `root`, a LAG's port listed instead of the LAG, or a route with no next hop or through an interface outside it. */
     static problems(device: Device): string[] {
         const management = device.system?.vdoms?.management;
@@ -272,6 +308,9 @@ export class FortiOsVdoms {
         const ipsec = [
             ...Object.entries(device.interfaces?.ipsec ?? {}).map(([name, tunnel]) => [`interfaces.ipsec.${name}`, tunnel] as const),
             ...Object.entries(device.firewall?.ipsec ?? {}).map(([name, tunnel]) => [`firewall.ipsec.${name}`, tunnel] as const),
+            ...Object.entries(device.services?.ipsec_remote_access ?? {}).map(
+                ([name, access]) => [`services.ipsec_remote_access.${name}`, access] as const
+            ),
         ];
         for (const [where, tunnel] of ipsec) {
             const outgoing = tunnel && FortiOsNames.holderOf(device, tunnel.local_address);

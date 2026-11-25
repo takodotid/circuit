@@ -25,7 +25,7 @@ export class FortiOsIpsec {
     };
 
     /** How many seconds a phase 1 and a phase 2 key live when nothing says, which `show` doesn't print. */
-    private static readonly DEFAULT_LIFETIME = { ike: 86_400, esp: 43_200 } as const;
+    static readonly DEFAULT_LIFETIME = { ike: 86_400, esp: 43_200 } as const;
 
     /** The fewest and most seconds a phase 1 or phase 2 key lives, `keylife` and `keylifeseconds`. */
     private static readonly LIFETIME = { min: 120, max: 172_800 } as const;
@@ -158,7 +158,7 @@ export class FortiOsIpsec {
     }
 
     /** A phase 2 of the phase 1 `name`, with the ESP SA's algorithms. */
-    private static child(entry: FortiOsNode, name: string, esp: IpsecEsp): FortiOsNode {
+    static child(entry: FortiOsNode, name: string, esp: IpsecEsp): FortiOsNode {
         entry.set("phase1name", FortiOsTree.quote(name)).set("proposal", FortiOsIpsec.espProposal(esp));
         if (esp.pfs_group) entry.set("dhgrp", esp.pfs_group);
         else entry.set("pfs", "disable");
@@ -179,7 +179,7 @@ export class FortiOsIpsec {
     }
 
     /** What a tunnel of either kind can't have: a local address no interface holds, a hash for integrity other than the pseudorandom function's, or a key's lifetime out of range. */
-    private static tunnelGaps(where: string, tunnel: IpsecTunnel, device: Device): string[] {
+    static tunnelGaps(where: string, tunnel: Pick<IpsecTunnel, "ike" | "esp" | "local_address">, device: Device): string[] {
         const found: string[] = [];
         const { ike, esp } = tunnel;
 
@@ -306,7 +306,7 @@ export class FortiOsIpsec {
     }
 
     /** A `gcm` encryption with its pseudorandom function, or a `cbc` one with its hash. */
-    private static ikeProposal(ike: IpsecIke): string {
+    static ikeProposal(ike: IpsecIke): string {
         const encryption = FortiOsIpsec.ENCRYPTION[ike.encryption];
         return ike.integrity ? `${encryption}-${FortiOsIpsec.HASH[ike.integrity]}` : `${encryption}-prf${FortiOsIpsec.HASH[ike.prf]}`;
     }

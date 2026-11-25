@@ -124,7 +124,7 @@ export class FortiOs extends Platform {
         // Option 82 on a relay was applied, read back, changed, and removed on a FortiGate, but no request was relayed to see what it adds.
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {}))
             if (relay.relay_agent_information) found.push(`services.dhcp_relay.${name}.relay_agent_information`);
-        // A tunnel takes the subject in the read back, but no IKE peer has sent a certificate to it.
+        // Between two VDOMs of one FortiGate, a tunnel took a certificate of another subject (TRAPS.md).
         for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
             if (tunnel?.remote_identity) found.push(`interfaces.ipsec.${name}.remote_identity`);
         // A CA's list of revoked certificates is from Fortinet's 6.2 reference: no FortiGate has fetched one.
@@ -132,6 +132,9 @@ export class FortiOs extends Platform {
             if (certificate?.crl_url) found.push(`system.certificates.${name}.crl_url`);
         // Applied, read back, changed, and removed, but no route was seen to leak: IS-IS takes neither a link between VDOMs nor a GRE tunnel, so no neighbor sent one.
         if (device.routing?.isis?.level2_to_level1) found.push("routing.isis.level2_to_level1");
+        // Applied, read back, changed, and removed, but no client used EAP: no RADIUS server was in reach of the test.
+        for (const [name, access] of Object.entries(device.services?.ipsec_remote_access ?? {}))
+            if (access?.radius) found.push(`services.ipsec_remote_access.${name}.radius`);
         // Applied, read back, changed, and removed, but no session came up: 6.2 has no PPPoE server to dial, and no other was in reach.
         for (const [name] of FortiOsPppoe.clients(device)) found.push(`interfaces.pppoe_client.${name}`);
 
