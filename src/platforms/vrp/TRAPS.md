@@ -88,6 +88,13 @@ Seen on a CE6855 running V200R005.
     - An exclusion over the gateway is refused, `The IP address has been configured as a gateway address`, and a static binding of an excluded address, `The IP address has been configured as an excluded address`.
     - A gateway changes only once the network is gone: `Please delete all sections of the pool before modifying the gateway IP address`. `undo network` and `undo ip pool` ask `[Y/N]`, as does `vpn-instance` in a pool that has a network. Circuit removes a pool whose gateway or network changes, and writes it again.
     - `dhcpv6 pool <name>` refuses a name with a `-` (`Wrong parameter`), and takes `ctest_pool6`.
+- OSPF (V200R005C00SPC800, on VLAN interfaces of new VLANs with no ports, committed with `commit trial`, the next plan empty, then rolled back):
+    - `ospf dr-priority 1`, the default, is not printed. `undo ospf dr-priority` and `undo ospf network-type` take no value; with one, `Too many parameters`.
+    - A range prints as sent: `abr-summary <address> <mask>`, then `not-advertise` or `cost <n>`, from 0 to 16777214. It is undone by its address and mask alone.
+    - An NBMA link's neighbors are the process's `peer <address>` lines. `p2mp-peer` and `ospf p2mp-peer` are `Unrecognized command` in a VLAN interface's view.
+    - A virtual link is `vlink-peer <router ID>` in the view of the area it crosses, printed as sent, with no timers.
+    - On an NBMA or point-to-multipoint link, `display ospf interface` shows hello 30 s and dead 120 s when none is set, and a broadcast link 10 s and 40 s.
+    - `undo ospf 1 router-id <id>` is `Too many parameters`. The process goes with `undo ospf 1`, which asks `[Y/N]`.
 - IS-IS (V200R005C00SPC800, a process with no interface committed with `commit trial`, the next plan empty, then rolled back):
     - `import-route isis level-2 into level-1 filter-policy route-policy <name>`, and its `ipv6` twin, are refused while the route-policy does not exist: `The specified route-policy does not exist`. Circuit writes route-policies before IS-IS.
     - The process prints its IPv6 lines after its others, between two indented ` #` lines, which the read skips. `is-level level-1-2`, the default, is not printed. `ipv6 enable` without a topology is IPv6's own topology; `topology standard` shares IPv4's.

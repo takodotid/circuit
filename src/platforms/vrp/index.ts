@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, OspfAuthentication, Port, VlanInterface } from "../../model";
+import type { Device, Lag, Port, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -20,6 +20,7 @@ import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpOspf } from "./ospf";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -61,7 +62,7 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
@@ -203,15 +204,7 @@ export class Vrp extends Platform {
         for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for VRP yet`);
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
         if (routing?.rpki) found.push("routing.rpki");
-        // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
-        if (routing?.ospf?.vrf) found.push("routing.ospf.vrf, not built yet");
-        if (routing?.ospf?.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
-
-        for (const { where, authentication } of Vrp.ospfAuthentications(device)) {
-            if (!VrpRender.OSPF_AUTH[authentication.algorithm])
-                found.push(`${where}.algorithm ${authentication.algorithm}, the platform signs OSPF with md5 or hmac-sha-256`);
-            if (authentication.key_id === 0) found.push(`${where}.key_id 0, the platform numbers keys from 1`);
-        }
+        found.push(...VrpOspf.unsupported(device));
         if (routing?.router_id && !routing.ospf && !routing.bgp)
             found.push("routing.router_id without routing.ospf or routing.bgp, only they use it here");
 
@@ -359,7 +352,19 @@ export class Vrp extends Platform {
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
         found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
-        found.push(...Derive.unbuilt(device, ["urpf", "rate-limit", "marking"]), ...VrpMarking.unsupported(device));
+        found.push(
+            ...Derive.unbuilt(device, [
+                "urpf",
+                "rate-limit",
+                "marking",
+                "ospf-ranges",
+                "ospf-range-cost",
+                "ospf-priority",
+                "ospf-unicast-links",
+                "ospf-virtual-links",
+            ]),
+            ...VrpMarking.unsupported(device)
+        );
 
         for (const { where, kind, rateLimit } of Derive.rateLimited(device)) {
             if (kind === "vlan_interface") found.push(`${where}.rate_limit, on a VLAN interface, which is not built yet`);
@@ -393,7 +398,7 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and OSPF's area types, timers, and authentication. So is a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and some of OSPF (`VrpOspf`). So is a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
@@ -412,18 +417,7 @@ export class Vrp extends Platform {
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan`);
         }
 
-        for (const [areaId, area] of Object.entries(device.routing?.ospf?.areas ?? {})) {
-            const where = `routing.ospf.areas.${areaId}`;
-            for (const key of ["type", "no_summaries", "stub_default_cost"] as const)
-                if (area[key] !== undefined) found.push(`${where}.${key}`);
-
-            for (const [name, settings] of Object.entries(area.interfaces)) {
-                for (const key of ["hello_interval", "dead_interval", "authentication"] as const) {
-                    if (settings?.[key] !== undefined) found.push(`${where}.interfaces.${name}.${key}`);
-                }
-            }
-        }
-
+        found.push(...VrpOspf.experimental(device));
         return found;
     }
 
@@ -450,21 +444,10 @@ export class Vrp extends Platform {
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
-        // A second NET is added beside the first, rather than replacing it.
-        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity) /.test(line)) return line;
+        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links.
+        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer) /.test(line)) return line;
 
         return LineDiff.head(line);
-    }
-
-    /** Each OSPF interface's authentication, with where it is written. */
-    private static ospfAuthentications(device: Device): { where: string; authentication: OspfAuthentication }[] {
-        return Object.entries(device.routing?.ospf?.areas ?? {}).flatMap(([areaId, area]) =>
-            Object.entries(area.interfaces).flatMap(([name, settings]) =>
-                settings?.authentication
-                    ? [{ where: `routing.ospf.areas.${areaId}.interfaces.${name}.authentication`, authentication: settings.authentication }]
-                    : []
-            )
-        );
     }
 
     override render(device: Device): string {
@@ -679,7 +662,7 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
-        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpMarking.undo(line);
+        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpOspf.undo(line) ?? VrpMarking.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);

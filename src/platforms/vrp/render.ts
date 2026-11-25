@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Lag, Limit, OspfArea, OspfAuthentication, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
+import type { Device, Lag, Limit, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
@@ -10,6 +10,7 @@ import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
@@ -40,6 +41,9 @@ export class VrpRender {
     /** The BFD multiplier the device uses when the config sets none. It is not printed. */
     private static readonly BFD_MULTIPLIER = 3;
 
+    /** An OSPF interface's DR priority when the config sets none. It is not printed. */
+    private static readonly OSPF_PRIORITY = 1;
+
     /** The syslog port the device uses when the config sets none. It is not printed. */
     private static readonly SYSLOG_PORT = 514;
 
@@ -58,8 +62,13 @@ export class VrpRender {
     /** One process per device. */
     private static readonly OSPF_PROCESS = 1;
 
-    /** `ospf authentication-mode` for each algorithm the platform has. */
-    static readonly OSPF_AUTH: Partial<Record<OspfAuthentication["algorithm"], string>> = { md5: "md5", "hmac-sha-256": "hmac-sha256" };
+    /** `ospf network-type` for each network type. Broadcast is a VLAN interface's own, which the switch does not print. */
+    private static readonly OSPF_NETWORK = {
+        broadcast: undefined,
+        "point-to-point": "p2p",
+        "point-to-multipoint": "p2mp",
+        "non-broadcast": "nbma",
+    } as const satisfies Record<NonNullable<OspfInterface["network"]>, string | undefined>;
 
     /** The sFlow collectors are numbered from here, in the order the config lists them. */
     private static readonly FIRST_COLLECTOR = 1;
@@ -483,12 +492,15 @@ export class VrpRender {
             if (!settings) continue;
 
             if (settings.cost !== undefined) lines.push(`ospf cost ${settings.cost}`);
-            if (settings.network === "point-to-point") lines.push("ospf network-type p2p");
+            const network = settings.network && VrpRender.OSPF_NETWORK[settings.network];
+            if (network) lines.push(`ospf network-type ${network}`);
+            const priority = settings.priority;
+            if (priority !== undefined && priority !== VrpRender.OSPF_PRIORITY) lines.push(`ospf dr-priority ${priority}`);
             if (settings.hello_interval !== undefined) lines.push(`ospf timer hello ${settings.hello_interval}`);
             if (settings.dead_interval !== undefined) lines.push(`ospf timer dead ${settings.dead_interval}`);
             // `unsupported()` refuses the algorithms the platform lacks.
             const authentication = settings.authentication;
-            const mode = authentication && VrpRender.OSPF_AUTH[authentication.algorithm];
+            const mode = authentication && VrpOspf.AUTH[authentication.algorithm];
             if (authentication && mode)
                 lines.push(`ospf authentication-mode ${mode} ${authentication.key_id} cipher ${Secrets.marker(authentication.key)}`);
             if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
@@ -589,7 +601,17 @@ export class VrpRender {
         return [` ${[area.type, ...options].join(" ")}`, ...(cost === undefined ? [] : [` default-cost ${cost}`])];
     }
 
-    /** An area announces the networks of its interfaces, and a passive interface is silent. `unsupported()` refuses IPv6. */
+    /** A border router's summary of an area's range, `abr-summary` with the range's mask. The switch announces a range unless told `not-advertise`. */
+    private static abrSummary(range: NonNullable<OspfArea["ranges"]>[number]): string {
+        const { addr, len } = Address.split(range.prefix);
+        const advertise = range.advertise ? "" : " not-advertise";
+        const cost = range.cost === undefined ? "" : ` cost ${range.cost}`;
+        return ` abr-summary ${addr} ${Address.netmask(len)}${advertise}${cost}`;
+    }
+
+    /**
+     * An area announces the networks of its interfaces, and a passive interface is silent. An NBMA link's neighbors are the process's `peer` lines. A range is summarized in its own area's view, and a virtual link is a `vlink-peer` in the view of the area it crosses. `unsupported()` refuses IPv6.
+     */
     private ospf(): void {
         const device = this.device;
         const ospf = device.routing?.ospf;
@@ -600,15 +622,22 @@ export class VrpRender {
         for (const source of ospf.redistribute ?? []) lines.push(`import-route ${source === "connected" ? "direct" : "static"}`);
 
         const areaLines: string[] = [];
+        const virtualLinks = Object.values(ospf.areas).flatMap((area) => area.virtual_links ?? []);
 
         for (const [areaId, area] of Object.entries(ospf.areas)) {
             areaLines.push(`area ${areaId}`, ...VrpRender.areaType(area));
+            for (const range of area.ranges ?? []) {
+                if (Address.family(range.prefix) === "ipv4") areaLines.push(VrpRender.abrSummary(range));
+            }
 
             for (const [iface, settings] of Object.entries(area.interfaces)) {
                 if (settings?.passive) lines.push(`silent-interface ${this.nameOf(iface)}`);
+                for (const neighbor of settings?.neighbors ?? []) lines.push(`peer ${neighbor}`);
                 for (const prefix of Derive.ipv4Networks(device, iface))
                     areaLines.push(` network ${Address.host(prefix)} ${Address.wildcard(Address.split(prefix).len)}`);
             }
+
+            for (const link of virtualLinks) if (link.transit_area_id === areaId) areaLines.push(` vlink-peer ${link.router_id}`);
         }
 
         this.block(`ospf ${VrpRender.OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}`, [...lines, ...areaLines]);
