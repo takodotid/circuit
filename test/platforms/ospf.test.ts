@@ -268,9 +268,8 @@ test("RouterOS sets a range's advertise and a template's priority and type back,
     ]);
 });
 
-test("VRP and Raisecom ROS refuse ranges, priorities, and point-to-multipoint and NBMA links until one of their devices runs them", () => {
+test("Raisecom ROS refuses ranges, priorities, and point-to-multipoint and NBMA links until one of its devices runs them", () => {
     const fixtures = {
-        vrp: "platforms--example-switch",
         "raisecom-ros": "platforms--example-core-switch",
     };
     const untried = "not built yet, since no device of the platform has run it";
@@ -357,9 +356,8 @@ test("RouterOS unsets a range's cost, and removes a virtual link before its tran
     ]);
 });
 
-test("VRP and Raisecom ROS refuse a virtual link and a range's cost until one of their devices runs them", () => {
+test("Raisecom ROS refuses a virtual link and a range's cost until one of its devices runs them", () => {
     const fixtures = {
-        vrp: "platforms--example-switch",
         "raisecom-ros": "platforms--example-core-switch",
     };
     const untried = "not built yet, since no device of the platform has run it";
