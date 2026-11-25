@@ -48,7 +48,7 @@ A scheduler sends what leaves an interface: one queue for each class. A port, a 
 
 A scheduler shapes what leaves the interface, so it is not written beside `shaping` or `rate_limit.output` on the same interface: write its `rate` instead. Packets the device sends itself go into their class's queue too, except on FortiOS, where they take `default_class`.
 
-Which platforms build schedulers, and what each needs, is on [Platforms](/reference/platforms).
+Which platforms build schedulers, and what each needs, is on [Platforms](/reference/platforms). On a switch such as a CloudEngine, a port has 8 queues and a scheduler has one strict queue.
 
 ## Queue depth and RED
 
