@@ -29,6 +29,8 @@ A class can also list PCPs: the priority in the VLAN tag a packet arrives with (
 
 So a DSCP that a class lists goes before the PCP, as in a switch that trusts both. What `default_class` lists only shows what it holds. A packet that arrives without a tag has PCP 0, as IEEE 802.1Q gives it its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class.
 
+FortiOS sorts sessions, not packets. The first packet of a session picks the class of every packet of it, both ways, and a marking rule marks the packets that go the way of that first packet. So a reply takes the class of its request, whatever DSCP it carries. The firewall's own traffic takes `default_class`.
+
 ## What a port keeps
 
 A device keeps the DSCP of a packet it routes, unless a marking rule changes it. To overwrite what a port lets in, such as a customer that marks everything EF, write a [marking](/guide/rules#marking) rule with `in_interface` that sets the DSCP you trust. A VLAN tag ends at the router, so a routed packet leaves with the PCP a marking rule sets. Trust settings for each port, as a switch chip has them, are not built: [Platforms](/reference/platforms#firewall-and-services) says why.
@@ -44,7 +46,7 @@ A scheduler sends what leaves an interface: one queue for each class. A port, a 
 - A **weighted** queue's `share` is its part of what the strict queues leave, in percent. The shares of a scheduler add up to 100. When a queue sends less than its share, the others take the rest.
 - Each scheduler has one queue for each class, so no class is left out. `validate` says which class has none.
 
-A scheduler shapes what leaves the interface, so it is not written beside `shaping` or `rate_limit.output` on the same interface: write its `rate` instead. Packets the device sends itself go into their class's queue too.
+A scheduler shapes what leaves the interface, so it is not written beside `shaping` or `rate_limit.output` on the same interface: write its `rate` instead. Packets the device sends itself go into their class's queue too, except on FortiOS, where they take `default_class`.
 
 Which platforms build schedulers, and what each needs, is on [Platforms](/reference/platforms). On a switch such as a CloudEngine, a port has 8 queues and a scheduler has one strict queue.
 

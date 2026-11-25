@@ -21,6 +21,7 @@ import { FortiOsFirewall } from "./firewall";
 import { FortiOsIpsec } from "./ipsec";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
+import { FortiOsQos } from "./qos";
 import { FortiOsShaping } from "./shaping";
 import { FortiOsNames } from "./names";
 import { FortiOsPppoe } from "./pppoe";
@@ -119,6 +120,8 @@ export class FortiOsRender {
         "firewall policy",
         "firewall policy6",
         "firewall shaper traffic-shaper",
+        "firewall traffic-class",
+        "firewall shaping-profile",
         "firewall shaping-policy",
         "firewall local-in-policy",
         "firewall local-in-policy6",
@@ -358,6 +361,7 @@ export class FortiOsRender {
         FortiOsRender.helpers(section("system session-helper"), device);
         FortiOsFirewall.render(root, device);
         FortiOsShaping.render(root, device);
+        FortiOsQos.render(root, device);
         FortiOsRender.managementVdom(root, device);
         if (Object.values(device.interfaces?.vlan_interface ?? {}).some((iface) => iface?.proxy_arp?.length))
             FortiOsRender.proxyArp(root.block("system proxy-arp"), device);

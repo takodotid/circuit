@@ -281,10 +281,7 @@ test("RouterOS refuses a scheduler it can't build, or whose packets would skip t
 });
 
 test("every other platform refuses classes and schedulers, which it does not build", () => {
-    for (const [platform, model, port] of [
-        ["fortios", "FG-3700D", "10g-1"],
-        ["raisecom-ros", "RAX721-C-6C48", "1g-1"],
-    ] as const)
+    for (const [platform, model, port] of [["raisecom-ros", "RAX721-C-6C48", "1g-1"]] as const)
         expect(queues(Platforms.get(platform).unsupported(device(platform, model, port)))).toEqual([
             "qos.classes, which the platform does not build",
             "qos.default_class, which the platform does not build",

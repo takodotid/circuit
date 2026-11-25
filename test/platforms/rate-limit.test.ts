@@ -127,10 +127,7 @@ add max-limit=0/150k name=hosts-rate-limit queue=hosts-rate-limit-input/hosts-ra
 });
 
 test("The other platforms refuse per_prefix", () => {
-    for (const [platform, model, port] of [
-        ["fortios", "FG-3700D", "10g-28"],
-        ["raisecom-ros", "RAX721-C-6C48", "10g-1"],
-    ] as const) {
+    for (const [platform, model, port] of [["raisecom-ros", "RAX721-C-6C48", "10g-1"]] as const) {
         const sample = device(platform, model, {
             ethernet: { [port]: { access_vlan: "hosts", rate_limit: { per_prefix: { ipv4: 32, ipv6: 64, output: "20M" } } } },
         });
