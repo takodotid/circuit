@@ -18,6 +18,7 @@ import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
+import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpOspf } from "./ospf";
@@ -69,7 +70,7 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -90,11 +91,13 @@ export class Vrp extends Platform {
         /^traffic policy /,
         /^diffserv domain /,
         /^$/,
+        /^bridge-domain /,
         /^route-policy /,
         /^isis /,
         /^interface Eth-Trunk/,
-        /^interface (?!Vlanif)/,
+        /^interface (?!Vlanif|Nve)/,
         /^interface Vlanif/,
+        /^interface Nve/,
         /^ospf /,
         /^bgp /,
     ];
@@ -183,7 +186,8 @@ export class Vrp extends Platform {
             else if (kind === "pseudowire") found.push(`${where}, a pseudowire, not built yet`);
             else if (kind === "pppoe_client")
                 found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
-            else if (kind !== "vlan_interface" && kind !== "lag") found.push(`${where}, a ${kind}`);
+            else if (kind === "vxlan" && !("evpn" in settings && settings.evpn)) found.push(`${where}, a VXLAN without EVPN`);
+            else if (kind !== "vlan_interface" && kind !== "lag" && kind !== "vxlan") found.push(`${where}, a ${kind}`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
             if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not tested`);
@@ -202,8 +206,7 @@ export class Vrp extends Platform {
         found.push(...VrpIsis.unsupported(device));
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
-        // Huawei's VXLAN guide for CloudEngine switches in V200R005C00 sets up BGP EVPN, under a VXLAN license. No switch here has run it.
-        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for VRP yet`);
+        found.push(...VrpEvpn.unsupported(device));
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
         if (routing?.rpki) found.push("routing.rpki");
         found.push(...VrpOspf.unsupported(device));
@@ -413,7 +416,12 @@ export class Vrp extends Platform {
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
-        found.push(...VrpBgp.experimental(device), ...VrpMarking.experimental(device), ...VrpQos.experimental(device));
+        found.push(
+            ...VrpBgp.experimental(device),
+            ...VrpMarking.experimental(device),
+            ...VrpQos.experimental(device),
+            ...Derive.evpn(device)
+        );
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -499,7 +507,8 @@ export class Vrp extends Platform {
         VrpMarking.order(groups);
         const domains = VrpQos.order(groups, desired, Vrp.DIALECT);
         const keys = Vrp.keySteps(groups, desired, current);
-        if (keys.problems.length) return { steps: [], problems: keys.problems };
+        const problems = [...keys.problems, ...VrpEvpn.problems(desired, current, Vrp.DIALECT)];
+        if (problems.length) return { steps: [], problems };
 
         const top = groups.find((group) => group.path.length === 0);
         const removedBatch = top?.remove.find((line) => line.startsWith("vlan batch ")) ?? "";

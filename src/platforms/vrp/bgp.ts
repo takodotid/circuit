@@ -44,6 +44,7 @@ export class VrpBgp {
             ...others,
             ...neighbors.flatMap((neighbor) => {
                 const settings = VrpBgp.settingsOf(device, neighbor);
+                if (!VrpBgp.unicast(settings, neighbor)) return [];
                 return [settings.import_policy ?? VrpPolicies.REJECT_ALL, settings.export_policy ?? VrpPolicies.REJECT_ALL];
             }),
         ]);
@@ -224,6 +225,7 @@ export class VrpBgp {
         const routerId = device.routing?.router_id;
         const lines = [`bgp ${bgp.asn}`, ...(routerId ? [` router-id ${routerId}`] : [])];
         const families: Record<Family, string[]> = { ipv4: [], ipv6: [] };
+        const evpn: string[] = [];
 
         for (const prefix of bgp.originated_prefixes ?? []) {
             const { addr, len, family } = Address.split(prefix);
@@ -238,7 +240,10 @@ export class VrpBgp {
             const family = Address.family(neighbor.address);
 
             lines.push(...VrpBgp.session(device, peer, settings).map((line) => ` ${line}`));
-            families[family].push(...VrpBgp.exchange(peer, settings));
+            // An IPv4 session exchanges IPv4 routes until told not to.
+            if (VrpBgp.unicast(settings, neighbor)) families[family].push(...VrpBgp.exchange(peer, settings));
+            else if (family === "ipv4") families.ipv4.push(`undo ${peer} enable`);
+            if (Derive.carriesEvpn(settings)) evpn.push(`${peer} enable`);
         }
 
         const clients = neighbors.some((neighbor) => VrpBgp.settingsOf(device, neighbor).route_reflector_client);
@@ -249,8 +254,15 @@ export class VrpBgp {
             if (bgp.cluster_id && clients) families[family].push(`reflector cluster-id ${bgp.cluster_id}`);
             lines.push(" #", ` ${VrpBgp.FAMILY_VIEW[family]}`, ...families[family].map((line) => `  ${line}`));
         }
+        // The switch takes only the EVPN routes whose targets a segment imports, `policy vpn-target`, its default, which it prints.
+        if (evpn.length) lines.push(" #", " l2vpn-family evpn", "  policy vpn-target", ...evpn.map((line) => `  ${line}`));
 
         return [...lines, "#"];
+    }
+
+    /** Whether a session exchanges the routes of its address's family: it does unless `address_families` leaves that family out. */
+    private static unicast(settings: NeighborSettings, neighbor: Neighbor): boolean {
+        return Derive.unicastFamilies(settings, neighbor.address).includes(Address.family(neighbor.address));
     }
 
     /** A session's own lines, in the order the switch prints them. */
@@ -300,9 +312,15 @@ export class VrpBgp {
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
 
         const family = Address.family(neighbor.address);
-        const families = settings.address_families ?? [family];
-        if (families.length !== 1 || families[0] !== family)
-            found.push(`${where}.address_families, a session carries the family of the neighbor's address only here`);
+        const families = (settings.address_families ?? [family]).filter((each) => each !== "l2vpn-evpn" || family === "ipv4");
+        if (families.some((each) => each !== family && each !== "l2vpn-evpn"))
+            found.push(`${where}.address_families, a session carries the family of the neighbor's address, and l2vpn-evpn, only here`);
+        if (Derive.carriesEvpn(settings) && family === "ipv6")
+            found.push(`${where}.address_families l2vpn-evpn, from an IPv6 address: not built yet`);
+        if (Derive.carriesEvpn(settings) && settings.route_reflector_client)
+            found.push(`${where}.route_reflector_client beside l2vpn-evpn, ${notBuilt}`);
+        if (Derive.carriesEvpn(settings) && settings.max_prefixes !== undefined)
+            found.push(`${where}.max_prefixes beside l2vpn-evpn, ${notBuilt}`);
 
         const limit = Derive.prefixLimit(settings);
         if (limit?.warn_only)
