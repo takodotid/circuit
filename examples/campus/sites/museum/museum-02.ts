@@ -17,11 +17,7 @@ export default campus.device({
 
     interfaces: {
         ethernet: {
-            "1g-1": {
-                description: "museum-01 ether3, the fiber to the entrance hall",
-                addresses: ["10.255.2.2/30"],
-                link: { device: "museum-01", port: "1g-2" },
-            },
+            "1g-1": { description: "museum-01 10GE1/0/2, the fiber to the entrance hall", addresses: ["10.255.2.2/30"] },
             "1g-2": { description: "Galleries switch", addresses: ["10.4.1.1/24"] },
         },
         loopback: { loopback: { addresses: ["10.255.0.5/32"] } },
