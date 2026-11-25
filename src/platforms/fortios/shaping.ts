@@ -48,6 +48,11 @@ export class FortiOsShaping {
         for (const { where, name, rateLimit } of Derive.rateLimited(device)) {
             if (FortiOsNames.isTransparent(device)) found.push(`${where}.rate_limit in transparent mode, which is not built yet`);
             if (management.has(name)) found.push(`${where}.rate_limit on an interface of the management VDOM, which is not built yet`);
+            // A per-IP shaper counts every packet of a session, both ways, against the address that started it (TRAPS.md).
+            if (rateLimit.per_prefix)
+                found.push(
+                    `${where}.rate_limit.per_prefix, FortiOS 6.2's per-IP shaper counts a session by the address that started it, so a session from outside would count against the far end`
+                );
 
             for (const direction of ["input", "output"] as const) {
                 const limit = rateLimit[direction];

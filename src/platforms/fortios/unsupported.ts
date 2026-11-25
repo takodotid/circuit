@@ -9,6 +9,7 @@ import { FortiOsNames } from "./names";
 import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
 import { FortiOsPppoe } from "./pppoe";
+import { FortiOsQos } from "./qos";
 import { FortiOsRemoteAccess } from "./remote-access";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
@@ -75,12 +76,16 @@ export class FortiOsUnsupported {
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
-        // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for.
+        // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for, and FortiOsShaping.gaps a rate for each prefix.
         found.push(
             ...Derive.unbuilt(device, [
                 "proxy-arp",
                 "urpf",
                 "rate-limit",
+                "rate-limit-per-prefix",
+                "marking",
+                "marking-class",
+                "queues",
                 "ospf-ranges",
                 "ospf-range-cost",
                 "ospf-priority",
@@ -89,6 +94,13 @@ export class FortiOsUnsupported {
             ])
         );
         found.push(...FortiOsShaping.gaps(device));
+        found.push(...FortiOsQos.gaps(device));
+        (device.qos?.marking ?? []).forEach((rule, index) => {
+            const where = `qos.marking[${index}]`;
+            found.push(...FortiOsUnsupported.listGaps(where, rule.if));
+            if ((rule.if?.src && rule.if.src_address_set) || (rule.if?.dst && rule.if.dst_address_set))
+                found.push(`${where}.if, a prefix and a set on one side`);
+        });
 
         return found;
     }

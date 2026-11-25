@@ -249,13 +249,6 @@ test("RouterOS gives a packet a marking rule's class: a mark of the class's name
     );
 });
 
-test("VRP marks a DSCP, but sets no class", () => {
-    const sample = device("vrp", "CE6855-48S6Q-HI", "10g-1", {
-        qos: { classes: CLASSES, marking: [{ then: { dscp: "ef", class: "voice" } }] },
-    });
-    expect(queues(Platforms.get("vrp").unsupported(sample))).toContain("qos.marking[0].then.class, not built yet");
-});
-
 test("RouterOS refuses a scheduler it can't build, or whose packets would skip the queues", () => {
     const sample = device("routeros", "CCR2216-1G-12XS-2XQ", "25g-1", {
         system: { users: {}, hardware_offload: true },
@@ -288,11 +281,7 @@ test("RouterOS refuses a scheduler it can't build, or whose packets would skip t
 });
 
 test("every other platform refuses classes and schedulers, which it does not build", () => {
-    for (const [platform, model, port] of [
-        ["fortios", "FG-3700D", "10g-1"],
-        ["vrp", "CE6855-48S6Q-HI", "10g-1"],
-        ["raisecom-ros", "RAX721-C-6C48", "1g-1"],
-    ] as const)
+    for (const [platform, model, port] of [["raisecom-ros", "RAX721-C-6C48", "1g-1"]] as const)
         expect(queues(Platforms.get(platform).unsupported(device(platform, model, port)))).toEqual([
             "qos.classes, which the platform does not build",
             "qos.default_class, which the platform does not build",

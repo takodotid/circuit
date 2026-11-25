@@ -21,6 +21,7 @@ import { VrpDhcp } from "./dhcp";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpOspf } from "./ospf";
+import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
 
 export class Vrp extends Platform {
@@ -43,9 +44,9 @@ export class Vrp extends Platform {
         "!",
         "device ",
         "system resource",
-        "drop-profile",
+        "drop-profile default",
         "dcb ",
-        "diffserv domain",
+        "diffserv domain default",
         "vlan reserved",
         "interface MEth",
         "interface NULL",
@@ -68,7 +69,7 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -82,11 +83,12 @@ export class Vrp extends Platform {
         head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? VrpIsis.head(line) ?? VrpOspf.head(line) ?? Vrp.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy, then the DiffServ domain ports trust. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
         /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
         /^traffic (classifier|behavior) /,
         /^traffic policy /,
+        /^diffserv domain /,
         /^$/,
         /^route-policy /,
         /^isis /,
@@ -356,14 +358,18 @@ export class Vrp extends Platform {
             ...Derive.unbuilt(device, [
                 "urpf",
                 "rate-limit",
+                "rate-limit-per-prefix",
                 "marking",
+                "marking-class",
+                "queues",
                 "ospf-ranges",
                 "ospf-range-cost",
                 "ospf-priority",
                 "ospf-unicast-links",
                 "ospf-virtual-links",
             ]),
-            ...VrpMarking.unsupported(device)
+            ...VrpMarking.unsupported(device),
+            ...VrpQos.unsupported(device)
         );
 
         for (const { where, kind, rateLimit } of Derive.rateLimited(device)) {
@@ -407,7 +413,7 @@ export class Vrp extends Platform {
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
-        found.push(...VrpBgp.experimental(device), ...VrpMarking.experimental(device));
+        found.push(...VrpBgp.experimental(device), ...VrpMarking.experimental(device), ...VrpQos.experimental(device));
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -491,6 +497,7 @@ export class Vrp extends Platform {
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
         VrpMarking.order(groups);
+        const domains = VrpQos.order(groups, desired, Vrp.DIALECT);
         const keys = Vrp.keySteps(groups, desired, current);
         if (keys.problems.length) return { steps: [], problems: keys.problems };
 
@@ -522,30 +529,19 @@ export class Vrp extends Platform {
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
 
-        if (lastRemovals.length) {
-            planned.push({
-                title: "ACLs no longer used",
-                show: lastRemovals.map((line) => `- ${line}`),
-                send: lastRemovals.map((line) => Vrp.undo(line)),
-            });
-        }
-
-        if (isis.length)
-            planned.push({
-                title: "IS-IS no longer used",
-                show: isis.map((line) => `- ${line}`),
-                send: isis.map((line) => Vrp.undo(line)),
-            });
-
-        if (unused.length) {
-            planned.push({
-                title: "Route policies and lists no longer used",
-                show: unused.map((line) => `- ${line}`),
-                send: unused.map((line) => Vrp.undo(line)),
-            });
-        }
+        planned.push(
+            ...Vrp.removal("ACLs no longer used", lastRemovals),
+            ...Vrp.removal("DiffServ domains no longer used", domains),
+            ...Vrp.removal("IS-IS no longer used", isis),
+            ...Vrp.removal("Route policies and lists no longer used", unused)
+        );
 
         return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
+    }
+
+    /** A step that removes what is no longer used, after the steps that let go of it. None when nothing goes. */
+    private static removal(title: string, lines: string[]): Step[] {
+        return lines.length ? [{ title, show: lines.map((line) => `- ${line}`), send: lines.map((line) => Vrp.undo(line)) }] : [];
     }
 
     override async apply(device: Device, _network: readonly Device[], plan: Plan, options: ApplyOptions): Promise<void> {
@@ -662,7 +658,7 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
-        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpOspf.undo(line) ?? VrpMarking.undo(line);
+        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpOspf.undo(line) ?? VrpMarking.undo(line) ?? VrpQos.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
