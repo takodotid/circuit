@@ -208,8 +208,7 @@ export class RaisecomRos extends Platform {
                 .join("\n")
                 .replace(/^!(System (up )?time|Boot times):.*\n/gm, "")
                 .trim();
-            // An SNMPv3 user prints localized keys, which authenticate as well as the passphrase.
-            return LineDiff.scrub(`${text}\n`).replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>");
+            return RaisecomRos.hideKeys(`${text}\n`);
         } finally {
             close();
         }
@@ -262,6 +261,15 @@ export class RaisecomRos extends Platform {
     }
 
     /** A `<port> has N remotes:` line per port, then a block per remote of `Key: value` lines. A long value wraps onto lines that start with spaces, cut mid-word. A remote without a system name is named by its chassis ID. A port the catalog does not have, such as the out-of-band port, is left out. */
+    override scrubOutput(text: string): string {
+        return RaisecomRos.hideKeys(text);
+    }
+
+    /** Stored credentials print as ciphers, and an SNMPv3 user's localized keys, which authenticate as well as the passphrase, in clear. */
+    private static hideKeys(text: string): string {
+        return LineDiff.scrub(text).replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>");
+    }
+
     static lldpRemotes(text: string, device: Device): Neighbor[] {
         const tidy = (port: string) => port.replace(/\s+/g, "").toLowerCase();
         const ports = new Map(

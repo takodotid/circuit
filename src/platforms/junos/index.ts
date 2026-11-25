@@ -608,6 +608,10 @@ export class Junos extends Platform {
         return BgpHealth.check(this, device, options);
     }
 
+    override scrubOutput(text: string): string {
+        return Junos.scrub(text);
+    }
+
     /** The device prints a password as a hash, an SNMP key as a reversible cipher, and a community and a trap group, named by their community, as themselves. None leave the read. */
     private static scrub(text: string): string {
         return text

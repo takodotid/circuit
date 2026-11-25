@@ -950,6 +950,11 @@ export class Vrp extends Platform {
         return LineDiff.scrub(`${body.join("\n").trim()}\n`);
     }
 
+    /** A reversible cipher sits between `%^%#` marks, wherever a command prints it. */
+    override scrubOutput(text: string): string {
+        return LineDiff.scrub(text).replace(/%\^%#\S*?%\^%#/g, "<redacted>");
+    }
+
     /** Answers a confirmation, or the password prompts of an interactive line. */
     private static async sendLine(channel: ClientChannel, line: string): Promise<string> {
         const interactive = Vrp.INTERACTIVE.exec(line.trim());
