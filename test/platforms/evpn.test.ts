@@ -1,4 +1,4 @@
-// EVPN over VXLAN: a VXLAN segment in EVPN, a port of a VLAN, and the iBGP sessions that carry its routes. RouterOS 7.24.6 ran it on three CHRs (test/platforms/routeros-chr-evpn.test.ts), and the lines it printed there are fed to the adapter here. Every other platform refuses it.
+// EVPN over VXLAN: a VXLAN segment in EVPN, a port of a VLAN, and the iBGP sessions that carry its routes. RouterOS 7.24.6 ran it on three CHRs (test/platforms/routeros-chr-evpn.test.ts), and the lines it printed there are fed to the adapter here. Junos builds it experimentally (junos-evpn.test.ts), and every other platform refuses it.
 
 import { beforeAll, expect, test } from "bun:test";
 import type { Device, EvpnVxlan, Neighbor } from "../../src/model";
@@ -114,9 +114,8 @@ test("RouterOS refuses two segments with one route target, EVPN routes beside ot
     ]);
 });
 
-test("Junos, VRP, and FortiOS refuse EVPN, each saying why, and Raisecom ROS refuses VXLAN and BGP", () => {
+test("VRP and FortiOS refuse EVPN, each saying why, and Raisecom ROS refuses VXLAN and BGP", () => {
     const reasons: Record<string, string> = {
-        junos: "EVPN, not built for Junos yet",
         vrp: "EVPN, not built for VRP yet",
         fortios: "EVPN, not built for FortiOS yet",
     };
