@@ -21,6 +21,16 @@ Afterwards, open a new terminal and restart VS Code, so both find `circuit`.
 
 To check each download's signature, the command needs `ssh-keygen` from OpenSSH. On a minimal Linux, such as a container image, install `openssh-client` first. For CI, see [Run in CI](/guide/ci).
 
+## With Homebrew
+
+On macOS and Linux, [Homebrew](https://brew.sh) installs Circuit from Tako's tap:
+
+```sh
+brew install takodotid/tap/circuit
+```
+
+Homebrew then owns the `circuit` it installed. Update it with `brew upgrade takodotid/tap/circuit`, and remove it with `brew uninstall takodotid/tap/circuit`. Circuit doesn't update or remove itself there, and tells you the Homebrew command instead. Start a project with `circuit new`, as below.
+
 ## Start a project
 
 ```sh

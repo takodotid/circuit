@@ -21,10 +21,12 @@ import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
 import { JunosEvpn } from "./evpn";
 import { JunosIsis } from "./isis";
+import { JunosMarking } from "./marking";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
 import { JunosOspf } from "./ospf";
+import { JunosQos } from "./qos";
 import { JunosStatements } from "./statements";
 import { JunosSwitching } from "./switching";
 
@@ -59,14 +61,6 @@ export class JunosRender {
 
     /** Who reaches the device's own services, one filter per family. A filter's name is unique across families. */
     private static readonly SERVICES_FILTER = { inet: "circuit-services", inet6: "circuit-services-v6" } as const;
-
-    /** The units the device prints a rate or a burst in, largest first, while the number left is below `AMOUNT_UNIT_BELOW`. */
-    private static readonly AMOUNT_UNITS: readonly (readonly [string, number])[] = [
-        ["g", 1e9],
-        ["m", 1e6],
-        ["k", 1e3],
-    ];
-    private static readonly AMOUNT_UNIT_BELOW = 1000;
 
     /** A DHCPv6 server's address pool is named after the server, with this after it. */
     private static readonly ADDRESS_POOL_SUFFIX = "-v6";
@@ -153,6 +147,8 @@ export class JunosRender {
         render.ethertypeFilters();
         render.boundFilters();
         render.rateLimits();
+        JunosQos.render(render.out, device, render.names);
+        JunosMarking.render(render.out, device, render.names);
         JunosBgp.render(render.out, device);
         JunosMonitoring.sflow(render.out, device, render.names);
         JunosMonitoring.probes(render.out, device);
@@ -184,17 +180,11 @@ export class JunosRender {
         return mtu + (switched ? 18 : 14);
     }
 
-    /** A rate in bits per second, or a burst in bytes, as the device prints it. A unit is used only when it leaves a whole number below 1000: `250k`, but `1500000000` for 1500m (TRAPS.md). */
-    private static amount(value: number): string {
-        const [unit, scale] = JunosRender.AMOUNT_UNITS.find(([, each]) => value % each === 0) ?? ["", 1];
-        return value / scale < JunosRender.AMOUNT_UNIT_BELOW ? `${value / scale}${unit}` : String(value);
-    }
-
     /** A policer that drops what passes above a rate. `unsupported()` refuses a rate without a burst, which the platform needs. */
     private policer(name: string, limit: Limit): void {
         const { rate, burst } = Derive.limit(limit);
-        this.out.set(`firewall policer ${name} if-exceeding bandwidth-limit`, JunosRender.amount(Derive.bitsPerSecond(rate)));
-        if (burst !== undefined) this.out.set(`firewall policer ${name} if-exceeding burst-size-limit`, JunosRender.amount(burst));
+        this.out.set(`firewall policer ${name} if-exceeding bandwidth-limit`, JunosStatements.amount(Derive.bitsPerSecond(rate)));
+        if (burst !== undefined) this.out.set(`firewall policer ${name} if-exceeding burst-size-limit`, JunosStatements.amount(burst));
         this.out.set(`firewall policer ${name} then discard`);
     }
 
@@ -217,12 +207,6 @@ export class JunosRender {
                 this.out.set(term, "then accept");
                 this.out.set(`interfaces ${physical} unit 0 family ethernet-switching filter input`, limiter);
             }
-
-            if (rateLimit.output)
-                this.out.set(
-                    `class-of-service interfaces ${physical} shaping-rate`,
-                    JunosRender.amount(Derive.bitsPerSecond(Derive.limit(rateLimit.output).rate))
-                );
         }
     }
 
