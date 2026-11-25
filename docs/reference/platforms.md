@@ -106,11 +106,11 @@ A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes
 | OSPF stub and NSSA areas     | ✅                          | 🧪                         | ❌                       | ✅                    | ✅               |
 | OSPF hello and dead timers   | ✅                          | 🧪                         | ❌                       | ✅                    | ✅               |
 | OSPF authentication          | ✅                          | 🧪                         | ❌                       | MD5                   | MD5              |
-| OSPF area ranges             | ✅                          | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| OSPF range cost              | ✅                          | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| OSPF router priority         | ✅                          | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| OSPF NBMA and P2MP links     | ✅ OSPFv2                   | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| OSPF virtual links           | ✅ one family               | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| OSPF area ranges             | ✅                          | ❌ not yet                 | ❌ not yet               | 🧪                    | ❌ not yet       |
+| OSPF range cost              | ✅                          | ❌ not yet                 | ❌ not yet               | 🧪 from 1             | ❌ not yet       |
+| OSPF router priority         | ✅                          | ❌ not yet                 | ❌ not yet               | 🧪                    | ❌ not yet       |
+| OSPF NBMA and P2MP links     | ✅ OSPFv2                   | ❌ not yet                 | ❌ not yet               | 🧪 OSPFv2             | ❌ not yet       |
+| OSPF virtual links           | ✅ one family               | ❌ not yet                 | ❌ not yet               | 🧪                    | ❌ not yet       |
 | OSPF traffic engineering     | ✅ one area                 | ❌ not yet                 | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric        | 🧪 VLAN interfaces         | ❌                       | ✅                    | ✅ no passive    |
 | IS-IS multi-topology         | ❌                          | ✅                         | ❌                       | 🧪                    | ❌               |

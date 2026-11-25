@@ -234,5 +234,5 @@ OSPF runs directly on IP. It uses neither TCP nor UDP. If the router's [input fi
 To see which routers become neighbors before you apply anything, open the OSPF layer of the graph in `circuit studio`.
 
 ::: warning Not every platform runs every part
-VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. Junos and FortiOS don't run it in a VRF. Ranges and their costs, priorities, point-to-multipoint and NBMA links, and virtual links run on RouterOS only, for now. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
+VRP and Raisecom ROS run OSPF for IPv4 only, and Raisecom ROS runs it only on VLAN interfaces. VRP, Raisecom ROS, and FortiOS don't run it in a VRF. Ranges and their costs, priorities, point-to-multipoint and NBMA links, and virtual links run on RouterOS, and are experimental on Junos. `circuit validate` reports anything a platform can't do. See [Platforms](/reference/platforms).
 :::

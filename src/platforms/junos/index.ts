@@ -21,6 +21,7 @@ import { JunosIsis } from "./isis";
 import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
+import { JunosOspf } from "./ospf";
 import { JunosPlan } from "./plan";
 import { JunosRender } from "./render";
 import { JunosSwitching } from "./switching";
@@ -129,6 +130,7 @@ export class Junos extends Platform {
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         // RPM's tests passed `commit check` only, in a candidate that was never committed.
         for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
+        found.push(...JunosOspf.experimental(device));
         return found;
     }
 
@@ -352,15 +354,7 @@ export class Junos extends Platform {
                 found.push(`routing.static_routes ${route.prefix}, a blackhole beside another route to the same prefix`);
         }
 
-        for (const [areaId, area] of Object.entries(routing?.ospf?.areas ?? {})) {
-            for (const [iface, settings] of Object.entries(area.interfaces)) {
-                const algorithm = settings?.authentication?.algorithm;
-                if (algorithm && algorithm !== "md5")
-                    found.push(
-                        `routing.ospf.areas.${areaId}.interfaces.${iface}.authentication.algorithm ${algorithm}, Junos 21 signs OSPF with md5 only`
-                    );
-            }
-        }
+        found.push(...JunosOspf.unsupported(device));
 
         if (device.firewall !== undefined) found.push("firewall");
         if (device.firewall?.ipsec) found.push("firewall.ipsec, IPsec: a QFX switch does not encrypt the traffic it forwards");
@@ -395,7 +389,7 @@ export class Junos extends Platform {
         }
 
         found.push(...Derive.untested(device, Junos.TESTED));
-        found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports", "rate-limit"]));
+        found.push(...Derive.unbuilt(device, ["urpf", "vrf-imports", "rate-limit", ...JunosOspf.BUILT]));
         found.push(...Junos.rateLimitGaps(device));
         found.push(...JunosIsis.unsupported(device));
 
