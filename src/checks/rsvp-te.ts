@@ -1,21 +1,29 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, RsvpTe, RsvpTeTunnel } from "../model";
+import type { Device, RsvpTe, RsvpTeTunnel, TunnelPath } from "../model";
 import { RateLimitChecks } from "./rate-limit";
 
 type Report = (message: string) => void;
 
 /** RSVP-TE tunnels (RFC 3209) beside LDP, from the LSR ID, and the traffic engineering of OSPF (RFC 3630) that CSPF reads. */
 export class RsvpTeChecks {
+    /** RFC 3630's administrative group is 32 bits. */
+    private static readonly ADMIN_GROUP_BITS = 32;
+
+    /** RFC 3209's priorities, 0 the highest. */
+    private static readonly LOWEST_PRIORITY = 7;
+
     static check(device: Device, report: Report): void {
         RsvpTeChecks.ospf(device, report);
 
         const rsvpTe = device.routing?.mpls?.rsvp_te;
         if (!rsvpTe) return;
 
+        RsvpTeChecks.adminGroups(rsvpTe, report);
         RsvpTeChecks.interfaces(device, rsvpTe, report);
-        for (const [name, tunnel] of Object.entries(rsvpTe.tunnels ?? {}))
-            RsvpTeChecks.tunnel(device, `routing.mpls.rsvp_te.tunnels.${name}`, tunnel, report);
+        const tunnels = Object.entries(rsvpTe.tunnels ?? {});
+        for (const [name, tunnel] of tunnels) RsvpTeChecks.tunnel(device, `routing.mpls.rsvp_te.tunnels.${name}`, tunnel, report);
+        RsvpTeChecks.pathNames(tunnels, report);
     }
 
     /** The OSPF areas that tell their routers each link's bandwidth. */
@@ -31,6 +39,22 @@ export class RsvpTeChecks {
             if (!(ospf?.address_families ?? ["ipv4"]).includes("ipv4"))
                 report(`${at} is OSPFv2's (RFC 3630), and routing.ospf.address_families has no ipv4. Add ipv4, or remove it`);
             if (ospf?.vrf) report(`${at} is in VRF ${ospf.vrf}, and MPLS runs in the main table. Remove it`);
+        }
+    }
+
+    /** Each admin group is one bit of RFC 3630's 32, and no two share one. */
+    private static adminGroups(rsvpTe: RsvpTe, report: Report): void {
+        const byBit = new Map<number, string>();
+        for (const [name, bit] of Object.entries(rsvpTe.admin_groups ?? {})) {
+            const at = `routing.mpls.rsvp_te.admin_groups.${name}`;
+            const value: unknown = bit;
+            if (!(typeof value === "number" && Number.isInteger(value) && value >= 0 && value < RsvpTeChecks.ADMIN_GROUP_BITS)) {
+                report(`${at} ${JSON.stringify(value)} is not a bit from 0 to 31 (RFC 3630). Write one of them`);
+                continue;
+            }
+            const other = byBit.get(value);
+            if (other) report(`${at} is bit ${value}, as admin group ${other} is. Give each its own bit`);
+            else byBit.set(value, name);
         }
     }
 
@@ -54,7 +78,7 @@ export class RsvpTeChecks {
         }
     }
 
-    /** A tunnel ends at another router's LSR ID, along an explicit path or one CSPF computes from OSPF's traffic engineering. */
+    /** A tunnel ends at another router's LSR ID, along its paths, with its bandwidth and priorities. */
     private static tunnel(device: Device, at: string, tunnel: RsvpTeTunnel, report: Report): void {
         const lsrId = device.routing?.mpls?.ldp.lsr_id;
         const { destination, bandwidth } = tunnel;
@@ -66,6 +90,15 @@ export class RsvpTeChecks {
 
         if (bandwidth !== undefined) RateLimitChecks.rate(`${at}.bandwidth`, bandwidth, report);
 
+        RsvpTeChecks.path(device, at, tunnel, report);
+        for (const [name, path] of Object.entries(tunnel.secondary_paths ?? {}))
+            RsvpTeChecks.path(device, `${at}.secondary_paths.${name}`, path, report);
+
+        RsvpTeChecks.priorities(at, tunnel, report);
+    }
+
+    /** A path is the hops written out, or one CSPF computes from OSPF's traffic engineering, which alone keeps to links by their admin groups. */
+    private static path(device: Device, at: string, tunnel: TunnelPath, report: Report): void {
         const path: unknown = tunnel.explicit_path;
         const cspf: unknown = tunnel.cspf;
         if (path !== undefined && cspf !== undefined) report(`${at} has explicit_path and cspf. Write one`);
@@ -76,6 +109,9 @@ export class RsvpTeChecks {
             report(
                 `${at}.cspf computes the path from each link's bandwidth, which OSPF tells the routers. Write traffic_engineering: true on the OSPF area of routing.mpls.rsvp_te.interfaces`
             );
+        const groups: unknown = tunnel.admin_groups;
+        if (groups !== undefined && cspf !== true)
+            report(`${at}.admin_groups keeps to links as CSPF computes the path. Write cspf: true in place of explicit_path`);
 
         if (path === undefined) return;
         if (!Array.isArray(path) || !path.length) {
@@ -89,5 +125,42 @@ export class RsvpTeChecks {
             if (hop.hop_type !== "strict" && hop.hop_type !== "loose")
                 report(`${where}.hop_type ${JSON.stringify(hop.hop_type)} is not strict or loose`);
         });
+    }
+
+    /** Both priorities or neither, each 0 to 7, and the setup priority never higher than the hold priority (RFC 3209, section 4.7.3). */
+    private static priorities(at: string, tunnel: RsvpTeTunnel, report: Report): void {
+        const setup: unknown = tunnel.setup_priority;
+        const hold: unknown = tunnel.hold_priority;
+        if (setup === undefined && hold === undefined) return;
+        if (setup === undefined || hold === undefined) {
+            const missing = setup === undefined ? "setup_priority" : "hold_priority";
+            report(`${at} has ${missing === "setup_priority" ? "hold_priority" : "setup_priority"} alone. Write ${missing} beside it`);
+            return;
+        }
+        const valid = (value: unknown): value is number =>
+            typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= RsvpTeChecks.LOWEST_PRIORITY;
+        for (const [key, value] of [
+            ["setup_priority", setup],
+            ["hold_priority", hold],
+        ] as const)
+            if (!valid(value)) report(`${at}.${key} ${JSON.stringify(value)} is not a priority from 0, the highest, to 7`);
+        if (valid(setup) && valid(hold) && setup < hold)
+            report(
+                `${at}.setup_priority ${setup} is higher than hold_priority ${hold}, so the tunnel could take bandwidth it then gives up to a tunnel like itself (RFC 3209, section 4.7.3). Write a hold_priority of ${setup} or higher, a lower number`
+            );
+    }
+
+    /** Each path of a tunnel is a path of the device by its name: a primary path is named after its tunnel, and a secondary path by its key. */
+    private static pathNames(tunnels: [string, RsvpTeTunnel][], report: Report): void {
+        const owner = new Map<string, string>(tunnels.map(([name]) => [name, `tunnel ${name}'s primary path`]));
+        for (const [name, tunnel] of tunnels)
+            for (const path of Object.keys(tunnel.secondary_paths ?? {})) {
+                const other = owner.get(path);
+                if (other)
+                    report(
+                        `routing.mpls.rsvp_te.tunnels.${name}.secondary_paths.${path} has the name of ${other}, and each path of the device has its own. Give it another name`
+                    );
+                else owner.set(path, `tunnel ${name}'s secondary path`);
+            }
     }
 }
