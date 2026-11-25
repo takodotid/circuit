@@ -27,6 +27,7 @@ import type { WaitLimits } from "../bgp-wait";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
 import { RouterOsIpsec } from "./ipsec";
+import { RouterOsRemoteAccess } from "./remote-access";
 import { RouterOsRsvpTe } from "./rsvp-te";
 import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
@@ -280,6 +281,7 @@ export class RouterOs extends Platform {
                 `interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
             );
         found.push(...RouterOsIpsec.unsupported(device));
+        found.push(...RouterOsRemoteAccess.unsupported(device));
         // `crl-use` is the whole router's: once on, a certificate that points to the list of its CA gets refused while RouterOS holds no list of that CA (TRAPS.md).
         const certificates = RouterOsSyntax.entries(device.system?.certificates);
         if (certificates.some(([, certificate]) => certificate.crl_url))

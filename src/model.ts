@@ -32,6 +32,7 @@ export type {
     PrefixDelegation,
     Protocol,
     Rate,
+    RemoteAccessSelector,
     TrafficSelector,
 } from "./config/index";
 export type {
@@ -129,6 +130,7 @@ export type DhcpServer = C.DhcpServer<string, string>;
 export type Dhcpv6Server = C.Dhcpv6Server<string, string>;
 export type DhcpRelay = C.DhcpRelay<string>;
 export type PppoeServer = C.PppoeServer<string, string>;
+export type IpsecRemoteAccess = C.IpsecRemoteAccess;
 export type FlowExport = C.FlowExport<string>;
 export type SyslogServer = C.SyslogServer;
 export type Probe = C.Probe;

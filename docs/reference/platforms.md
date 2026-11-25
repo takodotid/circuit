@@ -153,44 +153,52 @@ A route-based tunnel in a VRF is 🧪 on FortiOS: Fortinet's 6.2 reference takes
 
 ### Firewall and services
 
-| Feature                            | RouterOS                   | VRP                   | Raisecom ROS               | Junos                    | FortiOS                                         |
-| ---------------------------------- | -------------------------- | --------------------- | -------------------------- | ------------------------ | ----------------------------------------------- |
-| Firewall filter                    | ✅                         | ❌                    | ❌                         | ❌                       | ✅                                              |
-| NAT                                | ✅                         | ❌                    | ❌                         | ❌                       | IPv4                                            |
-| CGNAT pool, deterministic          | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
-| CGNAT pool, dynamic                | ❌                         | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
-| CGNAT pool, block timeout          | ❌                         | ❌                    | ❌                         | ❌                       | ✅ 3 to 300 seconds                             |
-| NAT64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
-| TCP MSS clamp                      | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
-| IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE       | ❌                    | ❌                         | ❌                       | ❌                                              |
-| IPsec, policy-based, certificates  | ✅ one CA on the device    | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DSCP, PCP, and class marking       | ✅ not with fast path      | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
-| Classes and schedulers             | ✅ not with fast path      | ❌                    | ❌                         | ❌                       | ❌                                              |
-| Classes by PCP                     | ✅ routed, as it arrives   | ❌                    | ❌                         | ❌                       | ❌                                              |
-| Queue depth and RED                | ✅ RED counts bytes        | ❌                    | ❌                         | ❌                       | ❌                                              |
-| Policing with two rates (RFC 2698) | ❌ none on the device      | ❌                    | ❌                         | ❌                       | ❌                                              |
-| Trust for each port                | ❌ switch chip only        | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DHCP server                        | ✅                         | 🧪                    | ❌                         | ✅                       | ✅                                              |
-| DHCPv6 server                      | ✅ pool is a prefix        | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
-| DHCP relay                         | ✅                         | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
-| Option 82 on a DHCP relay          | ✅                         | ❌                    | ❌                         | 🧪                       | 🧪                                              |
-| DHCP server for a relay's clients  | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DHCP server in a VRF               | ✅                         | 🧪                    | ❌                         | 🧪                       | 🧪                                              |
-| DHCP leases checked by RADIUS      | ✅ one RADIUS setting      | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DHCPv6 leases checked by RADIUS    | ✅ prefixes, not addresses | ❌                    | ❌                         | ❌                       | ❌                                              |
-| PPPoE server                       | ✅ one RADIUS setting      | ❌                    | ❌                         | ❌                       | ❌                                              |
-| Delegated IPv6 prefixes over PPPoE | ✅ from a pool or RADIUS   | ❌                    | ❌                         | ❌                       | ❌                                              |
-| SLAAC on a PPPoE session           | ✅ from a pool or RADIUS   | ❌                    | ❌                         | ❌                       | ❌                                              |
-| PPPoE sessions in an interface set | ✅                         | ❌                    | ❌                         | ❌                       | ❌                                              |
-| DNS server                         | ✅                         | ❌                    | ❌                         | ❌                       | ✅                                              |
-| DNS64                              | ❌                         | ❌                    | ❌                         | ❌                       | 🧪 with NAT64's prefix                          |
-| NTP client                         | ✅                         | ✅                    | ✅                         | ✅                       | ✅                                              |
-| NTP server                         | ✅                         | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
+| Feature                            | RouterOS                                 | VRP                   | Raisecom ROS               | Junos                    | FortiOS                                         |
+| ---------------------------------- | ---------------------------------------- | --------------------- | -------------------------- | ------------------------ | ----------------------------------------------- |
+| Firewall filter                    | ✅                                       | ❌                    | ❌                         | ❌                       | ✅                                              |
+| NAT                                | ✅                                       | ❌                    | ❌                         | ❌                       | IPv4                                            |
+| CGNAT pool, deterministic          | ✅                                       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| CGNAT pool, dynamic                | ❌                                       | ❌                    | ❌                         | ❌                       | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
+| CGNAT pool, block timeout          | ❌                                       | ❌                    | ❌                         | ❌                       | ✅ 3 to 300 seconds                             |
+| NAT64                              | ❌                                       | ❌                    | ❌                         | ❌                       | 🧪 a /96 prefix                                 |
+| TCP MSS clamp                      | ✅                                       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE, not with fast path | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec, policy-based, certificates  | ✅ one CA on the device                  | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec remote access, EAP           | ✅ one on the device, not with fast path | ❌                    | ❌                         | ❌                       | ❌                                              |
+| IPsec remote access, certificates  | ✅ one CA on the device                  | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DSCP, PCP, and class marking       | ✅ not with fast path                    | 🧪 DSCP only          | ❌                         | ❌                       | ❌                                              |
+| Classes and schedulers             | ✅ not with fast path                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Classes by PCP                     | ✅ routed, as it arrives                 | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Queue depth and RED                | ✅ RED counts bytes                      | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Policing with two rates (RFC 2698) | ❌ none on the device                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Trust for each port                | ❌ switch chip only                      | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DHCP server                        | ✅                                       | 🧪                    | ❌                         | ✅                       | ✅                                              |
+| DHCPv6 server                      | ✅ pool is a prefix                      | ❌                    | ❌                         | ✅ not DNS servers alone | ✅ needs `pool`; 🧪 delegated prefixes          |
+| DHCP relay                         | ✅                                       | IPv4, VLAN interfaces | ❌                         | IPv4                     | ✅                                              |
+| Option 82 on a DHCP relay          | ✅                                       | ❌                    | ❌                         | 🧪                       | 🧪                                              |
+| DHCP server for a relay's clients  | ✅                                       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DHCP server in a VRF               | ✅                                       | 🧪                    | ❌                         | 🧪                       | 🧪                                              |
+| DHCP leases checked by RADIUS      | ✅ one RADIUS setting                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DHCPv6 leases checked by RADIUS    | ✅ prefixes, not addresses               | ❌                    | ❌                         | ❌                       | ❌                                              |
+| PPPoE server                       | ✅ one RADIUS setting                    | ❌                    | ❌                         | ❌                       | ❌                                              |
+| Delegated IPv6 prefixes over PPPoE | ✅ from a pool or RADIUS                 | ❌                    | ❌                         | ❌                       | ❌                                              |
+| SLAAC on a PPPoE session           | ✅ from a pool or RADIUS                 | ❌                    | ❌                         | ❌                       | ❌                                              |
+| PPPoE sessions in an interface set | ✅                                       | ❌                    | ❌                         | ❌                       | ❌                                              |
+| DNS server                         | ✅                                       | ❌                    | ❌                         | ❌                       | ✅                                              |
+| DNS64                              | ❌                                       | ❌                    | ❌                         | ❌                       | 🧪 with NAT64's prefix                          |
+| NTP client                         | ✅                                       | ✅                    | ✅                         | ✅                       | ✅                                              |
+| NTP server                         | ✅                                       | ✅                    | always, with an NTP client | ✅                       | ✅                                              |
 
 Policy-based IPsec is built on RouterOS only:
 
 - **RouterOS.** The IKE daemon has no AES-GCM, and runs in the main table only, so a tunnel's `local_address` is outside every VRF. It takes a peer's certificate that any certificate it holds signed, so `ca_certificate` must be its only certificate without a private key. It has no setting for a liveness check's retries, ESP in UDP without a NAT, or the NAT keepalive interval, and its remote ID matches the identity the peer sends. So a policy-based tunnel takes none of these yet, nor `remote_identity`.
 - **FortiOS.** A policy-based tunnel is a phase 1 and a phase 2 without an interface, and a firewall policy with `action ipsec`. No FortiGate in CI has proven one, so it is not built yet.
+- **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
+
+IPsec remote access is built on RouterOS only:
+
+- **RouterOS.** One remote access on a router, beside no `fast_path` rule, whose flows skip IPsec's policies. It takes one traffic selector: it narrows a client that asks for all its traffic to the first alone. As for a policy-based tunnel, IKE has no AES-GCM and runs in the main table only, and `ca_certificate` must be the router's only certificate without a private key. RouterOS gives a client the selectors as the subnets of its configuration payload too. Its RADIUS servers for EAP may be in a VRF.
+- **FortiOS.** Dial-up IPsec is a phase 1 of `type dynamic` with `mode-cfg`, and RADIUS users in a user group. No FortiGate in CI has proven it, so it is not built yet.
 - **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
 
 No platform writes IKEv1. RFC 9395 deprecates it.

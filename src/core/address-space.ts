@@ -264,6 +264,14 @@ export class AddressSpace {
                     blocks.push({ prefix: Address.prefixOf(sessions), what: `sessions' /64s of PPPoE server ${name} on ${device.name}` });
             }
 
+            for (const [name, access] of Object.entries(device.services?.ipsec_remote_access ?? {})) {
+                if (!access) continue;
+                const [start, end] = access.pool;
+                const what = `IPsec remote access pool ${name} on ${device.name}`;
+                if (Address.isValid(start) && Address.isValid(end) && !claim(start, end, what))
+                    blocks.push({ prefix: AddressSpace.covering(start, end), what, range: `${start}-${end}` });
+            }
+
             // A pool and the subscribers it serves are both address space in use. A rule with no pool, such as masquerade, uses none.
             for (const rule of device.firewall?.nat?.source ?? []) {
                 if (!("to_pool" in rule) || !Address.isCidr(rule.to_pool)) continue;

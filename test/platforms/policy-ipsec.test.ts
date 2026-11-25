@@ -151,6 +151,18 @@ test("RouterOS refuses AES-GCM in IKE, an address it doesn't hold or holds in a 
     );
 });
 
+test("RouterOS refuses a policy-based tunnel beside a fast_path rule, whose flows would skip the tunnel's policies", () => {
+    const device = withTunnels("platforms--example-router", { "branch-1": TUNNEL });
+    device.firewall = {
+        ...device.firewall,
+        filter: { forward: { rules: [{ if: { connection_state: ["established", "related"] }, then: "accept", fast_path: true }] } },
+    };
+
+    expect(routeros.unsupported(device)).toContain(
+        "firewall.ipsec beside a fast_path rule, whose flows skip IPsec's policies: take fast_path off"
+    );
+});
+
 test("Junos, VRP, and Raisecom ROS refuse a policy-based tunnel, since the switches don't encrypt what they forward, and FortiOS hasn't built it yet", () => {
     for (const fixture of ["platforms--example-aggregation-switch", "platforms--example-switch", "platforms--example-core-switch"]) {
         const device = withTunnels(fixture, { "branch-1": TUNNEL });
