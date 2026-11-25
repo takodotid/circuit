@@ -1,6 +1,8 @@
 // A setting only the device holds is unset, which returns it to its default. A table entry only the device holds is deleted, unless the factory put it there.
 
 import type { ApplyOptions, Plan, Step } from "../platform";
+import { FortiOsFactory } from "./factory";
+import { FortiOsQos } from "./qos";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsShaping } from "./shaping";
@@ -37,128 +39,6 @@ type Diff = { send: string[]; show: string[]; removals: string[]; removed: strin
 type Release = { freed: Set<string>; gone: Set<string>; trims: { id: string; members: string[] }[]; deferred: Set<string> };
 
 export class FortiOsPlan {
-    /** Objects every FortiGate running 6.2 is shipped with, which policies and profiles of the factory name. */
-    private static readonly FACTORY_ADDRESSES = [
-        "none",
-        "login.microsoftonline.com",
-        "login.microsoft.com",
-        "login.windows.net",
-        "gmail.com",
-        "wildcard.google.com",
-        "wildcard.dropbox.com",
-        "all",
-        "FIREWALL_AUTH_PORTAL_ADDRESS",
-        "FABRIC_DEVICE",
-        "SSLVPN_TUNNEL_ADDR1",
-    ];
-
-    private static readonly FACTORY_SERVICES = [
-        "ALL",
-        "ALL_TCP",
-        "ALL_UDP",
-        "ALL_ICMP",
-        "ALL_ICMP6",
-        "GRE",
-        "AH",
-        "ESP",
-        "AOL",
-        "BGP",
-        "DHCP",
-        "DNS",
-        "FINGER",
-        "FTP",
-        "FTP_GET",
-        "FTP_PUT",
-        "GOPHER",
-        "H323",
-        "HTTP",
-        "HTTPS",
-        "IKE",
-        "IMAP",
-        "IMAPS",
-        "Internet-Locator-Service",
-        "IRC",
-        "L2TP",
-        "LDAP",
-        "NetMeeting",
-        "NFS",
-        "NNTP",
-        "NTP",
-        "OSPF",
-        "PC-Anywhere",
-        "PING",
-        "TIMESTAMP",
-        "INFO_REQUEST",
-        "INFO_ADDRESS",
-        "ONC-RPC",
-        "DCE-RPC",
-        "POP3",
-        "POP3S",
-        "PPTP",
-        "QUAKE",
-        "RAUDIO",
-        "REXEC",
-        "RIP",
-        "RLOGIN",
-        "RSH",
-        "SCCP",
-        "SIP",
-        "SIP-MSNmessenger",
-        "SAMBA",
-        "SMTP",
-        "SMTPS",
-        "SNMP",
-        "SSH",
-        "SYSLOG",
-        "TALK",
-        "TELNET",
-        "TFTP",
-        "MGCP",
-        "UUCP",
-        "VDOLIVE",
-        "WAIS",
-        "WINFRAME",
-        "X-WINDOWS",
-        "PING6",
-        "MS-SQL",
-        "MYSQL",
-        "RDP",
-        "VNC",
-        "DHCP6",
-        "SQUID",
-        "SOCKS",
-        "WINS",
-        "RADIUS",
-        "RADIUS-OLD",
-        "CVSPSERVER",
-        "AFS3",
-        "TRACEROUTE",
-        "RTSP",
-        "MMS",
-        "KERBEROS",
-        "LDAP_UDP",
-        "SMB",
-        "NONE",
-        "webproxy",
-    ];
-
-    /** The device's own certificates, which the factory makes for each device. */
-    private static readonly FACTORY_CERTIFICATES = [
-        "Fortinet_CA_SSL",
-        "Fortinet_CA_Untrusted",
-        "Fortinet_SSL",
-        "Fortinet_SSL_RSA1024",
-        "Fortinet_SSL_RSA2048",
-        "Fortinet_SSL_RSA4096",
-        "Fortinet_SSL_DSA1024",
-        "Fortinet_SSL_DSA2048",
-        "Fortinet_SSL_ECDSA256",
-        "Fortinet_SSL_ECDSA384",
-        "Fortinet_SSL_ECDSA521",
-        "Fortinet_SSL_ED25519",
-        "Fortinet_SSL_ED448",
-    ];
-
     /** An entry known by what it holds, or else by its description. */
     private static readonly BY_COMMENTS: Table["numbered"] = { keys: [["comments"]] };
 
@@ -182,17 +62,18 @@ export class FortiOsPlan {
         },
         "system accprofile": { factory: ["prof_admin"] },
         "user group": { factory: ["SSO_Guest_Users", "Guest-group"] },
-        "vpn certificate local": { factory: FortiOsPlan.FACTORY_CERTIFICATES },
+        "vpn certificate local": { factory: FortiOsFactory.CERTIFICATES },
         "system session-helper": { byContent: true },
-        "firewall address": { factory: FortiOsPlan.FACTORY_ADDRESSES },
+        "firewall address": { factory: FortiOsFactory.ADDRESSES },
         "firewall address6": { factory: ["SSLVPN_TUNNEL_IPv6_ADDR1", "all", "none"] },
         "firewall addrgrp": { factory: ["G Suite", "Microsoft Office 365"] },
-        "firewall service custom": { factory: FortiOsPlan.FACTORY_SERVICES },
+        "firewall service custom": { factory: FortiOsFactory.SERVICES },
         "firewall policy": FortiOsPlan.ORDERED,
         "firewall policy6": FortiOsPlan.ORDERED,
         "firewall policy64": FortiOsPlan.ORDERED,
         "firewall shaper traffic-shaper": { factory: FortiOsShaping.FACTORY_SHAPERS },
-        "firewall shaping-policy": { numbered: { keys: [["name"]] } },
+        // A session takes the first shaping policy that matches it.
+        "firewall shaping-policy": { ordered: true, numbered: { keys: [["name"]] } },
         "firewall local-in-policy": FortiOsPlan.ORDERED,
         "firewall local-in-policy6": FortiOsPlan.ORDERED,
         "firewall central-snat-map": FortiOsPlan.ORDERED,
@@ -260,6 +141,15 @@ export class FortiOsPlan {
         "firewall policy": FortiOsPlan.DENY,
         "firewall policy6": FortiOsPlan.DENY,
         "firewall policy64": FortiOsPlan.DENY,
+        // A shaping entry's, as `show full-configuration` printed them on 6.2.2.
+        "firewall shaping-profile": {
+            priority: "high",
+            "guaranteed-bandwidth-percentage": "0",
+            "maximum-bandwidth-percentage": "1",
+            limit: String(FortiOsQos.DEPTH.default),
+        },
+        // The DSCP of best effort, `cs0`.
+        "firewall shaping-policy": { tos: "0x00", "diffservcode-forward": "000000" },
         "firewall local-in-policy": FortiOsPlan.DENY,
         "firewall local-in-policy6": FortiOsPlan.DENY,
     };
@@ -270,8 +160,11 @@ export class FortiOsPlan {
     /** Settings holding a certificate's text, compared without its line breaks. */
     private static readonly CERTIFICATES = new Set(["certificate", "ca"]);
 
-    /** Settings undone first. NTP refuses to delete its last server while `ntpsync` is on, and IS-IS hides a level's key chain once its MD5 mode goes. Any other goes after the nested lists. */
-    private static readonly FIRST = new Set(["ntpsync", "auth-keychain-l1", "auth-keychain-l2"]);
+    /** Settings undone first. NTP refuses to delete its last server while `ntpsync` is on. IS-IS hides a level's key chain once its MD5 mode goes, and a shaping policy its `tos` once its mask goes. Any other goes after the nested lists. */
+    private static readonly FIRST = new Set(["ntpsync", "auth-keychain-l1", "auth-keychain-l2", "tos"]);
+
+    /** A setting the entries of a table share out: a shaping profile's guaranteed percents, whose sum the device checks at each `next`, `Sum of 'guaranteed-bandwidth-percentage' of all shaping-entries > 100%`. */
+    private static readonly SHARED = "guaranteed-bandwidth-percentage";
 
     /** Settings holding a list in no particular order. */
     private static readonly LISTS = new Set([
@@ -446,13 +339,19 @@ export class FortiOsPlan {
             : table?.numbered
               ? FortiOsPlan.numbered(path, want, have, table, table.numbered, context)
               : FortiOsPlan.byId(path, want, have, table, context);
+        // A deleted entry gives its share back before the others take more.
+        const sharing = !top && [...have.entries.values()].some((entry) => entry.block.settings.has(FortiOsPlan.SHARED));
+        if (sharing) {
+            send.push(...entries.removals);
+            show.push(...entries.removed);
+        }
         send.push(...entries.send);
         show.push(...entries.show);
 
         if (top) {
             removals.push(...entries.removals);
             removed.push(...entries.removed);
-        } else {
+        } else if (!sharing) {
             send.push(...entries.removals);
             show.push(...entries.removed);
         }
@@ -466,7 +365,14 @@ export class FortiOsPlan {
         const removals: string[] = [];
         const removed: string[] = [];
 
-        for (const [key, entry] of want.entries) {
+        // Entries that lower their share go before those that raise it, so the sum never passes 100 on the way.
+        const raised = ([key, entry]: [string, Entry]) => {
+            const share = (block: FortiOsNode | undefined) => Number(block?.settings.get(FortiOsPlan.SHARED) ?? 0);
+            return share(entry.block) - share(have.entries.get(key)?.block);
+        };
+        const ordered = [...want.entries].sort((a, b) => raised(a) - raised(b));
+
+        for (const [key, entry] of ordered) {
             const old = have.entries.get(key);
             const where = [...path, FortiOsTree.bare(entry.id)];
 
@@ -909,8 +815,8 @@ export class FortiOsPlan {
      * What changes, by section, in the order the render lists them. Entries that go are deleted last, in the reverse order, so an address goes only after the policies that name it. A secret cannot be read back to compare, so it is sent when its entry is new, or with `secrets` set.
      */
     static of(desired: string, current: string, options: Pick<ApplyOptions, "secrets">): Plan {
-        const want = FortiOsVdoms.separateTunnels(FortiOsTree.parse(desired));
-        const have = FortiOsVdoms.separateTunnels(FortiOsTree.parse(FortiOsPlan.clean(current)));
+        const have = FortiOsVdoms.separateShaping(FortiOsVdoms.separateTunnels(FortiOsTree.parse(FortiOsPlan.clean(current))));
+        const want = FortiOsVdoms.separateShaping(FortiOsVdoms.separateTunnels(FortiOsTree.parse(desired)), have);
         FortiOsPlan.keepUnfetched(want, have);
         // A section the config doesn't use is still planned when the device has it, so its entries are removed.
         for (const section of FortiOsRender.OPTIONAL_SECTIONS)
@@ -937,15 +843,16 @@ export class FortiOsPlan {
         if (moved) first.push(moved);
 
         for (const [section, block] of want.blocks) {
-            const header = section === FortiOsVdoms.TUNNELS ? "system interface" : section;
+            // A tunnel's interface goes with its tunnel, and an interface's scheduler settings are unset, never deleted.
+            const part = section === FortiOsVdoms.TUNNELS || section === FortiOsVdoms.SHAPING;
+            const header = part ? "system interface" : section;
             const context = { section: header, secrets: options.secrets };
-            const table = section === FortiOsVdoms.TUNNELS ? undefined : FortiOsPlan.TABLES[header];
+            const table = part ? undefined : FortiOsPlan.TABLES[header];
             const diff = FortiOsPlan.compare([], block, have.blocks.get(section) ?? new FortiOsNode(), table, true, context);
 
             if (diff.send.length) steps.push({ title: section, show: diff.show, send: [`config ${header}`, ...diff.send, "end"] });
 
-            // A tunnel's interface goes with its tunnel.
-            if (diff.removals.length && section !== FortiOsVdoms.TUNNELS) {
+            if (diff.removals.length && !part) {
                 removals.unshift({ title: `${section}, removed`, show: diff.removed, send: [`config ${header}`, ...diff.removals, "end"] });
             }
         }
