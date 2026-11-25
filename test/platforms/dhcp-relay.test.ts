@@ -115,6 +115,17 @@ test("FortiOS refuses two relays on one interface when only one adds Option 82",
     );
 });
 
+test("FortiOS refuses a relay on a loopback, which takes none", () => {
+    const fortios = Platforms.get("fortios");
+    const device = relaying("platforms--example-firewall");
+    device.interfaces = { ...device.interfaces, loopback: { ...device.interfaces?.loopback, "relay-lo": { addresses: ["192.0.2.1/32"] } } };
+    device.services!.dhcp_relay!.more = { interface: "relay-lo", servers: ["198.51.100.67"] };
+
+    expect(fortios.unsupported(device)).toContain(
+        "services.dhcp_relay.more.interface relay-lo, a loopback, which takes no DHCP relay on FortiOS: write the interface the clients are on"
+    );
+});
+
 test("VRP refuses both", () => {
     expect(refusedDhcp("vrp", relaying("platforms--example-switch", "guests"))).toEqual([
         "services.dhcp_relay.guests.relay_agent_information, Option 82, not built for VRP",
