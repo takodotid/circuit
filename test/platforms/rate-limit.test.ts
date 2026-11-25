@@ -129,7 +129,6 @@ add max-limit=0/150k name=hosts-rate-limit queue=hosts-rate-limit-input/hosts-ra
 test("The other platforms refuse per_prefix", () => {
     for (const [platform, model, port] of [
         ["fortios", "FG-3700D", "10g-28"],
-        ["vrp", "CE6855-48S6Q-HI", "10g-3"],
         ["raisecom-ros", "RAX721-C-6C48", "10g-1"],
     ] as const) {
         const sample = device(platform, model, {
@@ -139,6 +138,16 @@ test("The other platforms refuse per_prefix", () => {
             `interfaces.ethernet.${port}.rate_limit.per_prefix, which the platform does not build`
         );
     }
+});
+
+// A CE6855 on V200R005C00SPC800 refused `qos car inbound source-ip-address ... per-address` and `ip car` (TRAPS.md).
+test("VRP refuses per_prefix, as the CE6855 has no rate for each address", () => {
+    const sample = device("vrp", "CE6855-48S6Q-HI", {
+        ethernet: { "10g-3": { access_vlan: "hosts", rate_limit: { per_prefix: { ipv4: 32, ipv6: 64, output: "20M" } } } },
+    });
+    expect(Platforms.get("vrp").unsupported(sample)).toContain(
+        "interfaces.ethernet.10g-3.rate_limit.per_prefix, the CE6855 has no rate for each address: its CAR polices a port or a traffic class as a whole"
+    );
 });
 
 test("Junos polices what arrives on a switched port, in the numbers the switch prints", () => {
