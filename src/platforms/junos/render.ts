@@ -19,10 +19,12 @@ import type {
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { JunosBgp } from "./bgp";
+import { JunosEvpn } from "./evpn";
 import { JunosIsis } from "./isis";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
+import { JunosOspf } from "./ospf";
 import { JunosStatements } from "./statements";
 import { JunosSwitching } from "./switching";
 
@@ -65,8 +67,6 @@ export class JunosRender {
         ["k", 1e3],
     ];
     private static readonly AMOUNT_UNIT_BELOW = 1000;
-
-    private static readonly OSPF_EXPORT = "circuit-ospf-redistribute";
 
     /** A DHCPv6 server's address pool is named after the server, with this after it. */
     private static readonly ADDRESS_POOL_SUFFIX = "-v6";
@@ -141,9 +141,10 @@ export class JunosRender {
         render.layer2.dhcpSnooping();
         render.layer2.raGuard();
         render.lldp();
-        render.ospf();
+        JunosOspf.render(render.out, device, render.names);
         JunosIsis.render(render.out, device, render.names);
         JunosMpls.render(render.out, device, render.names);
+        JunosEvpn.render(render.out, device);
         render.dhcpRelay();
         render.dhcpServers();
         render.dhcpv6Servers();
@@ -741,60 +742,6 @@ export class JunosRender {
         for (const [port, settings] of Derive.ports(this.device)) {
             if (settings.lldp === false) this.out.set("protocols lldp interface", this.names.port(port), "disable");
             else if (settings.lldp === true) this.out.set("protocols lldp interface", this.names.port(port));
-        }
-    }
-
-    /** OSPF for IPv4 and OSPFv3 for IPv6, with the same areas and interfaces, in the main instance or a VRF's. */
-    private ospf(): void {
-        const ospf = this.device.routing?.ospf;
-        if (!ospf) return;
-
-        const instance = JunosBgp.instance(ospf.vrf);
-        const routerId = this.device.routing?.router_id;
-        // A routing instance otherwise takes the address of one of its own interfaces as its router ID.
-        if (ospf.vrf && routerId) this.out.set(`${instance}routing-options router-id`, routerId);
-
-        const protocols = (ospf.address_families ?? ["ipv4"]).map(
-            (family) => `${instance}protocols ${family === "ipv4" ? "ospf" : "ospf3"}`
-        );
-
-        for (const protocol of protocols) {
-            for (const [areaId, area] of Object.entries(ospf.areas)) {
-                if (area.type) {
-                    const type = `${protocol} area ${areaId} ${area.type}`;
-                    this.out.set(type);
-                    if (area.no_summaries) this.out.set(type, "no-summaries");
-                    // An NSSA's border router announces its default route only with `default-lsa`.
-                    const defaultRoute = area.type === "nssa" ? `${type} default-lsa` : type;
-                    if (area.stub_default_cost !== undefined) this.out.set(defaultRoute, "default-metric", area.stub_default_cost);
-                }
-
-                for (const [iface, settings] of Object.entries(area.interfaces)) {
-                    if (!settings) continue;
-
-                    const statement = `${protocol} area ${areaId} interface ${this.names.unit(iface)}`;
-                    this.out.set(statement);
-
-                    if (settings.cost !== undefined) this.out.set(statement, "metric", settings.cost);
-                    if (settings.passive) this.out.set(statement, "passive");
-                    if (settings.network === "point-to-point") this.out.set(statement, "interface-type p2p");
-                    if (settings.hello_interval !== undefined) this.out.set(statement, "hello-interval", settings.hello_interval);
-                    if (settings.dead_interval !== undefined) this.out.set(statement, "dead-interval", settings.dead_interval);
-                    // `unsupported()` refuses HMAC-SHA, and the device checks refuse authentication on OSPFv3.
-                    const authentication = settings.authentication;
-                    if (authentication)
-                        this.out.set(statement, `authentication md5 ${authentication.key_id} key`, Secrets.marker(authentication.key));
-                    if (settings.bfd) this.out.bfd(statement, this.device.routing?.bfd);
-                }
-            }
-
-            if (ospf.redistribute?.length) this.out.set(`${protocol} export`, JunosRender.OSPF_EXPORT);
-        }
-
-        for (const source of ospf.redistribute ?? []) {
-            const term = `policy-options policy-statement ${JunosRender.OSPF_EXPORT} term ${source}`;
-            this.out.set(term, "from protocol", source === "connected" ? "direct" : "static");
-            this.out.set(term, "then accept");
         }
     }
 
