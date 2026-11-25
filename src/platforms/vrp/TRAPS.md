@@ -28,7 +28,7 @@ Seen on a CE6855 running V200R005.
 - Once SNMP is on, the switch prints an engine ID of its own, `snmp-agent local-engineid`, derived from its MAC, which the read ignores. It prints each SNMPv3 user as a bare `snmp-agent usm-user v3 <name>` line before its settings, which the render writes too (V200R005C00SPC800).
 - `apply --secrets` sends every line holding a secret again, the local users' passwords included. A password among the user's last ten is refused, which discards the whole candidate. Send it only when a password changed.
 - An SNMPv3 key prints as `cipher %^%#...%^%#`, which can be turned back into the key. The read redacts every value after `cipher`, as it does a password.
-- `display configuration candidate` shows the uncommitted lines as they were sent, not as the switch prints them. Commit to see the printed form.
+- `display configuration candidate` shows the uncommitted lines as they were sent, not as the switch prints them. Commit to see the printed form. `display configuration candidate merge` prints the running configuration with the candidate in it, in the printed form, without a commit (V200R005C00SPC800).
 - An ACL bound to a service cannot be removed: `undo acl number N` is refused at once with "This ACL is being used.", even when the same candidate already moved the binding. ACLs no longer used are removed last.
 - An ACL rule sent over a rule of the same number merges into it: `rule 10 deny` over `rule 10 permit source A` leaves `rule 10 deny source A`. A changed rule is undone first.
 - A single source address prints its wildcard as `0`: `rule 5 permit source 192.0.2.1 0`.
@@ -95,6 +95,7 @@ Seen on a CE6855 running V200R005.
     - A virtual link is `vlink-peer <router ID>` in the view of the area it crosses, printed as sent, with no timers.
     - On an NBMA or point-to-multipoint link, `display ospf interface` shows hello 30 s and dead 120 s when none is set, and a broadcast link 10 s and 40 s.
     - `undo ospf 1 router-id <id>` is `Too many parameters`. The process goes with `undo ospf 1`, which asks `[Y/N]`.
+    - Each passive interface is a line of its own, `silent-interface Vlanif<n>`, printed after `import-route direct` or `static`, and undone by its own line: a new one leaves the old in place.
 - IS-IS (V200R005C00SPC800, a process with no interface committed with `commit trial`, the next plan empty, then rolled back):
     - `import-route isis level-2 into level-1 filter-policy route-policy <name>`, and its `ipv6` twin, are refused while the route-policy does not exist: `The specified route-policy does not exist`. Circuit writes route-policies before IS-IS.
     - The process prints its IPv6 lines after its others, between two indented ` #` lines, which the read skips. `is-level level-1-2`, the default, is not printed. `ipv6 enable` without a topology is IPv6's own topology; `topology standard` shares IPv4's.
