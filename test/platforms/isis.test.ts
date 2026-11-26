@@ -585,6 +585,7 @@ set protocols isis topologies ipv6-unicast
     ]);
 });
 
+// A CHR on RouterOS 7.24.6 takes no topology, and its LSPs carried IPv6 beside IPv4 in one topology (TRAPS.md).
 test("RouterOS and FortiOS refuse multi-topology, Raisecom ROS refuses IS-IS, and IS-IS needs IPv6 for it", () => {
     const isis: Isis = { ...core({}, "uplink"), address_families: ["ipv4", "ipv6"], multi_topology: true };
     expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toContain(

@@ -120,7 +120,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | OSPF virtual links           | ✅ one family               | ✅                          | ❌ not yet               | 🧪                    | ✅               |
 | OSPF traffic engineering     | ✅ one area                 | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric        | ✅ VLAN interfaces          | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS multi-topology         | ❌                          | ✅                          | ❌                       | 🧪                    | ❌               |
+| IS-IS multi-topology         | ❌ one topology             | ✅                          | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                          | MD5, HMAC-SHA-256           | ❌                       | MD5; 🧪 HMAC-SHA-1    | MD5              |
 | IS-IS overload bit           | ❌                          | ✅                          | ❌                       | ✅                    | ✅               |
 | IS-IS leaks into level 1     | ❌ leaks every route        | ✅                          | ❌                       | 🧪                    | 🧪               |
