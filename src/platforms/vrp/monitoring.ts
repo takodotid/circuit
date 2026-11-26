@@ -190,8 +190,6 @@ export class VrpMonitoring {
                     `monitoring.syslog[${index}].transport_security, the switch loads a CA only from a file on its flash, which Circuit does not copy there`
                 );
         });
-        for (const key of ["active_timeout", "idle_timeout"] as const)
-            if (monitoring.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, which the platform does not build`);
         // Huawei's NQA documentation for CloudEngine V200R005C10.
         for (const name of Object.keys(monitoring.probes ?? {}))
             found.push(
@@ -199,7 +197,8 @@ export class VrpMonitoring {
             );
 
         const flow = monitoring.flow_export;
-        if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
+        if (flow?.protocol === "ipfix")
+            found.push("monitoring.flow_export.protocol ipfix, the platform exports sFlow and NetFlow v9: IPFIX is not tested");
         const sampling = flow?.protocol === "sflow" ? flow.sampling : undefined;
         const { min, max } = VrpMonitoring.SAMPLING;
 

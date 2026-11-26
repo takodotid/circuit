@@ -13,6 +13,7 @@ import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpMonitoring } from "./monitoring";
+import { VrpNetStream } from "./netstream";
 import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
@@ -178,7 +179,7 @@ export class VrpRender {
             this.separator();
         }
 
-        this.lines.push(...VrpMonitoring.flowLines(device), ...VrpMonitoring.loggingLines(device));
+        this.lines.push(...VrpMonitoring.flowLines(device), ...VrpNetStream.lines(device), ...VrpMonitoring.loggingLines(device));
         this.alarms();
         this.lines.push(...VrpMonitoring.snmpLines(device, this.snmpGuard()));
         this.ssh();
@@ -551,7 +552,7 @@ export class VrpRender {
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
         lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl));
 
-        lines.push(...VrpMonitoring.portLines(this.device, port));
+        lines.push(...VrpMonitoring.portLines(this.device, port), ...VrpNetStream.portLines(this.device, port));
         return lines;
     }
 

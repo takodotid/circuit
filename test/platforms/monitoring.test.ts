@@ -319,11 +319,82 @@ test("VRP refuses a community's receiver, which the switch takes away only by th
     );
 });
 
+test("VRP exports NetFlow v9 of both families from the ports it watches, and plans nothing against how a CE6855 printed it", () => {
+    const vrp = Platforms.get("vrp");
+    const flow: FlowExport = {
+        protocol: "netflow-v9",
+        collectors: [{ address: "192.0.2.30" }, { address: "192.0.2.31", port: 9995 }],
+        sampling: 4096,
+        interfaces: ["10g-1"],
+        active_timeout: 600,
+        idle_timeout: 60,
+    };
+    const device = monitored("platforms--example-switch", [], { flow_export: flow });
+    const desired = vrp.render(device);
+
+    expect(vrp.unsupported(device)).toEqual([]);
+    expect(lines(desired, "netstream")).toEqual([
+        "netstream export ip version 9",
+        "netstream export ip host 192.0.2.30 2055",
+        "netstream export ip host 192.0.2.31 9995",
+        "netstream timeout ip active 10",
+        "netstream timeout ip inactive 60",
+        "netstream export ipv6 version 9",
+        "netstream export ipv6 host 192.0.2.30 2055",
+        "netstream export ipv6 host 192.0.2.31 9995",
+        "netstream timeout ipv6 active 10",
+        "netstream timeout ipv6 inactive 60",
+    ]);
+    expect(desired).toContain(" netstream inbound ip\n netstream inbound ipv6\n netstream sampler random-packets 4096 inbound\n");
+
+    // The switch prints the version with a space after it.
+    const printed = desired.replace(/netstream export (ip|ipv6) version 9\n/g, "netstream export $1 version 9 \n");
+    expect(sent("vrp", desired, printed)).toEqual([]);
+
+    // Its own timeouts, 30 minutes and 30 seconds, are not printed. A new rate replaces the port's sampler.
+    const plain = vrp.render(
+        monitored("platforms--example-switch", [], { flow_export: { ...flow, sampling: 8192, active_timeout: 1800, idle_timeout: 30 } })
+    );
+    expect(lines(plain, "netstream timeout")).toEqual([]);
+    expect(sent("vrp", plain, printed)).toEqual([
+        "undo netstream timeout ipv6 inactive",
+        "undo netstream timeout ipv6 active",
+        "undo netstream timeout ip inactive",
+        "undo netstream timeout ip active",
+        "interface 10GE1/0/1",
+        "netstream sampler random-packets 8192 inbound",
+        "quit",
+    ]);
+});
+
 test("VRP refuses syslog over TLS, whose CA the switch loads from a file", () => {
     const device = monitored("platforms--example-switch", [], {
         syslog: [{ address: "192.0.2.20", level: "info", transport_security: { ca_certificate: "noc-ca" } }],
     });
     expect(Platforms.get("vrp").unsupported(device)).toContain(
         "monitoring.syslog[0].transport_security, the switch loads a CA only from a file on its flash, which Circuit does not copy there"
+    );
+});
+
+test("VRP refuses what NetStream can't do", () => {
+    const device = monitored("platforms--example-switch", [], {
+        flow_export: {
+            protocol: "netflow-v9",
+            collectors: [{ address: "192.0.2.30" }, { address: "192.0.2.31" }, { address: "2001:db8::30" }],
+            interfaces: ["uplink"],
+            active_timeout: 90,
+            idle_timeout: 4,
+        },
+    });
+
+    expect(Platforms.get("vrp").unsupported(device)).toEqual(
+        expect.arrayContaining([
+            "monitoring.flow_export.sampling, required and from 1 to 65535 on the platform: whether the switch keeps every packet without a sampler is not known",
+            "monitoring.flow_export.collectors, 2 at most on the platform",
+            "monitoring.flow_export.collectors 2001:db8::30, IPv6 is not tested",
+            "monitoring.flow_export.interfaces uplink, the platform watches ports: NetStream elsewhere is not tested",
+            "monitoring.flow_export.active_timeout, whole minutes from 60 to 3600 seconds on the platform",
+            "monitoring.flow_export.idle_timeout, from 5 to 600 seconds on the platform",
+        ])
     );
 });

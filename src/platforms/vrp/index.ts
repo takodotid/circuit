@@ -23,6 +23,7 @@ import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpMonitoring } from "./monitoring";
+import { VrpNetStream } from "./netstream";
 import { VrpOspf } from "./ospf";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
@@ -93,6 +94,7 @@ export class Vrp extends Platform {
             VrpIsis.head(line) ??
             VrpOspf.head(line) ??
             VrpDhcpv6.head(line) ??
+            VrpNetStream.head(line) ??
             VrpMonitoring.head(line) ??
             Vrp.head(line),
     };
@@ -308,7 +310,7 @@ export class Vrp extends Platform {
 
         if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
 
-        found.push(...VrpMonitoring.unsupported(device));
+        found.push(...VrpMonitoring.unsupported(device), ...VrpNetStream.unsupported(device));
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
@@ -638,6 +640,7 @@ export class Vrp extends Platform {
             VrpMarking.undo(line) ??
             VrpQos.undo(line) ??
             VrpRouterAdvertisement.undo(line) ??
+            VrpNetStream.undo(line) ??
             VrpMonitoring.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
