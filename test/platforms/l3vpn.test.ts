@@ -165,7 +165,7 @@ test("Junos, FortiOS, VRP, and Raisecom ROS refuse an L3VPN, each saying why", (
     const reasons: Record<string, string> = {
         junos: "L3VPN, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
         fortios: "L3VPN: FortiOS has no MPLS",
-        vrp: "L3VPN, not built yet",
+        vrp: "L3VPN: Huawei's guide says a CloudEngine switch can't be a PE on an MPLS network, and V200R005 asks to reset each session that starts to carry vpnv4, so it was not tried",
         "raisecom-ros": "L3VPN, not built yet",
     };
     const vpn: NeighborSettings = { address_families: ["vpnv4"] };

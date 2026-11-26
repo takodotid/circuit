@@ -89,7 +89,7 @@ test("Junos, FortiOS, VRP, and Raisecom ROS refuse a VPLS that BGP sets up, each
     const reasons: Record<string, string> = {
         junos: "a VPLS by BGP, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
         fortios: "a VPLS: FortiOS has no MPLS",
-        vrp: "a VPLS by BGP, not built yet",
+        vrp: "a VPLS: V200R005 on a CE6855 has none, as `display vsi` and a VLAN interface's `l2 binding vsi` are not commands",
         "raisecom-ros": "a VPLS by BGP, not built yet",
     };
     const museum = core["pe-01"]!.switching!.vlans!.museum!;
