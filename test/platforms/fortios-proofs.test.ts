@@ -295,3 +295,22 @@ test("a BGP neighbor's role is refused: the device has none", () => {
 
     expect(platform.unsupported(withRole)).toContain("routing.bgp.neighbors.arelion.role, FortiOS 6.2 has no BGP roles (RFC 9234)");
 });
+
+// Tried in a test VDOM on tako-fwl-01 (FG-3700D, 6.2.2): `set rpki enable` on a neighbor was `command parse error before 'rpki'`.
+test("RPKI, and a rule that matches it, are refused: the device has no route origin validation", () => {
+    const checked: Device = {
+        ...firewall,
+        routing: {
+            ...firewall.routing,
+            rpki: [{ address: "192.0.2.10", port: 323 }],
+            policies: { ...firewall.routing!.policies, checked: [{ if: { rpki: "invalid" }, then: "reject" }, { then: "accept" }] },
+        },
+    };
+
+    expect(platform.unsupported(checked)).toEqual(
+        expect.arrayContaining([
+            "routing.rpki, FortiOS 6.2 has no route origin validation: RPKI needs 8.0",
+            "routing.policies.checked[0].if.rpki, FortiOS 6.2 has no route origin validation: RPKI needs 8.0",
+        ])
+    );
+});

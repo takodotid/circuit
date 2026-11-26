@@ -147,7 +147,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Route policies, prefix sets  | ✅                          | ✅ each rule decides        | ❌                       | ✅                    | ✅               |
 | BGP communities              | ✅                          | ✅ standard, no `*`         | ❌                       | ✅                    | ✅ no large ones |
 | AS path matches              | ✅                          | ✅ one per rule, no length  | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
-| RPKI                         | ✅                          | ❌                          | ❌                       | ✅                    | ❌               |
+| RPKI                         | ✅                          | ❌                          | ❌                       | ✅                    | ❌ needs 8.0     |
 | BGP roles (RFC 9234)         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                     | ❌                          | ❌                       | ❌                    | ❌               |
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |

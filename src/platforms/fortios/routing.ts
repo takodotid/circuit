@@ -191,6 +191,9 @@ export class FortiOsRouting {
 
     static readonly ACCESS_LIST = { ipv4: "router access-list", ipv6: "router access-list6" } as const;
 
+    /** Why RPKI is refused: BGP has none on 6.2 (TRAPS.md). */
+    private static readonly NO_RPKI = "FortiOS 6.2 has no route origin validation: RPKI needs 8.0";
+
     /** The longest prefix of each family. */
     static readonly BITS = { ipv4: 32, ipv6: 128 } as const;
 
@@ -675,7 +678,7 @@ export class FortiOsRouting {
         const found: string[] = [];
         const routing = device.routing;
 
-        if (routing?.rpki) found.push("routing.rpki, the platform has no route origin validation");
+        if (routing?.rpki) found.push(`routing.rpki, ${FortiOsRouting.NO_RPKI}`);
         // `router bgp` has no `config vrf-leak` (TRAPS.md).
         if (routing?.vrf_imports)
             found.push("routing.vrf_imports, FortiOS 6.2 takes no routes from one VRF into another: route leaking between VRFs needs 6.4");
@@ -819,9 +822,8 @@ export class FortiOsRouting {
         if ((rule.if || rule.set) && !rule.then)
             found.push(`${where}, a rule without then: the platform stops at the first rule that matches`);
 
-        for (const field of ["rpki", "large_community"] as const) {
-            if (match[field] !== undefined) found.push(`${where}.if.${field}`);
-        }
+        if (match.rpki !== undefined) found.push(`${where}.if.rpki, ${FortiOsRouting.NO_RPKI}`);
+        if (match.large_community !== undefined) found.push(`${where}.if.large_community`);
 
         const asPath = FortiOsRouting.AS_PATH_FIELDS.filter((field) => match[field] !== undefined);
         if (asPath.length > 1)
