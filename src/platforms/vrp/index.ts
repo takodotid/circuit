@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, Port, VlanInterface } from "../../model";
+import type { Device, Gre, Lag, Port, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -24,6 +24,7 @@ import { VrpMarking } from "./marking";
 import { VrpOspf } from "./ospf";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
+import { VrpRoutes } from "./routes";
 
 export class Vrp extends Platform {
     /** The question to change the password is always answered no, and a system view is left with `return`. The line's banner after a logout or a refused password is answered with Enter. Not yet tested on a device. */
@@ -158,14 +159,26 @@ export class Vrp extends Platform {
         const interfaces = Derive.interfaces(device);
 
         for (const { name, kind, settings } of interfaces) {
-            if (kind === "bridge") found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
+            // A CE6855 refused a second `l2 binding vlan` in a bridge domain, and one for a VLAN with a VLAN interface (TRAPS.md).
+            if (kind === "bridge")
+                found.push(
+                    `interfaces.bridge.${name}, a bridge: a CloudEngine bridge domain binds one VLAN, and no VLAN that has a VLAN interface`
+                );
             if (kind === "vlan_interface" && (settings as VlanInterface).mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
 
         for (const [name, port] of Derive.ports(device)) {
-            for (const field of ["speed", "mtu", "addresses", "urpf", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["speed", "mtu", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`interfaces.ethernet.${name}.${field}, ports are switched; use a VLAN interface`);
+            }
+
+            // A CE6855 refused `undo portswitch` until VLANs are reserved for routed ports (TRAPS.md), a range of the network's own.
+            for (const field of ["addresses", "urpf", "vrrp", "vrf", "ipv6_ra"] as const) {
+                if (port[field] !== undefined)
+                    found.push(
+                        `interfaces.ethernet.${name}.${field}, a routed port: the switch routes a port only on a VLAN it reserves for it, which Circuit has no key for. Use a VLAN interface`
+                    );
             }
 
             for (const field of ["mac_limit", "ethertypes"] as const) {
@@ -187,11 +200,16 @@ export class Vrp extends Platform {
             else if (kind === "pppoe_client")
                 found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
             else if (kind === "vxlan" && !("evpn" in settings && settings.evpn)) found.push(`${where}, a VXLAN without EVPN`);
-            else if (kind !== "vlan_interface" && kind !== "lag" && kind !== "vxlan") found.push(`${where}, a ${kind}`);
+            else if (!["vlan_interface", "lag", "vxlan", "loopback", "gre"].includes(kind)) found.push(`${where}, a ${kind}`);
+            if (settings.vrrp?.length && kind !== "vlan_interface" && kind !== "lag") found.push(`${where}.vrrp, on VLAN interfaces only`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
             if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not tested`);
             if (settings.mtu !== undefined) found.push(`${where}.mtu`);
+            const ends = kind === "gre" ? [(settings as Gre).local_address, (settings as Gre).remote_address] : [];
+            if (ends.some((end) => Address.family(Address.host(end)) === "ipv6"))
+                found.push(`${where}, GRE between IPv6 addresses, not built yet`);
+            if (kind === "gre" && settings.vrf) found.push(`${where}.vrf, a GRE tunnel in a VRF, not tested`);
             if (settings.ipv6_ra) found.push(`${where}.ipv6_ra`);
             if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload, the switch chip forwards everything`);
             for (const group of settings.vrrp ?? []) if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
@@ -208,7 +226,8 @@ export class Vrp extends Platform {
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
         found.push(...VrpEvpn.unsupported(device));
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
-        if (routing?.rpki) found.push("routing.rpki");
+        // A CE6855 refused `rpki` and `prefix origin-validation enable`.
+        if (routing?.rpki) found.push("routing.rpki, V200R005 has no route origin validation");
         found.push(...VrpOspf.unsupported(device));
         if (routing?.router_id && !routing.ospf && !routing.bgp)
             found.push("routing.router_id without routing.ospf or routing.bgp, only they use it here");
@@ -221,25 +240,7 @@ export class Vrp extends Platform {
         if (bfd && !Vrp.inRange(bfd.multiplier, multiplier))
             found.push(`routing.bfd.multiplier, between ${multiplier.min} and ${multiplier.max} on the platform`);
 
-        for (const route of routing?.static_routes ?? []) {
-            if (!route.bfd) continue;
-
-            const where = `routing.static_routes ${route.prefix} bfd`;
-            const nextHop = route.next_hop && Address.host(route.next_hop);
-            if (route.vrf) found.push(`${where} in a VRF, not tested`);
-            else if (!nextHop || Address.family(nextHop) !== "ipv4") found.push(`${where}, needs an IPv4 next_hop`);
-            else if (!VrpRender.localAddressTo(device, nextHop))
-                found.push(`${where}, the device has no address on the network of ${nextHop}`);
-        }
-
-        for (const [index, route] of (routing?.static_routes ?? []).entries()) {
-            if (route.description && Address.family(Address.split(route.prefix).addr) === "ipv6")
-                found.push(`routing.static_routes[${index}].description for IPv6`);
-            // The render writes the next hop alone, so the interface would be lost.
-            if (route.next_hop && route.interface)
-                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
-        }
-
+        found.push(...VrpRoutes.unsupported(device));
         found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for VRP`);
 
@@ -299,7 +300,10 @@ export class Vrp extends Platform {
         for (const { where, settings } of Derive.switchedHolders(device))
             if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         const { tpid, innerVlans } = Derive.stackedTags(device);
-        for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
+        for (const where of tpid) found.push(`${where}, which only RouterOS builds for now`);
+        // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
+        for (const where of innerVlans)
+            found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
         // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
             if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
@@ -526,6 +530,7 @@ export class Vrp extends Platform {
         const isis = VrpIsis.removed(top);
 
         if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
+        const through = VrpRoutes.throughInterfaces(top);
 
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
@@ -537,6 +542,8 @@ export class Vrp extends Platform {
             const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map((line) => Vrp.undo(line));
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
+
+        VrpRoutes.place(planned, through, (line) => Vrp.undo(line));
 
         planned.push(
             ...Vrp.removal("ACLs no longer used", lastRemovals),
