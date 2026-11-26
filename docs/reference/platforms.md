@@ -222,7 +222,7 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 NAT64 and DNS64 are built on FortiOS only:
 
 - **FortiOS.** NAT64 is on for the whole VDOM, with one NAT64 prefix, a /96, which DNS64 uses too. Each rule is a NAT64 policy, which also lets its traffic through: FortiOS checks NAT64 traffic against NAT64 policies alone, not against the forward chain, and `validate` warns when the forward chain has rules. Its DNS server is DNS64 whenever NAT64 is on, so beside a `nat64` rule, `dns_server` needs `dns64`. Both are experimental: a FG-3700D took the config, but no traffic crossed it.
-- **RouterOS.** MikroTik's NAT page says RouterOS does not support NAT64, and its DNS server has no DNS64.
+- **RouterOS.** MikroTik's NAT page says RouterOS does not support NAT64, and its DNS server has no DNS64. A CHR with 7.24.6 has no setting for either.
 - **Junos.** A QFX5100 has no NAT: Juniper's Feature Explorer lists none for it on 21.4. NAT64 runs on SRX firewalls and on MX routers with a services card.
 - **VRP.** Circuit builds no NAT there. Huawei's FAQ on NAT in CloudEngine switches gives it to the CE12800 with a firewall card only, and Huawei builds NAT64 on NE routers with a CGN board.
 - **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.

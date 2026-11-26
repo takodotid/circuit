@@ -66,11 +66,11 @@ export class RouterOsFirewall {
     /** Source NAT RouterOS has no way to write: port blocks handed out as subscribers need them, and NAT64 and DNS64. MikroTik's NAT page says "RouterOS does not support NAT64", and its DNS page has no DNS64. */
     static natGaps(device: Device): string[] {
         const found: string[] = [];
-        if (device.services?.dns64) found.push("services.dns64, RouterOS's DNS server has no DNS64");
+        if (device.services?.dns64) found.push("services.dns64, RouterOS's DNS server has no DNS64 (TRAPS.md)");
 
         (device.firewall?.nat?.source ?? []).forEach((rule, index) => {
             if (rule.then === "nat64") {
-                found.push(`firewall.nat.source[${index}].then nat64, RouterOS has no NAT64`);
+                found.push(`firewall.nat.source[${index}].then nat64, RouterOS has no NAT64 (TRAPS.md)`);
                 return;
             }
             if (!("to_pool" in rule)) return;
