@@ -387,7 +387,11 @@ export class Junos extends Platform {
         if (device.services?.ipsec_remote_access)
             found.push("services.ipsec_remote_access, IPsec: a QFX switch does not encrypt the traffic it forwards");
         if (system.hardware_offload !== undefined) found.push("system.hardware_offload");
-        if (system.certificates !== undefined) found.push("system.certificates");
+        // A revocation list's `revocation-check crl url` passes `commit check`, but the certificate of its CA is in no statement (TRAPS.md).
+        if (system.certificates !== undefined)
+            found.push(
+                "system.certificates, which Junos loads with an operational command, request security pki ca-certificate load, not a statement: Circuit writes none, nor the crl_url of one"
+            );
 
         found.push(...JunosDhcp.unsupported(device));
         if (device.services?.pppoe_server)
