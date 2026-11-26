@@ -138,7 +138,7 @@ export class VrpRender {
                     ...VrpRender.lagMode(lag),
                     ...this.switching(lag),
                     ...VrpRender.rateLimitLines(name, lag.rate_limit),
-                    ...VrpSwitching.boundPortLines(name, lag),
+                    ...VrpSwitching.portLines(this.device, name, lag),
                 ]);
         }
 
@@ -351,11 +351,20 @@ export class VrpRender {
         }
     }
 
+    /** A private VLAN's primary VLAN comes after its secondary VLANs, which it lists, so that a plan creates them first. */
     private vlanBlocks(): void {
-        for (const [name, vlan] of Object.entries(this.vlans)) {
+        const entries = Object.entries(this.vlans);
+        const primaries = new Set(entries.flatMap(([, vlan]) => (vlan?.private_vlan ? [vlan.private_vlan.primary] : [])));
+        const ordered = [...entries.filter(([name]) => !primaries.has(name)), ...entries.filter(([name]) => primaries.has(name))];
+
+        for (const [name, vlan] of ordered) {
             if (!vlan) continue;
             const description = vlan.description ? [`description ${vlan.description}`] : [];
-            this.block(`vlan ${vlan.id}`, [`name ${name}`, ...description, ...VrpSwitching.vlanLines(this.device)]);
+            this.block(`vlan ${vlan.id}`, [
+                `name ${name}`,
+                ...description,
+                ...VrpSwitching.vlanLines(this.device, name, VrpRender.vlanBatch),
+            ]);
         }
     }
 
@@ -569,7 +578,7 @@ export class VrpRender {
         if (settings.lldp === false) lines.push("lldp disable");
         if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
-        lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl), ...VrpSwitching.boundPortLines(port, settings));
+        lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl), ...VrpSwitching.portLines(this.device, port, settings));
 
         lines.push(...VrpMonitoring.portLines(this.device, port), ...VrpNetStream.portLines(this.device, port));
         return lines;

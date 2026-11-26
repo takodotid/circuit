@@ -457,6 +457,7 @@ export class Vrp extends Platform {
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
         VrpMarking.order(groups);
+        VrpSwitching.muxChange(groups, (list) => Vrp.batchIds(`vlan batch ${list}`), VrpRender.vlanBatch);
         const domains = VrpQos.order(groups, desired, Vrp.DIALECT);
         const keys = Vrp.keySteps(groups, desired, current);
         const problems = [...keys.problems, ...VrpEvpn.problems(desired, current, Vrp.DIALECT)];
@@ -481,6 +482,7 @@ export class Vrp extends Platform {
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
 
+        const leaving = VrpSwitching.leaveMux(groups, current);
         const later = [...firstRemovals, ...lastRemovals, ...pools, ...lags];
         if (top) top.remove = top.remove.filter((line) => !later.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
@@ -493,10 +495,13 @@ export class Vrp extends Platform {
 
         if (firstRemovals.length) {
             // `undo vlan batch` removes a VLAN's own settings with it, so only the interfaces and the list are sent.
-            const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map((line) => Vrp.undo(line));
+            const interfaces = firstRemovals.filter((line) => line.startsWith("interface ")).map((line) => Vrp.undo(line));
+            const lists = VrpSwitching.subordinatesFirst(removedIds, current, (list) => Vrp.batchIds(`vlan batch ${list}`));
+            const sent = [...interfaces, ...lists.map((ids) => `undo vlan batch ${VrpRender.vlanBatch(ids)}`)];
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
 
+        planned.unshift(...leaving);
         VrpRoutes.place(planned, through, (line) => Vrp.undo(line));
         VrpRoutes.place(planned, hosts, (line) => Vrp.undo(line), "Hosts of bound ports");
 

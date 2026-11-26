@@ -101,6 +101,107 @@ test("VRP inspects ARP in the view of each VLAN, as a CE6855 printed it", () => 
     expect(sent(desired, desired)).toEqual([]);
 });
 
+test("VRP builds a private VLAN as a MUX VLAN on access ports, as a CE6855 printed it", () => {
+    const vlans = {
+        "ctest-a": { id: 3981 },
+        "ctest-p": { id: 3983 },
+        "ctest-i": { id: 3984, private_vlan: { primary: "ctest-p", type: "isolated" } },
+        "ctest-c1": { id: 3985, private_vlan: { primary: "ctest-p", type: "community" } },
+        "ctest-c2": { id: 3986, private_vlan: { primary: "ctest-p", type: "community" } },
+    } as const;
+    const muxed = device({ "10g-47": { access_vlan: "ctest-p" }, "10g-48": { access_vlan: "ctest-i" } }, {}, { vlans });
+    const desired = vrp.render(muxed);
+
+    expect(desired).toContain("vlan 3983\n name ctest-p\n mux-vlan\n subordinate separate 3984\n subordinate group 3985 to 3986\n#\n");
+    expect(desired).toContain("interface 10GE1/0/47\n port default vlan 3983\n port mux-vlan enable vlan 3983\n");
+    expect(desired).toContain("interface 10GE1/0/48\n port default vlan 3984\n port mux-vlan enable vlan 3984\n");
+    expect(vrp.unsupported(muxed)).toEqual([]);
+    expect(vrp.experimental(muxed)).toEqual([
+        "switching.vlans.ctest-i.private_vlan",
+        "switching.vlans.ctest-c1.private_vlan",
+        "switching.vlans.ctest-c2.private_vlan",
+    ]);
+    expect(sent(desired, desired)).toEqual([]);
+
+    // The switch refuses `port mux-vlan enable` until the VLAN is a MUX VLAN, and a MUX VLAN lists its secondary VLANs.
+    const titles = plan(desired, vrp.render(device({}))).map((step) => step.title);
+    expect(titles.indexOf("vlan 3983")).toBeGreaterThan(titles.indexOf("vlan 3986"));
+    expect(titles.indexOf("interface 10GE1/0/48")).toBeGreaterThan(titles.indexOf("vlan 3983"));
+
+    const trunked = device(
+        { "10g-48": { trunk_vlans: ["ctest-p"], mac_limit: 1 }, "10g-47": { access_vlan: "ctest-c1", mac_limit: 1 } },
+        {},
+        { vlans }
+    );
+    expect(vrp.unsupported(trunked)).toEqual([
+        "interfaces.ethernet.10g-48.trunk_vlans ctest-p, a private VLAN on a trunk: VRP builds it as a MUX VLAN on access ports only, as how a trunk carries one is not known",
+        "interfaces.ethernet.10g-47.mac_limit in a private VLAN, which a MAC limit breaks on VRP",
+    ]);
+
+    const inspected = device({ "10g-48": { access_vlan: "ctest-i" } }, {}, { vlans, dhcp_snooping: true, arp_inspection: true });
+    expect(vrp.unsupported(inspected)).toContain(
+        "switching.vlans.ctest-i.private_vlan beside switching.arp_inspection, as the switch takes no VLAN that inspects ARP into a MUX VLAN"
+    );
+});
+
+test("VRP changes and removes a MUX VLAN in the order a CE6855 took", () => {
+    const isolated = { primary: "ctest-p", type: "isolated" } as const;
+    const community = { primary: "ctest-p", type: "community" } as const;
+    const vlans = {
+        "ctest-p": { id: 3983 },
+        "ctest-i": { id: 3984, private_vlan: isolated },
+        "ctest-c1": { id: 3985, private_vlan: community },
+        "ctest-c2": { id: 3986, private_vlan: community },
+    };
+    const muxed = vrp.render(device({ "10g-48": { access_vlan: "ctest-i" } }, {}, { vlans }));
+
+    // A port leaves its VLAN of the MUX VLAN before it joins another, and a new community joins the list.
+    const moved = device(
+        { "10g-48": { access_vlan: "ctest-c1" } },
+        {},
+        { vlans: { ...vlans, "ctest-c3": { id: 3987, private_vlan: community } } }
+    );
+    expect(sent(vrp.render(moved), muxed)).toEqual([
+        "interface 10GE1/0/48",
+        "undo port mux-vlan enable vlan 3984",
+        "quit",
+        "vlan 3987",
+        "name ctest-c3",
+        "quit",
+        "vlan 3983",
+        "subordinate group 3987",
+        "quit",
+        "vlan batch 3987",
+        "interface 10GE1/0/48",
+        "port default vlan 3985",
+        "port mux-vlan enable vlan 3985",
+        "quit",
+    ]);
+
+    // A community that goes takes its place in the list with it.
+    const { "ctest-c2": _gone, ...fewer } = vlans;
+    expect(sent(vrp.render(device({ "10g-48": { access_vlan: "ctest-i" } }, {}, { vlans: fewer })), muxed)).toEqual([
+        "undo vlan batch 3986",
+    ]);
+
+    // The port leaves first, then the subordinate VLANs go, then the MUX VLAN.
+    expect(sent(vrp.render(device({}, {}, { vlans: { "ctest-a": { id: 3981 } } })), muxed).slice(0, 5)).toEqual([
+        "interface 10GE1/0/48",
+        "undo port mux-vlan enable vlan 3984",
+        "quit",
+        "undo vlan batch 3984 to 3986",
+        "undo vlan batch 3983",
+    ]);
+
+    // A LAG that goes leaves first too.
+    const lag = vrp.render(device({ "10g-48": { in_lag: "ctest-lag" } }, { "ctest-lag": { id: 39, access_vlan: "ctest-p" } }, { vlans }));
+    expect(plan(vrp.render(device({}, {}, { vlans: { "ctest-a": { id: 3981 } } })), lag)[0]).toEqual({
+        title: "interface Eth-Trunk39, out of its MUX VLAN",
+        show: ["- port mux-vlan enable vlan 3983"],
+        send: ["interface Eth-Trunk39", "undo port mux-vlan enable vlan 3983", "quit"],
+    });
+});
+
 test("VRP refuses what a bound port can't hold, and says why", () => {
     const hosts = [
         { mac: "02:00:00:00:00:01", addresses: ["192.0.2.11", "2001:db8:3981::11", "10.0.0.0/23"] },

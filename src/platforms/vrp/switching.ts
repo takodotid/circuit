@@ -4,6 +4,7 @@ import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { BoundHost, Device, Lag, Port } from "../../model";
 import type { Group } from "../line-diff";
+import type { Step } from "../platform";
 import { VrpAcls } from "./acls";
 import { VrpPolicies } from "./policies";
 
@@ -17,8 +18,14 @@ export class VrpSwitching {
     /** The switch numbers an ACL's rules in steps of 5. */
     private static readonly RULE_STEP = 5;
 
-    /** A bound host's lines: its bindings and its static MAC address. Each gives the port and its VLAN, which the switch checks as the line arrives, and each is undone and sent whole. */
+    /** A bound host's lines: its bindings and its static MAC address. Each gives the port and its VLAN, which the switch checks as the line arrives. */
     private static readonly HOST_LINE = /^(user-bind static|mac-address static) /;
+
+    /** Lines each undone and sent whole, rather than replaced by one that gives another VLAN: a bound host's, and a MUX VLAN's. A port leaves a MUX VLAN before it may join another of the group. */
+    private static readonly WHOLE = /^(user-bind static|mac-address static|port mux-vlan enable|subordinate) /;
+
+    /** A MUX VLAN's communities, as one list. */
+    private static readonly COMMUNITIES = "subordinate group ";
 
     /** What the switch can't do, or does for every port at once. */
     static unsupported(device: Device): string[] {
@@ -39,9 +46,7 @@ export class VrpSwitching {
         // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
         for (const where of innerVlans)
             found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
-        // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
-        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
-            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
+        found.push(...VrpSwitching.privateVlanGaps(device));
 
         // `stp bpdu-protection` guards every edge port at once.
         const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);
@@ -73,21 +78,119 @@ export class VrpSwitching {
             if (settings.bound_to) found.push(`${where}.bound_to`);
         }
 
+        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
+            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan`);
         return found;
     }
 
-    /** A binding and a static MAC address are undone and sent whole, rather than replaced by a line that gives another VLAN. */
+    /** A bound host's line and a MUX VLAN's lines are undone and sent whole. */
     static head(line: string): string | undefined {
-        return VrpSwitching.HOST_LINE.test(line) ? line : undefined;
+        return VrpSwitching.WHOLE.test(line) ? line : undefined;
     }
 
-    /** A VLAN's own lines: ARP inspection, which the switch runs on a whole VLAN, and not on a port. */
-    static vlanLines(device: Device): string[] {
-        return device.switching?.arp_inspection ? ["arp anti-attack check user-bind enable"] : [];
+    /**
+     * A MUX VLAN's communities change by the VLANs added and removed, as a VLAN list does: the switch adds a list sent again to the one it has. A VLAN that goes takes its place in a MUX VLAN with it. Once the VLAN is gone, the switch refuses to undo that place: "The VLAN does not exist".
+     */
+    static muxChange(groups: Group[], parse: (list: string) => number[], format: (ids: number[]) => string): void {
+        const prefix = VrpSwitching.COMMUNITIES;
+        const top = groups.find((group) => group.path.length === 0);
+        const batches = (top?.remove ?? []).filter((line) => line.startsWith("vlan batch "));
+        const gone = batches.flatMap((line) => parse(line.slice("vlan batch ".length)));
+
+        for (const group of groups) {
+            if (!/^vlan \d+$/.test(group.path[0] ?? "")) continue;
+
+            const old = group.remove.find((line) => line.startsWith(prefix));
+            const fresh = group.add.find((line) => line.startsWith(prefix));
+            const before = old ? parse(old.slice(prefix.length)) : [];
+            const after = fresh ? parse(fresh.slice(prefix.length)) : [];
+            const removed = before.filter((id) => !after.includes(id) && !gone.includes(id));
+            const added = after.filter((id) => !before.includes(id));
+            const separateGone = (line: string) => gone.some((id) => line === `subordinate separate ${id}`);
+
+            group.remove = group.remove.filter((line) => line !== old && !separateGone(line));
+            if (removed.length) group.remove.push(`${prefix}${format(removed)}`);
+            group.add = group.add.filter((line) => line !== fresh);
+            if (added.length) group.add.push(`${prefix}${format(added)}`);
+        }
+    }
+
+    /** Each port that leaves a MUX VLAN does so first, taken out of its own step. The switch refuses to remove a VLAN a port is in: "Please disable MUX-VLAN on the port first". */
+    static leaveMux(groups: Group[], current: string): Step[] {
+        const leave = (header: string, lines: string[]): Step => ({
+            title: `${header}, out of its MUX VLAN`,
+            show: lines.map((line) => `- ${line}`),
+            send: [header, ...lines.map((line) => `undo ${line}`), "quit"],
+        });
+        const isMux = (line: string) => line.startsWith("port mux-vlan enable ");
+        const steps: Step[] = [];
+
+        // A LAG that goes takes its lines with its header, so they are read from the device.
+        const top = groups.find((group) => group.path.length === 0);
+        for (const header of top?.remove.filter((line) => line.startsWith("interface Eth-Trunk")) ?? []) {
+            const block = current.split(`\n${header}\n`)[1]?.split("\n#")[0] ?? "";
+            const lines = block
+                .split("\n")
+                .map((line) => line.trim())
+                .filter(isMux);
+            if (lines.length) steps.push(leave(header, lines));
+        }
+
+        for (const group of groups) {
+            const [header] = group.path;
+            const lines = group.remove.filter(isMux);
+            if (!header?.startsWith("interface ") || group.path.length !== 1 || !lines.length) continue;
+
+            group.remove = group.remove.filter((line) => !lines.includes(line));
+            steps.push(leave(header, lines));
+        }
+
+        return steps;
+    }
+
+    /** The VLANs a plan removes, a MUX VLAN's subordinate VLANs in a list before the rest. The switch refuses to remove a VLAN that still has them: "Delete the configurations of the subordinate VLAN first". */
+    static subordinatesFirst(ids: readonly number[], current: string, parse: (list: string) => number[]): number[][] {
+        const lists = [...current.matchAll(/^ subordinate (?:separate|group) (.+)$/gm)].map((match) => match[1]!.trim());
+        const subordinates = new Set(lists.flatMap(parse));
+        const first = ids.filter((id) => subordinates.has(id));
+        const rest = ids.filter((id) => !subordinates.has(id));
+        return [first, rest].filter((list) => list.length);
+    }
+
+    /**
+     * A VLAN's own lines. A private VLAN's primary VLAN is a MUX VLAN, with its isolated VLAN as `subordinate separate` and its communities as `subordinate group`, a list written as `vlan batch` writes one. ARP inspection runs on a whole VLAN, and not on a port.
+     */
+    static vlanLines(device: Device, name: string, batch: (ids: number[]) => string): string[] {
+        const lines: string[] = [];
+        const secondaries = Object.values(device.switching?.vlans ?? {}).filter((vlan) => vlan?.private_vlan?.primary === name);
+
+        if (secondaries.length) {
+            const ofType = (type: string) => secondaries.flatMap((vlan) => (vlan?.private_vlan?.type === type ? [vlan.id] : []));
+            const [isolated] = ofType("isolated");
+            const communities = ofType("community");
+            lines.push("mux-vlan");
+            if (isolated !== undefined) lines.push(`subordinate separate ${isolated}`);
+            if (communities.length) lines.push(`${VrpSwitching.COMMUNITIES}${batch(communities)}`);
+        }
+
+        if (device.switching?.arp_inspection) lines.push("arp anti-attack check user-bind enable");
+        return lines;
+    }
+
+    /**
+     * A port's or a LAG's own lines. An access port of a private VLAN joins its MUX VLAN, and a bound port binds its hosts.
+     */
+    static portLines(device: Device, name: string, settings: Port | Lag): string[] {
+        const lines: string[] = [];
+        const access = settings.access_vlan;
+        const id = access ? device.switching?.vlans?.[access]?.id : undefined;
+        if (access && VrpSwitching.inPrivateVlan(device, access)) lines.push(`port mux-vlan enable vlan ${id}`);
+
+        return [...lines, ...VrpSwitching.boundPortLines(name, settings)];
     }
 
     /** A bound port learns no MAC address, and drops a frame from any MAC address but its static ones. It checks each IPv4 packet against its bindings, and each IPv6 packet against its ACL6. */
-    static boundPortLines(name: string, settings: Port | Lag): string[] {
+    private static boundPortLines(name: string, settings: Port | Lag): string[] {
         if (!settings.bound_to) return [];
 
         return [
@@ -146,6 +249,40 @@ export class VrpSwitching {
         top.add = top.add.filter((line) => !isHost(line));
         top.remove = top.remove.filter((line) => !isHost(line));
         return taken;
+    }
+
+    /**
+     * A private VLAN is a MUX VLAN on access ports. Huawei's guide carries a MUX VLAN between switches on a trunk with each secondary VLAN on it too. How a trunk of the primary VLAN alone carries it is not known. Huawei's guide says a MAC limit on a port breaks a MUX VLAN, and a CE6855 refused a static MAC address in one.
+     */
+    private static privateVlanGaps(device: Device): string[] {
+        const found: string[] = [];
+
+        // A CE6855 refused `subordinate separate` for a VLAN with ARP inspection: "The VLAN has been configured to DAI attribute".
+        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
+            if (vlan?.private_vlan && device.switching?.arp_inspection)
+                found.push(
+                    `switching.vlans.${name}.private_vlan beside switching.arp_inspection, as the switch takes no VLAN that inspects ARP into a MUX VLAN`
+                );
+
+        for (const { where, settings } of Derive.switchedHolders(device)) {
+            for (const vlan of [...(settings.trunk_vlans ?? []), ...(settings.native_vlan ? [settings.native_vlan] : [])])
+                if (VrpSwitching.inPrivateVlan(device, vlan))
+                    found.push(
+                        `${where}.trunk_vlans ${vlan}, a private VLAN on a trunk: VRP builds it as a MUX VLAN on access ports only, as how a trunk carries one is not known`
+                    );
+
+            if (!settings.access_vlan || !VrpSwitching.inPrivateVlan(device, settings.access_vlan)) continue;
+            if (settings.mac_limit !== undefined) found.push(`${where}.mac_limit in a private VLAN, which a MAC limit breaks on VRP`);
+            if (settings.bound_to) found.push(`${where}.bound_to in a private VLAN: the switch takes no static MAC address in a MUX VLAN`);
+        }
+
+        return found;
+    }
+
+    /** A private VLAN's primary VLAN, or one of its secondary VLANs. */
+    private static inPrivateVlan(device: Device, name: string): boolean {
+        const vlans = Object.values(device.switching?.vlans ?? {});
+        return Boolean(device.switching?.vlans?.[name]?.private_vlan) || vlans.some((vlan) => vlan?.private_vlan?.primary === name);
     }
 
     /** What a bound port can't hold here. */
