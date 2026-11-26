@@ -155,3 +155,4 @@ Seen on a CE6855 running V200R005.
     - A relay's VLAN interface refuses `dhcp option82 insert enable`, `dhcp option82 rebuild enable`, and `dhcp relay information enable` with `Unrecognized command`.
     - A pool for a network no interface of the switch has, for a relay's clients, committed with `dhcp enable` and printed as any pool.
     - `dns proxy enable` and `dns relay enable` are `Unrecognized command`: the switch answers no DNS queries.
+    - A trap receiver, `snmp-agent target-host trap address udp-domain <address> [udp-port <port>] params securityname <user> v3 privacy`, prints as sent, and `snmp-agent trap enable` after the users. It is undone without its version: with `v3 privacy`, `Too many parameters`. A community prints as `securityname cipher %^%#...%^%#`, and its receiver is undone only with the community as typed: `cipher <redacted>` is "The specified target host does not exist", and none at all `Incomplete command`.

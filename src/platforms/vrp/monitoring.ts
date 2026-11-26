@@ -1,7 +1,6 @@
 // What a VRP switch reports: sFlow, syslog and the log files, and SNMP, with what it can't report.
 
 import { Address } from "../../core/address";
-import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device } from "../../model";
 
@@ -35,6 +34,9 @@ export class VrpMonitoring {
 
     /** The sFlow sampling rates the platform takes. */
     private static readonly SAMPLING = { min: 4096, max: 4294967295 };
+
+    /** The UDP port traps go to when the config sets none. It is not printed. */
+    private static readonly TRAP_PORT = 162;
 
     /** The SNMPv3 group every user joins, with read access to everything. */
     private static readonly SNMP_GROUP = "circuit";
@@ -119,7 +121,35 @@ export class VrpMonitoring {
             }
         }
 
+        lines.push(...VrpMonitoring.trapLines(device));
         return [...lines, "#"];
+    }
+
+    /**
+     * Each receiver of traps, with every trap on. A user's traps are signed and encrypted, as each user's settings are. The switch leaves the port out when it is 162.
+     */
+    private static trapLines(device: Device): string[] {
+        const snmp = device.monitoring?.snmp;
+        const traps = snmp?.traps ?? [];
+        if (!traps.length) return [];
+
+        const lines = traps.map((trap) => {
+            const port = trap.port !== undefined && trap.port !== VrpMonitoring.TRAP_PORT ? ` udp-port ${trap.port}` : "";
+            return `snmp-agent target-host trap address udp-domain ${trap.address}${port} params securityname ${trap.user} v3 privacy`;
+        });
+
+        return [...lines, "snmp-agent trap enable"];
+    }
+
+    /** A receiver of traps is undone without its version, `... params securityname <user>`. Undefined for any other line. */
+    static undo(line: string): string | undefined {
+        const target = /^(snmp-agent target-host trap .* params securityname \S+) v3 privacy$/.exec(line);
+        return target ? `undo ${target[1]}` : undefined;
+    }
+
+    /** Each receiver of traps is one of a list. */
+    static head(line: string): string | undefined {
+        return line.startsWith("snmp-agent target-host trap ") ? line : undefined;
     }
 
     /** What the platform can't report as the config says. */
@@ -143,8 +173,22 @@ export class VrpMonitoring {
             if (Address.family(Address.split(source).addr) === "ipv6") found.push(`monitoring.snmp.allow ${source}, IPv6 is not tested`);
         }
 
+        (monitoring.snmp?.traps ?? []).forEach((trap, index) => {
+            if (Address.family(trap.address) === "ipv6") found.push(`monitoring.snmp.traps[${index}].address, IPv6 is not tested`);
+            // A CE6855 undoes a receiver with a community only by that community: "The specified target host does not exist".
+            if (trap.community)
+                found.push(
+                    `monitoring.snmp.traps[${index}].community, the switch takes a receiver away only by its community, which it keeps as a cipher Circuit can't read back: write user`
+                );
+        });
+
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
-        found.push(...Derive.unbuiltMonitoring(device));
+        (monitoring.syslog ?? []).forEach((collector, index) => {
+            if (collector.transport_security)
+                found.push(`monitoring.syslog[${index}].transport_security, which the platform does not build`);
+        });
+        for (const key of ["active_timeout", "idle_timeout"] as const)
+            if (monitoring.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, which the platform does not build`);
         // Huawei's NQA documentation for CloudEngine V200R005C10.
         for (const name of Object.keys(monitoring.probes ?? {}))
             found.push(

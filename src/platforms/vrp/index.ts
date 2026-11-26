@@ -93,6 +93,7 @@ export class Vrp extends Platform {
             VrpIsis.head(line) ??
             VrpOspf.head(line) ??
             VrpDhcpv6.head(line) ??
+            VrpMonitoring.head(line) ??
             Vrp.head(line),
     };
 
@@ -636,7 +637,8 @@ export class Vrp extends Platform {
             VrpOspf.undo(line) ??
             VrpMarking.undo(line) ??
             VrpQos.undo(line) ??
-            VrpRouterAdvertisement.undo(line);
+            VrpRouterAdvertisement.undo(line) ??
+            VrpMonitoring.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);

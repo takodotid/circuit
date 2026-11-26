@@ -260,7 +260,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | SSH keys                          | ✅                              | one RSA key per user            | ❌                | ✅                     | ✅                                |
 | Logins through servers            | RADIUS, no command accounting   | no command accounting on RADIUS | ❌                | ✅                     | ✅ up to 3 servers, no accounting |
 | SNMP v2c and v3                   | ✅ v3 SHA1 only                 | ✅                              | ✅ v3 SHA1 only   | ✅                     | ✅ v3 SHA1 only                   |
-| SNMP traps                        | one community or user, port 162 | ❌                              | ❌                | ✅                     | ✅                                |
+| SNMP traps                        | one community or user, port 162 | users, not communities          | ❌                | ✅                     | ✅                                |
 | Syslog                            | ✅                              | ✅                              | ✅                | ✅                     | ✅ up to 4                        |
 | Syslog over TLS                   | ❌                              | ❌                              | ❌                | ❌ no certificates     | 🧪                                |
 | Flow export                       | NetFlow 9, IPFIX                | sFlow                           | ❌                | sFlow                  | sFlow, NetFlow 9                  |
