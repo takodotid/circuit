@@ -23,6 +23,7 @@ import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
 import { FortiOsQos } from "./qos";
 import { FortiOsShaping } from "./shaping";
+import { FortiOsTcpMss } from "./tcp-mss";
 import { FortiOsNames } from "./names";
 import { FortiOsPppoe } from "./pppoe";
 import { FortiOsRemoteAccess } from "./remote-access";
@@ -300,16 +301,18 @@ export class FortiOsRender {
         return Object.entries(FortiOsRender.ZONES).find(([, places]) => places.includes(timezone))?.[0];
     }
 
-    private static allowAccess(device: Device): string {
+    /** What an interface in `vrf` answers: ping, and each service of that VRF, or of the main table when it has none. */
+    private static allowAccess(device: Device, vrf: string | undefined): string {
         const management = device.management ?? {};
+        const here = (service: { vrf?: string } | undefined) => service !== undefined && service.vrf === vrf;
         const services = ["ping"];
 
-        if (management.https) services.push("https");
-        if (management.ssh) services.push("ssh");
-        if (device.monitoring?.snmp) services.push("snmp");
-        if (management.http) services.push("http");
-        if (management.telnet) services.push("telnet");
-        if (management.native_protocol) services.push("fgfm");
+        if (here(management.https)) services.push("https");
+        if (here(management.ssh)) services.push("ssh");
+        if (here(device.monitoring?.snmp)) services.push("snmp");
+        if (here(management.http)) services.push("http");
+        if (here(management.telnet)) services.push("telnet");
+        if (here(management.native_protocol)) services.push("fgfm");
 
         return services.join(" ");
     }
@@ -490,7 +493,6 @@ export class FortiOsRender {
 
     private static interfaces(root: FortiOsNode, device: Device): void {
         const block = root.block("system interface");
-        const access = FortiOsRender.allowAccess(device);
 
         for (const port of Catalog.ports(device.platform, device.model)) {
             const settings = device.interfaces?.ethernet?.[port];
@@ -515,7 +517,7 @@ export class FortiOsRender {
 
             FortiOsRender.redirects(entry, device);
             if (settings.mtu) entry.set("mtu-override", "enable").set("mtu", settings.mtu);
-            FortiOsRender.routed(entry, device, port, settings, access);
+            FortiOsRender.routed(entry, device, port, settings);
         }
 
         for (const [name, iface] of Object.entries(device.interfaces?.lag ?? {})) {
@@ -533,7 +535,7 @@ export class FortiOsRender {
             if (iface.description) entry.set("description", FortiOsTree.quote(iface.description));
             if (iface.mtu) entry.set("mtu-override", "enable").set("mtu", iface.mtu);
             FortiOsRender.redirects(entry, device);
-            FortiOsRender.routed(entry, device, name, iface, access);
+            FortiOsRender.routed(entry, device, name, iface);
         }
 
         for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
@@ -549,7 +551,7 @@ export class FortiOsRender {
             if (iface.description) entry.set("description", FortiOsTree.quote(iface.description));
             if (iface.mtu) entry.set("mtu-override", "enable").set("mtu", iface.mtu);
             FortiOsRender.redirects(entry, device);
-            FortiOsRender.routed(entry, device, name, iface, access);
+            FortiOsRender.routed(entry, device, name, iface);
         }
 
         for (const [name, iface] of Object.entries(device.interfaces?.loopback ?? {})) {
@@ -560,7 +562,7 @@ export class FortiOsRender {
             entry.set("type", "loopback");
             if (iface.description) entry.set("description", FortiOsTree.quote(iface.description));
             FortiOsRender.redirects(entry, device);
-            FortiOsRender.routed(entry, device, name, iface, access);
+            FortiOsRender.routed(entry, device, name, iface);
         }
 
         // A tunnel's interface is created by its own table, which uses the interface it leaves through.
@@ -597,7 +599,7 @@ export class FortiOsRender {
             if (iface.description) entry.set("description", FortiOsTree.quote(iface.description));
             if (iface.mtu) entry.set("mtu-override", "enable").set("mtu", iface.mtu);
             FortiOsRender.redirects(entry, device);
-            FortiOsRender.routed(entry, device, name, iface, access);
+            FortiOsRender.routed(entry, device, name, iface);
         }
     }
 
@@ -643,7 +645,9 @@ export class FortiOsRender {
         return carriers.length === 1 ? carriers[0]![0] : undefined;
     }
 
-    private static routed(entry: FortiOsNode, device: Device, name: string, settings: RoutedSettings, access: string): void {
+    private static routed(entry: FortiOsNode, device: Device, name: string, settings: RoutedSettings): void {
+        let access = FortiOsRender.allowAccess(device, settings.vrf);
+
         // In transparent mode no interface holds an address: the management address is the device's, and answers on its interface alone.
         if (FortiOsNames.isTransparent(device)) {
             if (FortiOsNames.transparentManagement(device)?.name === name) entry.set("allowaccess", access);
@@ -660,6 +664,8 @@ export class FortiOsRender {
 
         const vrf = FortiOsNames.vrfNumber(device, settings.vrf);
         if (vrf) entry.set("vrf", vrf);
+        const mss = FortiOsTcpMss.of(device).get(name);
+        if (mss !== undefined) entry.set("tcp-mss", mss);
 
         // A tunnel holds an IPv4 address as a host and its peer with the link's mask.
         const peer = settings.addresses?.find((item): item is { address: string; peer_address: string } => typeof item !== "string");

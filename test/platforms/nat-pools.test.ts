@@ -83,6 +83,7 @@ test("a pool that moves is made first, the entry points to it, and the old pool 
     expect(steps.at(-1)?.send).toEqual(["config firewall ippool", 'delete "203.0.113.32/27"', "end"]);
 });
 
+// On a FG-3700D with 6.2.2, a fixed port range pool took no `startport` or `port-per-user`, and shared ports 5117 to 65532 alike.
 test("FortiOS refuses a deterministic pool, block sizes it doesn't take, and a source port with a pool", () => {
     const device = withSourceNat("platforms--example-firewall", [
         { ...POOL, port_allocation: "deterministic", port_set_size: 2016, port_sets_per_subscriber: undefined },
@@ -93,7 +94,7 @@ test("FortiOS refuses a deterministic pool, block sizes it doesn't take, and a s
     ]);
 
     expect(fortios.unsupported(device).filter((gap) => gap.startsWith("firewall.nat"))).toEqual([
-        "firewall.nat.source[0].port_allocation deterministic: a fixed port range pool does not keep a subscriber's sessions in its block of ports. Write dynamic, whose blocks the device logs",
+        "firewall.nat.source[0].port_allocation deterministic: FortiOS 6.2 shares ports 5117 to 65532 alike among the subscribers of a pool address, not port_set_size each from 1024, and may give a port past a share. Write dynamic, whose blocks the device logs",
         "firewall.nat.source[1].port_set_size 32, the platform takes 64 to 4096 ports in a block",
         "firewall.nat.source[1].port_sets_per_subscriber 129, the platform takes 1 to 128 blocks",
         "firewall.nat.source[2].if.src_port, with a pool, which translates every source port",

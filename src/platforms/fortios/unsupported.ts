@@ -14,6 +14,7 @@ import { FortiOsRemoteAccess } from "./remote-access";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsShaping } from "./shaping";
+import { FortiOsTcpMss } from "./tcp-mss";
 import { FortiOsVdoms } from "./vdoms";
 
 /** The fields of a match that may hold a list or an interface set before Circuit writes them out. */
@@ -48,6 +49,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
         found.push(...FortiOsUnsupported.firewallGaps(device));
+        found.push(...FortiOsTcpMss.gaps(device));
         found.push(...FortiOsNat64.gaps(device));
         found.push(...FortiOsUnsupported.serviceGaps(device));
 
@@ -72,14 +74,21 @@ export class FortiOsUnsupported {
         // No `config system evpn`, and no EVPN on a VXLAN or a BGP neighbor (TRAPS.md).
         for (const where of Derive.evpn(device)) found.push(`${where}, EVPN: FortiOS 6.2 has none. EVPN over VXLAN needs 7.4`);
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS: FortiOS has no MPLS`);
-        // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
-        for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
+        // A service answers on the interfaces of its VRF, but what the device sends itself has no VRF setting (TRAPS.md).
+        for (const { where } of Derive.serviceVrfs(device))
+            if (!/^(management|monitoring\.snmp)\./.test(where))
+                found.push(`${where}, FortiOS 6.2 has no VRF setting for it: vrf-select comes in 7.6.1`);
+        if (device.monitoring?.snmp?.vrf && device.monitoring.snmp.traps)
+            found.push(
+                "monitoring.snmp.traps, beside monitoring.snmp.vrf: FortiOS 6.2 has no VRF setting for traps, only a source address"
+            );
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session, and tables beside the main one, which the device has none of.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom", "routing-tables"]));
         // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for, and imports between VRFs, which it has none of. FortiOsShaping.gaps refuses a rate for each prefix.
         found.push(
             ...Derive.unbuilt(device, [
+                "tcp-mss",
                 "vrf-imports",
                 "proxy-arp",
                 "urpf",
@@ -513,11 +522,11 @@ export class FortiOsUnsupported {
         return found;
     }
 
-    /** A pool that hands out blocks of ports, as `firewall ippool` takes it on 6.2.2. A deterministic one has no pool here: a fixed port range pool moves a session out of its block once the block is full (Fortinet's fixed port range algorithm). */
+    /** A pool that hands out blocks of ports, as `firewall ippool` takes it on 6.2.2. A deterministic one has no pool here. A fixed port range pool sets its own shares of ports, and gives a port past a full share (TRAPS.md). */
     private static poolGaps(where: string, rule: PoolNatRule): string[] {
         if (rule.port_allocation !== "dynamic")
             return [
-                `${where}.port_allocation ${rule.port_allocation}: a fixed port range pool does not keep a subscriber's sessions in its block of ports. Write dynamic, whose blocks the device logs`,
+                `${where}.port_allocation ${rule.port_allocation}: FortiOS 6.2 shares ports 5117 to 65532 alike among the subscribers of a pool address, not port_set_size each from 1024, and may give a port past a share. Write dynamic, whose blocks the device logs`,
             ];
 
         const { size, perSubscriber, timeout } = FortiOsFirewall.BLOCK_POOL;
@@ -665,14 +674,17 @@ export class FortiOsUnsupported {
     private static serviceGaps(device: Device): string[] {
         const found: string[] = [];
         if (device.services?.pppoe_server) found.push("services.pppoe_server, FortiOS has a PPPoE client only, no server");
-        for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for FortiOS`);
+        // `get` in a server's entry lists no RADIUS setting (TRAPS.md).
+        for (const where of Derive.radiusLeases(device))
+            found.push(`${where}, a lease checked by RADIUS: a FortiOS DHCP or DHCPv6 server has no RADIUS setting, up to 7.6`);
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
                 found.push(`services.dhcp_server.${name}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
-            if (server.relay !== undefined)
+            // The device answers a relayed request from the server whose network holds the relay's address (TRAPS.md).
+            if (server.relay !== undefined && !Address.contains(server.network, server.relay))
                 found.push(
-                    `services.dhcp_server.${name}.relay, FortiOS 6.2 has no setting for a relay's clients: relay-agent comes in 7.4`
+                    `services.dhcp_server.${name}.relay ${server.relay}, outside network ${server.network}: FortiOS answers a relay from the server whose network holds its address, so write the network the relay is in`
                 );
         }
 

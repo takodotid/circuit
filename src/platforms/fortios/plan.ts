@@ -27,6 +27,8 @@ type Table = {
     fixed?: readonly string[];
     /** Every entry that changes or goes is deleted before any is created. The device refuses a static route the same as another, `Duplicated entry`, even for a moment. */
     distinct?: true;
+    /** Every entry that goes is deleted before any is created or changed. A DHCP server whose range another server holds is refused: `object set operator error, -526 discard the setting`. */
+    removedFirst?: true;
 };
 
 /** What a comparison needs to know beyond the blocks: the section it is in, and whether to send every secret. */
@@ -85,6 +87,8 @@ export class FortiOsPlan {
         "router static6": FortiOsPlan.ROUTES,
         // An entry has no description: it is known by its interface and address.
         "system proxy-arp": { numbered: { keys: [["interface", "ip"]] } },
+        // A server serves one network, which it is known by.
+        "system dhcp server": { numbered: { keys: [["interface", "default-gateway", "netmask"]] }, removedFirst: true },
     };
 
     /** Settings the device keeps for itself: an object's UUID and an interface's SNMP index. */
@@ -513,6 +517,7 @@ export class FortiOsPlan {
         const removed = gone.flatMap((entry) => FortiOsPlan.shown("-", [...path, FortiOsTree.bare(entry.id)], entry.block));
 
         if (table.distinct) return { send: [...replaced, ...removals, ...send], show: [...removed, ...show], removals: [], removed: [] };
+        if (table.removedFirst) return { send: [...removals, ...send], show: [...removed, ...show], removals: [], removed: [] };
         return { send, show, removals, removed };
     }
 

@@ -84,16 +84,47 @@ test("Junos refuses a relay outside the network it serves, as the switch picks t
     ]);
 });
 
-test("FortiOS leaves Option 82 on only when asked, as experimental, and refuses a server for a relay's clients", () => {
+// On a FG-3700D with 6.2.2, a client in one test VDOM got a lease through a relay in a second, from a server in a third. A server for another network didn't answer it. A client asking on the server's interface itself got nothing from it.
+test("FortiOS leaves Option 82 on only when asked, as experimental, and serves a relay's clients in the relay's network", () => {
     const fortios = Platforms.get("fortios");
     const device = relaying("platforms--example-firewall", "servers");
 
     expect(fortios.render(device)).not.toContain("dhcp-relay-agent-option");
     expect(fortios.render(Fixtures.device("platforms--example-firewall"))).toContain("set dhcp-relay-agent-option disable");
     expect(fortios.experimental!(device)).toContain("services.dhcp_relay.guests.relay_agent_information");
+    expect(refusedDhcp("fortios", device)).toEqual([]);
+    expect(fortios.render(device)).toMatch(
+        /config system dhcp server\n {4}edit 1\n {8}set default-gateway 198\.51\.100\.129\n {8}set netmask 255\.255\.255\.192\n {8}set interface "servers"\n/
+    );
+
+    device.services!.dhcp_server!.relayed = { ...RELAYED, interface: "servers", relay: "192.0.2.1" };
     expect(refusedDhcp("fortios", device)).toEqual([
-        "services.dhcp_server.relayed.relay, FortiOS 6.2 has no setting for a relay's clients: relay-agent comes in 7.4",
+        "services.dhcp_server.relayed.relay 192.0.2.1, outside network 198.51.100.128/26: FortiOS answers a relay from the server whose network holds its address, so write the network the relay is in",
     ]);
+});
+
+// On a FG-3700D with 6.2.2, a server whose range another server held was refused at `next`: `object set operator error, -526 discard the setting`.
+test("FortiOS knows a DHCP server by its network, and deletes one that goes before it creates or changes any", () => {
+    const fortios = Platforms.get("fortios");
+    const relayed = relaying("platforms--example-firewall", "servers");
+    const both = structuredClone(relayed);
+    both.services!.dhcp_server = {
+        ...Fixtures.device("platforms--example-firewall").services!.dhcp_server,
+        ...relayed.services!.dhcp_server,
+    };
+    // What the plan sends first in the servers' table.
+    const opening = (device: Device, current: string) => {
+        const sent = fortios.plan(fortios.render(device), current, options).steps.flatMap((step) => step.send);
+        const table = sent.indexOf("config system dhcp server");
+        return sent.slice(table + 1, table + 3);
+    };
+
+    // The relay's server, first on the device, keeps its number when another comes before it.
+    expect(opening(both, fortios.render(relayed))).toEqual(["edit 2", "set lease-time 3600"]);
+
+    const moved = structuredClone(relayed);
+    moved.services!.dhcp_server!.relayed = { ...RELAYED, interface: "servers", gateway: "198.51.100.130" };
+    expect(opening(moved, fortios.render(relayed))).toEqual(["delete 1", "edit 2"]);
 });
 
 test("FortiOS converges a relay with and without Option 82, and unsets the option and the servers before the relay", () => {

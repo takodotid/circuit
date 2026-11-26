@@ -88,14 +88,35 @@ test("Junos runs the REST API in a VRF, experimentally, as the only management s
     expect(junos.unsupported(device).filter((gap) => gap.startsWith("management."))).toEqual([]);
 });
 
-test("FortiOS 6.2 and VRP refuse each service in a VRF", () => {
-    expect(Platforms.get("fortios").unsupported(inVrf("platforms--example-firewall"))).toEqual(
-        expect.arrayContaining([
-            "management.ssh.vrf, FortiOS 6.2 has no VRF setting for it",
-            "system.ntp.vrf, FortiOS 6.2 has no VRF setting for it",
-            "monitoring.syslog[0].vrf, FortiOS 6.2 has no VRF setting for it",
-        ])
+// On a FG-3700D with 6.2.2, SSH answered on an interface in VRF 1 of a test VDOM, and not on one in VRF 0 without it. A RADIUS server's request with a source address in VRF 1 left by VRF 0's route.
+test("FortiOS answers SSH, and SNMP experimentally, on the interfaces of their VRF, and refuses the rest of the services in a VRF", () => {
+    const fortios = Platforms.get("fortios");
+    const device = inVrf("platforms--example-firewall");
+    const desired = fortios.render(device);
+    const access = (name: string) =>
+        new RegExp(`edit "${name}"\\n(?:(?! {4}next)[^\\n]*\\n)*? {8}set allowaccess ([^\\n]*)\\n`).exec(desired)?.[1];
+
+    // `management` is in VRF mgmt, with SSH and SNMP; `servers` in the main table, with HTTPS and FortiManager's protocol.
+    expect(access("management")).toBe("ping ssh snmp");
+    expect(access("servers")).toBe("ping https fgfm");
+    expect(fortios.experimental!(device)).toContain("monitoring.snmp.vrf");
+    expect(fortios.unsupported(device).filter((gap) => /vrf|traps/.test(gap))).toEqual([
+        "system.ntp.vrf, FortiOS 6.2 has no VRF setting for it: vrf-select comes in 7.6.1",
+        "system.dns.vrf, FortiOS 6.2 has no VRF setting for it: vrf-select comes in 7.6.1",
+        "monitoring.syslog[0].vrf, FortiOS 6.2 has no VRF setting for it: vrf-select comes in 7.6.1",
+        "system.aaa.radius[0].vrf, FortiOS 6.2 has no VRF setting for it: vrf-select comes in 7.6.1",
+    ]);
+
+    const trapping: Device = {
+        ...device,
+        monitoring: { ...device.monitoring, snmp: { ...device.monitoring!.snmp!, traps: [{ address: "192.0.2.15" }] } },
+    };
+    expect(fortios.unsupported(trapping)).toContain(
+        "monitoring.snmp.traps, beside monitoring.snmp.vrf: FortiOS 6.2 has no VRF setting for traps, only a source address"
     );
+});
+
+test("VRP refuses each service in a VRF", () => {
     expect(Platforms.get("vrp").unsupported(inVrf("platforms--example-switch"))).toEqual(
         expect.arrayContaining(["management.ssh.vrf, not built yet", "system.dns.vrf, not built yet"])
     );

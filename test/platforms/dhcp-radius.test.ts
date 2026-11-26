@@ -79,20 +79,19 @@ test("RouterOS refuses DHCP servers that ask RADIUS with other settings", () => 
     );
 });
 
-test("the other platforms refuse a lease checked by RADIUS", () => {
-    for (const [platform, os] of [
-        ["junos", "Junos"],
-        ["vrp", "VRP"],
-        ["fortios", "FortiOS"],
+// On a FG-3700D with 6.2.2, `get` in a DHCP and a DHCPv6 server's entry listed no RADIUS setting, and `set radius-server` was `command parse error`.
+test("the other platforms refuse a lease checked by RADIUS, FortiOS saying it has no setting for it", () => {
+    for (const [platform, reason] of [
+        ["junos", "a lease checked by RADIUS, not built for Junos"],
+        ["vrp", "a lease checked by RADIUS, not built for VRP"],
+        ["fortios", "a lease checked by RADIUS: a FortiOS DHCP or DHCPv6 server has no RADIUS setting, up to 7.6"],
     ] as const) {
         const [fixture] = Fixtures.ofPlatform(platform);
         const device = structuredClone(Fixtures.device(fixture ?? ""));
         const [iface] = Object.keys(device.interfaces?.vlan_interface ?? device.interfaces?.ethernet ?? {});
         device.services = { ...device.services, dhcp_server: { homes: { ...HOMES, interface: iface! } } };
 
-        expect(Platforms.get(platform).unsupported(device), platform).toContain(
-            `services.dhcp_server.homes.radius, a lease checked by RADIUS, not built for ${os}`
-        );
+        expect(Platforms.get(platform).unsupported(device), platform).toContain(`services.dhcp_server.homes.radius, ${reason}`);
     }
 });
 
@@ -147,18 +146,16 @@ test("RouterOS refuses a DHCPv6 server that asks RADIUS with other settings than
 });
 
 test("the other platforms refuse a DHCPv6 lease checked by RADIUS", () => {
-    for (const [platform, os] of [
-        ["junos", "Junos"],
-        ["fortios", "FortiOS"],
+    for (const [platform, reason] of [
+        ["junos", "a lease checked by RADIUS, not built for Junos"],
+        ["fortios", "a lease checked by RADIUS: a FortiOS DHCP or DHCPv6 server has no RADIUS setting, up to 7.6"],
     ] as const) {
         const [fixture] = Fixtures.ofPlatform(platform);
         const device = structuredClone(Fixtures.device(fixture ?? ""));
         const [iface] = Object.keys(device.interfaces?.vlan_interface ?? device.interfaces?.ethernet ?? {});
         device.services = { ...device.services, dhcpv6_server: { "homes-v6": { ...HOMES_V6, interface: iface! } } };
 
-        expect(Platforms.get(platform).unsupported(device), platform).toContain(
-            `services.dhcpv6_server.homes-v6.radius, a lease checked by RADIUS, not built for ${os}`
-        );
+        expect(Platforms.get(platform).unsupported(device), platform).toContain(`services.dhcpv6_server.homes-v6.radius, ${reason}`);
     }
 });
 
