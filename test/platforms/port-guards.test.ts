@@ -188,7 +188,7 @@ test("validate says what each guard needs", () => {
     );
 });
 
-test("ARP inspection checks each VLAN that Junos snoops, needs snooping, and is refused elsewhere", () => {
+test("ARP inspection checks each VLAN that Junos snoops, needs snooping, and is refused where neither Junos nor VRP builds it", () => {
     const device = guarded("junos", "QFX5100-48S-6Q", "10g-37", "10g-38");
     device.system = { users: { root: { role: "admin", password: { secret: "ROOT" } } } };
     device.switching!.arp_inspection = true;
@@ -201,7 +201,6 @@ test("ARP inspection checks each VLAN that Junos snoops, needs snooping, and is 
 
     for (const [platform, model] of [
         ["routeros", "CCR2216-1G-12XS-2XQ"],
-        ["vrp", "CE6855-48S6Q-HI"],
         ["raisecom-ros", "RAX721-C-6C48"],
         ["fortios", "FG-3700D"],
     ] as const) {

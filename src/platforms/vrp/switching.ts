@@ -29,9 +29,6 @@ export class VrpSwitching {
         if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
         const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
         for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);
-        // The CE6855 took `arp anti-attack check user-bind enable` in a VLAN's view only (TRAPS.md).
-        if (device.switching?.arp_inspection)
-            found.push("switching.arp_inspection, the platform checks a whole VLAN, and whether it passes dhcp_trusted ports is not known");
         // Snooping runs on each port, over all of its VLANs.
         for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
@@ -60,11 +57,12 @@ export class VrpSwitching {
     }
 
     /**
-     * The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. A bound port was committed with `commit trial` on a spare port and printed back, but no packet crossed it.
+     * The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. The rest was committed with `commit trial` on a spare port and new VLANs, and printed back, but no packet crossed the port.
      */
     static experimental(device: Device): string[] {
         const found: string[] = [];
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        if (device.switching?.arp_inspection) found.push("switching.arp_inspection");
 
         for (const { where, settings } of Derive.switchedHolders(device)) {
             const stp = typeof settings.stp === "object" ? settings.stp : undefined;
@@ -81,6 +79,11 @@ export class VrpSwitching {
     /** A binding and a static MAC address are undone and sent whole, rather than replaced by a line that gives another VLAN. */
     static head(line: string): string | undefined {
         return VrpSwitching.HOST_LINE.test(line) ? line : undefined;
+    }
+
+    /** A VLAN's own lines: ARP inspection, which the switch runs on a whole VLAN, and not on a port. */
+    static vlanLines(device: Device): string[] {
+        return device.switching?.arp_inspection ? ["arp anti-attack check user-bind enable"] : [];
     }
 
     /** A bound port learns no MAC address, and drops a frame from any MAC address but its static ones. It checks each IPv4 packet against its bindings, and each IPv6 packet against its ACL6. */

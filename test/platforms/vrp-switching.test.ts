@@ -82,6 +82,25 @@ test("VRP binds a LAG to its hosts by its Eth-Trunk", () => {
     expect(sent(desired, desired)).toEqual([]);
 });
 
+test("VRP inspects ARP in the view of each VLAN, as a CE6855 printed it", () => {
+    const inspected = device(
+        { "10g-48": { access_vlan: "ctest-a", dhcp_trusted: true } },
+        {},
+        { dhcp_snooping: true, arp_inspection: true }
+    );
+    const desired = vrp.render(inspected);
+
+    expect(desired).toContain("vlan 3981\n name ctest-a\n arp anti-attack check user-bind enable\n#\n");
+    expect(desired.match(/^ arp anti-attack check user-bind enable$/gm)).toHaveLength(6);
+    expect(vrp.unsupported(inspected)).toEqual([]);
+    expect(vrp.experimental(inspected)).toEqual([
+        "switching.dhcp_snooping",
+        "switching.arp_inspection",
+        "interfaces.ethernet.10g-48.dhcp_trusted",
+    ]);
+    expect(sent(desired, desired)).toEqual([]);
+});
+
 test("VRP refuses what a bound port can't hold, and says why", () => {
     const hosts = [
         { mac: "02:00:00:00:00:01", addresses: ["192.0.2.11", "2001:db8:3981::11", "10.0.0.0/23"] },

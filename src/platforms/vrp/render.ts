@@ -354,7 +354,8 @@ export class VrpRender {
     private vlanBlocks(): void {
         for (const [name, vlan] of Object.entries(this.vlans)) {
             if (!vlan) continue;
-            this.block(`vlan ${vlan.id}`, [`name ${name}`, ...(vlan.description ? [`description ${vlan.description}`] : [])]);
+            const description = vlan.description ? [`description ${vlan.description}`] : [];
+            this.block(`vlan ${vlan.id}`, [`name ${name}`, ...description, ...VrpSwitching.vlanLines(this.device)]);
         }
     }
 
