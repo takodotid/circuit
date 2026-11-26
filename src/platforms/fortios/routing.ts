@@ -675,6 +675,9 @@ export class FortiOsRouting {
         const routing = device.routing;
 
         if (routing?.rpki) found.push("routing.rpki, the platform has no route origin validation");
+        // `router bgp` has no `config vrf-leak` (TRAPS.md).
+        if (routing?.vrf_imports)
+            found.push("routing.vrf_imports, FortiOS 6.2 takes no routes from one VRF into another: route leaking between VRFs needs 6.4");
         if (routing?.router_id && !routing.ospf && !routing.bgp) found.push("routing.router_id without OSPF or BGP, which each hold it");
         if (routing?.bgp && routing.bgp.asn === undefined) found.push("routing.bgp without asn, which the platform's BGP needs");
 
