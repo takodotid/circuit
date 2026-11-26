@@ -127,6 +127,8 @@ export class FortiOs extends Platform {
         // Between two VDOMs of one FortiGate, a tunnel took a certificate of another subject (TRAPS.md).
         for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
             if (tunnel?.remote_identity) found.push(`interfaces.ipsec.${name}.remote_identity`);
+        // SNMP answers on the interfaces of its VRF, as SSH did in a VRF of a test VDOM, but no SNMP manager was in reach of the test.
+        if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
         // A CA's list of revoked certificates is from Fortinet's 6.2 reference: no FortiGate has fetched one.
         for (const [name, certificate] of Object.entries(device.system?.certificates ?? {}))
             if (certificate?.crl_url) found.push(`system.certificates.${name}.crl_url`);

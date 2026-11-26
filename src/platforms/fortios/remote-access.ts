@@ -127,7 +127,10 @@ export class FortiOsRemoteAccess {
             if (differ("auth_port"))
                 found.push(`${where}.radius auth_port, the platform asks every server on one port: write the same on each`);
             servers.forEach((server, index) => {
-                if (server.vrf) found.push(`${where}.radius[${index}].vrf, FortiOS 6.2 has no VRF setting for a RADIUS server`);
+                if (server.vrf)
+                    found.push(
+                        `${where}.radius[${index}].vrf, FortiOS 6.2 has no VRF setting for a RADIUS server: vrf-select comes in 7.6.1`
+                    );
                 if (server.acct_port !== undefined)
                     found.push(
                         `${where}.radius[${index}].acct_port, FortiOS 6.2.2 leaves an accounting server's port out of show at times, so the plan would never settle: leave it out for 1813`

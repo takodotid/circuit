@@ -74,8 +74,14 @@ export class FortiOsUnsupported {
         // No `config system evpn`, and no EVPN on a VXLAN or a BGP neighbor (TRAPS.md).
         for (const where of Derive.evpn(device)) found.push(`${where}, EVPN: FortiOS 6.2 has none. EVPN over VXLAN needs 7.4`);
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS: FortiOS has no MPLS`);
-        // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
-        for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
+        // A service answers on the interfaces of its VRF, but what the device sends itself has no VRF setting (TRAPS.md).
+        for (const { where } of Derive.serviceVrfs(device))
+            if (!/^(management|monitoring\.snmp)\./.test(where))
+                found.push(`${where}, FortiOS 6.2 has no VRF setting for it: vrf-select comes in 7.6.1`);
+        if (device.monitoring?.snmp?.vrf && device.monitoring.snmp.traps)
+            found.push(
+                "monitoring.snmp.traps, beside monitoring.snmp.vrf: FortiOS 6.2 has no VRF setting for traps, only a source address"
+            );
 
         // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session, and tables beside the main one, which the device has none of.
         found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom", "routing-tables"]));
