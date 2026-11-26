@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Lag, Port, VlanInterface } from "../../model";
+import type { Device, Gre, Lag, Port, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -188,12 +188,16 @@ export class Vrp extends Platform {
             else if (kind === "pppoe_client")
                 found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
             else if (kind === "vxlan" && !("evpn" in settings && settings.evpn)) found.push(`${where}, a VXLAN without EVPN`);
-            else if (!["vlan_interface", "lag", "vxlan", "loopback"].includes(kind)) found.push(`${where}, a ${kind}`);
+            else if (!["vlan_interface", "lag", "vxlan", "loopback", "gre"].includes(kind)) found.push(`${where}, a ${kind}`);
             if (settings.vrrp?.length && kind !== "vlan_interface" && kind !== "lag") found.push(`${where}.vrrp, on VLAN interfaces only`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
             if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not tested`);
             if (settings.mtu !== undefined) found.push(`${where}.mtu`);
+            const ends = kind === "gre" ? [(settings as Gre).local_address, (settings as Gre).remote_address] : [];
+            if (ends.some((end) => Address.family(Address.host(end)) === "ipv6"))
+                found.push(`${where}, GRE between IPv6 addresses, not built yet`);
+            if (kind === "gre" && settings.vrf) found.push(`${where}.vrf, a GRE tunnel in a VRF, not tested`);
             if (settings.ipv6_ra) found.push(`${where}.ipv6_ra`);
             if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload, the switch chip forwards everything`);
             for (const group of settings.vrrp ?? []) if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);

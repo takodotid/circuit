@@ -97,3 +97,54 @@ test("loopbacks are LoopBack0 and on, in the order the config lists them, with O
     const vrrp = routed({}, { loopback: { "ctest-lo": { addresses: ["192.0.2.250/32"], vrrp: [{ id: 1, address: "192.0.2.249" }] } } });
     expect(vrp.unsupported(vrrp)).toContain("interfaces.loopback.ctest-lo.vrrp, on VLAN interfaces only");
 });
+
+/** How the switch printed the tunnel: its addresses before its ends. */
+const PRINTED_TUNNEL = [
+    "interface Tunnel0",
+    " description ctest tunnel",
+    " ipv6 enable",
+    " ip address 192.0.2.37 255.255.255.252",
+    " ipv6 address 2001:DB8:3982::1/64",
+    " tunnel-protocol gre",
+    " source 192.0.2.250",
+    " destination 203.0.113.1",
+    "#",
+].join("\n");
+
+test("a GRE tunnel is Tunnel0 and on, and sends its protocol and its ends before its addresses", () => {
+    const tunnel = { description: "ctest tunnel", local_address: "192.0.2.250", remote_address: "203.0.113.1" } as const;
+    const device = routed(
+        {
+            static_routes: [
+                { prefix: "203.0.113.0/24", blackhole: true },
+                { prefix: "198.18.0.0/24", interface: "ctest-gre" },
+            ],
+        },
+        {
+            loopback: { "ctest-lo": { addresses: ["192.0.2.250/32"] } },
+            gre: { "ctest-gre": { ...tunnel, addresses: ["192.0.2.37/30", "2001:db8:3982::1/64"] } },
+        }
+    );
+    const rendered = vrp.render(device);
+    const block = rendered.slice(rendered.indexOf("interface Tunnel0"), rendered.indexOf("#", rendered.indexOf("interface Tunnel0")) + 1);
+
+    expect(block.split("\n")).toEqual([
+        "interface Tunnel0",
+        " description ctest tunnel",
+        " tunnel-protocol gre",
+        " source 192.0.2.250",
+        " destination 203.0.113.1",
+        " ipv6 enable",
+        " ip address 192.0.2.37 255.255.255.252",
+        " ipv6 address 2001:DB8:3982::1/64",
+        "#",
+    ]);
+    expect(rendered).toContain("ip route-static 198.18.0.0 255.255.255.0 Tunnel0\n");
+    expect(plan(rendered, rendered.replace(block, PRINTED_TUNNEL)).steps).toEqual([]);
+    expect(vrp.unsupported(device)).toEqual([]);
+
+    const overIpv6 = routed({}, { gre: { "ctest-gre": { local_address: "2001:db8:39::1", remote_address: "2001:db8:ffff::1" } } });
+    expect(vrp.unsupported(overIpv6)).toContain("interfaces.gre.ctest-gre, GRE between IPv6 addresses, not built yet");
+    const inVrf = routed({ vrfs: { ctest: {} } }, { gre: { "ctest-gre": { ...tunnel, vrf: "ctest" } } });
+    expect(vrp.unsupported(inVrf)).toContain("interfaces.gre.ctest-gre.vrf, a GRE tunnel in a VRF, not tested");
+});

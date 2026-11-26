@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Lag, Limit, Loopback, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
+import type { Device, Gre, Lag, Limit, Loopback, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
@@ -172,6 +172,10 @@ export class VrpRender {
             if (loopback) this.block(`interface ${this.nameOf(name)}`, [...this.addressing(name, loopback), ...this.ospfLines(name)]);
         }
 
+        for (const [name, tunnel] of Object.entries(device.interfaces?.gre ?? {})) {
+            if (tunnel) this.block(`interface ${this.nameOf(name)}`, this.gre(name, tunnel));
+        }
+
         for (const port of Catalog.ports(device.platform, device.model)) {
             this.block(`interface ${this.nameOf(port)}`, this.physicalPort(port, device.interfaces?.ethernet?.[port]));
         }
@@ -274,14 +278,15 @@ export class VrpRender {
         return this.vlans[name]!.id;
     }
 
-    /** What the platform calls a port, a LAG, a VLAN interface, or a loopback. */
+    /** What the platform calls a port, a LAG, a VLAN interface, a loopback, or a GRE tunnel. */
     private nameOf(portOrInterface: string): string {
         if (this.lags[portOrInterface]) return `Eth-Trunk${this.lagNumbers.get(portOrInterface)}`;
 
         const vlanInterface = this.vlanInterfaces[portOrInterface];
         if (vlanInterface) return `Vlanif${this.vlanId(vlanInterface.vlan)}`;
 
-        return VrpNames.loopback(this.device, portOrInterface) ?? Catalog.spell(this.device.platform, this.device.model, portOrInterface);
+        const own = VrpNames.loopback(this.device, portOrInterface) ?? VrpNames.tunnel(this.device, portOrInterface);
+        return own ?? Catalog.spell(this.device.platform, this.device.model, portOrInterface);
     }
 
     private system(): void {
@@ -496,8 +501,16 @@ export class VrpRender {
         return lines;
     }
 
+    /** A GRE tunnel: `tunnel-protocol gre` comes before the ends it joins, and they before its addresses. */
+    private gre(name: string, tunnel: Gre): string[] {
+        const lines = tunnel.description ? [`description ${tunnel.description}`] : [];
+        lines.push("tunnel-protocol gre", `source ${Address.host(tunnel.local_address)}`, `destination ${tunnel.remote_address}`);
+        const addressing = this.addressing(name, tunnel).filter((line) => !line.startsWith("description "));
+        return [...lines, ...addressing, ...this.ospfLines(name)];
+    }
+
     /** An interface's description, VRF, and addresses. Binding to a VRF clears the addresses, so it comes first. */
-    private addressing(name: string, iface: VlanInterface | Loopback): string[] {
+    private addressing(name: string, iface: VlanInterface | Loopback | Gre): string[] {
         const lines: string[] = [];
         if (iface.description) lines.push(`description ${iface.description}`);
         if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
