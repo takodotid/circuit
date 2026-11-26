@@ -274,7 +274,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
 | Management in a VRF               | ✅ not FTP                      | ❌ by interface, not VRF        | ❌                | 🧪 the REST API only   | ✅                                |
 | SNMP in a VRF                     | ✅                              | 🧪                              | ❌                | ❌ another community   | 🧪 no traps                       |
-| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅ IPv4 DNS servers             | ❌                | syslog; 🧪 NTP, RADIUS | ❌ needs 7.6.1                    |
+| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌ needs 7.6.1                    |
 | Management VDOM                   | ❌                              | ❌                              | ❌                | ❌                     | ✅                                |
 
 On FortiOS a management service, and SNMP, answer on the interfaces of their VRF, or of the main table when they name none: each interface's `allowaccess` lists the services of its VRF. SSH answered in a VRF of a test VDOM, but no SNMP manager was in reach, so SNMP in a VRF is experimental. FortiOS 6.2 has no VRF setting for what the device sends itself: traps, NTP, DNS, syslog, and RADIUS take a source address only. A RADIUS request from an address in a VRF still left by the main table's route. Fortinet's 7.6.1 CLI reference adds `vrf-select` to each.
