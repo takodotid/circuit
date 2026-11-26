@@ -265,7 +265,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Syslog over TLS                   | ❌                              | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
 | Flow export                       | NetFlow 9, IPFIX                | sFlow, NetFlow 9                | ❌                | sFlow                  | sFlow, NetFlow 9                  |
 | Flow timeouts                     | ✅                              | ✅ NetFlow 9                    | ❌                | ❌ sFlow only          | 🧪                                |
-| ICMP probes                       | ✅                              | ❌                              | ❌                | 🧪                     | ✅ not in a VRF                   |
+| ICMP probes                       | ✅                              | ✅                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌                              | ❌                | web, API               | ✅                                |
 | Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌                              | ❌                | ❌ no certificates     | 🧪                                |
 | Management in a VRF               | ✅ not FTP                      | ❌                              | ❌                | 🧪 the REST API only   | ❌                                |

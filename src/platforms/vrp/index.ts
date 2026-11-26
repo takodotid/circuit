@@ -25,6 +25,7 @@ import { VrpMarking } from "./marking";
 import { VrpMonitoring } from "./monitoring";
 import { VrpNetStream } from "./netstream";
 import { VrpOspf } from "./ospf";
+import { VrpProbes } from "./probes";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
 import { VrpRouterAdvertisement } from "./router-advertisement";
@@ -310,7 +311,7 @@ export class Vrp extends Platform {
 
         if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
 
-        found.push(...VrpMonitoring.unsupported(device), ...VrpNetStream.unsupported(device));
+        found.push(...VrpMonitoring.unsupported(device), ...VrpNetStream.unsupported(device), ...VrpProbes.unsupported(device));
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
@@ -459,6 +460,7 @@ export class Vrp extends Platform {
         Vrp.removeLoghosts(groups, desired, current);
         Vrp.replaceRules(groups, desired, current);
         VrpDhcp.rebuild(groups, desired, current, Vrp.DIALECT);
+        const probes = VrpProbes.order(groups, desired, current, Vrp.DIALECT);
         VrpDhcpv6.order(groups);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
@@ -508,7 +510,8 @@ export class Vrp extends Platform {
             ...Vrp.removal("DHCPv6 pools no longer used", pools),
             ...Vrp.removal("DiffServ domains no longer used", domains),
             ...Vrp.removal("IS-IS no longer used", isis),
-            ...Vrp.removal("Route policies and lists no longer used", unused)
+            ...Vrp.removal("Route policies and lists no longer used", unused),
+            ...Vrp.removal("ICMP probes no longer used", probes)
         );
 
         return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
@@ -653,7 +656,7 @@ export class Vrp extends Platform {
         if (description) return `undo ${description[0]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
-        const pool = Vrp.undoInPool(line, path) ?? VrpDhcpv6.undo(line, path);
+        const pool = Vrp.undoInPool(line, path) ?? VrpDhcpv6.undo(line, path) ?? VrpProbes.undo(line, path);
         if (pool) return pool;
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);

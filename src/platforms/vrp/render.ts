@@ -17,6 +17,7 @@ import { VrpNetStream } from "./netstream";
 import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
+import { VrpProbes } from "./probes";
 import { VrpQos } from "./qos";
 import { VrpRouterAdvertisement } from "./router-advertisement";
 
@@ -182,6 +183,7 @@ export class VrpRender {
         this.lines.push(...VrpMonitoring.flowLines(device), ...VrpNetStream.lines(device), ...VrpMonitoring.loggingLines(device));
         this.alarms();
         this.lines.push(...VrpMonitoring.snmpLines(device, this.snmpGuard()));
+        this.lines.push(...VrpProbes.lines(device));
         this.ssh();
         this.userInterfaces();
         return this.text();

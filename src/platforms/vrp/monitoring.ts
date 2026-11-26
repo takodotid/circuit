@@ -190,11 +190,6 @@ export class VrpMonitoring {
                     `monitoring.syslog[${index}].transport_security, the switch loads a CA only from a file on its flash, which Circuit does not copy there`
                 );
         });
-        // Huawei's NQA documentation for CloudEngine V200R005C10.
-        for (const name of Object.keys(monitoring.probes ?? {}))
-            found.push(
-                `monitoring.probes.${name}, not built for VRP: NQA asks before it changes a running test, and deletes none until it is stopped`
-            );
 
         const flow = monitoring.flow_export;
         if (flow?.protocol === "ipfix")
