@@ -307,10 +307,12 @@ test("an ethertype filter: a switch rule per kind after the port's ACL, then a d
 test("a MAC limit stays refused, for the reason the router gave, and an ethertype filter on a LAG as untested", () => {
     const ported = withPorts({ "25g-2": { ...ethernet["25g-2"]!, mac_limit: 1, ethertypes: ["ipv4"] } });
     const device: Device = { ...ported, interfaces: { ...ported.interfaces, lag: { members: { mac_limit: 1, ethertypes: ["ipv4"] } } } };
+    const noLimit =
+        "RouterOS 7.24 has no MAC limit for a port: a bridge port takes none, and the bridge's max-learned-entries counts all its ports together and only stops learning, so a host past it still gets through";
 
     expect(platform.unsupported(device)).toEqual([
-        "interfaces.ethernet.25g-2.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
-        "interfaces.lag.members.mac_limit, the platform has no MAC learning limit on a bridge port or a switch port on 7.23",
+        `interfaces.ethernet.25g-2.mac_limit, ${noLimit}`,
+        `interfaces.lag.members.mac_limit, ${noLimit}`,
         "interfaces.lag.members.ethertypes, on a LAG, which is not tested on a device yet",
     ]);
 });

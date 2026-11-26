@@ -50,7 +50,7 @@ A note in a cell means "works, with this limit".
 | LAG                 | ✅                                 | ✅                  | ✅                                    | ✅                      | ✅                  |
 | STP                 | ✅                                 | ✅                  | MSTP, no port cost                    | ✅                      | ❌ ports are routed |
 | Storm control       | ✅ in percent                      | ✅ in percent       | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
-| MAC limit           | ❌                                 | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
+| MAC limit           | ❌ none for a port                 | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
 | Ethertype filter    | ✅ ports                           | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
 | Port bound to hosts | ❌                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
 | BPDU and root guard | ✅ ports                           | 🧪                  | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |

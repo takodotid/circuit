@@ -70,7 +70,9 @@ export class RouterOs extends Platform {
         user: (user) => `${user}+cwt`,
     };
 
-    private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
+    /** A CHR on 7.24.6 took no limit on a bridge port, and passed hosts past the bridge's own limit (TRAPS.md). */
+    private static readonly NO_MAC_LIMIT =
+        "RouterOS 7.24 has no MAC limit for a port: a bridge port takes none, and the bridge's max-learned-entries counts all its ports together and only stops learning, so a host past it still gets through";
 
     /** Over an IPv4 session, a far PE took no IPv6 route of a VRF into its own (TRAPS.md). */
     private static readonly NO_VPNV6_OVER_IPV4 =
