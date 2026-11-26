@@ -104,7 +104,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | ---------------------------- | --------------------------- | --------------------------- | --------------------------------- | --------------------- | ---------------- |
 | Static routes                | ✅                          | ✅                          | IPv4 next hop                     | ✅                    | ✅               |
 | Next hop with its interface  | ✅                          | ❌                          | a routed port or a VLAN interface | ❌                    | ✅               |
-| VRFs                         | ✅                          | ✅                          | ❌                                | ✅                    | ✅               |
+| VRFs                         | ✅                          | ✅                          | no description                    | ✅                    | ✅               |
 | BGP in a VRF                 | ✅                          | ❌                          | ❌                                | ✅                    | ❌               |
 | Routes taken between VRFs    | ✅ not with main            | ❌                          | ❌                                | 🧪                    | ❌               |
 | Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet                        | ❌ not yet            | ❌ not yet       |

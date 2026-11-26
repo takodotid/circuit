@@ -97,6 +97,78 @@ test("taken away, an address goes by itself and a route by its interface too, as
     expect(steps).toContain("no interface loopback 1");
 });
 
+const inVrf: Device = {
+    ...routed,
+    interfaces: {
+        ...routed.interfaces,
+        ethernet: {
+            ...routed.interfaces?.ethernet,
+            "10g-24": { description: "circuit test", vrf: "test", addresses: ["198.51.100.1/30"] },
+        },
+        vlan_interface: {
+            ...routed.interfaces?.vlan_interface,
+            test: { vlan: "test", vrf: "test", addresses: ["192.0.2.129/25"] },
+        },
+        loopback: { main: { vrf: "test", addresses: ["203.0.113.1/32"] } },
+    },
+    routing: {
+        ...routed.routing,
+        vrfs: { test: {} },
+        static_routes: [
+            ...(coreSwitch.routing?.static_routes ?? []),
+            { prefix: "203.0.113.64/26", next_hop: "192.0.2.130", interface: "test", vrf: "test" },
+            { prefix: "203.0.113.128/25", next_hop: "198.51.100.2", vrf: "test" },
+        ],
+    },
+} as Device;
+
+// Tested on tako-mmr-01, 2026-11-26: a VRF with a spare port, a loopback, a VLAN interface, and routes in it.
+const PRINTED_IN_VRF = `ip vrf test
+!
+interface loopback 1
+ip vrf forwarding test
+ip address 203.0.113.1 255.255.255.255
+!
+interface tengigabitethernet 1/3/24
+ip vrf forwarding test
+description circuit test
+ip address 198.51.100.1 255.255.255.252
+!
+interface vlan 3999
+ip vrf forwarding test
+ip address 192.0.2.129 255.255.255.128
+!
+`;
+
+test("a VRF is a block of its own, and its interfaces and routes name it, as the switch printed them", () => {
+    const rendered = platform.render(inVrf);
+    expect(platform.unsupported(inVrf)).toEqual([]);
+
+    const headers = ["ip vrf", "interface loopback", "interface tengigabitethernet 1/3/24", "interface vlan 3999"];
+    expect(sent(blocks(rendered, headers), PRINTED_IN_VRF)).toEqual([]);
+    expect(rendered).toContain("ip route vrf test 203.0.113.64 255.255.255.192 192.0.2.130 vlan 3999\n");
+    expect(rendered).toContain("ip route vrf test 203.0.113.128 255.255.255.128 198.51.100.2\n");
+});
+
+test("an interface that changes VRF gets its IP settings again, as the change removes them, and a VRF goes once no interface is in it", () => {
+    const out = { ...inVrf, interfaces: { ...inVrf.interfaces, loopback: { main: { addresses: ["203.0.113.1/32"] } } } } as Device;
+    expect(sent(platform.render(out), platform.render(inVrf))).toEqual([
+        "interface loopback 1",
+        "no ip vrf forwarding",
+        "ip address 203.0.113.1 255.255.255.255",
+        "exit",
+    ]);
+
+    const steps = sent(platform.render(coreSwitch), platform.render(inVrf));
+    expect(steps.at(-1)).toBe("no ip vrf test");
+    expect(steps).toContain("no ip route vrf test 203.0.113.64 255.255.255.192 192.0.2.130 vlan 3999");
+});
+
+test("a VRF has no description here", () => {
+    const described = { ...inVrf, routing: { ...inVrf.routing, vrfs: { test: { description: "lab" } } } } as Device;
+    expect(platform.unsupported(described)).toEqual(["routing.vrfs.test.description, the switch has no description for a VRF"]);
+});
+
 test("a routed port, a loopback, and a route keep to what the switch takes", () => {
     const astray = {
         ...routed,

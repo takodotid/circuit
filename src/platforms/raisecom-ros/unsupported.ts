@@ -34,7 +34,7 @@ export class RaisecomRosUnsupported {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
 
-            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "ipv6_ra", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}`);
             }
             found.push(...RaisecomRosUnsupported.routedPort(where, port));
@@ -70,7 +70,7 @@ export class RaisecomRosUnsupported {
             if (!iface) continue;
             const where = `interfaces.vlan_interface.${name}`;
 
-            for (const field of ["vrf", "description", "mtu", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["description", "mtu", "ipv6_ra", "hardware_offload"] as const) {
                 if (iface[field] !== undefined) found.push(`${where}.${field}`);
             }
             if (iface.rate_limit) found.push(`${where}.rate_limit, the platform limits ports and LAGs`);
@@ -115,7 +115,7 @@ export class RaisecomRosUnsupported {
             if (!loopback) continue;
             const where = `interfaces.loopback.${name}`;
 
-            for (const field of ["description", "mtu", "vrrp", "vrf", "ipv6_ra"] as const)
+            for (const field of ["description", "mtu", "vrrp", "ipv6_ra"] as const)
                 if (loopback[field] !== undefined) found.push(`${where}.${field}, not on a loopback here`);
             found.push(...RaisecomRosUnsupported.ipv6Addresses(where, loopback));
             if (ids.get(name)! > RaisecomRosRouting.LOOPBACK.max)
@@ -229,11 +229,14 @@ export class RaisecomRosUnsupported {
             }
         }
 
+        for (const [name, vrf] of Object.entries(routing?.vrfs ?? {}))
+            if (vrf?.description) found.push(`routing.vrfs.${name}.description, the switch has no description for a VRF`);
+
         for (const route of routing?.static_routes ?? []) {
             const where = `routing.static_routes ${route.prefix}`;
 
-            if (!route.next_hop || route.vrf || Address.family(route.prefix) === "ipv6") {
-                found.push(`${where}, only an IPv4 next_hop in the default table`);
+            if (!route.next_hop || Address.family(route.prefix) === "ipv6") {
+                found.push(`${where}, only an IPv4 next_hop`);
             }
 
             if (route.next_hop && route.interface && !RaisecomRosUnsupported.routesThrough(device, route.interface))
@@ -241,7 +244,8 @@ export class RaisecomRosUnsupported {
 
             if (route.description || route.distance) found.push(`${where} description and distance`);
 
-            if (route.bfd && route.next_hop && !RaisecomRosRouting.bfdSessions(device).has(route.next_hop)) {
+            if (route.bfd && route.vrf) found.push(`${where} bfd in a VRF, tested in the main table alone`);
+            else if (route.bfd && route.next_hop && !RaisecomRosRouting.bfdSessions(device).has(route.next_hop)) {
                 found.push(`${where} bfd, the next hop must be on a VLAN interface's network`);
             }
         }
@@ -306,7 +310,6 @@ export class RaisecomRosUnsupported {
             ["routing.prefix_sets", routing?.prefix_sets],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
-            ["routing.vrfs", routing?.vrfs],
             ["routing.ospf.vrf", routing?.ospf?.vrf],
             ["monitoring.flow_export", device.monitoring?.flow_export],
         ];

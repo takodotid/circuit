@@ -67,10 +67,10 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |access-list |router ospf |bfd \d+ bind )/,
+        block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding ))/,
         indented: false,
         terminator: "!",
         ignore: (line) => line.startsWith("!") || RaisecomRos.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -132,6 +132,12 @@ export class RaisecomRos extends Platform {
 
     /** A service letting go of an access-list, so the list can change. */
     private static readonly RELEASE = /^no (\S+ access-list \d+)$/;
+
+    /** A VRF's own block. An interface's `ip vrf forwarding` puts the interface in one. */
+    private static readonly VRF = /^ip vrf (?!forwarding )/;
+
+    /** An interface's IP settings, which `ip vrf forwarding` removes: `All IP related configurations on this interface are removed.` */
+    private static readonly IP_SETTING = /^(ip (?!vrf forwarding )|ipv6 |isis |vrrp )/;
 
     /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
     private static readonly STANDALONE = /^(logging host|snmp-server access-list) /;
@@ -371,13 +377,25 @@ export class RaisecomRos extends Platform {
             else if (routes && switched.has(group.path[0]!)) group.add.unshift("no portswitch");
         }
 
-        // A LAG is removed only once no port is in it, so its removal goes after every other step.
+        // Putting an interface in a VRF, or taking it out, removes its IP settings, so they are sent again after.
+        const wanted = LineDiff.entries(desired, RaisecomRos.DIALECT);
+        for (const group of groups) {
+            if (![...group.add, ...group.remove].some((line) => line.startsWith("ip vrf forwarding "))) continue;
+
+            const settings = wanted
+                .filter((entry) => entry.path.join("\n") === group.path.join("\n") && RaisecomRos.IP_SETTING.test(entry.line))
+                .map((entry) => entry.line);
+            group.add = [...group.add.filter((line) => !settings.includes(line)), ...settings];
+        }
+
+        // A LAG is removed only once no port is in it, and a VRF once no interface is, so their removal goes after every other step.
         const lagRemovals: string[] = [];
+        const holderRemovals = (line: string) => line.startsWith("interface port-channel") || RaisecomRos.VRF.test(line);
 
         for (const group of groups) {
             if (group.path.length) continue;
-            lagRemovals.push(...group.remove.filter((line) => line.startsWith("interface port-channel")));
-            group.remove = group.remove.filter((line) => !line.startsWith("interface port-channel"));
+            lagRemovals.push(...group.remove.filter(holderRemovals));
+            group.remove = group.remove.filter((line) => !holderRemovals(line));
         }
 
         // An access-list is removed only once no service holds it, so its removal goes after the top level lets go of it.
@@ -459,7 +477,7 @@ export class RaisecomRos extends Platform {
 
         if (lagRemovals.length) {
             const removeLags: Step = {
-                title: "LAGs no longer used",
+                title: "LAGs and VRFs no longer used",
                 show: lagRemovals.map((line) => `- ${line}`),
                 send: lagRemovals.map((line) => RaisecomRos.undo(line)),
             };
@@ -542,8 +560,8 @@ export class RaisecomRos extends Platform {
         const vrrp = /^(no )?vrrp (\d+) (ip \S+|priority|timers advertise-interval|preempt)/.exec(line);
         if (vrrp) return vrrp[1] ? `vrrp ${vrrp[2]} preempt` : `no vrrp ${vrrp[2]} ${vrrp[3]}`;
 
-        // A route goes by its prefix, next hop, and interface, whatever it tracks: without its interface, `no ip route` answers `Set successfully.` and keeps it. A BFD session goes by its number.
-        const route = /^(ip route \S+ \S+ \S+(?: (?!track )\S+ \S+)?)/.exec(line);
+        // A route goes by its VRF, prefix, next hop, and interface, whatever it tracks: without its interface, `no ip route` answers `Set successfully.` and keeps it. A BFD session goes by its number.
+        const route = /^(ip route (?:vrf \S+ )?\S+ \S+ \S+(?: (?!track )\S+ \S+)?)/.exec(line);
         if (route) return `no ${route[1]}`;
 
         const bfdSession = /^bfd (\d+) bind /.exec(line);

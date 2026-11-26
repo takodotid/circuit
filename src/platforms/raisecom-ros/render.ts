@@ -111,6 +111,7 @@ export class RaisecomRosRender {
         const ids = Object.values(vlans).flatMap((vlan) => (vlan ? [vlan.id] : []));
         if (ids.length) lines.push(`create vlan ${RaisecomRosRender.vlanList(ids)} active`, "!");
 
+        lines.push(...RaisecomRosRouting.vrfs(device));
         const lagNumbers = Derive.lagIds(device);
 
         for (const [name, lag] of Object.entries(device.interfaces?.lag ?? {})) {

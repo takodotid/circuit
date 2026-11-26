@@ -21,9 +21,9 @@ export class RaisecomRosRouting {
         return ids;
     }
 
-    /** The IPv4 addresses of a routed port, a loopback, or a VLAN interface, each with its mask. IPv6 is refused. */
-    static addressLines(settings: Pick<Routed, "addresses">): string[] {
-        const lines: string[] = [];
+    /** The VRF of a routed port, a loopback, or a VLAN interface, then its IPv4 addresses, each with its mask. IPv6 is refused. */
+    static addressLines(settings: Pick<Routed, "addresses" | "vrf">): string[] {
+        const lines = settings.vrf ? [`ip vrf forwarding ${settings.vrf}`] : [];
 
         for (const entry of settings.addresses ?? []) {
             const address = typeof entry === "string" ? entry : entry.address;
@@ -32,6 +32,11 @@ export class RaisecomRosRouting {
         }
 
         return lines;
+    }
+
+    /** Each VRF, a block of its own that holds nothing: its interfaces and routes name it. */
+    static vrfs(device: Device): string[] {
+        return Object.entries(device.routing?.vrfs ?? {}).flatMap(([name, vrf]) => (vrf ? [`ip vrf ${name}`, "!"] : []));
     }
 
     /** Each loopback as a block: always up, on no link. */
@@ -84,7 +89,7 @@ export class RaisecomRosRouting {
 
             const iface = route.interface ? RaisecomRosRouting.routeInterface(device, route.interface) : undefined;
             const session = route.bfd ? sessions.get(route.next_hop) : undefined;
-            let line = `ip route ${addr} ${Address.netmask(len)} ${route.next_hop}`;
+            let line = `ip route ${route.vrf ? `vrf ${route.vrf} ` : ""}${addr} ${Address.netmask(len)} ${route.next_hop}`;
             if (iface) line += ` ${iface}`;
             if (session) line += ` track bfd ${session.id}`;
             lines.push(line);
