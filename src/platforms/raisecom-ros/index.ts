@@ -15,6 +15,7 @@ import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
+import { RaisecomRosServices } from "./services";
 import { RaisecomRosUnsupported } from "./unsupported";
 
 /** `fresh` tests access in a fresh login: a new SSH session, or logging out and in again on the console. */
@@ -68,10 +69,10 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum|gateway|lease expired)\b/;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding ))/,
+        block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding )|ip dhcp server pool )/,
         indented: false,
         terminator: "!",
         ignore: (line) => line.startsWith("!") || RaisecomRos.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -94,9 +95,22 @@ export class RaisecomRos extends Platform {
                 // An access group prints a notify view the render leaves to its default.
                 .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2")
                 // A routing protocol's key prints in clear, and the read hides it.
-                .replace(new RegExp(RaisecomRos.CLEAR_KEY.source), "$1 <secret>"),
+                .replace(new RegExp(RaisecomRos.CLEAR_KEY.source), "$1 <secret>")
+                // A trap receiver's community prints in clear, and the read hides it.
+                .replace(new RegExp(RaisecomRos.TRAP_COMMUNITY.source), "$1 <secret>"),
         order: RaisecomRos.order,
+        // A pool has one range of addresses, one gateway, one lease, and one DNS server of each kind: a new one replaces the old in place.
+        head: (line) =>
+            /^(address|gateway|lease expired|dns-server \S+ secondary|dns-server) /
+                .exec(line)?.[1]
+                ?.replace(/ \S+ secondary$/, " secondary") ?? LineDiff.head(line),
     };
+
+    /** A trap receiver's community, which the switch prints in clear: `snmp-server host 192.0.2.1 version 2c <community>`. */
+    private static readonly TRAP_COMMUNITY = /^(snmp-server host \S+ version 2c) \S+/gm;
+
+    /** Lines set at the `#` prompt, as configuration mode refuses them: `hostname`, a user, and the privileged password. */
+    private static readonly PRIVILEGED = /^(hostname|user name|enable password) /;
 
     /** Blocks after the top level. A LAG exists before a port joins it, and an OSPF process comes after its interfaces. A BFD session binds to a VLAN interface, so it comes last. Only one session binds to a peer, so an old one goes first, with the routes at the top level. A route takes a session that does not exist yet. */
     private static readonly BLOCK_ORDER = [/^interface port-channel/, /^interface /, /^router ospf/, /^bfd /];
@@ -129,9 +143,9 @@ export class RaisecomRos extends Platform {
     /** How much of the device's answer an error shows. */
     private static readonly ANSWER_CHARS = 300;
 
-    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.` */
+    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Please delete the static bind of the pool` */
     private static readonly REFUSED =
-        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal/im;
+        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|Please delete/im;
 
     /** Lines that ask for `y` and do nothing without it. */
     private static readonly CONFIRM = /^(portswitch|no portswitch|switchport trunk allowed vlan|switchport mode)/;
@@ -149,10 +163,10 @@ export class RaisecomRos extends Platform {
     private static readonly OSPF_TIMER = /^ip ospf (hello|dead)-interval /;
 
     /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
-    private static readonly STANDALONE = /^(logging host|snmp-server access-list) /;
+    private static readonly STANDALONE = /^(logging host|snmp-server access-list|snmp-server host) /;
 
-    /** Turns DHCP snooping on for the whole switch. */
-    private static readonly SNOOPING = "ip dhcp snooping";
+    /** Turn DHCP snooping and the DHCP relay on for the whole switch, once the ports and interfaces are set. */
+    private static readonly SNOOPING = ["ip dhcp snooping", ...RaisecomRosServices.RELAY];
 
     /** A `?` sent by a script is run, so a line with one is refused. */
     private static readonly READS = /^show\s[^?]*$/;
@@ -189,7 +203,7 @@ export class RaisecomRos extends Platform {
         for (const { where, kind, settings } of Derive.holders(device))
             if ((kind === "ethernet" || kind === "vlan_interface") && settings.urpf?.ipv4) found.push(`${where}.urpf.ipv4`);
 
-        return [...found, ...RaisecomRosOspf.experimental(device)];
+        return [...found, ...RaisecomRosOspf.experimental(device), ...RaisecomRosServices.experimental(device)];
     }
 
     /** The switch answers time queries while it takes time from servers, and Raisecom's guide has no setting to stop it. */
@@ -290,7 +304,8 @@ export class RaisecomRos extends Platform {
     private static hideKeys(text: string): string {
         return LineDiff.scrub(text)
             .replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>")
-            .replace(RaisecomRos.CLEAR_KEY, "$1 <redacted>");
+            .replace(RaisecomRos.CLEAR_KEY, "$1 <redacted>")
+            .replace(RaisecomRos.TRAP_COMMUNITY, "$1 <redacted>");
     }
 
     static lldpRemotes(text: string, device: Device): Neighbor[] {
@@ -363,9 +378,11 @@ export class RaisecomRos extends Platform {
         }
 
         // A log host, and an access-list SNMP takes, each stand alone: one that is gone is removed even when another is added beside it.
-        const wantedLines = new Set(LineDiff.entries(desired, RaisecomRos.DIALECT).map((entry) => entry.line));
+        // Compared as the dialect compares them, so a trap receiver's hidden community is the one wanted.
+        const canon = RaisecomRos.DIALECT.canon!;
+        const wantedLines = new Set(LineDiff.entries(desired, RaisecomRos.DIALECT).map((entry) => canon(entry.line)));
         const gone = existing.filter(
-            (entry) => !entry.path.length && RaisecomRos.STANDALONE.test(entry.line) && !wantedLines.has(entry.line)
+            (entry) => !entry.path.length && RaisecomRos.STANDALONE.test(entry.line) && !wantedLines.has(canon(entry.line))
         );
 
         if (gone.length) {
@@ -431,6 +448,9 @@ export class RaisecomRos extends Platform {
 
         // Editing an access-list means releasing every service holding it first, and binding the wanted ones after.
         const releaseAndBind = (group: Group) => {
+            const pool = RaisecomRosServices.POOL.exec(group.path[0] ?? "")?.[1];
+            if (pool) return { before: RaisecomRosServices.binds(existing, pool).map((line) => RaisecomRos.undo(line)), after: [] };
+
             const acl = /^access-list (\d+)/.exec(group.path[0] ?? "")?.[1];
             if (!acl) return { before: [], after: [] };
 
@@ -451,14 +471,22 @@ export class RaisecomRos extends Platform {
             };
         };
 
-        // The hostname is set outside configuration mode, where `hostname` is refused.
-        const hostnames: string[] = [];
+        // The hostname, users, and the privileged password are set at the `#` prompt, as configuration mode refuses them. A gone user goes with `no username`.
+        const privileged: { show: string; send: string }[] = [];
 
         for (const group of groups) {
             if (group.path.length) continue;
-            hostnames.push(...group.add.filter((line) => line.startsWith("hostname ")));
-            group.add = group.add.filter((line) => !line.startsWith("hostname "));
+            for (const line of group.remove.filter((each) => each.startsWith("user name "))) {
+                privileged.push({ show: `- ${line}`, send: `no username ${line.split(" ")[2]}` });
+            }
+            privileged.push(
+                ...group.add.filter((line) => RaisecomRos.PRIVILEGED.test(line)).map((line) => ({ show: `+ ${line}`, send: line }))
+            );
+            group.remove = group.remove.filter((line) => !line.startsWith("user name "));
+            group.add = group.add.filter((line) => !RaisecomRos.PRIVILEGED.test(line));
         }
+
+        const reservations = RaisecomRosServices.reservationSteps(groups, existing, LineDiff.entries(desired, RaisecomRos.DIALECT));
 
         // A route through a VLAN interface is refused until the interface exists, so routes come after the interfaces.
         const routes: string[] = [];
@@ -474,8 +502,8 @@ export class RaisecomRos extends Platform {
 
         for (const group of groups) {
             if (group.path.length) continue;
-            snooping.push(...group.add.filter((line) => line === RaisecomRos.SNOOPING));
-            group.add = group.add.filter((line) => line !== RaisecomRos.SNOOPING);
+            snooping.push(...group.add.filter((line) => RaisecomRos.SNOOPING.includes(line)));
+            group.add = group.add.filter((line) => !RaisecomRos.SNOOPING.includes(line));
         }
 
         const planned = LineDiff.steps(
@@ -484,10 +512,16 @@ export class RaisecomRos extends Platform {
             releaseAndBind
         );
 
-        for (const line of hostnames) planned.unshift({ title: "hostname", show: [`+ ${line}`], send: ["exit", line, "config"] });
+        if (privileged.length) {
+            const title = privileged.every(({ send }) => send.startsWith("hostname ")) ? "hostname" : "at the # prompt";
+            const show = privileged.map((each) => each.show);
+            planned.unshift({ title, show, send: ["exit", ...privileged.map((each) => each.send), "config"] });
+        }
 
         if (routes.length) planned.push({ title: "static routes", show: routes.map((line) => `+ ${line}`), send: routes });
-        if (snooping.length) planned.push({ title: "DHCP snooping", show: snooping.map((line) => `+ ${line}`), send: snooping });
+        if (reservations.length)
+            planned.push({ title: "DHCP reservations", show: reservations.map((line) => `+ ${line}`), send: reservations });
+        if (snooping.length) planned.push({ title: "DHCP snooping and relay", show: snooping.map((line) => `+ ${line}`), send: snooping });
 
         if (aclRemovals.length) {
             planned.push({
@@ -610,9 +644,15 @@ export class RaisecomRos extends Platform {
         const snmpAccess = /^snmp-server access (\S+) .* usm (\S+)$/.exec(line);
         if (snmpAccess) return `no snmp-server access ${snmpAccess[1]} usm ${snmpAccess[2]}`;
 
-        // A log host goes by its address, whatever its level and port.
-        const logHost = /^logging host (\S+)/.exec(line);
-        if (logHost) return `no logging host ${logHost[1]}`;
+        // A log host and a trap receiver go by their address, whatever their level and port. A reservation goes without its pool, and a pool's secondary DNS server by its kind.
+        const byAddress = /^(logging host|snmp-server host) (\S+)/.exec(line);
+        if (byAddress) return `no ${byAddress[1]} ${byAddress[2]}`;
+
+        const reservation = /^(ip dhcp static-bind \S+ \S+) /.exec(line);
+        if (reservation) return `no ${reservation[1]}`;
+
+        if (/^dns-server \S+ secondary$/.test(line)) return "no dns-server secondary";
+        if (line.startsWith("dns-server ")) return "no dns-server";
 
         const keyword = RaisecomRos.UNDO_BY_KEYWORD.exec(line);
         if (keyword) return `no ${keyword[1]}`;

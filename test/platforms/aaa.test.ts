@@ -210,6 +210,6 @@ end
 test("Raisecom ROS refuses logins through servers, as it has no role for a user a server accepts", () => {
     const device = { ...withAaa(Fixtures.device("platforms--example-switch"), tacacs), platform: "raisecom-ros" } as Device;
     expect(Platforms.get("raisecom-ros").unsupported(device)).toContain(
-        "system.aaa, the platform has no setting for the role of a user a server accepts"
+        "system.aaa, the platform has no setting for the role of a user a server accepts, and its one login setting for every way in was not tried on a switch in service"
     );
 });

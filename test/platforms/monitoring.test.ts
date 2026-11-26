@@ -274,7 +274,7 @@ end`);
     expect(fortios.render(timeouts)).toContain("    set active-flow-timeout 5\n    set inactive-flow-timeout 60\n");
 });
 
-test("Raisecom ROS refuses traps, syslog over TLS, and flow timeouts", () => {
+test("Raisecom ROS sends traps, and refuses syslog over TLS and flow export, which ROS 6.5.2 has none of", () => {
     const device = monitored("platforms--example-core-switch", [{ address: "192.0.2.10", user: "noc" }], {
         syslog: [{ address: "192.0.2.20", level: "info", transport_security: { ca_certificate: "noc-ca" } }],
         flow_export: { protocol: "sflow", collectors: [{ address: "192.0.2.30" }], sampling: 1000, active_timeout: 60 },
@@ -282,11 +282,11 @@ test("Raisecom ROS refuses traps, syslog over TLS, and flow timeouts", () => {
 
     expect(Platforms.get(device.platform).unsupported(device)).toEqual(
         expect.arrayContaining([
-            "monitoring.snmp.traps, which the platform does not build",
             "monitoring.syslog[0].transport_security, which the platform does not build",
-            "monitoring.flow_export.active_timeout, which the platform does not build",
+            "monitoring.flow_export, ROS 6.5.2 has no sFlow, NetFlow, or IPFIX",
         ])
     );
+    expect(Platforms.get(device.platform).unsupported(device)).not.toContain(expect.stringContaining("monitoring.snmp.traps"));
 });
 
 test("VRP sends every trap as a user, and plans nothing against how a CE6855 printed them", () => {
