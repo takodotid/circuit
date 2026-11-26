@@ -22,3 +22,13 @@ test("a CloudEngine answers no DNS queries for others, so VRP refuses a DNS serv
     const device: Device = { ...base, services: { dns_server: true } };
     expect(vrp.unsupported(device)).toContain("services.dns_server, a CloudEngine answers no DNS queries for others");
 });
+
+test("VRP has no web interface, guards no API, and takes no certificate, and says why", () => {
+    const device: Device = { ...base, management: { ...base.management, http: {}, https: {}, api: {}, api_tls: {} } };
+    expect(vrp.unsupported(device).filter((gap) => gap.startsWith("management."))).toEqual([
+        "management.http, a CloudEngine has no web interface",
+        "management.https, a CloudEngine has no web interface",
+        "management.api, RESTCONF over HTTP, which no ACL guards on V200R005, so management.allow can't: not built",
+        "management.api_tls, V200R005 has no PKI, and loads a certificate only from a file on the switch's flash, which Circuit does not copy there",
+    ]);
+});

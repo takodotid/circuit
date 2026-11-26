@@ -258,15 +258,7 @@ export class Vrp extends Platform {
         found.push(...VrpDhcpv6.unsupported(device));
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for VRP`);
 
-        const refusedGroups = [
-            ["system.hardware_offload", device.system?.hardware_offload],
-            ["system.certificates", device.system?.certificates],
-        ] as const;
-
-        for (const [path, value] of refusedGroups) {
-            if (value !== undefined) found.push(path);
-        }
-
+        if (device.system?.hardware_offload !== undefined) found.push("system.hardware_offload");
         found.push(...VrpServices.unsupported(device));
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");

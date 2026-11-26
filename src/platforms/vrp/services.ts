@@ -5,10 +5,15 @@ import { Derive } from "../../core/derive";
 import type { Device } from "../../model";
 
 export class VrpServices {
+    /** A CE6855 on V200R005 refused `pki realm`, and its SSL policy loads a certificate only from a file: "The file to be loaded does not exist in flash:/security/". */
+    private static readonly NO_CERTIFICATES =
+        "V200R005 has no PKI, and loads a certificate only from a file on the switch's flash, which Circuit does not copy there";
+
     static unsupported(device: Device): string[] {
         const found: string[] = [];
         const services = device.services ?? {};
 
+        if (device.system?.certificates) found.push(`system.certificates, ${VrpServices.NO_CERTIFICATES}`);
         if (services.pppoe_server)
             found.push("services.pppoe_server, VRP serves PPPoE subscribers on NE routers (BRAS) only, which Circuit does not support");
         if (services.ipsec_remote_access)
@@ -35,9 +40,15 @@ export class VrpServices {
         const management = device.management ?? {};
         const found: string[] = [];
 
-        for (const field of ["http", "https", "api", "api_tls", "ftp", "native_protocol", "privilege_password"] as const) {
+        for (const field of ["ftp", "native_protocol", "privilege_password"] as const) {
             if (management[field]) found.push(`management.${field}`);
         }
+        // `http server enable` is `Too many parameters` on V200R005: `http` is the view of RESTCONF, whose view takes no `acl`.
+        for (const field of ["http", "https"] as const)
+            if (management[field]) found.push(`management.${field}, a CloudEngine has no web interface`);
+        if (management.api)
+            found.push("management.api, RESTCONF over HTTP, which no ACL guards on V200R005, so management.allow can't: not built");
+        if (management.api_tls) found.push(`management.api_tls, ${VrpServices.NO_CERTIFICATES}`);
 
         if (management.ssh?.auth_timeout || management.ssh?.auth_retries) found.push("management.ssh.auth_timeout and auth_retries");
         return found;
