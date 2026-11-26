@@ -15,6 +15,9 @@ export class VrpSwitching {
     /** The most addresses one prefix of a bound host holds: the switch binds a range's addresses one by one, each on a line of its own. */
     private static readonly BOUND_ADDRESSES = 256;
 
+    /** 802.1ad's TPID. 802.1Q's, 0x8100, is the switch's own, and is not printed. */
+    private static readonly SERVICE_TAG = "0x88a8";
+
     /** The switch numbers an ACL's rules in steps of 5. */
     private static readonly RULE_STEP = 5;
 
@@ -39,8 +42,11 @@ export class VrpSwitching {
         // Snooping runs on each port, over all of its VLANs.
         for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
-        const { tpid, innerVlans } = Derive.stackedTags(device);
-        for (const where of tpid) found.push(`${where}, which only RouterOS builds for now`);
+        // A CE6855 refused `qinq protocol` on a QinQ port: "The configuration failed because the type of the port is dot1q-tunnel".
+        for (const { where, settings } of Derive.switchedHolders(device))
+            if (settings.tpid === VrpSwitching.SERVICE_TAG && settings.qinq_vlan)
+                found.push(`${where}.tpid on a QinQ port, which takes no TPID on the switch: "the type of the port is dot1q-tunnel"`);
+        const { innerVlans } = Derive.stackedTags(device);
         // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
         for (const where of innerVlans)
             found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
@@ -75,6 +81,7 @@ export class VrpSwitching {
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan`);
             if (settings.bound_to) found.push(`${where}.bound_to`);
             if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
+            if (settings.tpid === VrpSwitching.SERVICE_TAG && !settings.qinq_vlan) found.push(`${where}.tpid`);
         }
 
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
@@ -177,10 +184,11 @@ export class VrpSwitching {
     }
 
     /**
-     * A port's or a LAG's own lines. A trunk maps each VLAN it translates, `port vlan-mapping vlan <on the cable> map-vlan <VLAN>`, which the switch does both ways. An access port of a private VLAN joins its MUX VLAN, and a bound port binds its hosts.
+     * A port's or a LAG's own lines. The TPID of its tags is `qinq protocol`, in hex without `0x`. A trunk maps each VLAN it translates, `port vlan-mapping vlan <on the cable> map-vlan <VLAN>`, which the switch does both ways. An access port of a private VLAN joins its MUX VLAN, and a bound port binds its hosts.
      */
     static portLines(device: Device, name: string, settings: Port | Lag): string[] {
         const lines: string[] = [];
+        if (settings.tpid === VrpSwitching.SERVICE_TAG) lines.push(`qinq protocol ${settings.tpid.slice("0x".length)}`);
         for (const { from, to } of settings.vlan_translation ?? [])
             lines.push(`port vlan-mapping vlan ${from} map-vlan ${device.switching?.vlans?.[to]?.id}`);
 

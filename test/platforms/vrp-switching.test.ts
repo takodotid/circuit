@@ -221,6 +221,29 @@ test("VRP translates a trunk's VLAN with a VLAN mapping, as a CE6855 printed it"
     ]);
 });
 
+test("VRP sets 802.1ad's TPID on a port or LAG, but not on a QinQ port, as a CE6855 printed it", () => {
+    const tagged = device(
+        { "10g-47": { qinq_vlan: "ctest-a", tpid: "0x88a8" }, "10g-48": { in_lag: "ctest-lag" } },
+        { "ctest-lag": { id: 39, trunk_vlans: ["ctest-a", "ctest-b"], tpid: "0x88a8" } }
+    );
+    const desired = vrp.render(tagged);
+
+    expect(desired).toContain("interface Eth-Trunk39\n mode lacp-static\n port link-type trunk\n");
+    expect(desired).toContain(" port trunk allow-pass vlan 3981 to 3982\n qinq protocol 88a8\n");
+    expect(vrp.unsupported(tagged)).toEqual([
+        'interfaces.ethernet.10g-47.tpid on a QinQ port, which takes no TPID on the switch: "the type of the port is dot1q-tunnel"',
+    ]);
+    expect(vrp.experimental(tagged)).toEqual(["interfaces.ethernet.10g-47.qinq_vlan", "interfaces.lag.ctest-lag.tpid"]);
+    expect(sent(desired, desired)).toEqual([]);
+
+    // 802.1Q's TPID is the switch's own, which it doesn't print. The TPID is undone without its value.
+    const plain = device(
+        { "10g-48": { in_lag: "ctest-lag" } },
+        { "ctest-lag": { id: 39, trunk_vlans: ["ctest-a", "ctest-b"], tpid: "0x8100" } }
+    );
+    expect(sent(vrp.render(plain), desired)).toContain("undo qinq protocol");
+});
+
 test("VRP refuses what a bound port can't hold, and says why", () => {
     const hosts = [
         { mac: "02:00:00:00:00:01", addresses: ["192.0.2.11", "2001:db8:3981::11", "10.0.0.0/23"] },
