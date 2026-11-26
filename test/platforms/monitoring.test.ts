@@ -189,8 +189,8 @@ test("Junos refuses a community's receivers on two ports, syslog over TLS, and f
     expect(Platforms.get("junos").unsupported(device)).toEqual(
         expect.arrayContaining([
             "monitoring.snmp.traps[1].port, unlike another receiver of its community: a trap group has one port",
-            "monitoring.syslog[0].transport_security, which needs system.certificates: the platform loads a CA certificate with an operational command",
-            "monitoring.flow_export.idle_timeout, the platform exports sFlow, which has no flows",
+            "monitoring.syslog[0].transport_security, which needs its CA certificate on the switch: Junos loads one with an operational command, request security pki ca-certificate load, not a statement",
+            "monitoring.flow_export.idle_timeout, a QFX5100 exports sFlow only, which has no flows: Juniper lists IPFIX for no QFX5100",
         ])
     );
 });

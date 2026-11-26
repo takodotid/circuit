@@ -39,7 +39,9 @@ export class JunosSwitching {
 
         const { tpid, innerVlans } = Derive.stackedTags(device);
         for (const where of tpid) found.push(`${where} 0x88a8, which Junos 21.4 on a QFX5100 can't set: Juniper lists it from 22.4R1`);
-        for (const where of innerVlans) found.push(`${where}, which only RouterOS builds for now`);
+        // A routed unit with two tags passes `commit check`, but Juniper documents none on a QFX5100 (decision 243, TRAPS.md).
+        for (const where of innerVlans)
+            found.push(`${where}, which a QFX5100 doesn't route: Juniper supports two tags with family inet on no QFX5000 switch`);
 
         // A trunk with a native VLAN passes `commit check` with translation, but with a warning that it shouldn't (TRAPS.md).
         for (const { where, settings } of Derive.switchedHolders(device)) {

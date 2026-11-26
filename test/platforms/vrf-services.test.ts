@@ -70,11 +70,22 @@ test("Junos reaches syslog, NTP, and RADIUS servers through the routing instance
     ]);
     expect(junos.unsupported(device)).toEqual(
         expect.arrayContaining([
-            "management.ssh.vrf, Junos has no VRF setting for its services",
+            "management.ssh.vrf, Junos runs it in the main table only: of the management services, only the REST API takes a routing instance",
             "system.dns.vrf, Junos 21.4 reaches a resolver through mgmt_junos only",
-            "monitoring.snmp.vrf, not built yet",
+            "monitoring.snmp.vrf, as a manager in a routing instance sends Junos the community <instance>@<community>, not the one written",
         ])
     );
+});
+
+// As a QFX5100 on 21.4R3-S8.5 printed it in a private candidate, which passed `commit check`. Nothing was committed.
+test("Junos runs the REST API in a VRF, experimentally, as the only management service with a routing instance", () => {
+    const junos = Platforms.get("junos");
+    const device = inVrf("platforms--example-aggregation-switch");
+    device.management = { ...device.management, ssh: {}, api: { vrf: "mgmt" } };
+
+    expect(junos.render(device)).toContain("set system services rest routing-instance mgmt");
+    expect(junos.experimental!(device)).toContain("management.api.vrf");
+    expect(junos.unsupported(device).filter((gap) => gap.startsWith("management."))).toEqual([]);
 });
 
 test("FortiOS 6.2 and VRP refuse each service in a VRF", () => {

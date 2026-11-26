@@ -178,7 +178,7 @@ test("a field a platform renders nothing for is unsupported", () => {
             "interfaces.ethernet.10g-4.storm_control in pps, the platform takes percent",
             "services.dhcp_server.management.interface, which a DHCP relay also uses",
             "routing.static_routes 192.0.2.128/25 description",
-            "routing.bgp.neighbors.transit-1.role, Junos 21 has no BGP roles",
+            "routing.bgp.neighbors.transit-1.role, which Junos 21.4 lacks: Juniper builds BGP roles from 25.2R1, and a QFX5100 refuses otc-local-role",
             "routing.bgp.neighbors.transit-1.keepalive, the platform keeps it at a third of hold_time",
         ])
     );
