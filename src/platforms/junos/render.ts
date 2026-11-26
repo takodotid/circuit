@@ -107,12 +107,6 @@ export class JunosRender {
         ["unknown_unicast", "no-unknown-unicast"],
     ] as const;
 
-    /** `0.0.0.0`, which a host asking DHCP for an address sends from. */
-    private static readonly IPV4_ALWAYS = ["0.0.0.0/32"];
-
-    /** Link-local addresses, and `::` while a host checks an address is free: IPv6 needs both, so every bound host sends from them. */
-    private static readonly IPV6_ALWAYS = ["fe80::/10", "::/128"];
-
     private readonly out = new JunosStatements();
     private readonly names: JunosNames;
     private readonly layer2: JunosSwitching;
@@ -432,17 +426,14 @@ export class JunosRender {
             settings.bound_to.forEach((host, index) => {
                 const term = `${filter} term host-${index + 1}`;
                 const mac = `${host.mac.toLowerCase()}/48`;
-                const of = (family: Family) =>
-                    host.addresses.filter((address) => Address.family(address.split("/")[0]!) === family).map(JunosRender.withLength);
+                const sources = Derive.boundSources(host);
 
                 this.out.set(`${term}-ipv4 from source-mac-address`, mac);
-                for (const address of [...of("ipv4"), ...JunosRender.IPV4_ALWAYS])
-                    this.out.set(`${term}-ipv4 from ip-source-address`, address);
+                for (const address of sources.ipv4) this.out.set(`${term}-ipv4 from ip-source-address`, address);
                 this.out.set(`${term}-ipv4 then accept`);
 
                 this.out.set(`${term}-ipv6 from source-mac-address`, mac);
-                for (const address of [...of("ipv6"), ...JunosRender.IPV6_ALWAYS])
-                    this.out.set(`${term}-ipv6 from ip-version ipv6 ip6-source-address`, address);
+                for (const address of sources.ipv6) this.out.set(`${term}-ipv6 from ip-version ipv6 ip6-source-address`, address);
                 this.out.set(`${term}-ipv6 then accept`);
 
                 this.out.set(`${term}-arp from source-mac-address`, mac);
@@ -452,12 +443,6 @@ export class JunosRender {
 
             this.out.set(`${filter} term others then discard`);
         }
-    }
-
-    /** An address or prefix as a filter matches it: with its length, `/32` or `/128` for one address, IPv6 as RFC 5952 writes it. */
-    private static withLength(address: string): string {
-        const canonical = Address.canonical(address);
-        return canonical.includes("/") ? canonical : `${canonical}/${Address.bits(Address.family(canonical))}`;
     }
 
     /** The filter that lets only these kinds of frame in, named after them: `circuit-ethertypes-ipv4-ipv6-arp`. */
@@ -640,7 +625,7 @@ export class JunosRender {
             const peers = gtsm.filter(ofFamily);
             if (peers.length) {
                 const term = `${filter} term gtsm`;
-                for (const peer of peers) this.out.set(term, "from source-address", JunosRender.withLength(peer));
+                for (const peer of peers) this.out.set(term, "from source-address", Address.withLength(peer));
                 this.out.set(term, "from", protocolWord, "tcp");
                 this.out.set(term, "from port", JunosRender.BGP_PORT);
                 this.out.set(term, "from", family === "inet" ? "ttl-except" : "hop-limit-except", JunosRender.GTSM_TTL);

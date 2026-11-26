@@ -24,6 +24,7 @@ import type {
 import { BgpHealth } from "../bgp-health";
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
+import { RouterOsBridgeFilters } from "./bridge-filters";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
 import { RouterOsIpsec } from "./ipsec";
@@ -297,6 +298,7 @@ export class RouterOs extends Platform {
                     );
         found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
+        found.push(...RouterOsBridgeFilters.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
@@ -493,7 +495,7 @@ export class RouterOs extends Platform {
             ])
         );
 
-        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as untested.
+        // BFD on a static route and a MAC limit are refused above, for the reason the device gave. An ethertype filter and a bound port are refused on a LAG as untested.
         found.push(
             ...Derive.untested(device, [
                 "bfd-timers",
@@ -501,6 +503,7 @@ export class RouterOs extends Platform {
                 "static-route-bfd",
                 "mac-limit",
                 "ethertype-filter",
+                "port-binding",
                 "routing-tables",
             ])
         );

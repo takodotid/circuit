@@ -26,7 +26,7 @@ A switch-chip ACL drops them before they reach the router's CPU. The [edge route
 
 <<< @/../examples/edge-router/sites/pop-2/edge-02.ts#urpf
 
-An ACL on the customer's port can do the same, as [Attacks on the network](/academy/professional/ddos-and-spoofing#anti-spoofing-in-circuit) shows. On Junos, `bound_to` also ties an access port to its hosts' MAC and IP addresses.
+An ACL on the customer's port can do the same, as [Attacks on the network](/academy/professional/ddos-and-spoofing#anti-spoofing-in-circuit) shows. On Junos and RouterOS, `bound_to` also ties an access port to its hosts' MAC and IP addresses.
 
 ## Further reading
 

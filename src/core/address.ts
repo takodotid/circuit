@@ -179,6 +179,12 @@ export class Address {
         return length === undefined ? spelled : `${spelled}/${length}`;
     }
 
+    /** An address or prefix with its length, `/32` or `/128` for one address, IPv6 as RFC 5952 writes it. */
+    static withLength(text: string): string {
+        const canonical = Address.canonical(text);
+        return canonical.includes("/") ? canonical : `${canonical}/${Address.bits(Address.family(canonical))}`;
+    }
+
     /** `10.0.0.1/24` to `10.0.0.0/24`. */
     static prefixOf(cidr: string): Prefix {
         const { addr, len, family } = Address.split(cidr);

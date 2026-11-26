@@ -140,7 +140,7 @@ export class RouterOsVlanTags {
             for (const { where, settings } of holders) {
                 // An 802.1ad bridge sends its BPDUs to another address than the one `stp: false` drops (MikroTik's manual, Bridging and Switching).
                 if (settings.stp === false) found.push(`${where}.stp false, ${RouterOsVlanTags.UNTESTED}`);
-                for (const field of ["ethertypes", "ingress_acl"] as const)
+                for (const field of ["ethertypes", "ingress_acl", "bound_to"] as const)
                     if ((settings as Partial<Record<typeof field, unknown>>)[field] !== undefined)
                         found.push(`${where}.${field}, ${RouterOsVlanTags.UNTESTED}`);
             }

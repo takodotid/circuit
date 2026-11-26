@@ -317,6 +317,66 @@ test("a MAC limit stays refused, for the reason the router gave, and an ethertyp
     ]);
 });
 
+/** A port bound to two hosts, the second by a prefix routed to it. */
+const bound = withPorts({
+    "25g-4": {
+        access_vlan: "ix",
+        bound_to: [
+            { mac: "02:00:00:00:00:01", addresses: ["192.0.2.10", "2001:DB8:0::10"] },
+            { mac: "02:00:00:00:00:0a", addresses: ["198.51.100.8/29"] },
+        ],
+    },
+});
+
+/** Its chain of the bridge NAT, as a CHR on 7.24.6 printed one. */
+const BOUND_NAT = [
+    "/interface bridge nat",
+    'add action=jump chain=dstnat comment="sfp28-4 bound to its hosts" in-interface=sfp28-4 jump-target=bound-sfp28-4',
+    "add action=return chain=bound-sfp28-4 mac-protocol=ip src-address=192.0.2.10/32 src-mac-address=02:00:00:00:00:01/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ip src-address=0.0.0.0/32 src-mac-address=02:00:00:00:00:01/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ipv6 src-address6=2001:db8::10/128 src-mac-address=02:00:00:00:00:01/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ipv6 src-address6=fe80::/10 src-mac-address=02:00:00:00:00:01/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ipv6 src-address6=::/128 src-mac-address=02:00:00:00:00:01/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=arp src-mac-address=02:00:00:00:00:01/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ip src-address=198.51.100.8/29 src-mac-address=02:00:00:00:00:0A/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ip src-address=0.0.0.0/32 src-mac-address=02:00:00:00:00:0A/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ipv6 src-address6=fe80::/10 src-mac-address=02:00:00:00:00:0A/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=ipv6 src-address6=::/128 src-mac-address=02:00:00:00:00:0A/FF:FF:FF:FF:FF:FF",
+    "add action=return chain=bound-sfp28-4 mac-protocol=arp src-mac-address=02:00:00:00:00:0A/FF:FF:FF:FF:FF:FF",
+    'add action=drop chain=bound-sfp28-4 comment="sfp28-4 bound to its hosts"',
+];
+
+test("a port bound to its hosts is a chain of the bridge NAT, off the switch chip, which plans nothing as a CHR printed it (7.24.6)", () => {
+    const rendered = platform.render(bound);
+
+    expect(platform.unsupported(bound)).toEqual([]);
+    expect(rendered).toContain(`${BOUND_NAT.join("\n")}\n`);
+    expect(rendered).toContain("add bridge=bridge frame-types=admit-only-untagged-and-priority-tagged hw=no interface=sfp28-4 pvid=200");
+
+    // The CHR broke its long lines, as `/export` does.
+    const printed = rendered
+        .replace(" jump-target=bound-sfp28-4", " \\\n    jump-target=bound-sfp28-4")
+        .replace("src-address=192.0.2.10/32 ", "src-address=\\\n    192.0.2.10/32 ");
+    expect(printed).not.toBe(rendered);
+    expect(platform.plan(rendered, printed, options).steps).toEqual([]);
+
+    const unbound = withPorts({ "25g-4": { access_vlan: "ix" } });
+    const sent = platform.plan(platform.render(unbound), rendered, options).steps.flatMap((step) => step.send);
+    expect(sent).toContain("/interface bridge port set [ find interface=sfp28-4 ] hw=yes");
+    expect(sent).toContain('/interface bridge nat remove [ find chain="bound-sfp28-4" ]');
+});
+
+test("a bound LAG, or a bound member of one, is refused as untested", () => {
+    const host = [{ mac: "02:00:00:00:00:01", addresses: ["192.0.2.10"] }] as const;
+    const ported = withPorts({ "25g-4": { in_lag: "members", bound_to: host } });
+    const device: Device = { ...ported, interfaces: { ...ported.interfaces, lag: { members: { access_vlan: "ix", bound_to: host } } } };
+
+    expect(platform.unsupported(device)).toEqual([
+        "interfaces.ethernet.25g-4.bound_to, on a LAG, which is not tested on a device yet",
+        "interfaces.lag.members.bound_to, on a LAG, which is not tested on a device yet",
+    ]);
+});
+
 test("circuit bgp says why a session is down: closed on its limit with the limit and when, admin down, connecting", async () => {
     const bgp = device.routing!.bgp!;
     const withRs2 = {

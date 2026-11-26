@@ -69,6 +69,12 @@ export default as64500.device({
                 trunk_vlans: ["mgmt", "shared"],
                 link: { device: "tor-02", port: "10g-48" },
             },
+            // A small tenant's server on the router itself. It may send only from its own MAC and addresses, so it can't pose as a neighbor.
+            "25g-6": {
+                description: "Server of a small tenant",
+                access_vlan: "shared",
+                bound_to: [{ mac: "02:00:00:00:00:44", addresses: ["198.51.100.68", "2001:db8:100:2::68"] }],
+            },
             "25g-5": { description: "Monitoring servers", addresses: ["10.0.5.1/24"], vrf: "services" },
         },
         vlan_interface: {

@@ -8,6 +8,7 @@ import type { Device, Lag, Port, Prefix, Pseudowire, RadiusServer, Service, Seve
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import type { NamedInterface } from "../../core/derive";
+import { RouterOsBridgeFilters } from "./bridge-filters";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
 import { RouterOsFirewall } from "./firewall";
@@ -45,9 +46,6 @@ export class RouterOsRender {
 
     /** The split horizon of every isolated port: ports with the same horizon never forward to each other. */
     private static readonly ISOLATED_HORIZON = 1;
-
-    /** Destination of spanning tree BPDUs, so a filter can drop them on one port. */
-    private static readonly BPDU_DESTINATION = "01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF";
 
     /** The platform names a fixed speed by its medium: an optic in a cage, or copper. */
     private static readonly MEDIUM: Record<"optical" | "copper", Partial<Record<Speed, string>>> = {
@@ -237,7 +235,7 @@ export class RouterOsRender {
         this.pseudowires();
         this.bridgePorts();
         this.bridgeVlans();
-        this.bridgeFilters();
+        RouterOsBridgeFilters.render(this, this.switched());
         this.interfaceLists();
         this.vrfs();
         this.shaping();
@@ -520,6 +518,8 @@ export class RouterOsRender {
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
                 horizon: this.horizon(port, secondary?.type === "isolated"),
+                // The bridge NAT sees only what the CPU switches, not what a switch chip offloads (TRAPS.md).
+                hw: settings.bound_to ? "no" : undefined,
                 interface: this.name(port),
                 "path-cost": stp?.cost,
                 priority: RouterOsSyntax.hex(stp?.priority),
@@ -553,30 +553,6 @@ export class RouterOsRender {
                 comment: vlan.description,
                 tagged: tagged.join(","),
                 "vlan-ids": vlan.id,
-            });
-        }
-    }
-
-    /** The platform cannot take a port out of spanning tree, so `stp: false` drops the BPDUs it would send and receive. */
-    private bridgeFilters(): void {
-        for (const [port, settings] of this.switched()) {
-            if (settings.stp !== false) continue;
-
-            const name = this.name(port);
-            const comment = `${name} out of spanning tree`;
-            this.add("/interface bridge filter", "add", {
-                action: "drop",
-                chain: "input",
-                comment,
-                "dst-mac-address": RouterOsRender.BPDU_DESTINATION,
-                "in-interface": name,
-            });
-            this.add("/interface bridge filter", "add", {
-                action: "drop",
-                chain: "output",
-                comment,
-                "dst-mac-address": RouterOsRender.BPDU_DESTINATION,
-                "out-interface": name,
             });
         }
     }

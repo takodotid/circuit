@@ -52,7 +52,7 @@ A note in a cell means "works, with this limit".
 | Storm control       | ✅ in percent                      | ✅ in percent       | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
 | MAC limit           | ❌ none for a port                 | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
 | Ethertype filter    | ✅ ports                           | ✅ ports            | ✅ ports                              | ✅                      | ❌                  |
-| Port bound to hosts | ❌                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
+| Port bound to hosts | ✅ ports, switched by the CPU      | ❌                  | ❌                                    | ✅                      | ❌                  |
 | BPDU and root guard | ✅ ports                           | 🧪                  | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
 | DHCP snooping       | ✅                                 | 🧪                  | 🧪                                    | ✅                      | ❌                  |
 | ARP inspection      | ❌ none in 7.24                    | ❌                  | ❌                                    | ✅                      | ❌                  |
