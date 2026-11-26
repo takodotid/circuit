@@ -153,8 +153,8 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | Confederations (RFC 5065)    | ❌ breaks RFC 5065          | ❌                          | ❌                       | ✅                    | ✅               |
 | Graceful restart (RFC 4724)  | ❌ restart time 0           | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
-| Prefix limit that restarts   | ❌                          | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
-| Prefix limit that only warns | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| Prefix limit that restarts   | ❌ stays closed             | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
+| Prefix limit that only warns | ❌ always closes            | ❌                          | ❌                       | ✅                    | ✅               |
 | Default route to a neighbor  | ✅                          | ❌                          | ❌                       | ✅                    | ✅               |
 | BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
 
