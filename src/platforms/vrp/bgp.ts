@@ -168,14 +168,20 @@ export class VrpBgp {
         const wanted = LineDiff.entries(desired, dialect);
         const key = (path: readonly string[]) => path.join("\u0000");
 
-        for (const group of groups.filter((each) => each.path.length === 1 && each.path[0]?.startsWith("bgp "))) {
+        // A VRF's sessions are whole in its view; the main ones are in the BGP view and its families' views.
+        const ofVrf = (path: readonly string[]) => / vpn-instance /.test(path[1] ?? "");
+        const sessions = (each: { path: readonly string[] }) => each.path.length === 1 || (each.path.length === 2 && ofVrf(each.path));
+
+        for (const group of groups.filter((each) => each.path[0]?.startsWith("bgp ") && sessions(each))) {
             const undone = new Set(group.remove.flatMap((line) => /^peer (\S+) as-number /.exec(line)?.[1] ?? []));
             const ofUndone = (line: string) => undone.has(VrpBgp.PEER.exec(line)?.[1] ?? "");
-            const view = groups.filter((each) => each.path[0] === group.path[0]);
+            const inView = (path: readonly string[]) =>
+                path[0] === group.path[0] && (ofVrf(group.path) ? key(path) === key(group.path) : !ofVrf(path));
+            const view = groups.filter((each) => inView(each.path));
 
             for (const each of view) each.remove = each.remove.filter((line) => !ofUndone(line) || / as-number /.test(line));
 
-            for (const entry of wanted.filter((each) => each.path[0] === group.path[0] && ofUndone(each.line))) {
+            for (const entry of wanted.filter((each) => inView(each.path) && ofUndone(each.line))) {
                 let target = groups.find((each) => key(each.path) === key(entry.path));
                 if (!target) {
                     target = { path: entry.path, remove: [], add: [] };
@@ -185,7 +191,7 @@ export class VrpBgp {
             }
 
             // In the order the render writes them, so a session's AS comes before its other lines.
-            for (const each of groups.filter((other) => other.path[0] === group.path[0])) {
+            for (const each of groups.filter((other) => inView(other.path))) {
                 const order = wanted.filter((entry) => key(entry.path) === key(each.path)).map((entry) => entry.line);
                 each.add.sort((a, b) => order.indexOf(a) - order.indexOf(b));
             }
@@ -253,6 +259,8 @@ export class VrpBgp {
         if (neighbors.some((neighbor) => VrpBgp.settingsOf(device, neighbor).graceful_restart)) lines.push(" graceful-restart");
         const families: Record<Family, string[]> = { ipv4: [], ipv6: [] };
         const evpn: string[] = [];
+        // The sessions of each VRF, whole, in its own view. `unsupported()` refuses one from an IPv6 address.
+        const vrfs = new Map<string, string[]>();
 
         for (const prefix of bgp.originated_prefixes ?? []) {
             const { addr, len, family } = Address.split(prefix);
@@ -273,6 +281,15 @@ export class VrpBgp {
             const peer = `peer ${VrpPolicies.spell(neighbor.address)}`;
             const family = Address.family(neighbor.address);
 
+            if (settings.vrf) {
+                const view = vrfs.get(settings.vrf) ?? [];
+                // A session in a VRF exchanges its routes without `enable`, which the switch refuses there.
+                const exchange = VrpBgp.exchange(peer, settings).filter((line) => line !== `${peer} enable`);
+                view.push(...VrpBgp.session(device, peer, settings), ...exchange);
+                vrfs.set(settings.vrf, view);
+                continue;
+            }
+
             lines.push(...VrpBgp.session(device, peer, settings).map((line) => ` ${line}`));
             // An IPv4 session exchanges IPv4 routes until told not to.
             if (VrpBgp.unicast(settings, neighbor)) families[family].push(...VrpBgp.exchange(peer, settings));
@@ -288,6 +305,11 @@ export class VrpBgp {
             if (bgp.cluster_id && clients) families[family].push(`reflector cluster-id ${bgp.cluster_id}`);
             lines.push(" #", ` ${VrpBgp.FAMILY_VIEW[family]}`, ...families[family].map((line) => `  ${line}`));
         }
+        // A VRF announces the originated prefixes it has a route for, as the main table does.
+        const networks = families.ipv4.filter((line) => line.startsWith("network "));
+        for (const [vrf, view] of vrfs)
+            lines.push(" #", ` ipv4-family vpn-instance ${vrf}`, ...[...networks, ...view].map((line) => `  ${line}`));
+
         // The switch takes only the EVPN routes whose targets a segment imports, `policy vpn-target`, its default, which it prints.
         if (evpn.length) lines.push(" #", " l2vpn-family evpn", "  policy vpn-target", ...evpn.map((line) => `  ${line}`));
 
@@ -347,9 +369,10 @@ export class VrpBgp {
 
         // A CE6855 refused `peer <address> local-role`.
         if (settings.role) found.push(`${where}.role, V200R005 has no BGP roles`);
-        for (const key of ["bfd", "vrf"] as const)
-            if (settings[key] !== undefined && settings[key] !== false) found.push(`${where}.${key}, ${notBuilt}`);
+        if (settings.bfd) found.push(`${where}.bfd, ${notBuilt}`);
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
+        if (settings.vrf && Address.family(neighbor.address) === "ipv6") found.push(`${where}.vrf, from an IPv6 address: ${notBuilt}`);
+        if (settings.vrf && settings.route_reflector_client) found.push(`${where}.route_reflector_client in a VRF, ${notBuilt}`);
 
         const family = Address.family(neighbor.address);
         const families = (settings.address_families ?? [family]).filter((each) => each !== "l2vpn-evpn" || family === "ipv4");

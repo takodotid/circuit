@@ -298,3 +298,59 @@ test("OSPF in a VRF is its process with vpn-instance, undone by its number", () 
     expect(vrp.unsupported(device)).toEqual([]);
     expect(sent(vrp.render(base), rendered)).toContain("undo ospf 1");
 });
+
+test("a session in a VRF is written whole in the VRF's view, without enable, beside the originated prefixes", () => {
+    const device = (remoteAs: number) =>
+        routed(
+            {
+                vrfs: { ctest: {} },
+                router_id: "192.0.2.251",
+                bgp: {
+                    asn: 64500,
+                    originated_prefixes: ["198.51.100.0/25"],
+                    neighbors: {
+                        main: { address: "192.0.2.2", remote_as: 64496 },
+                        tenant: {
+                            address: "192.0.2.18",
+                            remote_as: remoteAs,
+                            vrf: "ctest",
+                            local_address: "192.0.2.17",
+                            ttl_security: true,
+                        },
+                    },
+                },
+            },
+            { vlan_interface: { "ctest-b": { vlan: "home", vrf: "ctest", addresses: ["192.0.2.17/28"] } } }
+        );
+    const rendered = vrp.render(device(64497));
+
+    expect(rendered).toContain(
+        [
+            " ipv4-family vpn-instance ctest",
+            "  network 198.51.100.0 255.255.255.128",
+            "  peer 192.0.2.18 as-number 64497",
+            "  peer 192.0.2.18 connect-interface Vlanif20 192.0.2.17",
+            "  peer 192.0.2.18 valid-ttl-hops 1",
+            "  peer 192.0.2.18 route-policy circuit-reject-all import",
+            "  peer 192.0.2.18 route-policy circuit-reject-all export",
+            "  peer 192.0.2.18 advertise-community",
+            "#",
+        ].join("\n")
+    );
+    expect(vrp.unsupported(device(64497))).toEqual([]);
+
+    // A new AS takes the session away whole, in its VRF's view, and writes it again there.
+    expect(sent(vrp.render(device(64498)), rendered)).toEqual([
+        "bgp 64500",
+        "ipv4-family vpn-instance ctest",
+        "undo peer 192.0.2.18",
+        "peer 192.0.2.18 as-number 64498",
+        "peer 192.0.2.18 connect-interface Vlanif20 192.0.2.17",
+        "peer 192.0.2.18 valid-ttl-hops 1",
+        "peer 192.0.2.18 route-policy circuit-reject-all import",
+        "peer 192.0.2.18 route-policy circuit-reject-all export",
+        "peer 192.0.2.18 advertise-community",
+        "quit",
+        "quit",
+    ]);
+});
