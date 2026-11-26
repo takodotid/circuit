@@ -13,6 +13,7 @@ import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpMonitoring } from "./monitoring";
+import { VrpMpls } from "./mpls";
 import { VrpNetStream } from "./netstream";
 import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
@@ -129,6 +130,7 @@ export class VrpRender {
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
+        this.lines.push(...VrpMpls.lines(device));
         this.lines.push(...VrpDhcp.blocks(device), ...VrpDhcpv6.blocks(device));
         this.carProfiles();
 
@@ -505,6 +507,8 @@ export class VrpRender {
 
         lines.push(...this.ospfLines(name, "broadcast"));
         lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
+        // MPLS prints after OSPF.
+        lines.push(...VrpMpls.interfaceLines(device, name));
         return lines;
     }
 
