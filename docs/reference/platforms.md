@@ -58,7 +58,7 @@ A note in a cell means "works, with this limit".
 | ARP inspection      | ❌ none in 7.24                           | 🧪                            | ❌                                    | ✅                      | ❌                  |
 | Private VLANs       | isolated only, switched by the CPU        | 🧪 access ports               | ❌                                    | ✅                      | ❌                  |
 | QinQ                | ✅                                        | 🧪                            | ✅ ports                              | ✅                      | ❌                  |
-| VLAN translation    | ✅ ports without STP, switched by the CPU | ❌                            | ❌                                    | 🧪 no native VLAN       | ❌                  |
+| VLAN translation    | ✅ ports without STP, switched by the CPU | 🧪                            | ❌                                    | 🧪 no native VLAN       | ❌                  |
 | 802.1ad service tag | ✅ on every switched port at once         | ❌                            | ❌                                    | ❌ needs 22.4           | ❌                  |
 | RA guard            | ✅                                        | ❌                            | ❌                                    | ✅                      | ❌                  |
 | Hardware ACLs       | ✅                                        | ✅ no rate, no VLAN           | ❌                                    | ✅ a rate needs a burst | ✅ drop rules only  |

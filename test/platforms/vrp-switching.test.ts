@@ -202,6 +202,25 @@ test("VRP changes and removes a MUX VLAN in the order a CE6855 took", () => {
     });
 });
 
+test("VRP translates a trunk's VLAN with a VLAN mapping, as a CE6855 printed it", () => {
+    const mapped = device({ "10g-48": { trunk_vlans: ["ctest-b"], vlan_translation: [{ from: 100, to: "ctest-b" }] } });
+    const desired = vrp.render(mapped);
+
+    expect(desired).toContain(" port trunk allow-pass vlan 3982\n port vlan-mapping vlan 100 map-vlan 3982\n");
+    expect(vrp.unsupported(mapped)).toEqual([]);
+    expect(vrp.experimental(mapped)).toEqual(["interfaces.ethernet.10g-48.vlan_translation"]);
+    expect(sent(desired, desired)).toEqual([]);
+
+    // A mapping that changes is undone before the new one is sent.
+    const changed = device({ "10g-48": { trunk_vlans: ["ctest-b"], vlan_translation: [{ from: 101, to: "ctest-b" }] } });
+    expect(sent(vrp.render(changed), desired)).toEqual([
+        "interface 10GE1/0/48",
+        "undo port vlan-mapping vlan 100 map-vlan 3982",
+        "port vlan-mapping vlan 101 map-vlan 3982",
+        "quit",
+    ]);
+});
+
 test("VRP refuses what a bound port can't hold, and says why", () => {
     const hosts = [
         { mac: "02:00:00:00:00:01", addresses: ["192.0.2.11", "2001:db8:3981::11", "10.0.0.0/23"] },

@@ -117,9 +117,8 @@ test("RouterOS refuses translation beside spanning tree, which its VLAN interfac
     );
 });
 
-test("VRP, Raisecom ROS, and FortiOS refuse translation", () => {
+test("Raisecom ROS and FortiOS refuse translation", () => {
     const refusals: [string, string, string, string][] = [
-        ["vrp", "CE6855-48S6Q-HI", "10g-40", "which only Junos builds for now"],
         ["raisecom-ros", "RAX721-C-6C48", "10g-1", "which only Junos builds for now"],
         ["fortios", "FG-3700D", "10g-1", "ports are routed"],
     ];

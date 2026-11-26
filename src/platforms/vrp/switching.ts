@@ -21,8 +21,8 @@ export class VrpSwitching {
     /** A bound host's lines: its bindings and its static MAC address. Each gives the port and its VLAN, which the switch checks as the line arrives. */
     private static readonly HOST_LINE = /^(user-bind static|mac-address static) /;
 
-    /** Lines each undone and sent whole, rather than replaced by one that gives another VLAN: a bound host's, and a MUX VLAN's. A port leaves a MUX VLAN before it may join another of the group. */
-    private static readonly WHOLE = /^(user-bind static|mac-address static|port mux-vlan enable|subordinate) /;
+    /** Lines each undone and sent whole, rather than replaced by one that gives another VLAN: a bound host's, a port's VLAN mapping, and a MUX VLAN's. A port leaves a MUX VLAN before it may join another of the group. */
+    private static readonly WHOLE = /^(user-bind static|mac-address static|port vlan-mapping|port mux-vlan enable|subordinate) /;
 
     /** A MUX VLAN's communities, as one list. */
     private static readonly COMMUNITIES = "subordinate group ";
@@ -39,8 +39,6 @@ export class VrpSwitching {
         // Snooping runs on each port, over all of its VLANs.
         for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
-        for (const { where, settings } of Derive.switchedHolders(device))
-            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         const { tpid, innerVlans } = Derive.stackedTags(device);
         for (const where of tpid) found.push(`${where}, which only RouterOS builds for now`);
         // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
@@ -76,6 +74,7 @@ export class VrpSwitching {
             if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
             if (settings.qinq_vlan) found.push(`${where}.qinq_vlan`);
             if (settings.bound_to) found.push(`${where}.bound_to`);
+            if (settings.vlan_translation) found.push(`${where}.vlan_translation`);
         }
 
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
@@ -83,7 +82,7 @@ export class VrpSwitching {
         return found;
     }
 
-    /** A bound host's line and a MUX VLAN's lines are undone and sent whole. */
+    /** A bound host's line, a VLAN mapping, and a MUX VLAN's lines are undone and sent whole. */
     static head(line: string): string | undefined {
         return VrpSwitching.WHOLE.test(line) ? line : undefined;
     }
@@ -178,10 +177,13 @@ export class VrpSwitching {
     }
 
     /**
-     * A port's or a LAG's own lines. An access port of a private VLAN joins its MUX VLAN, and a bound port binds its hosts.
+     * A port's or a LAG's own lines. A trunk maps each VLAN it translates, `port vlan-mapping vlan <on the cable> map-vlan <VLAN>`, which the switch does both ways. An access port of a private VLAN joins its MUX VLAN, and a bound port binds its hosts.
      */
     static portLines(device: Device, name: string, settings: Port | Lag): string[] {
         const lines: string[] = [];
+        for (const { from, to } of settings.vlan_translation ?? [])
+            lines.push(`port vlan-mapping vlan ${from} map-vlan ${device.switching?.vlans?.[to]?.id}`);
+
         const access = settings.access_vlan;
         const id = access ? device.switching?.vlans?.[access]?.id : undefined;
         if (access && VrpSwitching.inPrivateVlan(device, access)) lines.push(`port mux-vlan enable vlan ${id}`);
