@@ -310,7 +310,7 @@ export class FortiOsRouting {
     }
 
     /**
-     * An area runs on the networks of its interfaces. An interface with a cost, a link type, a priority, or BFD has an entry of its own. The neighbors a link sends its hellos to are the router's, each found on the link whose network holds it.
+     * An area runs on the networks of its interfaces, in the VRF they route in, which the device runs an OSPF process for. An interface with a cost, a link type, a priority, or BFD has an entry of its own. The neighbors a link sends its hellos to are the router's, each found on the link whose network holds it.
      */
     private static ospf(root: FortiOsNode, device: Device): void {
         const ospf = device.routing?.ospf;
@@ -680,8 +680,9 @@ export class FortiOsRouting {
 
         const ospf = routing?.ospf;
         if (ospf?.address_families?.includes("ipv6") && !routing?.router_id) found.push("routing.ospf for IPv6 without routing.router_id");
-        // `router ospf` and `router ospf6` have no VRF setting (TRAPS.md).
-        if (ospf?.vrf) found.push("routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only");
+        // OSPF runs in the VRF its interfaces route in, and OSPFv3 in the default VRF only (TRAPS.md).
+        if (ospf?.vrf && ospf.address_families?.includes("ipv6"))
+            found.push("routing.ospf.vrf with ipv6 in address_families, FortiOS 6.2 runs OSPFv3 in the default VRF only");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
             // `config range` holds a prefix, `advertise`, and a prefix to announce in its place, but no cost.
