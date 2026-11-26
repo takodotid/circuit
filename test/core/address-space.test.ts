@@ -20,8 +20,9 @@ test("the space the network owns comes from circuit.ts and from what it originat
     expect(v4?.prefix).toBe("198.51.100.0/24");
     expect(v4?.owner).toBe("prefixes ours.v4 in circuit.ts, originated by edge-01");
     expect(v4?.segments.map((segment) => [segment.prefix, segment.free, segment.next])).toEqual([
-        ["198.51.100.8/29", "5", "198.51.100.10"],
-        ["198.51.100.64/27", "4", "198.51.100.66"],
+        // A Terramix server holds .10, which edge-01 routes .66 to, and answers ARP for in the shared VLAN.
+        ["198.51.100.8/29", "4", "198.51.100.11"],
+        ["198.51.100.64/27", "3", "198.51.100.67"],
         // hall-2's link to Aluxis, with no address left.
         ["198.51.100.248/30", "0", undefined],
     ]);

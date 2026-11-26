@@ -139,10 +139,12 @@ Your space is each prefix in `circuit({ prefixes })` and in a device's `originat
 
 ```
 198.51.100.0/24, prefixes ours.v4 in circuit.ts, originated by edge-01
-  198.51.100.8/29, 5 free, next 198.51.100.10
+  198.51.100.8/29, 4 free, next 198.51.100.11
       198.51.100.9  edge-01 terramix-internet
-  198.51.100.64/27, 4 free, next 198.51.100.66
+      198.51.100.10  next hop for 198.51.100.66/32 on edge-01
+  198.51.100.64/27, 3 free, next 198.51.100.67
       198.51.100.65  edge-01 shared
+      198.51.100.66  proxy ARP on edge-01 shared
       198.51.100.70-198.51.100.94  DHCP pool shared on edge-01
   free: 198.51.100.0/29, 198.51.100.16/28, 198.51.100.32/27, 198.51.100.96/27, 198.51.100.128/25
 ```

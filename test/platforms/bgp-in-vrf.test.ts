@@ -118,9 +118,10 @@ test("Junos refuses a session in a VRF whose policy matches RPKI, since Circuit 
     );
 });
 
+// On tako-fwl-01 (FG-3700D, 6.2.2), a session through an interface in VRF 1 came up, but `get router info routing-table details` showed its routes in VRF 0, `inactive`.
 test("FortiOS refuses a session in a VRF, since 6.2 runs BGP in the default VRF only", () => {
     expect(Platforms.get("fortios").unsupported(withVrf("platforms--example-firewall"))).toContain(
-        "routing.bgp.neighbors.terramix-private.vrf, FortiOS 6.2 runs BGP in the default VRF only"
+        "routing.bgp.neighbors.terramix-private.vrf, FortiOS 6.2 runs BGP in the default VRF only: BGP in a VRF needs 6.4"
     );
 });
 

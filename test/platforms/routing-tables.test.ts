@@ -71,6 +71,15 @@ const onJunos = ({ name, site, connection, system, routing }: Device): Device =>
     model: "QFX5100-48S-6Q",
 });
 
+const onVrp = ({ name, site, connection, routing }: Device): Device => ({
+    name,
+    site,
+    connection,
+    routing,
+    platform: "vrp",
+    model: "CE6855-48S6Q-HI",
+});
+
 test("a table, its rules, a route in it and a session installing in it render as the router printed them", () => {
     const desired = platform.render(withBlockB());
 
@@ -232,17 +241,42 @@ test("validate: a table named main or like a VRF, one nothing installs in, a rul
 });
 
 test("a platform that has not tested routing tables refuses them, by the field", () => {
-    const refused = Platforms.get("junos")
-        .unsupported(onJunos(withBlockB()))
+    const refused = Platforms.get("vrp")
+        .unsupported(onVrp(withBlockB()))
         .filter((field) => /table|policy_routing/.test(field));
 
     expect(refused).toEqual([
+        "routing.bgp.neighbors.as64510.routing_table, not built yet",
         "routing.static_routes 2001:db8:200::/48 routing_table, a routing table beside the main one is not tested on a device yet",
         "routing.tables, a routing table beside the main one is not tested on a device yet",
         "routing.policy_routing, policy routing is not tested on a device yet",
         "routing.bgp.neighbors.as64510.routing_table, a routing table beside the main one is not tested on a device yet",
     ]);
     expect(platform.unsupported(withBlockB())).toEqual([]);
+
+    // Junos builds tables and policy routing, experimentally, but puts no BGP session's routes in a table.
+    expect(
+        Platforms.get("junos")
+            .unsupported(onJunos(withBlockB()))
+            .filter((field) => /table|policy_routing/.test(field))
+    ).toEqual([
+        "routing.bgp.neighbors.as64510.routing_table, not built for Junos: a session of the main instance puts its routes in another table only through a RIB group, untried",
+    ]);
+});
+
+test("FortiOS refuses a table beside the main one, which it has none of, and policy routing to it", () => {
+    const { name, site, connection, system, routing } = withBlockB();
+    const firewall: Device = { name, site, connection, system: { users: system?.users }, routing, platform: "fortios", model: "FG-3700D" };
+    const refused = Platforms.get("fortios")
+        .unsupported(firewall)
+        .filter((field) => /table|policy_routing/.test(field));
+
+    expect(refused).toEqual([
+        "routing.tables, FortiOS 6.2 has no routing table beside its VRFs",
+        "routing.policy_routing, FortiOS 6.2 policy routes send traffic to a next hop, not to a table",
+        "routing.static_routes 2001:db8:200::/48 routing_table, FortiOS 6.2 has no routing table beside its VRFs",
+        "routing.bgp.neighbors.as64510.routing_table, FortiOS 6.2 has no routing table beside its VRFs",
+    ]);
 });
 
 test("a table on a neighbor group installs its sessions in it, as a table on the session does", () => {

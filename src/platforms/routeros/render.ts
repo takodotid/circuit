@@ -640,6 +640,7 @@ export class RouterOsRender {
 
     private addressing(): void {
         this.addresses();
+        this.proxyArp();
         this.routerAdvertisements();
         this.dhcpClients();
         RouterOsDhcp.render(this, this.device);
@@ -686,6 +687,12 @@ export class RouterOsRender {
                 }
             }
         }
+    }
+
+    /** Each address of `proxy_arp` is a published ARP entry of its VLAN interface. The router answers ARP for it with its own MAC address while it has a route to it (TRAPS.md). */
+    private proxyArp(): void {
+        for (const [name, iface] of this.declaredVlanInterfaces())
+            for (const address of iface.proxy_arp ?? []) this.add("/ip arp", "add", { address, interface: name, published: "yes" });
     }
 
     /** The platform's default entry covers every interface, and sends router advertisements only where an address has `advertise=yes` (TRAPS.md). Once one interface sends its own, the default is turned off. A device that sends none keeps it, and so does a PPPoE server: only the default entry announces a session's /64 (TRAPS.md). */

@@ -1,4 +1,4 @@
-// OSPF in a VRF, tested on a QFX5100 with Junos 21.4R3 and on the CI CHRs (test/platforms/routeros-chr-vrf.test.ts). On the QFX5100, OSPF ran in a new routing instance on a loopback in it, and was read back. The lines it printed are fed to the adapter, with names and addresses replaced.
+// OSPF in a VRF, tested on a QFX5100 with Junos 21.4R3, a FG-3700D with FortiOS 6.2.2, and the CI CHRs (test/platforms/routeros-chr-vrf.test.ts). The QFX5100 ran OSPF in a new routing instance on a loopback in it. The FG-3700D ran it in a VRF toward another VDOM, across a link between VDOMs. The lines each printed are fed to the adapters, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -66,9 +66,78 @@ test("Junos runs OSPF in the VRF's routing instance, with the router's ID, as th
     expect(desired).not.toContain("set protocols ospf");
 });
 
-test("FortiOS refuses OSPF in a VRF", () => {
-    expect(Platforms.get("fortios").unsupported(inVrf("platforms--example-firewall"))).toContain(
-        "routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only"
+/** The firewall with OSPF in VRF `guests`: the VRF's VLAN interface with BFD, and a passive loopback in the VRF. */
+function fortiosInVrf(ospf: Partial<Ospf> = {}): Device {
+    const device = Fixtures.device("platforms--example-firewall");
+    return {
+        ...device,
+        interfaces: {
+            ...device.interfaces,
+            loopback: { ...device.interfaces?.loopback, "guest-lo": { addresses: ["192.0.2.65/26"], vrf: "guests" } },
+        },
+        routing: {
+            ...device.routing,
+            ospf: {
+                vrf: "guests",
+                areas: { "0.0.0.0": { interfaces: { guests: { bfd: true }, "guest-lo": { passive: true } } } },
+                redistribute: ["connected", "static"],
+                ...ospf,
+            },
+        },
+    };
+}
+
+test("FortiOS runs OSPFv2 in the VRF its interfaces route in, and plans nothing against how the firewall printed it", () => {
+    const fortios = Platforms.get("fortios");
+    const device = fortiosInVrf();
+    const rendered = fortios.render(device);
+    const desired = rendered.match(/^config router ospf\n[\s\S]*?^end\n/m)![0];
+
+    expect(fortios.unsupported(device).filter((gap) => gap.includes("ospf"))).toEqual([]);
+    expect(rendered.match(/^ +edit "guest-lo"\n[\s\S]*?^ +next\n/m)![0]).toContain("set vrf 1");
+
+    // As the firewall printed it, with OSPF up in VRF 1 and BFD up on the link.
+    const printed = `config router ospf
+    set router-id 198.51.100.255
+    set passive-interface "guest-lo"
+    config area
+        edit 0.0.0.0
+        next
+    end
+    config ospf-interface
+        edit "guests"
+            set interface "guests"
+            set bfd enable
+        next
+    end
+    config network
+        edit 1
+            set prefix 198.51.100.96 255.255.255.224
+        next
+        edit 2
+            set prefix 192.0.2.64 255.255.255.192
+        next
+    end
+    config redistribute "connected"
+        set status enable
+    end
+    config redistribute "static"
+        set status enable
+    end
+    config redistribute "rip"
+    end
+    config redistribute "bgp"
+    end
+    config redistribute "isis"
+    end
+end
+`;
+    expect(fortios.plan(desired, printed, options).steps).toEqual([]);
+});
+
+test("FortiOS refuses OSPFv3 in a VRF", () => {
+    expect(Platforms.get("fortios").unsupported(fortiosInVrf({ address_families: ["ipv4", "ipv6"] }))).toContain(
+        "routing.ospf.vrf with ipv6 in address_families, FortiOS 6.2 runs OSPFv3 in the default VRF only"
     );
 });
 

@@ -116,7 +116,7 @@ test("RouterOS refuses two segments with one route target, EVPN routes beside ot
 
 test("FortiOS refuses EVPN, saying why, and Raisecom ROS refuses VXLAN and BGP", () => {
     const reasons: Record<string, string> = {
-        fortios: "EVPN, not built for FortiOS yet",
+        fortios: "EVPN: FortiOS 6.2 has none. EVPN over VXLAN needs 7.4",
     };
 
     for (const platform of [...Object.keys(reasons), "raisecom-ros"]) {
