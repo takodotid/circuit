@@ -1,2 +1,2 @@
 /** This Circuit's version, the same as package.json's. */
-export const VERSION = "1.2.1";
+export const VERSION = "1.3.0";
