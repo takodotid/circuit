@@ -18,8 +18,9 @@ export class VrpServices {
             if (!device.interfaces?.vlan_interface?.[relay.interface])
                 found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
             if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
+            // A CE6855 on V200R005 refused `dhcp option82 insert enable` and `dhcp relay information enable` on a relay's VLAN interface.
             if (relay.relay_agent_information)
-                found.push(`services.dhcp_relay.${name}.relay_agent_information, Option 82, not built for VRP`);
+                found.push(`services.dhcp_relay.${name}.relay_agent_information, V200R005 adds no Option 82 where it relays`);
         }
         for (const [name, server] of Object.entries(services.dhcp_server ?? {}))
             if (server.relay !== undefined)

@@ -142,7 +142,7 @@ test("FortiOS refuses a relay on a loopback, which takes none", () => {
 
 test("VRP refuses both", () => {
     expect(refusedDhcp("vrp", relaying("platforms--example-switch", "guests"))).toEqual([
-        "services.dhcp_relay.guests.relay_agent_information, Option 82, not built for VRP",
+        "services.dhcp_relay.guests.relay_agent_information, V200R005 adds no Option 82 where it relays",
         "services.dhcp_server.relayed.relay, a server for a relay's clients, not built for VRP",
     ]);
 });
