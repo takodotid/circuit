@@ -143,15 +143,15 @@ test("VRP sends them only with --experimental, guards every edge port or none, a
     );
 });
 
-test("Raisecom ROS sets root guard on the port, BPDU guard and DHCP snooping only with --experimental, and refuses RA guard", () => {
+test("Raisecom ROS sets root guard on the port, BPDU guard and DHCP snooping only with --experimental, and has no RA guard", () => {
     const raisecom = Platforms.get("raisecom-ros");
     const device = guarded("raisecom-ros", "RAX721-C-6C48", "10g-1", "10g-2");
     const desired = raisecom.render(device);
 
     expect(raisecom.unsupported(device)).toEqual([
         "interfaces.ethernet.10g-2.stp, BPDU guard shuts down any port the switch finds to be an edge port: write edge: true or false",
-        "switching.ra_guard, which only RouterOS and Junos build for now",
-        "interfaces.ethernet.10g-2.ra_trusted, which only RouterOS and Junos build for now",
+        "switching.ra_guard, ROS 6.5.2 has no RA guard: its ND snooping checks router solicitations, not advertisements",
+        "interfaces.ethernet.10g-2.ra_trusted, ROS 6.5.2 has no RA guard: its ND snooping checks router solicitations, not advertisements",
     ]);
     expect(raisecom.experimental?.(device)).toEqual([
         "switching.dhcp_snooping",
@@ -188,7 +188,7 @@ test("validate says what each guard needs", () => {
     );
 });
 
-test("ARP inspection checks each VLAN that Junos snoops, needs snooping, and is refused elsewhere", () => {
+test("ARP inspection checks each VLAN that Junos snoops, needs snooping, is experimental on Raisecom ROS, and is refused elsewhere", () => {
     const device = guarded("junos", "QFX5100-48S-6Q", "10g-37", "10g-38");
     device.system = { users: { root: { role: "admin", password: { secret: "ROOT" } } } };
     device.switching!.arp_inspection = true;
@@ -202,12 +202,14 @@ test("ARP inspection checks each VLAN that Junos snoops, needs snooping, and is 
     for (const [platform, model] of [
         ["routeros", "CCR2216-1G-12XS-2XQ"],
         ["vrp", "CE6855-48S6Q-HI"],
-        ["raisecom-ros", "RAX721-C-6C48"],
         ["fortios", "FG-3700D"],
     ] as const) {
         const refused = Platforms.get(platform).unsupported({ ...device, platform, model });
         expect(refused.some((message) => message.startsWith("switching.arp_inspection, "))).toBe(true);
     }
+    expect(Platforms.get("raisecom-ros").experimental?.({ ...device, platform: "raisecom-ros", model: "RAX721-C-6C48" })).toContain(
+        "switching.arp_inspection"
+    );
 
     device.switching = { vlans: device.switching!.vlans, arp_inspection: true };
     device.interfaces!.ethernet!["10g-38"] = { trunk_vlans: ["servers", "storage"] };

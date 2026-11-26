@@ -119,7 +119,7 @@ test("RouterOS refuses an inner VLAN interface with a MAC, and a VLAN whose name
     ]);
 });
 
-test("Junos can't set the TPID on 21.4, VRP ends no inner VLAN, and no other platform builds either key yet", () => {
+test("Junos can't set the TPID on 21.4, VRP and Raisecom ROS end no inner VLAN, and FortiOS builds neither key yet", () => {
     const junos = provider("junos", "QFX5100-48S-6Q", ["10g-1", "10g-2"]);
     expect(Platforms.get("junos").unsupported(junos)).toEqual(
         expect.arrayContaining([
@@ -133,18 +133,16 @@ test("Junos can't set the TPID on 21.4, VRP ends no inner VLAN, and no other pla
             "interfaces.vlan_interface.cust-1001.inner_vlan_id, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port",
         ])
     );
-    for (const [platform, model] of [
-        ["raisecom-ros", "RAX721-C-6C48"],
-        ["fortios", "FG-3700D"],
-    ] as const) {
-        const device = provider(platform, model, ["10g-1", "10g-2"]);
-        expect(Platforms.get(platform).unsupported(device)).toEqual(
-            expect.arrayContaining([
-                "interfaces.ethernet.10g-2.tpid, which only RouterOS builds for now",
-                "interfaces.vlan_interface.cust-1001.inner_vlan_id, which only RouterOS builds for now",
-            ])
-        );
-    }
+    expect(Platforms.get("fortios").unsupported(provider("fortios", "FG-3700D", ["10g-1", "10g-2"]))).toEqual(
+        expect.arrayContaining([
+            "interfaces.ethernet.10g-2.tpid, which only RouterOS builds for now",
+            "interfaces.vlan_interface.cust-1001.inner_vlan_id, which only RouterOS builds for now",
+        ])
+    );
+    // Raisecom ROS sets the TPID on each port, and its VLAN interface takes one VLAN ID.
+    expect(Platforms.get("raisecom-ros").unsupported(provider("raisecom-ros", "RAX721-C-6C48", ["10g-1", "10g-2"]))).toEqual([
+        "interfaces.vlan_interface.cust-1001.inner_vlan_id, a VLAN interface here is on one VLAN ID",
+    ]);
     // 802.1Q's TPID is every platform's own, so it writes nothing there.
     expect(Platforms.get("junos").unsupported(provider("junos", "QFX5100-48S-6Q", ["10g-1", "10g-2"], "0x8100"))).not.toContain(
         "interfaces.ethernet.10g-1.tpid 0x88a8, which Junos 21.4 on a QFX5100 can't set: Juniper lists it from 22.4R1"

@@ -78,15 +78,18 @@ test("RouterOS puts an isolated port in the primary VLAN behind a split horizon,
     ]);
 });
 
-test("VRP, Raisecom ROS, and FortiOS refuse them", () => {
+test("VRP and FortiOS refuse them, and Raisecom ROS builds them with --experimental", () => {
     for (const [platform, model, refusal] of [
         ["vrp", "CE6855-48S6Q-HI", "which only Junos and RouterOS build for now"],
-        ["raisecom-ros", "RAX721-C-6C48", "which only Junos and RouterOS build for now"],
         ["fortios", "FG-3700D", "ports are routed"],
     ] as const) {
         const device = shared(platform, model, "10g-1", "10g-2", "10g-3");
         expect(Platforms.get(platform).unsupported(device)).toContain(`switching.vlans.shared-isolated.private_vlan, ${refusal}`);
     }
+
+    const raisecom = shared("raisecom-ros", "RAX721-C-6C48", "10g-1", "10g-2", "10g-3");
+    expect(Platforms.get("raisecom-ros").unsupported(raisecom)).not.toContain(expect.stringContaining("private_vlan"));
+    expect(Platforms.get("raisecom-ros").experimental?.(raisecom)).toContain("switching.vlans.shared-isolated.private_vlan");
 });
 
 test("validate keeps a secondary VLAN on access ports, under a primary VLAN with one isolated VLAN at most", () => {

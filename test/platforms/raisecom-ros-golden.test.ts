@@ -101,7 +101,9 @@ test("a v1 field 0.x did not have is refused unless it is Circuit's own, and pat
     expect(unsupported({ firewall: { filter: { input: { default_action: "drop" } } } })).toEqual(["firewall"]);
 
     const ports = { ...device.interfaces?.ethernet, "10g-1": { ingress_acl: "guests" } };
-    expect(unsupported({ interfaces: { ...device.interfaces, ethernet: ports } })).toEqual(["interfaces.ethernet.10g-1.ingress_acl"]);
+    expect(unsupported({ interfaces: { ...device.interfaces, ethernet: ports } })).toEqual([
+        "interfaces.ethernet.10g-1.ingress_acl on a port that does not switch, tested on switched ports alone",
+    ]);
 });
 
 test("fields a Raisecom switch can't take are refused, not skipped", () => {

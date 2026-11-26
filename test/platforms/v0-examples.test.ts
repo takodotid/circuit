@@ -53,7 +53,7 @@ test("a platform that has not proved them refuses a MAC limit and an ethertype f
     }
 });
 
-// Tested on Junos and RouterOS alone.
+// Tested on Junos and RouterOS alone. Raisecom ROS says why it can't.
 test("a platform that has not proved it refuses a port bound to its hosts", () => {
     for (const device of examples.filter((example) => !["junos", "routeros"].includes(example.platform))) {
         const [port, settings] = Object.entries(device.interfaces?.ethernet ?? {})[0]!;
@@ -68,8 +68,12 @@ test("a platform that has not proved it refuses a port bound to its hosts", () =
             },
         };
 
-        expect(Platforms.get(device.platform).unsupported(bound)).toContain(
-            `interfaces.ethernet.${port}.bound_to, not tested on a device yet`
+        expect(Platforms.get(device.platform).unsupported(bound)).toContainEqual(
+            expect.stringMatching(
+                new RegExp(
+                    `^interfaces\\.ethernet\\.${port}\\.bound_to, (not tested on a device yet|IP source guard here is one setting for the whole switch)`
+                )
+            )
         );
     }
 });
