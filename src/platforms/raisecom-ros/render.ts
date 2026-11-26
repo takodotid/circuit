@@ -4,8 +4,10 @@ import { Utils } from "../../core/utils";
 import type { Device, Ethertype, Limit, Port, Prefix, RateLimit, Severity, SnmpUser, Switched, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { RaisecomRosAcls } from "./acls";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRouting } from "./routing";
+import { RaisecomRosSwitching } from "./switching";
 
 export class RaisecomRosRender {
     /** The access-list that guards every management service. */
@@ -108,7 +110,9 @@ export class RaisecomRosRender {
         const allow = RaisecomRosRender.managementAllow(device);
 
         const ids = Object.values(vlans).flatMap((vlan) => (vlan ? [vlan.id] : []));
-        if (ids.length) lines.push(`create vlan ${RaisecomRosRender.vlanList(ids)} active`, "!");
+        if (ids.length) lines.push(`create vlan ${RaisecomRosRender.vlanList(ids)} active`);
+        lines.push(...RaisecomRosSwitching.privateVlans(device, vlanId, RaisecomRosRender.vlanList));
+        if (ids.length) lines.push("!");
 
         lines.push(...RaisecomRosRouting.vrfs(device));
         const lagNumbers = Derive.lagIds(device);
@@ -128,6 +132,7 @@ export class RaisecomRosRender {
         const snmp = device.monitoring?.snmp;
         const snmpSources = snmp?.allow;
         if (snmpSources) lines.push(...RaisecomRosRender.accessList(RaisecomRosRender.SNMP_ACL, "snmp", snmpSources));
+        lines.push(...RaisecomRosAcls.blocks(device));
 
         const ports = Catalog.ports(device.platform, device.model);
 
@@ -164,7 +169,7 @@ export class RaisecomRosRender {
             const portLines =
                 settings && RaisecomRosRouting.routes(settings)
                     ? RaisecomRosRender.routedPort(device, port, settings, lldpOff)
-                    : RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers, lldpOff);
+                    : RaisecomRosRender.physicalPort(device, settings, vlanId, lagNumbers, lldpOff);
             lines.push(
                 `interface ${Catalog.spell(device.platform, device.model, port)}`,
                 ...portLines,
@@ -199,8 +204,9 @@ export class RaisecomRosRender {
             // One setting guards every edge port.
             if (RaisecomRosRender.bpduGuard(device)) lines.push("spanning-tree bpduguard enable");
         }
-        // Each switched port snoops once the switch does, unless it is trusted.
+        // Each switched port snoops once the switch does, unless it is trusted, and checks ARP against what it saw.
         if (switching?.dhcp_snooping) lines.push("ip dhcp snooping");
+        if (switching?.arp_inspection) lines.push(RaisecomRosSwitching.ARP_INSPECTION);
 
         // The factory communities survive a reset, and one of them can write, so they are always removed.
         lines.push("no snmp-server community public", "no snmp-server community private");
@@ -308,6 +314,7 @@ export class RaisecomRosRender {
 
     /** A port the config does not declare is shut down. A LAG member holds its membership, description, and LLDP; the LAG holds the rest. */
     private static physicalPort(
+        device: Device,
         settings: Port | undefined,
         vlanId: (name: string) => number,
         lagNumbers: Map<string, number>,
@@ -321,7 +328,12 @@ export class RaisecomRosRender {
         const lldp = settings.lldp === false || lldpOff ? ["lldp disable"] : [];
         if (settings.in_lag) return [...lines, `port-channel ${lagNumbers.get(settings.in_lag)}`, ...lldp];
 
-        lines.push(...RaisecomRosRender.switching(settings, vlanId), ...lldp, ...RaisecomRosRender.portStp(settings.stp));
+        lines.push(
+            ...RaisecomRosRender.switching(settings, vlanId),
+            ...RaisecomRosSwitching.portLines(device, settings, vlanId, RaisecomRosRender.vlanList),
+            ...lldp,
+            ...RaisecomRosRender.portStp(settings.stp)
+        );
 
         // Every threshold takes the one mode, and kbps, the default, prints nothing.
         const storm = settings.storm_control;
@@ -344,6 +356,7 @@ export class RaisecomRosRender {
         }
 
         if (settings.dhcp_trusted) lines.push("ip dhcp snooping trust");
+        lines.push(...RaisecomRosAcls.portLines(device, settings.ingress_acl));
 
         return lines;
     }

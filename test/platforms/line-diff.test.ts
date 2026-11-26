@@ -15,7 +15,7 @@ test("a VLAN list change sends only the VLANs added and removed", () => {
     expect(vrp.steps.flatMap((step) => step.send)).toEqual(["undo vlan batch 22 99", "vlan batch 127"]);
 
     const raisecom = Platforms.get("raisecom-ros").plan("create vlan 10,20-21,127 active\n", "create vlan 10,20-22,99 active\n", options);
-    expect(raisecom.steps.flatMap((step) => step.send)).toEqual(["no vlan 22", "no vlan 99", "create vlan 127 active"]);
+    expect(raisecom.steps.flatMap((step) => step.send)).toEqual(["create vlan 127 active", "no vlan 22", "no vlan 99"]);
 });
 
 // A switch prints a secret as a cipher, so a rotated one compares equal (#93).
