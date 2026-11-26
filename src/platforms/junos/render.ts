@@ -90,6 +90,11 @@ export class JunosRender {
         native: ["tcp", 830],
     } as const;
 
+    private static readonly BGP_PORT = 179;
+
+    /** The TTL a packet from a directly connected neighbor arrives with (RFC 5082). */
+    private static readonly GTSM_TTL = 255;
+
     /** Kinds of frame as `ether-type` names them, in the order the render writes them. */
     private static readonly ETHERTYPES: readonly Ethertype[] = ["ipv4", "ipv6", "arp"];
 
@@ -614,7 +619,8 @@ export class JunosRender {
 
         const ntp = this.device.system?.ntp;
         const keepsTimeQuietly = !!ntp?.servers.length && !this.device.services?.ntp_server;
-        if (!guarded.length && !keepsTimeQuietly) return;
+        const gtsm = JunosBgp.gtsmNeighbors(this.device);
+        if (!guarded.length && !keepsTimeQuietly && !gtsm.length) return;
 
         const families = [
             ["inet", "ipv4", "protocol"],
@@ -624,6 +630,17 @@ export class JunosRender {
         for (const [family, addressFamily, protocolWord] of families) {
             const filter = `firewall family ${family} filter ${JunosRender.SERVICES_FILTER[family]}`;
             const ofFamily = (prefix: string) => Address.family(Address.host(prefix)) === addressFamily;
+
+            // GTSM (RFC 5082): BGP from a neighbor with it is dropped unless it arrives with TTL 255, or hop limit 255.
+            const peers = gtsm.filter(ofFamily);
+            if (peers.length) {
+                const term = `${filter} term gtsm`;
+                for (const peer of peers) this.out.set(term, "from source-address", JunosRender.withLength(peer));
+                this.out.set(term, "from", protocolWord, "tcp");
+                this.out.set(term, "from port", JunosRender.BGP_PORT);
+                this.out.set(term, "from", family === "inet" ? "ttl-except" : "hop-limit-except", JunosRender.GTSM_TTL);
+                this.out.set(term, "then discard");
+            }
 
             for (const { service, sources } of guarded) {
                 const [protocol, standardPort] = JunosRender.SERVICE_PORTS[service];

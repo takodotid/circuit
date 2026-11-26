@@ -94,6 +94,13 @@ export class JunosBgp {
         return `${JunosBgp.instance(vrf)}routing-options${table}`;
     }
 
+    /** The address of each BGP neighbor with GTSM, whose packets the services filter drops unless they arrive with TTL 255. */
+    static gtsmNeighbors(device: Device): string[] {
+        return Object.values(device.routing?.bgp?.neighbors ?? {}).flatMap((neighbor) =>
+            neighbor && JunosBgp.settingsOf(device, neighbor).ttl_security ? [neighbor.address] : []
+        );
+    }
+
     /** A neighbor's settings with its group's beneath them. */
     static settingsOf(device: Device, neighbor: Neighbor): NeighborSettings {
         const group = neighbor.neighbor_group ? device.routing?.bgp?.neighbor_groups?.[neighbor.neighbor_group] : undefined;
@@ -158,6 +165,8 @@ export class JunosBgp {
             if (settings.description) this.out.set(group, "description", JunosStatements.quote(settings.description));
             if (settings.local_address) this.out.set(group, "local-address", Address.host(settings.local_address));
             if (settings.multihop) this.out.set(group, "multihop");
+            // GTSM: the session sends with TTL 255, and the services filter drops what arrives from the neighbor with less.
+            if (settings.ttl_security) this.out.set(group, "ttl 255");
             // A neighbor in a group with a cluster ID is a client. `unsupported()` names a client without one.
             if (settings.route_reflector_client && bgp.cluster_id) this.out.set(group, "cluster", bgp.cluster_id);
             if (settings.passive) this.out.set(group, "passive");

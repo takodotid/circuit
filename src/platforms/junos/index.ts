@@ -116,6 +116,9 @@ export class Junos extends Platform {
             .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa."))
             .map(({ where }) => where);
         if (device.routing?.vrf_imports) found.push("routing.vrf_imports");
+        // GTSM passed `commit check` only, and which TTL the loopback's filter sees was not tried (TRAPS.md).
+        for (const [name, neighbor] of Object.entries(device.routing?.bgp?.neighbors ?? {}))
+            if (neighbor && JunosBgp.settingsOf(device, neighbor).ttl_security) found.push(`routing.bgp.neighbors.${name}.ttl_security`);
         // A next hop with its interface passed `commit check` only.
         for (const route of device.routing?.static_routes ?? [])
             if (route.next_hop && route.interface) found.push(`routing.static_routes ${route.prefix} interface`);
@@ -864,9 +867,10 @@ export class Junos extends Platform {
 
             const settings = JunosBgp.settingsOf(device, neighbor);
             if (settings.role) found.push(`routing.bgp.neighbors.${name}.role, Junos 21 has no BGP roles`);
-            if (settings.ttl_security)
+            // `ttl 255` fails `commit check` on any session but a single-hop eBGP one (TRAPS.md).
+            if (settings.ttl_security && settings.remote_as === bgp?.asn)
                 found.push(
-                    `routing.bgp.neighbors.${name}.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`
+                    `routing.bgp.neighbors.${name}.ttl_security on an iBGP session, Junos sets TTL 255 on single-hop eBGP sessions only`
                 );
             // IPv4 routes over an IPv6 session need a local IPv4 address the config has no field for.
             if (Address.family(neighbor.address) === "ipv6" && settings.address_families?.includes("ipv4")) {

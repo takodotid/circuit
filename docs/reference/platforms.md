@@ -149,7 +149,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | AS path matches              | ✅                          | ✅ one per rule, no length  | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
 | RPKI                         | ✅                          | ❌                          | ❌                       | ✅                    | ❌               |
 | BGP roles (RFC 9234)         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| GTSM (RFC 5082)              | ✅ eBGP                     | ❌                          | ❌                       | ❌                    | ❌               |
+| GTSM (RFC 5082)              | ✅ eBGP                     | ❌                          | ❌                       | 🧪 eBGP               | ❌               |
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | Confederations (RFC 5065)    | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
 | Graceful restart (RFC 4724)  | ❌                          | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
@@ -157,6 +157,8 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Prefix limit that only warns | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
 | Default route to a neighbor  | ✅                          | ❌                          | ❌                       | ✅                    | ✅               |
 | BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+
+On Junos, GTSM is a session's `ttl 255` and a term of the loopback's filter that drops BGP from the neighbor when it arrives with another TTL or hop limit. A QFX5100 took both in `commit check`, on single-hop eBGP sessions only. Juniper doesn't say whether the loopback's filter sees the TTL a packet arrived with or one less, so GTSM stays experimental there.
 
 ### Firewall and services
 
