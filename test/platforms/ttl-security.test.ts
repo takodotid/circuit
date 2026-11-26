@@ -70,9 +70,10 @@ test("Junos, FortiOS, and VRP refuse GTSM, and Raisecom ROS refuses BGP itself",
         "routing.bgp.neighbors.hurricane-electric.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
     );
 
+    // On a FG-3700D with FortiOS 6.2.2, a neighbor's `set ttl-security-hops` was `command parse error`.
     const fortios = withNeighbor("platforms--example-firewall", "arelion", { address: "203.0.113.9", remote_as: 1299, ttl_security: true });
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
-        "routing.bgp.neighbors.arelion.ttl_security, the platform's BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
+        "routing.bgp.neighbors.arelion.ttl_security, FortiOS BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
     );
 
     const bgp: NonNullable<Device["routing"]>["bgp"] = {
