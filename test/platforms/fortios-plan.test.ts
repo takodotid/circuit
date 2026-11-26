@@ -4,7 +4,7 @@ import { Platforms } from "../../src/platforms";
 import { FortiOsFirewall } from "../../src/platforms/fortios/firewall";
 import { FortiOs } from "../../src/platforms/fortios/index";
 import { FortiOsTree } from "../../src/platforms/fortios/tree";
-import type { Device, IP } from "../../src/model";
+import type { Device, IPv4 } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
 const firewall = Fixtures.device("platforms--example-firewall");
@@ -537,7 +537,7 @@ test("a FortiOS device leaving transparent mode is a problem, not a plan", () =>
 test("a FortiOS proxy ARP entry is rendered only when written, and removed when the config drops it", () => {
     const adapter = Platforms.get("fortios");
     const [name, iface] = Object.entries(firewall.interfaces!.vlan_interface!)[0]!;
-    const address = (iface!.addresses![0] as string).replace(/\/\d+$/, "") as IP;
+    const address = (iface!.addresses![0] as string).replace(/\/\d+$/, "") as IPv4;
     const withProxy = adapter.render({
         ...firewall,
         interfaces: {

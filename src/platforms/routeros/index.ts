@@ -464,6 +464,7 @@ export class RouterOs extends Platform {
                 "shaping",
                 "port-shaping",
                 "tcp-mss",
+                "proxy-arp",
                 "dhcp-client",
                 "lag-mac",
                 "wireguard-table",
