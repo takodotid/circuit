@@ -54,8 +54,18 @@ export class VrpServices {
         return found;
     }
 
-    /** The switch's own services in a VRF, which are not built yet. */
+    /** The switch's own services in a VRF, but a login service, and an IPv6 DNS server there. */
     private static inVrfs(device: Device): string[] {
-        return Derive.serviceVrfs(device).map(({ where }) => `${where}, not built yet`);
+        const found: string[] = [];
+
+        // The switch binds a login service to one interface, `ssh server-source -i`, and to its VRF through it. Changing it cuts the logins of a switch under test.
+        for (const { where } of Derive.serviceVrfs(device))
+            if (where.startsWith("management.")) found.push(`${where}, the switch binds a login service to one interface, not to a VRF`);
+        // A CE6855 refused an IPv6 server in a VRF without the VRF's IPv6 family, which Circuit does not write on VRP.
+        const dns = device.system?.dns;
+        if (dns?.vrf && dns.servers.some((server) => Address.family(server) === "ipv6"))
+            found.push("system.dns.servers in system.dns.vrf, IPv6: the switch reaches one only through the VRF's IPv6 family");
+
+        return found;
     }
 }

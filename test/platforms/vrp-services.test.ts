@@ -32,3 +32,29 @@ test("VRP has no web interface, guards no API, and takes no certificate, and say
         "management.api_tls, V200R005 has no PKI, and loads a certificate only from a file on the switch's flash, which Circuit does not copy there",
     ]);
 });
+
+test("VRP turns its resolver on and names each server, in a VRF too, as a CE6855 printed them", () => {
+    const device: Device = { ...base, system: { ...base.system, dns: { servers: ["198.51.100.53", "2001:db8:3981::53"] } } };
+    const desired = vrp.render(device);
+
+    expect(desired).toContain("dns resolve\ndns server 198.51.100.53\ndns server ipv6 2001:DB8:3981::53\n");
+    expect(sent(desired, desired)).toEqual([]);
+
+    // Each server is one of a list: a new one is added beside the old, which is undone.
+    const changed: Device = { ...base, system: { ...base.system, dns: { servers: ["198.51.100.54"] } } };
+    expect(sent(vrp.render(changed), desired)).toEqual([
+        "undo dns server ipv6 2001:DB8:3981::53",
+        "undo dns server 198.51.100.53",
+        "dns server 198.51.100.54",
+    ]);
+
+    const inVrf: Device = {
+        ...base,
+        system: { ...base.system, dns: { servers: ["192.0.2.53", "2001:db8::53"], vrf: "ctest" } },
+        routing: { ...base.routing, vrfs: { ctest: {} } },
+    };
+    expect(vrp.render(inVrf)).toContain("dns server 192.0.2.53 vpn-instance ctest\n");
+    expect(vrp.unsupported(inVrf)).toContain(
+        "system.dns.servers in system.dns.vrf, IPv6: the switch reaches one only through the VRF's IPv6 family"
+    );
+});

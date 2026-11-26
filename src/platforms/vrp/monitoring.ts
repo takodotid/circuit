@@ -86,7 +86,8 @@ export class VrpMonitoring {
         for (const collector of collectors ?? []) {
             const level = collector.level === "debug" ? "" : ` level ${VrpMonitoring.LOG_LEVEL[collector.level]}`;
             const port = collector.port !== undefined && collector.port !== VrpMonitoring.SYSLOG_PORT ? ` port ${collector.port}` : "";
-            lines.push(`info-center loghost ${collector.address}${level}${port}`);
+            const vrf = collector.vrf ? ` vpn-instance ${collector.vrf}` : "";
+            lines.push(`info-center loghost ${collector.address}${vrf}${level}${port}`);
         }
 
         return [...lines, "#"];
@@ -122,11 +123,13 @@ export class VrpMonitoring {
         }
 
         lines.push(...VrpMonitoring.trapLines(device));
+        // The agent answers in its VRF alone.
+        if (snmp.vrf) lines.push(`snmp-agent protocol vpn-instance ${snmp.vrf}`);
         return [...lines, "#"];
     }
 
     /**
-     * Each receiver of traps, with every trap on. A user's traps are signed and encrypted, as each user's settings are. The switch leaves the port out when it is 162.
+     * Each receiver of traps, with every trap on. A user's traps are signed and encrypted, as each user's settings are. They leave from the agent's VRF. The switch leaves the port out when it is 162.
      */
     private static trapLines(device: Device): string[] {
         const snmp = device.monitoring?.snmp;
@@ -135,7 +138,8 @@ export class VrpMonitoring {
 
         const lines = traps.map((trap) => {
             const port = trap.port !== undefined && trap.port !== VrpMonitoring.TRAP_PORT ? ` udp-port ${trap.port}` : "";
-            return `snmp-agent target-host trap address udp-domain ${trap.address}${port} params securityname ${trap.user} v3 privacy`;
+            const vrf = snmp?.vrf ? ` vpn-instance ${snmp.vrf}` : "";
+            return `snmp-agent target-host trap address udp-domain ${trap.address}${port}${vrf} params securityname ${trap.user} v3 privacy`;
         });
 
         return [...lines, "snmp-agent trap enable"];

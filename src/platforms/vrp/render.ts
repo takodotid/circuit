@@ -304,8 +304,21 @@ export class VrpRender {
         }
 
         // A server written with its length is written as the address alone.
-        for (const server of device.system?.ntp?.servers ?? []) this.line(`ntp unicast-server ${Address.host(server)}`);
+        const ntpVrf = device.system?.ntp?.vrf ? ` vpn-instance ${device.system.ntp.vrf}` : "";
+        for (const server of device.system?.ntp?.servers ?? []) this.line(`ntp unicast-server ${Address.host(server)}${ntpVrf}`);
         this.separator();
+
+        // The switch asks its resolvers only once `dns resolve` is on. It prints IPv6 addresses in capitals.
+        const dns = device.system?.dns;
+        if (dns) {
+            const vrf = dns.vrf ? ` vpn-instance ${dns.vrf}` : "";
+            this.line("dns resolve");
+            for (const server of dns.servers)
+                this.line(
+                    Address.family(server) === "ipv6" ? `dns server ipv6 ${VrpPolicies.spell(server)}${vrf}` : `dns server ${server}${vrf}`
+                );
+            this.separator();
+        }
 
         const ids = Object.values(this.vlans).flatMap((vlan) => (vlan ? [vlan.id] : []));
         if (ids.length) {

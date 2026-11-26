@@ -268,9 +268,9 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | ICMP probes                       | ✅                              | ✅                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌ no web interface or PKI      | ❌                | web, API               | ✅                                |
 | Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
-| Management in a VRF               | ✅ not FTP                      | ❌                              | ❌                | 🧪 the REST API only   | ❌                                |
-| SNMP in a VRF                     | ✅                              | ❌                              | ❌                | ❌ another community   | ❌                                |
-| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ❌                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
+| Management in a VRF               | ✅ not FTP                      | ❌ by interface, not VRF        | ❌                | 🧪 the REST API only   | ❌                                |
+| SNMP in a VRF                     | ✅                              | 🧪                              | ❌                | ❌ another community   | ❌                                |
+| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅ IPv4 DNS servers             | ❌                | syslog; 🧪 NTP, RADIUS | ❌                                |
 | Management VDOM                   | ❌                              | ❌                              | ❌                | ❌                     | ✅                                |
 
 The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
