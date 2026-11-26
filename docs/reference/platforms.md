@@ -149,7 +149,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | AS path matches              | ✅                          | ✅ one per rule, no length  | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
 | RPKI                         | ✅                          | ❌                          | ❌                       | ✅                    | ❌               |
 | BGP roles (RFC 9234)         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| GTSM (RFC 5082)              | ✅ eBGP                     | ❌                          | ❌                       | ❌                    | ❌               |
+| GTSM (RFC 5082)              | ✅ eBGP                     | ✅                          | ❌                       | ❌                    | ❌               |
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | Confederations (RFC 5065)    | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
 | Graceful restart (RFC 4724)  | ❌                          | ❌                          | ❌                       | ✅ all or no sessions | ✅               |

@@ -60,7 +60,7 @@ test("RouterOS refuses GTSM on an iBGP session, whose TTL it does not check", ()
     );
 });
 
-test("Junos, FortiOS, and VRP refuse GTSM, and Raisecom ROS refuses BGP itself", () => {
+test("Junos and FortiOS refuse GTSM, and Raisecom ROS refuses BGP itself", () => {
     const junos = withNeighbor("platforms--example-aggregation-switch", "hurricane-electric", {
         address: "203.0.113.1",
         remote_as: 6939,
@@ -79,10 +79,6 @@ test("Junos, FortiOS, and VRP refuse GTSM, and Raisecom ROS refuses BGP itself",
         asn: 64500,
         neighbors: { transit: { address: "203.0.113.1", remote_as: 6939, ttl_security: true } },
     };
-    const switchDevice = Fixtures.device("platforms--example-switch");
-    expect(Platforms.get("vrp").unsupported({ ...switchDevice, routing: { ...switchDevice.routing, bgp } })).toContain(
-        "routing.bgp.neighbors.transit.ttl_security, not built yet"
-    );
 
     const coreSwitch = Fixtures.device("platforms--example-core-switch");
     expect(Platforms.get("raisecom-ros").unsupported({ ...coreSwitch, routing: { ...coreSwitch.routing, bgp } })).toContain("routing.bgp");

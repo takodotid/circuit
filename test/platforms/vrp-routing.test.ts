@@ -167,3 +167,32 @@ test("a routed port, a bridge, and a VLAN interface on an inner VLAN are refused
         ])
     );
 });
+
+const sent = (desired: string, current: string) => plan(desired, current).steps.flatMap((step) => step.send);
+
+/** Sessions to documentation addresses on the VLAN interface `ctest-a`, with these settings. */
+function sessions(settings: Record<string, unknown>, bgp: Record<string, unknown> = {}): Device {
+    return routed({
+        router_id: "192.0.2.250",
+        bgp: {
+            asn: 65001,
+            ...bgp,
+            neighbors: {
+                transit: { address: "192.0.2.2", remote_as: 64496, ...settings },
+                member: { address: "192.0.2.3", remote_as: 65002, ...settings },
+            },
+        },
+    });
+}
+
+test("GTSM is valid-ttl-hops 1, undone without its value", () => {
+    const rendered = vrp.render(sessions({ ttl_security: true }));
+
+    expect(rendered).toContain(" peer 192.0.2.2 valid-ttl-hops 1\n");
+    expect(sent(vrp.render(sessions({})), rendered)).toEqual([
+        "bgp 65001",
+        "undo peer 192.0.2.3 valid-ttl-hops",
+        "undo peer 192.0.2.2 valid-ttl-hops",
+        "quit",
+    ]);
+});

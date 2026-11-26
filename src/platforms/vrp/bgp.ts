@@ -190,7 +190,9 @@ export class VrpBgp {
         if (peer) return `undo peer ${peer[1]}`;
 
         const keyword =
-            /^(peer \S+ (?:description|ebgp-max-hop|connect-interface|password|route-limit)|router-id|reflector cluster-id) /.exec(line);
+            /^(peer \S+ (?:description|ebgp-max-hop|connect-interface|password|route-limit|valid-ttl-hops)|router-id|reflector cluster-id) /.exec(
+                line
+            );
         if (keyword) return `undo ${keyword[1]}`;
 
         const node = VrpBgp.NODE.exec(line);
@@ -285,6 +287,8 @@ export class VrpBgp {
         const iface = local && VrpBgp.interfaceOf(device, local);
         if (local && iface) lines.push(`${peer} connect-interface ${iface} ${VrpPolicies.spell(local)}`);
         if (settings.passive) lines.push(`${peer} listen-only`);
+        // Sent with TTL 255, and only TTL 255 taken: one hop (GTSM, RFC 5082).
+        if (settings.ttl_security) lines.push(`${peer} valid-ttl-hops 1`);
         if (settings.password) lines.push(`${peer} password cipher ${Secrets.marker(settings.password)}`);
         return lines;
     }
@@ -314,7 +318,7 @@ export class VrpBgp {
         const found: string[] = [];
         const notBuilt = "not built yet";
 
-        for (const key of ["role", "ttl_security", "bfd", "graceful_restart", "send_default_route", "vrf"] as const)
+        for (const key of ["role", "bfd", "graceful_restart", "send_default_route", "vrf"] as const)
             if (settings[key] !== undefined && settings[key] !== false) found.push(`${where}.${key}, ${notBuilt}`);
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
 
