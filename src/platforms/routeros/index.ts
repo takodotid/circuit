@@ -278,7 +278,7 @@ export class RouterOs extends Platform {
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(
-                `interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
+                `interfaces.ipsec.${name}, which RouterOS 7.24 has no interface for, and whose XFRM interface in 7.25 cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
             );
         found.push(...RouterOsIpsec.unsupported(device));
         found.push(...RouterOsRemoteAccess.unsupported(device));
