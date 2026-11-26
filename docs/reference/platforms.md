@@ -267,8 +267,8 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | SNMP traps                        | one community or user, port 162 | users, not communities          | ❌                | ✅                     | ✅                                |
 | Syslog                            | ✅                              | ✅                              | ✅                | ✅                     | ✅ up to 4                        |
 | Syslog over TLS                   | ❌                              | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
-| Flow export                       | NetFlow 9, IPFIX                | sFlow, NetFlow 9                | ❌                | sFlow                  | sFlow, NetFlow 9                  |
-| Flow timeouts                     | ✅                              | ✅ NetFlow 9                    | ❌                | ❌ sFlow only          | 🧪                                |
+| Flow export                       | NetFlow 9, IPFIX                | sFlow; 🧪 NetFlow 9             | ❌                | sFlow                  | sFlow, NetFlow 9                  |
+| Flow timeouts                     | ✅                              | 🧪 NetFlow 9                    | ❌                | ❌ sFlow only          | 🧪                                |
 | ICMP probes                       | ✅                              | ✅                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌ no web interface or PKI      | ❌                | web, API               | ✅                                |
 | Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |

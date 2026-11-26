@@ -373,7 +373,7 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable`, some of OSPF (`VrpOspf`), and a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. Rate limits were committed on a spare port, but no packet crossed it. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable`, some of OSPF (`VrpOspf`), and a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. Rate limits and NetStream were committed on a spare port, but no packet crossed it. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
@@ -382,6 +382,8 @@ export class Vrp extends Platform {
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // `snmp-agent protocol vpn-instance` went into a candidate only: the switch's own SNMP would have left the network that polls it.
         if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
+        // NetStream was committed on a CE6855, but no packet crossed a watched port, and Huawei's documentation doesn't list it for the CE6855HI.
+        if (device.monitoring?.flow_export?.protocol === "netflow-v9") found.push("monitoring.flow_export");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
         found.push(

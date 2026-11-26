@@ -333,6 +333,8 @@ test("VRP exports NetFlow v9 of both families from the ports it watches, and pla
     const desired = vrp.render(device);
 
     expect(vrp.unsupported(device)).toEqual([]);
+    // No packet crossed a watched port, and Huawei lists no NetStream for the CE6855HI.
+    expect(vrp.experimental!(device)).toContain("monitoring.flow_export");
     expect(lines(desired, "netstream")).toEqual([
         "netstream export ip version 9",
         "netstream export ip host 192.0.2.30 2055",
