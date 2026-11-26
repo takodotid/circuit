@@ -2,7 +2,7 @@
 
 import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
-import { RaisecomRos } from "../../src/platforms/raisecom-ros";
+import { RaisecomRosLldp } from "../../src/platforms/raisecom-ros/lldp";
 import type { Device, Port } from "../../src/model";
 import { Fixtures } from "../fixtures";
 
@@ -61,14 +61,14 @@ tengigabitethernet1/3/4 has  0 remotes:
 `;
 
 test("LLDP neighbors come from the detail form, by Circuit's port names, with the far port as the neighbor sends it", () => {
-    expect(RaisecomRos.lldpRemotes(LLDP_REMOTE_DETAIL.replace(/\n/g, "\r\n"), coreSwitch)).toEqual([
+    expect(RaisecomRosLldp.remotes(LLDP_REMOTE_DETAIL.replace(/\n/g, "\r\n"), coreSwitch)).toEqual([
         { port: "100g-4", system: "tor-1", remote_port: "520" },
         { port: "10g-3", system: "PROVIDER-SWITCH-1", remote_port: "tengigabitethernet1/3/10" },
     ]);
 });
 
 test("a port with no remotes gives no neighbor", () => {
-    expect(RaisecomRos.lldpRemotes("hundredgige1/1/1 has  0 remotes:\n", coreSwitch)).toEqual([]);
+    expect(RaisecomRosLldp.remotes("hundredgige1/1/1 has  0 remotes:\n", coreSwitch)).toEqual([]);
 });
 
 const platform = Platforms.get("raisecom-ros");

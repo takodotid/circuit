@@ -173,7 +173,7 @@ end`);
 test("Raisecom ROS refuses a probe, and says why", () => {
     const raisecom = Platforms.get("raisecom-ros").unsupported(probing("platforms--example-core-switch", { "to-b": PROBES["to-b"]! }));
     expect(raisecom).toContain(
-        "monitoring.probes.to-b, the platform documents no ICMP probe: its SLA operations measure Ethernet (Y.1731)"
+        "monitoring.probes.to-b, ROS 6.5.2 has no ICMP probe: its SLA operations measure Ethernet (Y.1731), MPLS, and TWAMP"
     );
 });
 

@@ -7,6 +7,7 @@ import { Derive } from "../../core/derive";
 import { RaisecomRosAcls } from "./acls";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRouting } from "./routing";
+import { RaisecomRosServices } from "./services";
 import { RaisecomRosSwitching } from "./switching";
 
 export class RaisecomRosRender {
@@ -133,6 +134,7 @@ export class RaisecomRosRender {
         const snmpSources = snmp?.allow;
         if (snmpSources) lines.push(...RaisecomRosRender.accessList(RaisecomRosRender.SNMP_ACL, "snmp", snmpSources));
         lines.push(...RaisecomRosAcls.blocks(device));
+        lines.push(...RaisecomRosServices.pools(device));
 
         const ports = Catalog.ports(device.platform, device.model);
 
@@ -183,7 +185,11 @@ export class RaisecomRosRender {
         for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
             if (!iface) continue;
 
-            lines.push(`interface vlan ${vlanId(iface.vlan)}`, ...RaisecomRosRouting.layer3(device, name, iface));
+            lines.push(
+                `interface vlan ${vlanId(iface.vlan)}`,
+                ...RaisecomRosRouting.layer3(device, name, iface),
+                ...RaisecomRosServices.interfaceLines(device, name)
+            );
 
             for (const group of iface.vrrp ?? []) lines.push(...RaisecomRosRender.vrrp(group));
 
@@ -207,6 +213,7 @@ export class RaisecomRosRender {
         // Each switched port snoops once the switch does, unless it is trusted, and checks ARP against what it saw.
         if (switching?.dhcp_snooping) lines.push("ip dhcp snooping");
         if (switching?.arp_inspection) lines.push(RaisecomRosSwitching.ARP_INSPECTION);
+        lines.push(...RaisecomRosServices.relayGlobal(device));
 
         // The factory communities survive a reset, and one of them can write, so they are always removed.
         lines.push("no snmp-server community public", "no snmp-server community private");
@@ -224,6 +231,9 @@ export class RaisecomRosRender {
             );
         }
 
+        // A receiver of version 3 traps names a user, which exists before it.
+        lines.push(...RaisecomRosServices.trapHosts(device));
+
         const snmpAcl = snmpSources ? RaisecomRosRender.SNMP_ACL : allow.length ? RaisecomRosRender.MANAGEMENT_ACL : undefined;
         if ((snmp?.community || snmpUsers.length) && snmpAcl) lines.push(`snmp-server access-list ${snmpAcl}`);
 
@@ -232,7 +242,7 @@ export class RaisecomRosRender {
             lines.push(`bfd ${session.id} bind peer-ip ${via} interface vlan ${vlanId(session.vlan)}`, "session enable", "!");
         }
 
-        lines.push(...RaisecomRosRouting.staticRoutes(device));
+        lines.push(...RaisecomRosRouting.staticRoutes(device), ...RaisecomRosServices.reservations(device));
 
         if (management.telnet) {
             lines.push("telnet-server enable");

@@ -5,6 +5,7 @@ import { RaisecomRosAcls } from "./acls";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosRouting } from "./routing";
+import { RaisecomRosServices } from "./services";
 import { RaisecomRosSwitching } from "./switching";
 
 /** What Raisecom ROS can't express, or what Circuit has not built for it, each with where it is written and why. */
@@ -347,14 +348,9 @@ export class RaisecomRosUnsupported {
 
         const refusedGroups: [string, unknown][] = [
             ["firewall", Object.keys(firewall).length ? firewall : undefined],
-            ["services.dhcp_server", device.services?.dhcp_server],
-            ["services.dhcpv6_server", device.services?.dhcpv6_server],
-            ["services.dhcp_relay", device.services?.dhcp_relay],
             ["routing.policies", routing?.policies],
             ["routing.prefix_sets", routing?.prefix_sets],
             ["system.hardware_offload", device.system?.hardware_offload],
-            ["system.certificates", device.system?.certificates],
-            ["monitoring.flow_export", device.monitoring?.flow_export],
         ];
 
         for (const [path, value] of refusedGroups) {
@@ -366,9 +362,20 @@ export class RaisecomRosUnsupported {
         if (device.services?.ipsec_remote_access)
             found.push("services.ipsec_remote_access, IPsec: the switch does not encrypt the traffic it forwards");
 
+        // ROS 6.5.2 has no `ip http`, `https`, `web`, `pki`, `crypto`, or `ssl`, and no sFlow, NetFlow, or IPFIX.
+        if (device.system?.certificates) found.push("system.certificates, ROS 6.5.2 has no certificate store");
+        if (device.monitoring?.flow_export) found.push("monitoring.flow_export, ROS 6.5.2 has no sFlow, NetFlow, or IPFIX");
+        found.push(...RaisecomRosServices.unsupported(device));
+
         const management = device.management ?? {};
 
-        for (const field of ["http", "https", "api", "api_tls", "ftp", "native_protocol", "console"] as const) {
+        for (const field of ["http", "https"] as const)
+            if (management[field]) found.push(`management.${field}, ROS 6.5.2 has no web interface`);
+        // NETCONF answers over SSH on port 830, which is neither of these.
+        for (const field of ["api", "api_tls"] as const)
+            if (management[field])
+                found.push(`management.${field}, the switch's API is NETCONF over SSH, which Circuit does not manage yet`);
+        for (const field of ["ftp", "native_protocol", "console"] as const) {
             if (management[field]) found.push(`management.${field}`);
         }
         for (const { where } of Derive.serviceVrfs(device)) found.push(where);
@@ -391,8 +398,11 @@ export class RaisecomRosUnsupported {
                     `system.users.${name}.ssh_keys, a key here belongs to no user, and one setting turns password logins off for all`
                 );
         }
-        // Raisecom's RAX721 guide gives the servers and `user login local-radius`, but no level for a user a server accepts.
-        if (device.system?.aaa) found.push("system.aaa, the platform has no setting for the role of a user a server accepts");
+        // `user login` picks local users or the servers for every way in at once, at the # prompt, and the guide gives no level for a user a server accepts.
+        if (device.system?.aaa)
+            found.push(
+                "system.aaa, the platform has no setting for the role of a user a server accepts, and its one login setting for every way in was not tried on a switch in service"
+            );
 
         const system = device.system ?? {};
         const services = device.services ?? {};
@@ -412,10 +422,13 @@ export class RaisecomRosUnsupported {
         // A range's cost and virtual links are refused in `routing()`, with why.
         const ospf = ["ospf-ranges", "ospf-range-cost", "ospf-priority", "ospf-unicast-links", "ospf-virtual-links"] as const;
         found.push(...Derive.unbuilt(device, ["rate-limit", "urpf", ...ospf]));
-        found.push(...Derive.unbuiltMonitoring(device));
-        // Raisecom's RAX721 guide (P200R003) lists SLA operations over Y.1731 only.
+        // Trap receivers are built, in `RaisecomRosServices`.
+        found.push(...Derive.unbuiltMonitoring(device).filter((message) => !message.startsWith("monitoring.snmp.traps")));
+        // `show sla` lists operations of Ethernet (Y.1731), MPLS, and TWAMP alone.
         for (const name of Object.keys(device.monitoring?.probes ?? {}))
-            found.push(`monitoring.probes.${name}, the platform documents no ICMP probe: its SLA operations measure Ethernet (Y.1731)`);
+            found.push(
+                `monitoring.probes.${name}, ROS 6.5.2 has no ICMP probe: its SLA operations measure Ethernet (Y.1731), MPLS, and TWAMP`
+            );
 
         return found;
     }
