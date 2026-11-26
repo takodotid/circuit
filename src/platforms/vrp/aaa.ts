@@ -168,10 +168,10 @@ export class VrpAaa {
         }
     }
 
-    /** A server's undo: a secondary by its address, port, source, and `secondary`, without its key. A primary RADIUS server by its kind alone. */
+    /** A server's undo: a secondary by its address, port, VRF, source, and `secondary`, without its key. A primary RADIUS server by its kind alone. */
     static undo(line: string): string | undefined {
         const radius =
-            /^radius server (authentication|accounting) (\S+ \d+(?: source ip-address \S+)?) shared-key-cipher \S+( secondary)?$/.exec(
+            /^radius server (authentication|accounting) (\S+ \d+(?: vpn-instance \S+)?(?: source ip-address \S+)?) shared-key-cipher \S+( secondary)?$/.exec(
                 line
             );
         if (radius) return radius[3] ? `undo radius server ${radius[1]} ${radius[2]} secondary` : `undo radius server ${radius[1]}`;
@@ -183,8 +183,9 @@ export class VrpAaa {
     }
 
     private static radiusLine(kind: "authentication" | "accounting", server: RadiusServer, port: number, index: number): string {
+        const vrf = server.vrf ? ` vpn-instance ${server.vrf}` : "";
         const source = server.source_address ? ` source ip-address ${server.source_address}` : "";
-        return `radius server ${kind} ${server.address} ${port}${source} shared-key-cipher ${Secrets.marker(server.secret_key)}${VrpAaa.backup(index)}`;
+        return `radius server ${kind} ${server.address} ${port}${vrf}${source} shared-key-cipher ${Secrets.marker(server.secret_key)}${VrpAaa.backup(index)}`;
     }
 
     /** The first server is the primary, and the rest are asked after it, in order. */

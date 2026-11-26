@@ -216,3 +216,85 @@ test("validate warns of a server whose interface's router advertisements don't s
         findings(serving("platforms--example-router", "servers", FULL), "warning").filter((message) => message.includes("dhcpv6"))
     ).toEqual([]);
 });
+
+/** The single-site VRP switch with a VLAN interface on VLAN 3981, which no port carries, and its DHCPv6 server `ctest_v6a`. */
+function vrpServing(server: Omit<Dhcpv6Server, "interface">): Device {
+    const device = structuredClone(Fixtures.device("single-site--switch"));
+    device.switching!.vlans = { ...device.switching!.vlans, "ctest-a": { id: 3981 } };
+    device.interfaces!.vlan_interface = {
+        ...device.interfaces!.vlan_interface,
+        "ctest-a": { vlan: "ctest-a", addresses: ["192.0.2.1/28", "2001:db8:3981::1/64"], ipv6_ra: { managed: true, other_config: true } },
+    };
+    device.services = { dhcpv6_server: { ctest_v6a: { interface: "ctest-a", ...server } } };
+    return device;
+}
+
+const VRP_SERVER: Omit<Dhcpv6Server, "interface"> = {
+    pool: ["2001:db8:3981::100", "2001:db8:3981::1ff"],
+    dns: ["2001:db8:3981::53", "2001:db8:3981::54"],
+    lease_time: 7200,
+};
+
+test("VRP writes the smallest prefix that holds the pool, binds it to the VLAN interface, and plans nothing against how a CE6855 printed it", () => {
+    const vrp = Platforms.get("vrp");
+    const device = vrpServing(VRP_SERVER);
+    const desired = vrp.render(device);
+
+    expect(vrp.unsupported(device)).toEqual([]);
+    expect(desired).toContain(
+        "dhcpv6 pool ctest_v6a\n address prefix 2001:DB8:3981::100/120 life-time 7200 7200\n dns-server 2001:DB8:3981::53\n dns-server 2001:DB8:3981::54\n#\n"
+    );
+    expect(desired).toContain("dhcpv6 enable\n");
+
+    // The switch ends the last DNS server with a space, and the pool's line on the interface with two tabs (V200R005C00SPC800).
+    const printed = desired
+        .replace("dns-server 2001:DB8:3981::54\n", "dns-server 2001:DB8:3981::54 \n")
+        .replace(" dhcpv6 server ctest_v6a\n", " dhcpv6 server ctest_v6a\t\t\n");
+    expect(printed).not.toBe(desired);
+    expect(sent("vrp", desired, printed)).toEqual([]);
+});
+
+test("VRP leaves out the addresses of the prefix outside the pool, and takes an old prefix away after them", () => {
+    const vrp = Platforms.get("vrp");
+    const wider = vrp.render(vrpServing({ ...VRP_SERVER, pool: ["2001:db8:3981::100", "2001:db8:3981::2ff"], lease_time: 3600 }));
+    expect(wider).toContain(
+        " address prefix 2001:DB8:3981::/118 life-time 3600 3600\n excluded-address 2001:DB8:3981:: to 2001:DB8:3981::FF\n excluded-address 2001:DB8:3981::300 to 2001:DB8:3981::3FF\n"
+    );
+
+    // A new prefix overlaps the old one, which the switch refuses, so the old one goes first, after what it excluded.
+    const back = sent("vrp", vrp.render(vrpServing(VRP_SERVER)), wider);
+    expect(back.slice(0, 6)).toEqual([
+        "dhcpv6 pool ctest_v6a",
+        "undo excluded-address 2001:DB8:3981::300 to 2001:DB8:3981::3FF",
+        "undo excluded-address 2001:DB8:3981:: to 2001:DB8:3981::FF",
+        "undo address prefix 2001:DB8:3981::/118",
+        "address prefix 2001:DB8:3981::100/120 life-time 7200 7200",
+        "quit",
+    ]);
+
+    // A pool goes once its VLAN interface lets go of it.
+    const gone = vrp.plan(vrp.render(Fixtures.device("single-site--switch")), wider, options).steps;
+    expect(gone.at(-1)).toEqual({
+        title: "DHCPv6 pools no longer used",
+        show: ["- dhcpv6 pool ctest_v6a"],
+        send: ["undo dhcpv6 pool ctest_v6a"],
+    });
+});
+
+test("VRP refuses delegated prefixes, a pool name the switch refuses, and a pool that leaves out more than 1024 addresses", () => {
+    const device = vrpServing({
+        ...VRP_SERVER,
+        pool: ["2001:db8:3981::401", "2001:db8:3981::bff"],
+        prefix_delegation: FULL.prefix_delegation,
+    });
+    device.services!.dhcpv6_server = { "ctest-v6a": device.services!.dhcpv6_server!.ctest_v6a! };
+    const where = "services.dhcpv6_server.ctest-v6a";
+
+    expect(Platforms.get("vrp").unsupported(device)).toEqual(
+        expect.arrayContaining([
+            `${where}, a pool name of letters, digits, and '_', 31 characters at most: the switch refuses a '-'`,
+            `${where}.prefix_delegation, V200R005 delegates no prefixes`,
+            `${where}.pool, which leaves 2049 addresses of 2001:DB8:3981::/116 out: the switch gives the addresses of one prefix, and leaves 1024 out at most. Write a pool that fills a prefix, or nearly`,
+        ])
+    );
+});

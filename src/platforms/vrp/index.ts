@@ -12,18 +12,37 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Entry, Group } from "../line-diff";
+import { BgpHealth } from "../bgp-health";
 import { Platform } from "../platform";
-import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import type {
+    ApplyOptions,
+    BgpSession,
+    HealthCheck,
+    HealthOptions,
+    OsSupport,
+    Plan,
+    ReadOptions,
+    ReadSession,
+    Step,
+    Tool,
+} from "../platform";
 import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
+import { VrpBgpSessions } from "./bgp-sessions";
 import { VrpDhcp } from "./dhcp";
+import { VrpDhcpv6 } from "./dhcpv6";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpMonitoring } from "./monitoring";
+import { VrpNetStream } from "./netstream";
 import { VrpOspf } from "./ospf";
+import { VrpProbes } from "./probes";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
+import { VrpRouterAdvertisement } from "./router-advertisement";
+import { VrpServices } from "./services";
 import { VrpRoutes } from "./routes";
 
 export class Vrp extends Platform {
@@ -65,13 +84,14 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+(?: vpn-instance \S+)?|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first: a static route's BFD template, and a port's CAR profile. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+|qos car (?!inbound )\S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
+        // A VRF's `ipv4-family` holds nothing, but enters a view of its own all the same.
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) |ipv4-family$)/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -82,12 +102,20 @@ export class Vrp extends Platform {
         first: /^(authentication-mode|network-entity) /,
         canon: Vrp.canon,
         order: Vrp.order,
-        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? VrpIsis.head(line) ?? VrpOspf.head(line) ?? Vrp.head(line),
+        head: (line) =>
+            VrpBgp.head(line) ??
+            VrpMarking.head(line) ??
+            VrpIsis.head(line) ??
+            VrpOspf.head(line) ??
+            VrpDhcpv6.head(line) ??
+            VrpNetStream.head(line) ??
+            VrpMonitoring.head(line) ??
+            Vrp.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy, then the DiffServ domain ports trust. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, DHCPv6 pools, then marking's classifiers, behaviors, and policy, then the DiffServ domain ports trust. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
-        /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
+        /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd|dhcpv6 pool )/,
         /^traffic (classifier|behavior) /,
         /^traffic policy /,
         /^diffserv domain /,
@@ -135,8 +163,6 @@ export class Vrp extends Platform {
     /** Ranges the platform takes. */
     private static readonly BFD_INTERVAL_MS = { min: 50, max: 1000 };
     private static readonly BFD_MULTIPLIER = { min: 3, max: 50 };
-    private static readonly LOGFILES = { min: 3, max: 500 };
-    private static readonly SAMPLING = { min: 4096, max: 4294967295 };
 
     override readonly name = "vrp";
 
@@ -150,6 +176,9 @@ export class Vrp extends Platform {
     override readonly extension = ".cfg";
 
     override readonly console = Vrp.CONSOLE;
+
+    /** A CE6855 printed its sessions, but none came up: the switch has no peer, and refused a route from the main table to a VRF of its own. */
+    override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
 
     override unsupported(device: Device): string[] {
         const found: string[] = [];
@@ -210,11 +239,11 @@ export class Vrp extends Platform {
             if (ends.some((end) => Address.family(Address.host(end)) === "ipv6"))
                 found.push(`${where}, GRE between IPv6 addresses, not built yet`);
             if (kind === "gre" && settings.vrf) found.push(`${where}.vrf, a GRE tunnel in a VRF, not tested`);
-            if (settings.ipv6_ra) found.push(`${where}.ipv6_ra`);
             if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload, the switch chip forwards everything`);
             for (const group of settings.vrrp ?? []) if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
         }
 
+        found.push(...VrpRouterAdvertisement.unsupported(device));
         const routing = device.routing;
 
         for (const [name, vrf] of Object.entries(routing?.vrfs ?? {})) {
@@ -242,46 +271,15 @@ export class Vrp extends Platform {
 
         found.push(...VrpRoutes.unsupported(device));
         found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
+        found.push(...VrpDhcpv6.unsupported(device));
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for VRP`);
 
-        const refusedGroups = [
-            ["services.dhcpv6_server", device.services?.dhcpv6_server],
-            ["system.hardware_offload", device.system?.hardware_offload],
-            ["system.certificates", device.system?.certificates],
-        ] as const;
-
-        for (const [path, value] of refusedGroups) {
-            if (value !== undefined) found.push(path);
-        }
-
-        if (device.services?.pppoe_server)
-            found.push("services.pppoe_server, VRP serves PPPoE subscribers on NE routers (BRAS) only, which Circuit does not support");
-        if (device.services?.ipsec_remote_access)
-            found.push("services.ipsec_remote_access, IPsec: a CloudEngine switch does not encrypt the traffic it forwards");
-
-        for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
-            if (!device.interfaces?.vlan_interface?.[relay.interface])
-                found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
-            if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
-            if (relay.relay_agent_information)
-                found.push(`services.dhcp_relay.${name}.relay_agent_information, Option 82, not built for VRP`);
-        }
-        for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {}))
-            if (server.relay !== undefined)
-                found.push(`services.dhcp_server.${name}.relay, a server for a relay's clients, not built for VRP`);
+        if (device.system?.hardware_offload !== undefined) found.push("system.hardware_offload");
+        found.push(...VrpServices.unsupported(device));
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
         found.push(...VrpAaa.unsupported(device));
         found.push(...VrpBgp.unsupported(device));
-
-        const management = device.management ?? {};
-
-        for (const field of ["http", "https", "api", "api_tls", "ftp", "native_protocol", "privilege_password"] as const) {
-            if (management[field]) found.push(`management.${field}`);
-        }
-
-        if (management.ssh?.auth_timeout || management.ssh?.auth_retries) found.push("management.ssh.auth_timeout and auth_retries");
-        for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, not built yet`);
 
         const lldp = device.switching?.lldp;
         if (lldp && lldp !== true) found.push("switching.lldp.interfaces, use lldp on the ports instead");
@@ -319,33 +317,9 @@ export class Vrp extends Platform {
 
         const system = device.system ?? {};
 
-        if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
-        if (device.services?.dns_server) found.push("services.dns_server");
-        if (device.services?.dns64) found.push("services.dns64, which needs services.dns_server");
+        if (system.release_channel || system.banner) found.push("system.release_channel and banner");
 
-        const local = system.logging?.local;
-        if (local?.lines_per_file !== undefined)
-            found.push("system.logging.local.lines_per_file, the platform sizes a log file in megabytes");
-        if (local?.files !== undefined && !Vrp.inRange(local.files, Vrp.LOGFILES))
-            found.push(`system.logging.local.files, between ${Vrp.LOGFILES.min} and ${Vrp.LOGFILES.max} on the platform`);
-
-        const monitoring = device.monitoring ?? {};
-
-        for (const collector of monitoring.syslog ?? []) {
-            if (Address.family(collector.address) === "ipv6") found.push(`monitoring.syslog ${collector.address}, IPv6 is not tested`);
-        }
-
-        for (const source of monitoring.snmp?.allow ?? []) {
-            if (Address.family(Address.split(source).addr) === "ipv6") found.push(`monitoring.snmp.allow ${source}, IPv6 is not tested`);
-        }
-
-        if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
-        found.push(...Derive.unbuiltMonitoring(device));
-        // Huawei's NQA documentation for CloudEngine V200R005C10.
-        for (const name of Object.keys(monitoring.probes ?? {}))
-            found.push(
-                `monitoring.probes.${name}, not built for VRP: NQA asks before it changes a running test, and deletes none until it is stopped`
-            );
+        found.push(...VrpMonitoring.unsupported(device), ...VrpNetStream.unsupported(device), ...VrpProbes.unsupported(device));
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
@@ -396,28 +370,20 @@ export class Vrp extends Platform {
             if (settings.urpf.ipv6) found.push(`${where}.urpf.ipv6, which the platform does not build`);
         }
 
-        const flow = monitoring.flow_export;
-        if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
-        const sampling = flow?.protocol === "sflow" ? flow.sampling : undefined;
-        const samplingInRange = sampling !== undefined && Vrp.inRange(sampling, Vrp.SAMPLING);
-        const { min, max } = Vrp.SAMPLING;
-
-        if (flow?.protocol === "sflow" && !samplingInRange) {
-            found.push(
-                `monitoring.flow_export.sampling, required and between ${min} and ${max}: the platform samples, one packet in ${min} at most`
-            );
-        }
-
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable`, some of OSPF (`VrpOspf`), and a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. Rate limits were committed on a spare port, but no packet crossed it. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable`, some of OSPF (`VrpOspf`), and a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. Rate limits and NetStream were committed on a spare port, but no packet crossed it. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
+        // `snmp-agent protocol vpn-instance` went into a candidate only: the switch's own SNMP would have left the network that polls it.
+        if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
+        // NetStream was committed on a CE6855, but no packet crossed a watched port, and Huawei's documentation doesn't list it for the CE6855HI.
+        if (device.monitoring?.flow_export?.protocol === "netflow-v9") found.push("monitoring.flow_export");
         // A pool was committed on a CE6855, but `dhcp enable` went into a candidate only, and no client has asked it for an address.
         for (const name of Object.keys(device.services?.dhcp_server ?? {})) found.push(`services.dhcp_server.${name}`);
         found.push(
@@ -462,8 +428,13 @@ export class Vrp extends Platform {
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
-        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links.
-        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer) /.test(line)) return line;
+        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links, and a DNS server. A prefix a router advertisement announces is undone before it changes.
+        if (
+            /^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer|ipv6 nd ra prefix|dns server) /.test(
+                line
+            )
+        )
+            return line;
 
         return LineDiff.head(line);
     }
@@ -505,6 +476,8 @@ export class Vrp extends Platform {
         Vrp.removeLoghosts(groups, desired, current);
         Vrp.replaceRules(groups, desired, current);
         VrpDhcp.rebuild(groups, desired, current, Vrp.DIALECT);
+        const probes = VrpProbes.order(groups, desired, current, Vrp.DIALECT);
+        VrpDhcpv6.order(groups);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
@@ -526,10 +499,13 @@ export class Vrp extends Platform {
 
         // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
         const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
+        // A DHCPv6 pool goes once its VLAN interface lets go of it.
+        const pools = top?.remove.filter((line) => line.startsWith("dhcpv6 pool ")) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
 
-        if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
+        const later = [...firstRemovals, ...lastRemovals, ...pools];
+        if (top) top.remove = top.remove.filter((line) => !later.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
 
         const planned = LineDiff.steps(
@@ -547,9 +523,11 @@ export class Vrp extends Platform {
 
         planned.push(
             ...Vrp.removal("ACLs no longer used", lastRemovals),
+            ...Vrp.removal("DHCPv6 pools no longer used", pools),
             ...Vrp.removal("DiffServ domains no longer used", domains),
             ...Vrp.removal("IS-IS no longer used", isis),
-            ...Vrp.removal("Route policies and lists no longer used", unused)
+            ...Vrp.removal("Route policies and lists no longer used", unused),
+            ...Vrp.removal("ICMP probes no longer used", probes)
         );
 
         return { steps: [...keys.first, ...planned, ...keys.last], problems: [] };
@@ -632,6 +610,15 @@ export class Vrp extends Platform {
         return neighbors;
     }
 
+    override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        return VrpBgpSessions.read(device, session);
+    }
+
+    /** Each BGP session established before the apply must be established again. */
+    override health(device: Device, _plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        return BgpHealth.check(this, device, options);
+    }
+
     override readOnly(command: string): boolean {
         return Vrp.READS.test(command);
     }
@@ -674,7 +661,15 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
-        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpOspf.undo(line) ?? VrpMarking.undo(line) ?? VrpQos.undo(line);
+        const routing =
+            VrpBgp.undo(line) ??
+            VrpIsis.undo(line, path) ??
+            VrpOspf.undo(line) ??
+            VrpMarking.undo(line) ??
+            VrpQos.undo(line) ??
+            VrpRouterAdvertisement.undo(line) ??
+            VrpNetStream.undo(line) ??
+            VrpMonitoring.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);
@@ -686,7 +681,7 @@ export class Vrp extends Platform {
         if (description) return `undo ${description[0]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
-        const pool = Vrp.undoInPool(line, path);
+        const pool = Vrp.undoInPool(line, path) ?? VrpDhcpv6.undo(line, path) ?? VrpProbes.undo(line, path);
         if (pool) return pool;
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);

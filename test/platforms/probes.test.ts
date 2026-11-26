@@ -1,4 +1,4 @@
-// ICMP probes. RouterOS's ran on the CI CHRs (7.24.6). Junos's passed `commit check` in a candidate on a QFX5100 (21.4R3-S8.5). FortiOS's were set, changed, and removed on a FortiGate 3700D (6.2.2). The lines each device printed are fed to the adapters.
+// ICMP probes. RouterOS's ran on the CI CHRs (7.24.6). Junos's passed `commit check` in a candidate on a QFX5100 (21.4R3-S8.5). FortiOS's were set, changed, and removed on a FortiGate 3700D (6.2.2). VRP's ran on a CE6855 (V200R005C00SPC800) committed with `commit trial`, and their change and removal went into a candidate. The lines each device printed are fed to the adapters.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -170,14 +170,81 @@ end`);
     ]);
 });
 
-test("VRP and Raisecom ROS refuse a probe, and say why", () => {
-    const vrp = Platforms.get("vrp").unsupported(probing("platforms--example-switch", { "to-b": PROBES["to-b"]! }));
+test("Raisecom ROS refuses a probe, and says why", () => {
     const raisecom = Platforms.get("raisecom-ros").unsupported(probing("platforms--example-core-switch", { "to-b": PROBES["to-b"]! }));
-
-    expect(vrp).toContain(
-        "monitoring.probes.to-b, not built for VRP: NQA asks before it changes a running test, and deletes none until it is stopped"
-    );
     expect(raisecom).toContain(
         "monitoring.probes.to-b, the platform documents no ICMP probe: its SLA operations measure Ethernet (Y.1731)"
     );
+});
+
+/** VRP's tests of `VRP_PROBES`, as a CE6855 on V200R005C00SPC800 printed them, committed with `commit trial` and run. */
+const VRP_PROBES: Record<string, Probe> = {
+    from_src: { target: "198.51.100.1", interval: 60, source_address: "192.0.2.1" },
+    in_vrf: { target: "192.0.2.40", interval: 30, vrf: "lab" },
+};
+
+const VRP_PRINTED = `nqa test-instance circuit from_src
+ test-type icmp
+ destination-address ipv4 198.51.100.1
+ source-address ipv4 192.0.2.1
+ frequency 60
+ start now
+#
+nqa test-instance circuit in_vrf
+ test-type icmp
+ destination-address ipv4 192.0.2.40
+ vpn-instance lab
+ frequency 30
+ start now
+#
+`;
+
+test("VRP runs an NQA test for each probe, and plans nothing against how a CE6855 printed them", () => {
+    const vrp = Platforms.get("vrp");
+    const device = probing("platforms--example-switch", VRP_PROBES);
+    device.routing = { ...device.routing, vrfs: { ...device.routing?.vrfs, lab: {} } };
+    const desired = vrp.render(device);
+
+    expect(vrp.unsupported(device)).toEqual([]);
+    expect(desired).toContain(VRP_PRINTED);
+    expect(sent("vrp", desired, desired)).toEqual([]);
+});
+
+test("VRP stops a test before it changes it and starts it again, and stops one before it deletes it, last", () => {
+    const vrp = Platforms.get("vrp");
+    const before = vrp.render(probing("platforms--example-switch", { from_src: VRP_PROBES.from_src! }));
+    const changed = vrp.render(probing("platforms--example-switch", { from_src: { target: "198.51.100.3", interval: 90 } }));
+
+    expect(sent("vrp", changed, before)).toEqual([
+        "nqa test-instance circuit from_src",
+        "undo start",
+        "undo source-address",
+        "destination-address ipv4 198.51.100.3",
+        "frequency 90",
+        "start now",
+        "quit",
+    ]);
+
+    const steps = vrp.plan(vrp.render(Fixtures.device("platforms--example-switch")), before, options).steps;
+    expect(steps.slice(-2)).toEqual([
+        {
+            title: "nqa test-instance circuit from_src",
+            show: ["- start now"],
+            send: ["nqa test-instance circuit from_src", "undo start", "quit"],
+        },
+        {
+            title: "ICMP probes no longer used",
+            show: ["- nqa test-instance circuit from_src"],
+            send: ["undo nqa test-instance circuit from_src"],
+        },
+    ]);
+});
+
+test("VRP refuses a test name the switch refuses, and IPv6", () => {
+    const refused = Platforms.get("vrp").unsupported(probing("platforms--example-switch", { "to-b": PROBES["to-b"]!, v6: PROBES.v6! }));
+    expect(refused.filter((gap) => gap.startsWith("monitoring.probes"))).toEqual([
+        "monitoring.probes.to-b, a test name of letters, digits, and '_', 32 characters at most: the switch refuses a '-'",
+        "monitoring.probes.v6.target, IPv6 is not tested",
+        "monitoring.probes.v6.source_address, IPv6 is not tested",
+    ]);
 });

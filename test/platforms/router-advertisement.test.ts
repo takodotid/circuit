@@ -1,4 +1,4 @@
-// Router advertisements (RFC 4861, RFC 8106), tested on a CCR2216 with RouterOS 7.24.6, a QFX5100 with Junos 21.4R3, and a FortiGate 3700D with FortiOS 6.2.2. On each, the plan converged as the settings were set, changed, and taken back to `ipv6_ra: true`. The tests copy how each device prints them.
+// Router advertisements (RFC 4861, RFC 8106), tested on a CCR2216 with RouterOS 7.24.6, a QFX5100 with Junos 21.4R3, and a FortiGate 3700D with FortiOS 6.2.2. VRP's were tested on a CE6855 with V200R005C00SPC800. On each, the plan converged as the settings were set, changed, and taken back to `ipv6_ra: true`. The tests copy how each device prints them.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -158,5 +158,107 @@ test("validate warns of a prefix that is not a /64, where hosts make no address 
     const warnings = Checks.run([device], undefined).filter((finding) => finding.level === "warning");
     expect(warnings.map((finding) => finding.message)).toContain(
         "interfaces.vlan_interface.servers.ipv6_ra announces 2001:db8:20::/56, where hosts make no address of their own: they do only in a /64. Write disable_autoconfiguration: true for it, or announce a /64"
+    );
+});
+
+/** The single-site VRP switch with a VLAN interface on VLAN 3981, which no port carries, sending `ra`. */
+function vrpAdvertising(ra: true | RouterAdvertisement): Device {
+    const device = structuredClone(Fixtures.device("single-site--switch"));
+    device.switching!.vlans = { ...device.switching!.vlans, "ctest-a": { id: 3981 } };
+    device.interfaces!.vlan_interface = {
+        ...device.interfaces!.vlan_interface,
+        "ctest-a": { vlan: "ctest-a", addresses: ["192.0.2.1/28", "2001:db8:3981::1/64"], ipv6_ra: ra },
+    };
+    return device;
+}
+
+const VRP_FULL: RouterAdvertisement = {
+    interval: 60,
+    lifetime: 600,
+    prefixes: [{ prefix: "2001:db8:3981::/64", valid_lifetime: 86_400, preferred_lifetime: 14_400, disable_autoconfiguration: true }],
+    managed: true,
+    other_config: true,
+};
+
+/** How a CE6855 on V200R005C00SPC800 printed the VLAN interface of `vrpAdvertising(VRP_FULL)`. */
+const VRP_PRINTED = `interface Vlanif3981
+ ipv6 enable
+ ip address 192.0.2.1 255.255.255.240
+ ipv6 address 2001:DB8:3981::1/64
+ ipv6 nd ra prefix 2001:DB8:3981::/64 86400 14400 no-autoconfig
+ ipv6 nd ra Max-interval 60
+ ipv6 nd ra router-lifetime 600
+ ipv6 nd ra halt disable
+ ipv6 nd autoconfig managed-address-flag
+ ipv6 nd autoconfig other-flag
+ ipv6 nd ra prefix default no-advertise
+#
+`;
+
+test("VRP writes each setting on the VLAN interface, and plans nothing against how a CE6855 printed them", () => {
+    const vrp = Platforms.get("vrp");
+    const device = vrpAdvertising(VRP_FULL);
+    const desired = vrp.render(device);
+    const printed = desired.replace(/interface Vlanif3981\n[\s\S]*?\n#\n/, VRP_PRINTED);
+
+    expect(vrp.unsupported(device)).toEqual([]);
+    expect(desired).toContain(" ipv6 nd ra prefix default no-advertise\n ipv6 nd ra prefix 2001:DB8:3981::/64 86400 14400 no-autoconfig\n");
+    expect(printed).not.toBe(desired);
+    expect(sent("vrp", desired, printed)).toEqual([]);
+
+    // Without a list, the switch announces the interface's networks. It leaves the most interval out at its default, 600 seconds.
+    expect(vrp.render(vrpAdvertising({ interval: 600 }))).toContain(" ipv6 address 2001:DB8:3981::1/64\n ipv6 nd ra halt disable\n#\n");
+});
+
+test("VRP takes a changed prefix away before it announces it again, and every setting away with the advertisements", () => {
+    const vrp = Platforms.get("vrp");
+    const full = vrp.render(vrpAdvertising(VRP_FULL));
+    const changed = vrp.render(
+        vrpAdvertising({
+            ...VRP_FULL,
+            interval: 120,
+            prefixes: [{ prefix: "2001:db8:3981::/64", valid_lifetime: 86_400, preferred_lifetime: 3600 }],
+        })
+    );
+
+    expect(sent("vrp", changed, full)).toEqual([
+        "interface Vlanif3981",
+        "undo ipv6 nd ra prefix 2001:DB8:3981::/64",
+        "ipv6 nd ra prefix 2001:DB8:3981::/64 86400 3600",
+        "ipv6 nd ra Max-interval 120",
+        "quit",
+    ]);
+
+    const off = vrpAdvertising(VRP_FULL);
+    delete off.interfaces!.vlan_interface!["ctest-a"]!.ipv6_ra;
+    expect(sent("vrp", vrp.render(off), full)).toEqual([
+        "interface Vlanif3981",
+        "undo ipv6 nd autoconfig other-flag",
+        "undo ipv6 nd autoconfig managed-address-flag",
+        "undo ipv6 nd ra halt disable",
+        "undo ipv6 nd ra router-lifetime",
+        "undo ipv6 nd ra Max-interval",
+        "undo ipv6 nd ra prefix 2001:DB8:3981::/64",
+        "undo ipv6 nd ra prefix default no-advertise",
+        "quit",
+    ]);
+});
+
+test("VRP refuses DNS servers and search domains, which V200R005 doesn't announce, and a prefix without both lifetimes", () => {
+    const device = vrpAdvertising({
+        dns_servers: ["2001:db8:3981::53"],
+        dns_search_list: ["example.net"],
+        prefixes: [{ prefix: "2001:db8:3981::/64" }],
+    });
+    device.interfaces!.loopback = { lo: { addresses: ["2001:db8::1/128"], ipv6_ra: true } };
+    const where = "interfaces.vlan_interface.ctest-a.ipv6_ra";
+
+    expect(Platforms.get("vrp").unsupported(device)).toEqual(
+        expect.arrayContaining([
+            `${where}.dns_servers, V200R005 announces no DNS servers (RDNSS)`,
+            `${where}.dns_search_list, V200R005 announces no search domains (DNSSL)`,
+            `${where}.prefixes[0], the platform announces a prefix with both lifetimes: write valid_lifetime and preferred_lifetime`,
+            "interfaces.loopback.lo.ipv6_ra, on a VLAN interface only",
+        ])
     );
 });
