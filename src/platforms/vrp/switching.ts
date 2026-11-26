@@ -34,8 +34,8 @@ export class VrpSwitching {
     static unsupported(device: Device): string[] {
         const found: string[] = [];
 
-        // The CE6855 on V200R005 refused `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` in every view.
-        const noRaGuard = "the platform has no RA guard command";
+        // The CE6855 on V200R005 refused `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` in every view, and ND snooping, whose untrusted ports drop router advertisements on Huawei's S series.
+        const noRaGuard = "V200R005 has no RA guard and no ND snooping";
         if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
         const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
         for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);

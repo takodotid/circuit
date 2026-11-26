@@ -133,8 +133,8 @@ test("VRP sends them only with --experimental, guards every edge port or none, a
         "interfaces.ethernet.10g-41.dhcp_trusted",
     ]);
     expect(vrp.unsupported(device)).toEqual([
-        "switching.ra_guard, the platform has no RA guard command",
-        "interfaces.ethernet.10g-41.ra_trusted, the platform has no RA guard command",
+        "switching.ra_guard, V200R005 has no RA guard and no ND snooping",
+        "interfaces.ethernet.10g-41.ra_trusted, V200R005 has no RA guard and no ND snooping",
     ]);
 
     device.interfaces!.ethernet!["10g-42"] = { access_vlan: "servers", stp: { edge: true } };

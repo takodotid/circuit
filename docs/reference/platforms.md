@@ -60,7 +60,7 @@ A note in a cell means "works, with this limit".
 | QinQ                | ✅                                        | 🧪                            | ✅ ports                              | ✅                      | ❌                  |
 | VLAN translation    | ✅ ports without STP, switched by the CPU | 🧪                            | ❌                                    | 🧪 no native VLAN       | ❌                  |
 | 802.1ad service tag | ✅ on every switched port at once         | 🧪 not on a QinQ port         | ❌                                    | ❌ needs 22.4           | ❌                  |
-| RA guard            | ✅                                        | ❌                            | ❌                                    | ✅                      | ❌                  |
+| RA guard            | ✅                                        | ❌ none in V200R005           | ❌                                    | ✅                      | ❌                  |
 | Hardware ACLs       | ✅                                        | ✅ no rate, no VLAN           | ❌                                    | ✅ a rate needs a burst | ✅ drop rules only  |
 | LLDP                | ✅                                        | ✅                            | ✅                                    | ✅                      | ✅                  |
 | Bridge interface    | ❌                                        | ❌ one VLAN per bridge domain | ❌                                    | ❌                      | ✅                  |
