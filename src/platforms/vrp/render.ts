@@ -11,6 +11,7 @@ import { VrpDhcp } from "./dhcp";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpMonitoring } from "./monitoring";
 import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
@@ -35,32 +36,11 @@ export class VrpRender {
     /** The ACL that guards SNMP when it has sources of its own. */
     private static readonly SNMP_ACL = 2001;
 
-    /** The channel that writes the log files on the device's own storage. */
-    private static readonly LOGFILE_CHANNEL = 9;
-
-    /** How many log files the device keeps when the config sets none. It is not printed. */
-    private static readonly LOGFILES_DEFAULT = 200;
-
     /** The BFD multiplier the device uses when the config sets none. It is not printed. */
     private static readonly BFD_MULTIPLIER = 3;
 
     /** An OSPF interface's DR priority when the config sets none. It is not printed. */
     private static readonly OSPF_PRIORITY = 1;
-
-    /** The syslog port the device uses when the config sets none. It is not printed. */
-    private static readonly SYSLOG_PORT = 514;
-
-    /** A severity as the platform spells it. `debugging` is the default for a log host and for the log files, and is not printed. */
-    private static readonly LOG_LEVEL = {
-        emergency: "emergencies",
-        alert: "alert",
-        critical: "critical",
-        error: "error",
-        warning: "warning",
-        notice: "notification",
-        info: "informational",
-        debug: "debugging",
-    } as const;
 
     /** One process per device. */
     private static readonly OSPF_PROCESS = 1;
@@ -73,17 +53,9 @@ export class VrpRender {
         "non-broadcast": "nbma",
     } as const satisfies Record<NonNullable<OspfInterface["network"]>, string>;
 
-    /** The sFlow collectors are numbered from here, in the order the config lists them. */
-    private static readonly FIRST_COLLECTOR = 1;
-
-    /** The SNMPv3 group every user joins, with read access to everything. */
-    private static readonly SNMP_GROUP = "circuit";
-
     private static readonly ALARM_SEVERITY = { critical: "Critical", major: "Major", minor: "Minor", warning: "Warning" } as const;
 
     private static readonly USER_LEVEL = { admin: 3, operator: 2, "read-only": 1 } as const;
-    private static readonly SNMP_AUTH = { sha1: "sha", sha256: "sha2-256" } as const;
-    private static readonly SNMP_PRIVACY = { aes128: "aes128", des: "des56" } as const;
 
     /** Layer 2 ACLs, one for each set of ethertypes a port takes, are numbered from here. */
     private static readonly FIRST_L2_ACL = 4000;
@@ -200,10 +172,9 @@ export class VrpRender {
             this.separator();
         }
 
-        this.flowExport();
-        this.logging();
+        this.lines.push(...VrpMonitoring.flowLines(device), ...VrpMonitoring.loggingLines(device));
         this.alarms();
-        this.snmp();
+        this.lines.push(...VrpMonitoring.snmpLines(device, this.snmpGuard()));
         this.ssh();
         this.userInterfaces();
         return this.text();
@@ -572,15 +543,7 @@ export class VrpRender {
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
         lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl));
 
-        const flow = this.device.monitoring?.flow_export;
-        const observed = flow?.protocol === "sflow" && (!flow.interfaces || flow.interfaces.includes(port));
-        if (observed) {
-            for (let index = 0; index < flow!.collectors.length; index++)
-                lines.push(`sflow sampling collector ${VrpRender.FIRST_COLLECTOR + index}`);
-            lines.push(`sflow sampling rate ${flow!.sampling}`);
-            lines.push("sflow sampling inbound");
-        }
-
+        lines.push(...VrpMonitoring.portLines(this.device, port));
         return lines;
     }
 
@@ -700,42 +663,6 @@ export class VrpRender {
         return onOspf || onStatic || VrpIsis.wantsBfd(this.device);
     }
 
-    private flowExport(): void {
-        const device = this.device;
-        const flow = device.monitoring?.flow_export;
-        if (flow?.protocol !== "sflow") return;
-
-        if (device.connection.host) this.line(`sflow agent ip ${device.connection.host}`);
-
-        flow.collectors.forEach((collector, index) => {
-            const number = VrpRender.FIRST_COLLECTOR + index;
-            this.line(`sflow collector ${number} ip ${collector.address} udp-port ${collector.port ?? 6343}`);
-        });
-
-        this.separator();
-    }
-
-    private logging(): void {
-        const local = this.device.system?.logging?.local;
-        const collectors = this.device.monitoring?.syslog;
-        if (!this.device.system?.logging && !collectors) return;
-
-        if (local && local.level !== "debug") {
-            this.line(`info-center source default channel ${VrpRender.LOGFILE_CHANNEL} log level ${VrpRender.LOG_LEVEL[local.level]}`);
-        }
-
-        if (local?.files !== undefined && local.files !== VrpRender.LOGFILES_DEFAULT)
-            this.line(`info-center max-logfile-number ${local.files}`);
-
-        for (const collector of collectors ?? []) {
-            const level = collector.level === "debug" ? "" : ` level ${VrpRender.LOG_LEVEL[collector.level]}`;
-            const port = collector.port !== undefined && collector.port !== VrpRender.SYSLOG_PORT ? ` port ${collector.port}` : "";
-            this.line(`info-center loghost ${collector.address}${level}${port}`);
-        }
-
-        this.separator();
-    }
-
     /** Alarms raised at another severity than the platform's own, in the `alarm` view. The platform prints a severity with a capital, `Warning`. */
     private alarms(): void {
         const alarms = Object.entries(this.device.system?.alarms ?? {});
@@ -747,40 +674,10 @@ export class VrpRender {
         );
     }
 
-    /** SNMP version 2c with one read community, version 3 with users in one read-only group, or both. */
-    private snmp(): void {
-        const device = this.device;
-        const snmp = device.monitoring?.snmp;
-        if (!snmp) return;
-
-        const versions = [snmp.community ? "v2c" : "", snmp.users ? "v3" : ""].filter(Boolean).join(" ");
-        const own = (snmp.allow?.length ?? 0) > 0;
-        const guarded = VrpRender.managementAllow(device).length > 0;
-        const acl = own ? ` acl ${VrpRender.SNMP_ACL}` : guarded ? ` acl ${VrpRender.MANAGEMENT_ACL}` : "";
-
-        this.line("snmp-agent");
-        this.line(`snmp-agent sys-info version ${versions}`);
-        if (snmp.contact) this.line(`snmp-agent sys-info contact ${snmp.contact}`);
-        if (snmp.location) this.line(`snmp-agent sys-info location ${snmp.location}`);
-        if (snmp.community) this.line(`snmp-agent community read cipher ${Secrets.marker(snmp.community)}${acl}`);
-        if (snmp.users) {
-            this.line("snmp-agent mib-view included all iso");
-            this.line(`snmp-agent group v3 ${VrpRender.SNMP_GROUP} privacy read-view all${acl}`);
-
-            for (const [name, user] of Object.entries(snmp.users)) {
-                // The switch prints a user's own line before its settings.
-                this.line(`snmp-agent usm-user v3 ${name}`);
-                this.line(`snmp-agent usm-user v3 ${name} group ${VrpRender.SNMP_GROUP}`);
-                this.line(
-                    `snmp-agent usm-user v3 ${name} authentication-mode ${VrpRender.SNMP_AUTH[user.auth]} cipher ${Secrets.marker(user.auth_password)}`
-                );
-                this.line(
-                    `snmp-agent usm-user v3 ${name} privacy-mode ${VrpRender.SNMP_PRIVACY[user.privacy]} cipher ${Secrets.marker(user.privacy_password)}`
-                );
-            }
-        }
-
-        this.separator();
+    /** The ACL that guards SNMP: its own when it has sources of its own, else the one of every management service, else none. */
+    private snmpGuard(): number | undefined {
+        if ((this.device.monitoring?.snmp?.allow?.length ?? 0) > 0) return VrpRender.SNMP_ACL;
+        return VrpRender.managementAllow(this.device).length > 0 ? VrpRender.MANAGEMENT_ACL : undefined;
     }
 
     private ssh(): void {

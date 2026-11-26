@@ -21,6 +21,7 @@ import { VrpDhcp } from "./dhcp";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpMonitoring } from "./monitoring";
 import { VrpOspf } from "./ospf";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
@@ -135,8 +136,6 @@ export class Vrp extends Platform {
     /** Ranges the platform takes. */
     private static readonly BFD_INTERVAL_MS = { min: 50, max: 1000 };
     private static readonly BFD_MULTIPLIER = { min: 3, max: 50 };
-    private static readonly LOGFILES = { min: 3, max: 500 };
-    private static readonly SAMPLING = { min: 4096, max: 4294967295 };
 
     override readonly name = "vrp";
 
@@ -323,29 +322,7 @@ export class Vrp extends Platform {
         if (device.services?.dns_server) found.push("services.dns_server");
         if (device.services?.dns64) found.push("services.dns64, which needs services.dns_server");
 
-        const local = system.logging?.local;
-        if (local?.lines_per_file !== undefined)
-            found.push("system.logging.local.lines_per_file, the platform sizes a log file in megabytes");
-        if (local?.files !== undefined && !Vrp.inRange(local.files, Vrp.LOGFILES))
-            found.push(`system.logging.local.files, between ${Vrp.LOGFILES.min} and ${Vrp.LOGFILES.max} on the platform`);
-
-        const monitoring = device.monitoring ?? {};
-
-        for (const collector of monitoring.syslog ?? []) {
-            if (Address.family(collector.address) === "ipv6") found.push(`monitoring.syslog ${collector.address}, IPv6 is not tested`);
-        }
-
-        for (const source of monitoring.snmp?.allow ?? []) {
-            if (Address.family(Address.split(source).addr) === "ipv6") found.push(`monitoring.snmp.allow ${source}, IPv6 is not tested`);
-        }
-
-        if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
-        found.push(...Derive.unbuiltMonitoring(device));
-        // Huawei's NQA documentation for CloudEngine V200R005C10.
-        for (const name of Object.keys(monitoring.probes ?? {}))
-            found.push(
-                `monitoring.probes.${name}, not built for VRP: NQA asks before it changes a running test, and deletes none until it is stopped`
-            );
+        found.push(...VrpMonitoring.unsupported(device));
 
         // SNMP takes sources of its own here, in an ACL of its own.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
@@ -394,18 +371,6 @@ export class Vrp extends Platform {
             if (kind !== "vlan_interface") found.push(`${where}.urpf, only on a VLAN interface`);
             else if (settings.urpf.ipv4 === "strict") found.push(`${where}.urpf.ipv4 strict, the CE6855 checks in loose mode only`);
             if (settings.urpf.ipv6) found.push(`${where}.urpf.ipv6, which the platform does not build`);
-        }
-
-        const flow = monitoring.flow_export;
-        if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
-        const sampling = flow?.protocol === "sflow" ? flow.sampling : undefined;
-        const samplingInRange = sampling !== undefined && Vrp.inRange(sampling, Vrp.SAMPLING);
-        const { min, max } = Vrp.SAMPLING;
-
-        if (flow?.protocol === "sflow" && !samplingInRange) {
-            found.push(
-                `monitoring.flow_export.sampling, required and between ${min} and ${max}: the platform samples, one packet in ${min} at most`
-            );
         }
 
         return found;
