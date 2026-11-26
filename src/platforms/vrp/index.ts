@@ -403,9 +403,9 @@ export class Vrp extends Platform {
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
-        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links, and a DNS server. A prefix a router advertisement announces is undone before it changes.
+        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links, and a DNS server. A prefix a router advertisement announces is undone before it changes. A VLAN list is changed by the VLANs added and removed (`LineDiff.vlanListChange`), which needs the old one.
         if (
-            /^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer|ipv6 nd ra prefix|dns server) /.test(
+            /^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer|ipv6 nd ra prefix|dns server|vlan batch) /.test(
                 line
             )
         )

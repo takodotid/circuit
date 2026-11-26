@@ -2,6 +2,16 @@ import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
 import { LineDiff } from "../../src/platforms/line-diff";
 
+// Both lists end in `to`, so the old one looked replaced by the new one, which was sent whole, and a VLAN that went was never taken off the list.
+test("a VRP VLAN list that changes only in its last VLAN sends the VLAN added or removed", () => {
+    const adapter = Platforms.get("vrp");
+    const options = { secrets: false, rollback: 10 };
+    const sent = (desired: string, current: string) => adapter.plan(desired, current, options).steps.flatMap((step) => step.send);
+
+    expect(sent("vlan batch 98 3983 to 3987\n#\n", "vlan batch 98 3983 to 3986\n#\n")).toEqual(["vlan batch 3987"]);
+    expect(sent("vlan batch 98 3983 to 3986\n#\n", "vlan batch 98 3983 to 3987\n#\n")).toEqual(["undo vlan batch 3987"]);
+});
+
 // A CE6855 on V200R005C00SPC800 refused `undo interface Eth-Trunk39` while a port was still in it.
 test("a VRP LAG goes after its members have left it", () => {
     const adapter = Platforms.get("vrp");
