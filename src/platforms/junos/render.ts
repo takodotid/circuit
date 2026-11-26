@@ -692,7 +692,7 @@ export class JunosRender {
         }
     }
 
-    /** A route with a distance names its next hop as qualified, so two routes to one prefix can each have their own. */
+    /** A route with a distance names its next hop as qualified, so two routes to one prefix can each have their own. A next hop with its interface is qualified too, as only a qualified one takes an interface. */
     private staticRoutes(): void {
         if (this.device.routing?.router_id) this.out.set("routing-options router-id", this.device.routing.router_id);
 
@@ -706,8 +706,11 @@ export class JunosRender {
             }
 
             const nextHop = route.next_hop ? Address.host(route.next_hop) : this.names.unit(route.interface!);
-            if (route.distance === undefined) this.out.set(statement, "next-hop", nextHop);
-            else this.out.set(statement, "qualified-next-hop", nextHop, "preference", route.distance);
+            const qualified = route.distance !== undefined || (route.next_hop && route.interface);
+            if (!qualified) this.out.set(statement, "next-hop", nextHop);
+            if (route.distance !== undefined) this.out.set(statement, "qualified-next-hop", nextHop, "preference", route.distance);
+            if (route.next_hop && route.interface)
+                this.out.set(statement, "qualified-next-hop", nextHop, "interface", this.names.unit(route.interface));
 
             if (route.bfd) this.out.bfd(statement, this.device.routing?.bfd);
         }

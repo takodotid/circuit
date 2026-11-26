@@ -116,6 +116,9 @@ export class Junos extends Platform {
             .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa."))
             .map(({ where }) => where);
         if (device.routing?.vrf_imports) found.push("routing.vrf_imports");
+        // A next hop with its interface passed `commit check` only.
+        for (const route of device.routing?.static_routes ?? [])
+            if (route.next_hop && route.interface) found.push(`routing.static_routes ${route.prefix} interface`);
         found.push(...JunosDhcp.experimental(device));
         // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
         if (device.routing?.mpls) found.push("routing.mpls");
@@ -349,9 +352,11 @@ export class Junos extends Platform {
 
         for (const route of routing?.static_routes ?? []) {
             if (route.description) found.push(`routing.static_routes ${route.prefix} description`);
-            // The render writes the next hop alone, so the interface would be lost.
-            if (route.next_hop && route.interface)
-                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
+            // The switch fails `commit check` on it: `link-local next-hop must be configured with an interface` (TRAPS.md).
+            if (route.next_hop && !route.interface && Address.contains("fe80::/10", Address.host(route.next_hop)))
+                found.push(
+                    `routing.static_routes ${route.prefix} next_hop ${route.next_hop} without interface: write the interface that reaches it`
+                );
 
             const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             tables.set(table, (tables.get(table) ?? 0) + 1);
