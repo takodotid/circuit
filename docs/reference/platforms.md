@@ -107,7 +107,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | VRFs                         | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | BGP in a VRF                 | ✅                          | ❌                          | ❌                       | ✅                    | ❌ needs 6.4     |
 | Routes taken between VRFs    | ✅ not with main            | ❌                          | ❌                       | 🧪                    | ❌ needs 6.4     |
-| Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ no tables     |
 | OSPF                         | ✅                          | IPv4                        | IPv4                     | ✅                    | ✅               |
 | OSPF in a VRF                | ✅                          | ❌                          | ❌                       | ✅                    | ✅ OSPFv2        |
 | OSPF stub and NSSA areas     | ✅                          | 🧪                          | ❌                       | ✅                    | ✅               |

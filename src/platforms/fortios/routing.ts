@@ -3,6 +3,7 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
+import { Utils } from "../../core/utils";
 import type {
     Device,
     Family,
@@ -679,6 +680,7 @@ export class FortiOsRouting {
         if (routing?.vrf_imports)
             found.push("routing.vrf_imports, FortiOS 6.2 takes no routes from one VRF into another: route leaking between VRFs needs 6.4");
         if (routing?.router_id && !routing.ospf && !routing.bgp) found.push("routing.router_id without OSPF or BGP, which each hold it");
+        found.push(...FortiOsRouting.tableGaps(device));
         if (routing?.bgp && routing.bgp.asn === undefined) found.push("routing.bgp without asn, which the platform's BGP needs");
 
         const ospf = routing?.ospf;
@@ -776,6 +778,25 @@ export class FortiOsRouting {
                 found.push(...FortiOsRouting.ruleGaps(device, `routing.policies.${name}[${index}]`, rule))
             );
         }
+
+        return found;
+    }
+
+    /** A table beside the main one, and policy routing to it. A static route takes the VRF of the interface it leaves through, and a policy route sends traffic to a next hop, not to a table (TRAPS.md). */
+    private static tableGaps(device: Device): string[] {
+        const routing = device.routing;
+        const noTables = "FortiOS 6.2 has no routing table beside its VRFs";
+        const found: string[] = [];
+
+        if (routing?.tables) found.push(`routing.tables, ${noTables}`);
+        if (routing?.policy_routing)
+            found.push("routing.policy_routing, FortiOS 6.2 policy routes send traffic to a next hop, not to a table");
+        for (const route of routing?.static_routes ?? [])
+            if (Utils.otherTable(route.routing_table)) found.push(`routing.static_routes ${route.prefix} routing_table, ${noTables}`);
+        for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
+            if (Utils.otherTable(group?.routing_table)) found.push(`routing.bgp.neighbor_groups.${name}.routing_table, ${noTables}`);
+        for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {}))
+            if (Utils.otherTable(neighbor?.routing_table)) found.push(`routing.bgp.neighbors.${name}.routing_table, ${noTables}`);
 
         return found;
     }

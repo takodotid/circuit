@@ -245,6 +245,21 @@ test("a platform that has not tested routing tables refuses them, by the field",
     expect(platform.unsupported(withBlockB())).toEqual([]);
 });
 
+test("FortiOS refuses a table beside the main one, which it has none of, and policy routing to it", () => {
+    const { name, site, connection, system, routing } = withBlockB();
+    const firewall: Device = { name, site, connection, system: { users: system?.users }, routing, platform: "fortios", model: "FG-3700D" };
+    const refused = Platforms.get("fortios")
+        .unsupported(firewall)
+        .filter((field) => /table|policy_routing/.test(field));
+
+    expect(refused).toEqual([
+        "routing.tables, FortiOS 6.2 has no routing table beside its VRFs",
+        "routing.policy_routing, FortiOS 6.2 policy routes send traffic to a next hop, not to a table",
+        "routing.static_routes 2001:db8:200::/48 routing_table, FortiOS 6.2 has no routing table beside its VRFs",
+        "routing.bgp.neighbors.as64510.routing_table, FortiOS 6.2 has no routing table beside its VRFs",
+    ]);
+});
+
 test("a table on a neighbor group installs its sessions in it, as a table on the session does", () => {
     const device = withBlockB();
     const routing = device.routing!;
