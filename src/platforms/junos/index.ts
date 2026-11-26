@@ -870,7 +870,10 @@ export class Junos extends Platform {
             if (!neighbor) continue;
 
             const settings = JunosBgp.settingsOf(device, neighbor);
-            if (settings.role) found.push(`routing.bgp.neighbors.${name}.role, Junos 21 has no BGP roles`);
+            if (settings.role)
+                found.push(
+                    `routing.bgp.neighbors.${name}.role, which Junos 21.4 lacks: Juniper builds BGP roles from 25.2R1, and a QFX5100 refuses otc-local-role`
+                );
             // `ttl 255` fails `commit check` on any session but a single-hop eBGP one (TRAPS.md).
             if (settings.ttl_security && settings.remote_as === bgp?.asn)
                 found.push(
