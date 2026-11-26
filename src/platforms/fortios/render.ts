@@ -23,6 +23,7 @@ import { FortiOsMonitoring } from "./monitoring";
 import { FortiOsNat64 } from "./nat64";
 import { FortiOsQos } from "./qos";
 import { FortiOsShaping } from "./shaping";
+import { FortiOsTcpMss } from "./tcp-mss";
 import { FortiOsNames } from "./names";
 import { FortiOsPppoe } from "./pppoe";
 import { FortiOsRemoteAccess } from "./remote-access";
@@ -660,6 +661,8 @@ export class FortiOsRender {
 
         const vrf = FortiOsNames.vrfNumber(device, settings.vrf);
         if (vrf) entry.set("vrf", vrf);
+        const mss = FortiOsTcpMss.of(device).get(name);
+        if (mss !== undefined) entry.set("tcp-mss", mss);
 
         // A tunnel holds an IPv4 address as a host and its peer with the link's mask.
         const peer = settings.addresses?.find((item): item is { address: string; peer_address: string } => typeof item !== "string");

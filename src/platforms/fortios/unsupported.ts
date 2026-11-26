@@ -14,6 +14,7 @@ import { FortiOsRemoteAccess } from "./remote-access";
 import { FortiOsRender } from "./render";
 import { FortiOsRouting } from "./routing";
 import { FortiOsShaping } from "./shaping";
+import { FortiOsTcpMss } from "./tcp-mss";
 import { FortiOsVdoms } from "./vdoms";
 
 /** The fields of a match that may hold a list or an interface set before Circuit writes them out. */
@@ -48,6 +49,7 @@ export class FortiOsUnsupported {
         found.push(...FortiOsUnsupported.staticGaps(device));
         found.push(...FortiOsRouting.gaps(device));
         found.push(...FortiOsUnsupported.firewallGaps(device));
+        found.push(...FortiOsTcpMss.gaps(device));
         found.push(...FortiOsNat64.gaps(device));
         found.push(...FortiOsUnsupported.serviceGaps(device));
 
@@ -80,6 +82,7 @@ export class FortiOsUnsupported {
         // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for, and imports between VRFs, which it has none of. FortiOsShaping.gaps refuses a rate for each prefix.
         found.push(
             ...Derive.unbuilt(device, [
+                "tcp-mss",
                 "vrf-imports",
                 "proxy-arp",
                 "urpf",

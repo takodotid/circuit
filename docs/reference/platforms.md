@@ -172,7 +172,7 @@ On Junos, policy routing is Juniper's filter-based forwarding, experimental: a Q
 | CGNAT pool, dynamic                | ❌                                       | ❌                            | ❌                         | ❌                                           | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
 | CGNAT pool, block timeout          | ❌                                       | ❌                            | ❌                         | ❌                                           | ✅ 3 to 300 seconds                             |
 | NAT64                              | ❌                                       | ❌                            | ❌                         | ❌                                           | 🧪 a /96 prefix                                 |
-| TCP MSS clamp                      | ✅                                       | ❌                            | ❌                         | ❌                                           | ❌                                              |
+| TCP MSS clamp                      | ✅                                       | ❌                            | ❌                         | ❌                                           | ✅ a number, on the interface a SYN arrives on  |
 | IPsec, policy-based (IKEv2)        | ✅ no AES-GCM in IKE, not with fast path | ❌                            | ❌                         | ❌                                           | ✅ IPv4                                         |
 | IPsec, policy-based, certificates  | ✅ one CA on the device                  | ❌                            | ❌                         | ❌                                           | ✅ IPv4                                         |
 | IPsec remote access, EAP           | ✅ one on the device, not with fast path | ❌                            | ❌                         | ❌                                           | 🧪 one on the device                            |
@@ -230,6 +230,8 @@ NAT64 and DNS64 are built on FortiOS only:
 - **Junos.** A QFX5100 has no NAT: Juniper's Feature Explorer lists none for it on 21.4. NAT64 runs on SRX firewalls and on MX routers with a services card.
 - **VRP.** Circuit builds no NAT there. Huawei's FAQ on NAT in CloudEngine switches gives it to the CE12800 with a firewall card only, and Huawei builds NAT64 on NE routers with a CGN board.
 - **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.
+
+On FortiOS a TCP MSS clamp is the `tcp-mss` of the interface its `if.in_interface` names. FortiOS 6.2 lowers the MSS of each SYN and SYN-ACK that arrives on that interface, of both families, and leaves one that offers less as it is. So a clamp there names its interface alone, with a number of bytes, not `path_mtu`, and the clamps of one interface agree.
 
 Option 82 on a DHCP relay is proven on RouterOS. Two platforms build it, but no request relayed through them has shown what they add:
 
