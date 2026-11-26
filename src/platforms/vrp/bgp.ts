@@ -93,7 +93,6 @@ export class VrpBgp {
 
         if (bgp && bgp.asn === undefined) found.push("routing.bgp.asn, absent: write it here or in circuit.ts");
         if (bgp?.confederation) found.push(`routing.bgp.confederation, ${notBuilt}`);
-        if (bgp?.aggregates) found.push(`routing.bgp.aggregates, ${notBuilt}`);
         const routerId = device.routing?.router_id;
         if (bgp && routerId && Address.family(routerId) === "ipv6") found.push("routing.router_id, IPv6: BGP takes an IPv4 router ID");
 
@@ -213,6 +212,10 @@ export class VrpBgp {
         const entry = /^(ip ip-prefix|ip ipv6-prefix|ip community-filter basic|ip as-path-filter) (\S+ index \d+) /.exec(line);
         if (entry) return `undo ${entry[1]} ${entry[2]}`;
 
+        // An aggregate is undone by its address and mask, without `detail-suppressed`.
+        const aggregate = /^aggregate \S+ \S+/.exec(line);
+        if (aggregate) return `undo ${aggregate[0]}`;
+
         const applied = /^apply (local-preference|cost|as-path|community|comm-filter) /.exec(line);
         if (applied) return `undo apply ${applied[1]}`;
 
@@ -221,7 +224,7 @@ export class VrpBgp {
 
     /** Which lines are one setting with two values: none of BGP's and the route-policies'. Each line is undone before its new value, and a session's new AS goes through `renewPeers`. */
     static head(line: string): string | undefined {
-        return /^(peer|network|router-id|reflector|if-match|apply|route-policy|bgp) |^(ip ip-prefix|ip ipv6-prefix|ip community-filter|ip as-path-filter) /.test(
+        return /^(peer|network|aggregate|router-id|reflector|if-match|apply|route-policy|bgp) |^(ip ip-prefix|ip ipv6-prefix|ip community-filter|ip as-path-filter) /.test(
             line
         )
             ? line
@@ -255,6 +258,13 @@ export class VrpBgp {
             families[family].push(
                 family === "ipv4" ? `network ${addr} ${Address.netmask(len)}` : `network ${VrpPolicies.spell(addr)} ${len}`
             );
+        }
+
+        // `detail-suppressed` keeps back the routes inside the aggregate.
+        for (const { prefix, summary_only: summaryOnly } of bgp.aggregates ?? []) {
+            const { addr, len, family } = Address.split(prefix);
+            const mask = family === "ipv4" ? `${addr} ${Address.netmask(len)}` : `${VrpPolicies.spell(addr)} ${len}`;
+            families[family].push(`aggregate ${mask}${summaryOnly ? " detail-suppressed" : ""}`);
         }
 
         for (const neighbor of neighbors) {

@@ -221,3 +221,36 @@ test("graceful restart is one setting for every session, so one on only some nei
         "routing.bgp.neighbors.transit.graceful_restart, but not on member: the platform turns it on for every session at once. Set it on every neighbor or on none",
     ]);
 });
+
+test("an aggregate is written in its family's view, and undone by its address and mask", () => {
+    const aggregated = (summaryOnly: boolean) =>
+        sessions(
+            {},
+            {
+                originated_prefixes: ["198.51.100.0/25", "2001:db8:100::/48"],
+                aggregates: [
+                    { prefix: "198.51.100.0/24", ...(summaryOnly ? { summary_only: true } : {}) },
+                    { prefix: "2001:db8:100::/40" },
+                ],
+            }
+        );
+    const rendered = vrp.render(aggregated(true));
+
+    expect(rendered).toContain("  aggregate 198.51.100.0 255.255.255.0 detail-suppressed\n");
+    expect(rendered).toContain(" ipv6-family unicast\n  network 2001:DB8:100:: 48\n  aggregate 2001:DB8:100:: 40\n");
+    // The switch prints an aggregate first in its view, with two spaces after it.
+    const printed = rendered.replace(
+        "  network 198.51.100.0 255.255.255.128\n  aggregate 198.51.100.0 255.255.255.0 detail-suppressed\n",
+        "  aggregate 198.51.100.0 255.255.255.0 detail-suppressed  \n  network 198.51.100.0 255.255.255.128\n"
+    );
+    expect(printed).not.toBe(rendered);
+    expect(plan(rendered, printed).steps).toEqual([]);
+    expect(sent(vrp.render(aggregated(false)), rendered)).toEqual([
+        "bgp 65001",
+        "ipv4-family unicast",
+        "undo aggregate 198.51.100.0 255.255.255.0",
+        "aggregate 198.51.100.0 255.255.255.0",
+        "quit",
+        "quit",
+    ]);
+});
