@@ -63,7 +63,7 @@ export class VrpEvpn {
             const local = Address.host(segment.local_address);
             if (Address.family(local) === "ipv6") found.push(`${where}.local_address, IPv6: not built yet`);
             else if (!VrpBgp.interfaceOf(device, local))
-                found.push(`${where}.local_address ${local}, no VLAN interface of the device holds it: VRP builds no loopback yet`);
+                found.push(`${where}.local_address ${local}, no VLAN interface or loopback of the device holds it`);
             const vlanInterface = Object.entries(device.interfaces?.vlan_interface ?? {}).find(
                 ([, iface]) => iface?.vlan === segment.access_vlan
             );

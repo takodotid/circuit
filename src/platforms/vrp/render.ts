@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Lag, Limit, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
+import type { Device, Gre, Lag, Limit, Loopback, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
@@ -11,6 +11,7 @@ import { VrpDhcp } from "./dhcp";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
 import { VrpQos } from "./qos";
@@ -64,13 +65,13 @@ export class VrpRender {
     /** One process per device. */
     private static readonly OSPF_PROCESS = 1;
 
-    /** `ospf network-type` for each network type. Broadcast is a VLAN interface's own, which the switch does not print. */
+    /** `ospf network-type` for each network type. */
     private static readonly OSPF_NETWORK = {
-        broadcast: undefined,
+        broadcast: "broadcast",
         "point-to-point": "p2p",
         "point-to-multipoint": "p2mp",
         "non-broadcast": "nbma",
-    } as const satisfies Record<NonNullable<OspfInterface["network"]>, string | undefined>;
+    } as const satisfies Record<NonNullable<OspfInterface["network"]>, string>;
 
     /** The sFlow collectors are numbered from here, in the order the config lists them. */
     private static readonly FIRST_COLLECTOR = 1;
@@ -167,6 +168,18 @@ export class VrpRender {
             if (iface) this.block(`interface ${this.nameOf(name)}`, this.vlanInterface(name, iface));
         }
 
+        for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {})) {
+            if (loopback)
+                this.block(`interface ${this.nameOf(name)}`, [
+                    ...this.addressing(name, loopback),
+                    ...this.ospfLines(name, "point-to-point"),
+                ]);
+        }
+
+        for (const [name, tunnel] of Object.entries(device.interfaces?.gre ?? {})) {
+            if (tunnel) this.block(`interface ${this.nameOf(name)}`, this.gre(name, tunnel));
+        }
+
         for (const port of Catalog.ports(device.platform, device.model)) {
             this.block(`interface ${this.nameOf(port)}`, this.physicalPort(port, device.interfaces?.ethernet?.[port]));
         }
@@ -226,18 +239,12 @@ export class VrpRender {
         if (limited.length) this.separator();
     }
 
-    /** A port's or a LAG's rate limit: its CAR profile on what arrives, and a rate limit on what leaves. */
+    /** A port's or a LAG's rate limit, in the order the switch prints them: a rate limit on what leaves, and its CAR profile on what arrives. */
     private static rateLimitLines(name: string, rateLimit: RateLimit | undefined): string[] {
         const lines: string[] = [];
+        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.rate(rateLimit.output)} outbound`);
         if (rateLimit?.input) lines.push(`qos car inbound ${VrpRender.carName(name)}`);
-        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.outputRate(rateLimit.output)} outbound`);
         return lines;
-    }
-
-    /** The switch prints a rate limit on what leaves with its unit: `cir 95000 kbps`. How it prints one with a burst is not proven yet, so that is written as the switch takes it. */
-    private static outputRate(limit: Limit): string {
-        const rate = VrpRender.rate(limit);
-        return Derive.limit(limit).burst === undefined ? `${rate} kbps` : rate;
     }
 
     /** The CAR profile of a port or a LAG, by its name in the config: `rate-limit-10g-1`. */
@@ -245,11 +252,11 @@ export class VrpRender {
         return `rate-limit-${name}`;
     }
 
-    /** `cir 200000 cbs 250000`: the rate in kbit/s, then the burst when the config sets one. */
+    /** `cir 200000 kbps cbs 250000 bytes`: the rate in kbit/s, then the burst in bytes when the config sets one, each with its unit, as the switch prints them. */
     private static rate(limit: Limit): string {
         const { rate, burst } = Derive.limit(limit);
-        const cir = `cir ${Derive.bitsPerSecond(rate) / VrpRender.BITS_PER_KBIT}`;
-        return burst === undefined ? cir : `${cir} cbs ${burst}`;
+        const cir = `cir ${Derive.bitsPerSecond(rate) / VrpRender.BITS_PER_KBIT} kbps`;
+        return burst === undefined ? cir : `${cir} cbs ${burst} bytes`;
     }
 
     /** A header and its lines. A block with nothing in it is still written, so that its header exists. */
@@ -269,14 +276,15 @@ export class VrpRender {
         return this.vlans[name]!.id;
     }
 
-    /** What the platform calls a port, a LAG, or a VLAN interface. */
+    /** What the platform calls a port, a LAG, a VLAN interface, a loopback, or a GRE tunnel. */
     private nameOf(portOrInterface: string): string {
         if (this.lags[portOrInterface]) return `Eth-Trunk${this.lagNumbers.get(portOrInterface)}`;
 
         const vlanInterface = this.vlanInterfaces[portOrInterface];
         if (vlanInterface) return `Vlanif${this.vlanId(vlanInterface.vlan)}`;
 
-        return Catalog.spell(this.device.platform, this.device.model, portOrInterface);
+        const own = VrpNames.loopback(this.device, portOrInterface) ?? VrpNames.tunnel(this.device, portOrInterface);
+        return own ?? Catalog.spell(this.device.platform, this.device.model, portOrInterface);
     }
 
     private system(): void {
@@ -473,20 +481,7 @@ export class VrpRender {
 
     private vlanInterface(name: string, iface: VlanInterface): string[] {
         const device = this.device;
-        const lines: string[] = [];
-        if (iface.description) lines.push(`description ${iface.description}`);
-        // Binding to a VRF clears the addresses, so it comes first.
-        if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
-
-        // The switch takes an IPv6 address, or IS-IS for IPv6, only once IPv6 is on.
-        const addresses = (iface.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
-        if (addresses.some((address) => Address.family(address) === "ipv6") || VrpIsis.runsIpv6(device, name)) lines.push("ipv6 enable");
-
-        for (const address of addresses) {
-            if (Address.family(address) === "ipv4")
-                lines.push(`ip address ${Address.host(address)} ${Address.netmask(Address.split(address).len)}`);
-            else lines.push(`ipv6 address ${VrpPolicies.spell(address)}`);
-        }
+        const lines = this.addressing(name, iface);
 
         // Loose, the CloudEngine command reference's only mode on a VLAN interface. `unsupported()` refuses the rest.
         if (iface.urpf?.ipv4 === "loose") lines.push("ip urpf enable");
@@ -499,13 +494,49 @@ export class VrpRender {
             for (const server of relays.flatMap((relay) => relay.servers)) lines.push(`dhcp relay binding server ip ${server}`);
         }
 
-        for (const area of Object.values(device.routing?.ospf?.areas ?? {})) {
+        lines.push(...this.ospfLines(name, "broadcast"));
+        lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
+        return lines;
+    }
+
+    /** A GRE tunnel: `tunnel-protocol gre` comes before the ends it joins, and they before its addresses. */
+    private gre(name: string, tunnel: Gre): string[] {
+        const lines = tunnel.description ? [`description ${tunnel.description}`] : [];
+        lines.push("tunnel-protocol gre", `source ${Address.host(tunnel.local_address)}`, `destination ${tunnel.remote_address}`);
+        const addressing = this.addressing(name, tunnel).filter((line) => !line.startsWith("description "));
+        return [...lines, ...addressing, ...this.ospfLines(name, "point-to-point")];
+    }
+
+    /** An interface's description, VRF, and addresses. Binding to a VRF clears the addresses, so it comes first. */
+    private addressing(name: string, iface: VlanInterface | Loopback | Gre): string[] {
+        const lines: string[] = [];
+        if (iface.description) lines.push(`description ${iface.description}`);
+        if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
+
+        // The switch takes an IPv6 address, or IS-IS for IPv6, only once IPv6 is on.
+        const addresses = (iface.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+        if (addresses.some((address) => Address.family(address) === "ipv6") || VrpIsis.runsIpv6(this.device, name))
+            lines.push("ipv6 enable");
+
+        for (const address of addresses) {
+            if (Address.family(address) === "ipv4")
+                lines.push(`ip address ${Address.host(address)} ${Address.netmask(Address.split(address).len)}`);
+            else lines.push(`ipv6 address ${VrpPolicies.spell(address)}`);
+        }
+
+        return lines;
+    }
+
+    /** An interface's own OSPF settings, from the area that holds it. The switch does not print the network type that is the interface's own: broadcast on a VLAN interface, point-to-point on a loopback or a tunnel. */
+    private ospfLines(name: string, own: NonNullable<OspfInterface["network"]>): string[] {
+        const lines: string[] = [];
+
+        for (const area of Object.values(this.device.routing?.ospf?.areas ?? {})) {
             const settings = area.interfaces[name];
             if (!settings) continue;
 
             if (settings.cost !== undefined) lines.push(`ospf cost ${settings.cost}`);
-            const network = settings.network && VrpRender.OSPF_NETWORK[settings.network];
-            if (network) lines.push(`ospf network-type ${network}`);
+            if (settings.network && settings.network !== own) lines.push(`ospf network-type ${VrpRender.OSPF_NETWORK[settings.network]}`);
             const priority = settings.priority;
             if (priority !== undefined && priority !== VrpRender.OSPF_PRIORITY) lines.push(`ospf dr-priority ${priority}`);
             if (settings.hello_interval !== undefined) lines.push(`ospf timer hello ${settings.hello_interval}`);
@@ -518,7 +549,6 @@ export class VrpRender {
             if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
         }
 
-        lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
         return lines;
     }
 
@@ -568,14 +598,19 @@ export class VrpRender {
 
         for (const route of routes) {
             const { addr, len } = Address.split(route.prefix);
-            const nextHop = route.blackhole ? "NULL0" : route.next_hop ? Address.host(route.next_hop) : this.nameOf(route.interface!);
+            // The interface comes before the next hop it reaches, `Vlanif10 FE80::1`. The switch prints IPv6 addresses in capitals.
+            const through = [
+                route.interface && this.nameOf(route.interface),
+                route.next_hop && VrpPolicies.spell(Address.host(route.next_hop)),
+            ];
+            const nextHop = route.blackhole ? "NULL0" : through.filter(Boolean).join(" ");
             const vrf = route.vrf ? ` vpn-instance ${route.vrf}` : "";
             const preference = route.distance ? ` preference ${route.distance}` : "";
             const description = route.description ? ` description ${route.description}` : "";
             const bfd = route.bfd ? " bfd enable" : "";
             if (Address.family(addr) === "ipv4")
                 this.line(`ip route-static${vrf} ${addr} ${Address.netmask(len)} ${nextHop}${preference}${description}${bfd}`);
-            else this.line(`ipv6 route-static${vrf} ${addr} ${len} ${nextHop}${preference}`);
+            else this.line(`ipv6 route-static${vrf} ${VrpPolicies.spell(addr)} ${len} ${nextHop}${preference}`);
         }
 
         this.separator();
@@ -653,7 +688,8 @@ export class VrpRender {
             for (const link of virtualLinks) if (link.transit_area_id === areaId) areaLines.push(` vlink-peer ${link.router_id}`);
         }
 
-        this.block(`ospf ${VrpRender.OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}`, [...lines, ...areaLines]);
+        const vrf = ospf.vrf ? ` vpn-instance ${ospf.vrf}` : "";
+        this.block(`ospf ${VrpRender.OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}${vrf}`, [...lines, ...areaLines]);
     }
 
     private wantsBfd(): boolean {
