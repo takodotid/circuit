@@ -754,7 +754,8 @@ export class FortiOsRouting {
 
             if (neighbor.vrf) found.push(`${where}.vrf, ${noVrf}`);
 
-            if (settings.role) found.push(`${where}.role, the platform has no BGP roles`);
+            // A neighbor has no `role` (TRAPS.md).
+            if (settings.role) found.push(`${where}.role, FortiOS 6.2 has no BGP roles (RFC 9234)`);
             if (settings.ttl_security)
                 found.push(
                     `${where}.ttl_security, the platform's BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`

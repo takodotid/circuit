@@ -1,7 +1,7 @@
 // What a FortiGate 3700D on FortiOS 6.2.2 printed while a feature was tested on it, and what Circuit makes of it.
 
 import { expect, test } from "bun:test";
-import type { Device } from "../../src/model";
+import type { Device, Neighbor } from "../../src/model";
 import { FortiOs } from "../../src/platforms/fortios";
 import { Fixtures } from "../fixtures";
 
@@ -285,4 +285,13 @@ test("BFD on a route in a VRF is built and proved", () => {
 
     expect(platform.unsupported(inVrf)).not.toContain(expect.stringContaining("BFD"));
     expect(platform.experimental?.(inVrf)).toEqual([]);
+});
+
+// Tried in a test VDOM on tako-fwl-01 (FG-3700D, 6.2.2): `set role provider` on a neighbor was `command parse error before 'role'`.
+test("a BGP neighbor's role is refused: the device has none", () => {
+    const bgp = firewall.routing!.bgp!;
+    const arelion: Neighbor = { address: "203.0.113.11", remote_as: 1299, role: "provider" };
+    const withRole: Device = { ...firewall, routing: { ...firewall.routing, bgp: { ...bgp, neighbors: { ...bgp.neighbors, arelion } } } };
+
+    expect(platform.unsupported(withRole)).toContain("routing.bgp.neighbors.arelion.role, FortiOS 6.2 has no BGP roles (RFC 9234)");
 });
