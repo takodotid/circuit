@@ -133,8 +133,8 @@ test("VRP sends them only with --experimental, guards every edge port or none, a
         "interfaces.ethernet.10g-41.dhcp_trusted",
     ]);
     expect(vrp.unsupported(device)).toEqual([
-        "switching.ra_guard, the platform has no RA guard command",
-        "interfaces.ethernet.10g-41.ra_trusted, the platform has no RA guard command",
+        "switching.ra_guard, V200R005 has no RA guard and no ND snooping",
+        "interfaces.ethernet.10g-41.ra_trusted, V200R005 has no RA guard and no ND snooping",
     ]);
 
     device.interfaces!.ethernet!["10g-42"] = { access_vlan: "servers", stp: { edge: true } };
@@ -188,7 +188,7 @@ test("validate says what each guard needs", () => {
     );
 });
 
-test("ARP inspection checks each VLAN that Junos snoops, needs snooping, is experimental on Raisecom ROS, and is refused elsewhere", () => {
+test("ARP inspection checks each VLAN that Junos snoops, needs snooping, is experimental on Raisecom ROS, and is refused where neither Junos nor VRP builds it", () => {
     const device = guarded("junos", "QFX5100-48S-6Q", "10g-37", "10g-38");
     device.system = { users: { root: { role: "admin", password: { secret: "ROOT" } } } };
     device.switching!.arp_inspection = true;
@@ -201,7 +201,6 @@ test("ARP inspection checks each VLAN that Junos snoops, needs snooping, is expe
 
     for (const [platform, model] of [
         ["routeros", "CCR2216-1G-12XS-2XQ"],
-        ["vrp", "CE6855-48S6Q-HI"],
         ["fortios", "FG-3700D"],
     ] as const) {
         const refused = Platforms.get(platform).unsupported({ ...device, platform, model });

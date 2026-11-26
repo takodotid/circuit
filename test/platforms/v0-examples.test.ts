@@ -53,9 +53,9 @@ test("a platform that has not proved them refuses a MAC limit and an ethertype f
     }
 });
 
-// Tested on Junos and RouterOS alone. Raisecom ROS says why it can't.
+// Tested on Junos, RouterOS, and VRP alone. Raisecom ROS says why it can't.
 test("a platform that has not proved it refuses a port bound to its hosts", () => {
-    for (const device of examples.filter((example) => !["junos", "routeros"].includes(example.platform))) {
+    for (const device of examples.filter((example) => !["junos", "routeros", "vrp"].includes(example.platform))) {
         const [port, settings] = Object.entries(device.interfaces?.ethernet ?? {})[0]!;
         const bound: Device = {
             ...device,

@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Gre, Lag, Port, VlanInterface } from "../../model";
+import type { Device, Gre, Lag, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -43,6 +43,7 @@ import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
 import { VrpRouterAdvertisement } from "./router-advertisement";
 import { VrpServices } from "./services";
+import { VrpSwitching } from "./switching";
 import { VrpRoutes } from "./routes";
 
 export class Vrp extends Platform {
@@ -84,14 +85,14 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+(?: vpn-instance \S+)?|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+(?: vpn-instance \S+)?|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|mac-address learning disable|qinq protocol|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first: a static route's BFD template, and a port's CAR profile. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+|qos car (?!inbound )\S+) /;
 
     private static readonly DIALECT: Dialect = {
-        // A VRF's `ipv4-family` holds nothing, but enters a view of its own all the same.
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) |ipv4-family$)/,
+        // A VRF's `ipv4-family` and `ipv6-family` hold nothing, but each enters a view of its own all the same.
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) |ipv[46]-family$)/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
@@ -109,6 +110,7 @@ export class Vrp extends Platform {
             VrpOspf.head(line) ??
             VrpDhcpv6.head(line) ??
             VrpNetStream.head(line) ??
+            VrpSwitching.head(line) ??
             VrpMonitoring.head(line) ??
             Vrp.head(line),
     };
@@ -284,36 +286,7 @@ export class Vrp extends Platform {
         const lldp = device.switching?.lldp;
         if (lldp && lldp !== true) found.push("switching.lldp.interfaces, use lldp on the ports instead");
 
-        // The CE6855 on V200R005 refused `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` in every view.
-        const noRaGuard = "the platform has no RA guard command";
-        if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
-        const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
-        for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);
-        // The CE6855 took `arp anti-attack check user-bind enable` in a VLAN's view only (TRAPS.md).
-        if (device.switching?.arp_inspection)
-            found.push("switching.arp_inspection, the platform checks a whole VLAN, and whether it passes dhcp_trusted ports is not known");
-        // Snooping runs on each port, over all of its VLANs.
-        for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
-            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
-        for (const { where, settings } of Derive.switchedHolders(device))
-            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
-        const { tpid, innerVlans } = Derive.stackedTags(device);
-        for (const where of tpid) found.push(`${where}, which only RouterOS builds for now`);
-        // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
-        for (const where of innerVlans)
-            found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
-        // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
-        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
-            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
-
-        // `stp bpdu-protection` guards every edge port at once.
-        const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);
-        const edges = holders.filter(({ settings }) => stpOf(settings)?.edge);
-        if (edges.some(({ settings }) => stpOf(settings)?.bpdu_guard)) {
-            for (const { where, settings } of edges)
-                if (!stpOf(settings)?.bpdu_guard)
-                    found.push(`${where}.stp without bpdu_guard, the platform guards every edge port or none: write it on each`);
-        }
+        found.push(...VrpSwitching.unsupported(device));
 
         const system = device.system ?? {};
 
@@ -334,7 +307,16 @@ export class Vrp extends Platform {
             if (keys.length && name.length > VrpRender.KEY_NAME)
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
-        found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
+        found.push(
+            ...Derive.untested(device, [
+                "alarm-severity",
+                "bfd-timers",
+                "static-route-bfd",
+                "mac-limit",
+                "ethertype-filter",
+                "port-binding",
+            ])
+        );
         found.push(
             ...Derive.unbuilt(device, [
                 "urpf",
@@ -379,7 +361,6 @@ export class Vrp extends Platform {
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
-        if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // `snmp-agent protocol vpn-instance` went into a candidate only: the switch's own SNMP would have left the network that polls it.
         if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
         // NetStream was committed on a CE6855, but no packet crossed a watched port, and Huawei's documentation doesn't list it for the CE6855HI.
@@ -393,13 +374,7 @@ export class Vrp extends Platform {
             ...Derive.evpn(device)
         );
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
-        for (const { where, settings } of Derive.switchedHolders(device)) {
-            const stp = typeof settings.stp === "object" ? settings.stp : undefined;
-            if (stp?.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
-            if (stp?.guard) found.push(`${where}.stp.guard`);
-            if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
-            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan`);
-        }
+        found.push(...VrpSwitching.experimental(device));
 
         found.push(...VrpOspf.experimental(device));
         return found;
@@ -428,9 +403,9 @@ export class Vrp extends Platform {
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
-        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links, and a DNS server. A prefix a router advertisement announces is undone before it changes.
+        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links, and a DNS server. A prefix a router advertisement announces is undone before it changes. A VLAN list is changed by the VLANs added and removed (`LineDiff.vlanListChange`), which needs the old one.
         if (
-            /^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer|ipv6 nd ra prefix|dns server) /.test(
+            /^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer|ipv6 nd ra prefix|dns server|vlan batch) /.test(
                 line
             )
         )
@@ -482,6 +457,7 @@ export class Vrp extends Platform {
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
         VrpMarking.order(groups);
+        VrpSwitching.muxChange(groups, (list) => Vrp.batchIds(`vlan batch ${list}`), VrpRender.vlanBatch);
         const domains = VrpQos.order(groups, desired, Vrp.DIALECT);
         const keys = Vrp.keySteps(groups, desired, current);
         const problems = [...keys.problems, ...VrpEvpn.problems(desired, current, Vrp.DIALECT)];
@@ -501,12 +477,16 @@ export class Vrp extends Platform {
         const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
         // A DHCPv6 pool goes once its VLAN interface lets go of it.
         const pools = top?.remove.filter((line) => line.startsWith("dhcpv6 pool ")) ?? [];
+        // A LAG goes once its members have left it: before, the switch refuses with "the trunk has member interfaces".
+        const lags = top?.remove.filter((line) => /^interface Eth-Trunk\d+$/.test(line)) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
 
-        const later = [...firstRemovals, ...lastRemovals, ...pools];
+        const leaving = VrpSwitching.leaveMux(groups, current);
+        const later = [...firstRemovals, ...lastRemovals, ...pools, ...lags];
         if (top) top.remove = top.remove.filter((line) => !later.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
+        const hosts = VrpSwitching.hostLines(top);
 
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
@@ -515,13 +495,18 @@ export class Vrp extends Platform {
 
         if (firstRemovals.length) {
             // `undo vlan batch` removes a VLAN's own settings with it, so only the interfaces and the list are sent.
-            const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map((line) => Vrp.undo(line));
+            const interfaces = firstRemovals.filter((line) => line.startsWith("interface ")).map((line) => Vrp.undo(line));
+            const lists = VrpSwitching.subordinatesFirst(removedIds, current, (list) => Vrp.batchIds(`vlan batch ${list}`));
+            const sent = [...interfaces, ...lists.map((ids) => `undo vlan batch ${VrpRender.vlanBatch(ids)}`)];
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
 
+        planned.unshift(...leaving);
         VrpRoutes.place(planned, through, (line) => Vrp.undo(line));
+        VrpRoutes.place(planned, hosts, (line) => Vrp.undo(line), "Hosts of bound ports");
 
         planned.push(
+            ...Vrp.removal("LAGs no longer used", lags),
             ...Vrp.removal("ACLs no longer used", lastRemovals),
             ...Vrp.removal("DHCPv6 pools no longer used", pools),
             ...Vrp.removal("DiffServ domains no longer used", domains),

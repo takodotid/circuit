@@ -117,11 +117,10 @@ test("RouterOS refuses translation beside spanning tree, which its VLAN interfac
     );
 });
 
-test("VRP and FortiOS refuse translation", () => {
-    const refusals: [string, string, string, string][] = [
-        ["vrp", "CE6855-48S6Q-HI", "10g-40", "which only Junos builds for now"],
-        ["fortios", "FG-3700D", "10g-1", "ports are routed"],
-    ];
+test("FortiOS refuses translation, and Raisecom ROS builds it on a port", () => {
+    expect(Platforms.get("raisecom-ros").unsupported(translating("raisecom-ros", "RAX721-C-6C48", "10g-1"))).toEqual([]);
+
+    const refusals: [string, string, string, string][] = [["fortios", "FG-3700D", "10g-1", "ports are routed"]];
     for (const [platform, model, port, reason] of refusals)
         expect(Platforms.get(platform).unsupported(translating(platform, model, port))).toContain(
             `interfaces.ethernet.${port}.vlan_translation, ${reason}`

@@ -52,15 +52,15 @@ A note in a cell means "works, with this limit".
 | Storm control       | ✅ in percent                             | ✅ in percent                 | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
 | MAC limit           | ❌ none for a port                        | ✅ ports                      | ✅ ports                              | ✅                      | ❌                  |
 | Ethertype filter    | ✅ ports                                  | ✅ ports                      | ✅ ports                              | ✅                      | ❌                  |
-| Port bound to hosts | ✅ ports, switched by the CPU             | ❌                            | ❌ one source guard for the switch    | ✅                      | ❌                  |
+| Port bound to hosts | ✅ ports, switched by the CPU             | 🧪 IPv6 for one host          | ❌ one source guard for the switch    | ✅                      | ❌                  |
 | BPDU and root guard | ✅ ports                                  | 🧪                            | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
 | DHCP snooping       | ✅                                        | 🧪                            | 🧪                                    | ✅                      | ❌                  |
-| ARP inspection      | ❌ none in 7.24                           | ❌                            | 🧪                                    | ✅                      | ❌                  |
-| Private VLANs       | isolated only, switched by the CPU        | ❌                            | 🧪                                    | ✅                      | ❌                  |
+| ARP inspection      | ❌ none in 7.24                           | 🧪                            | 🧪                                    | ✅                      | ❌                  |
+| Private VLANs       | isolated only, switched by the CPU        | 🧪 access ports               | 🧪                                    | ✅                      | ❌                  |
 | QinQ                | ✅                                        | 🧪                            | ✅ ports                              | ✅                      | ❌                  |
-| VLAN translation    | ✅ ports without STP, switched by the CPU | ❌                            | ✅ ports                              | 🧪 no native VLAN       | ❌                  |
-| 802.1ad service tag | ✅ on every switched port at once         | ❌                            | ✅ ports                              | ❌ needs 22.4           | ❌                  |
-| RA guard            | ✅                                        | ❌                            | ❌ none in ROS 6.5.2                  | ✅                      | ❌                  |
+| VLAN translation    | ✅ ports without STP, switched by the CPU | 🧪                            | ✅ ports                              | 🧪 no native VLAN       | ❌                  |
+| 802.1ad service tag | ✅ on every switched port at once         | 🧪 not on a QinQ port         | ✅ ports                              | ❌ needs 22.4           | ❌                  |
+| RA guard            | ✅                                        | ❌ none in V200R005           | ❌ none in ROS 6.5.2                  | ✅                      | ❌                  |
 | Hardware ACLs       | ✅                                        | ✅ no rate, no VLAN           | ✅ switched ports, no rate, no VLAN   | ✅ a rate needs a burst | ✅ drop rules only  |
 | LLDP                | ✅                                        | ✅                            | ✅                                    | ✅                      | ✅                  |
 | Bridge interface    | ❌                                        | ❌ one VLAN per bridge domain | ❌ none on the switch                 | ❌                      | ✅                  |
@@ -274,7 +274,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
 | Management in a VRF               | ✅ not FTP                      | ❌ by interface, not VRF        | ❌                | 🧪 the REST API only   | ✅                                |
 | SNMP in a VRF                     | ✅                              | 🧪                              | ❌                | ❌ another community   | 🧪 no traps                       |
-| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅ IPv4 DNS servers             | ❌                | syslog; 🧪 NTP, RADIUS | ❌ needs 7.6.1                    |
+| NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌ needs 7.6.1                    |
 | Management VDOM                   | ❌                              | ❌                              | ❌                | ❌                     | ✅                                |
 
 On FortiOS a management service, and SNMP, answer on the interfaces of their VRF, or of the main table when they name none: each interface's `allowaccess` lists the services of its VRF. SSH answered in a VRF of a test VDOM, but no SNMP manager was in reach, so SNMP in a VRF is experimental. FortiOS 6.2 has no VRF setting for what the device sends itself: traps, NTP, DNS, syslog, and RADIUS take a source address only. A RADIUS request from an address in a VRF still left by the main table's route. Fortinet's 7.6.1 CLI reference adds `vrf-select` to each.

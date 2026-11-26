@@ -119,7 +119,7 @@ test("RouterOS refuses an inner VLAN interface with a MAC, and a VLAN whose name
     ]);
 });
 
-test("Junos can't set the TPID on 21.4, VRP and Raisecom ROS end no inner VLAN, and FortiOS builds neither key yet", () => {
+test("Junos can't set the TPID on 21.4, VRP on a QinQ port, VRP and Raisecom ROS end no inner VLAN, and FortiOS builds neither key yet", () => {
     const junos = provider("junos", "QFX5100-48S-6Q", ["10g-1", "10g-2"]);
     expect(Platforms.get("junos").unsupported(junos)).toEqual(
         expect.arrayContaining([
@@ -129,7 +129,7 @@ test("Junos can't set the TPID on 21.4, VRP and Raisecom ROS end no inner VLAN, 
     );
     expect(Platforms.get("vrp").unsupported(provider("vrp", "CE6855-48S6Q-HI", ["10g-1", "10g-2"]))).toEqual(
         expect.arrayContaining([
-            "interfaces.ethernet.10g-2.tpid, which only RouterOS builds for now",
+            'interfaces.ethernet.10g-1.tpid on a QinQ port, which takes no TPID on the switch: "the type of the port is dot1q-tunnel"',
             "interfaces.vlan_interface.cust-1001.inner_vlan_id, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port",
         ])
     );
