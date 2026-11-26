@@ -226,7 +226,8 @@ export class Vrp extends Platform {
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
         found.push(...VrpEvpn.unsupported(device));
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
-        if (routing?.rpki) found.push("routing.rpki");
+        // A CE6855 refused `rpki` and `prefix origin-validation enable`.
+        if (routing?.rpki) found.push("routing.rpki, V200R005 has no route origin validation");
         found.push(...VrpOspf.unsupported(device));
         if (routing?.router_id && !routing.ospf && !routing.bgp)
             found.push("routing.router_id without routing.ospf or routing.bgp, only they use it here");

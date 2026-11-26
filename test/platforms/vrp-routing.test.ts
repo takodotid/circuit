@@ -269,3 +269,14 @@ test("a confederation is its identifier and its other member ASes, after the rou
     ]);
     expect(sent(vrp.render(sessions({})), vrp.render(confederation([])))).toEqual(["bgp 65001", "undo confederation id", "quit"]);
 });
+
+test("BGP roles and route origin validation are refused, as V200R005 has neither", () => {
+    const device = sessions({ role: "customer" });
+    device.routing!.rpki = [{ address: "192.0.2.100", port: 323 }];
+
+    expect(vrp.unsupported(device)).toEqual([
+        "routing.rpki, V200R005 has no route origin validation",
+        "routing.bgp.neighbors.transit.role, V200R005 has no BGP roles",
+        "routing.bgp.neighbors.member.role, V200R005 has no BGP roles",
+    ]);
+});

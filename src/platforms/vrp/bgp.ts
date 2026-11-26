@@ -345,7 +345,9 @@ export class VrpBgp {
         const found: string[] = [];
         const notBuilt = "not built yet";
 
-        for (const key of ["role", "bfd", "vrf"] as const)
+        // A CE6855 refused `peer <address> local-role`.
+        if (settings.role) found.push(`${where}.role, V200R005 has no BGP roles`);
+        for (const key of ["bfd", "vrf"] as const)
             if (settings[key] !== undefined && settings[key] !== false) found.push(`${where}.${key}, ${notBuilt}`);
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
 
