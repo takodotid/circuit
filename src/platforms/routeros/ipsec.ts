@@ -39,7 +39,7 @@ export class RouterOsIpsec {
         return RouterOsSyntax.entries(device.firewall?.ipsec);
     }
 
-    /** A profile of the IKE SA's algorithms. `dpd-interval=disable-dpd` turns liveness checks off, and the IKE SA is still made again at its lifetime (TRAPS.md). */
+    /** A profile of the IKE SA's algorithms. `dpd-interval=disable-dpd` turns liveness checks off, and the IKE SA is still made again at its lifetime. A profile can't put ESP in UDP without a NAT, or set the NAT keepalive interval (TRAPS.md). */
     static profile(name: string, ike: IpsecIke, livenessCheck?: false): Record<string, Value> {
         return {
             "dh-group": RouterOsIpsec.DH_GROUP[ike.dh_group],
@@ -63,7 +63,7 @@ export class RouterOsIpsec {
         };
     }
 
-    /** Each tunnel as the export prints it. The peer starts IKEv2 from `local_address`. A policy's `peer` gives its SA's ends, and `tunnel=yes` makes it tunnel mode. */
+    /** Each tunnel as the export prints it. The peer starts IKEv2 from `local_address`. A policy's `peer` gives its SA's ends, and `tunnel=yes` makes it tunnel mode. An identity's `remote-id` stays `auto`: the end that starts IKE doesn't check it (TRAPS.md). */
     static render(render: RouterOsRender, device: Device): void {
         for (const [name, tunnel] of RouterOsIpsec.tunnels(device)) {
             render.add("/ip ipsec profile", "add", RouterOsIpsec.profile(name, tunnel.ike, tunnel.liveness_check));
