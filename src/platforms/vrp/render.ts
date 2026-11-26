@@ -226,18 +226,12 @@ export class VrpRender {
         if (limited.length) this.separator();
     }
 
-    /** A port's or a LAG's rate limit: its CAR profile on what arrives, and a rate limit on what leaves. */
+    /** A port's or a LAG's rate limit, in the order the switch prints them: a rate limit on what leaves, and its CAR profile on what arrives. */
     private static rateLimitLines(name: string, rateLimit: RateLimit | undefined): string[] {
         const lines: string[] = [];
+        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.rate(rateLimit.output)} outbound`);
         if (rateLimit?.input) lines.push(`qos car inbound ${VrpRender.carName(name)}`);
-        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.outputRate(rateLimit.output)} outbound`);
         return lines;
-    }
-
-    /** The switch prints a rate limit on what leaves with its unit: `cir 95000 kbps`. How it prints one with a burst is not proven yet, so that is written as the switch takes it. */
-    private static outputRate(limit: Limit): string {
-        const rate = VrpRender.rate(limit);
-        return Derive.limit(limit).burst === undefined ? `${rate} kbps` : rate;
     }
 
     /** The CAR profile of a port or a LAG, by its name in the config: `rate-limit-10g-1`. */
@@ -245,11 +239,11 @@ export class VrpRender {
         return `rate-limit-${name}`;
     }
 
-    /** `cir 200000 cbs 250000`: the rate in kbit/s, then the burst when the config sets one. */
+    /** `cir 200000 kbps cbs 250000 bytes`: the rate in kbit/s, then the burst in bytes when the config sets one, each with its unit, as the switch prints them. */
     private static rate(limit: Limit): string {
         const { rate, burst } = Derive.limit(limit);
-        const cir = `cir ${Derive.bitsPerSecond(rate) / VrpRender.BITS_PER_KBIT}`;
-        return burst === undefined ? cir : `${cir} cbs ${burst}`;
+        const cir = `cir ${Derive.bitsPerSecond(rate) / VrpRender.BITS_PER_KBIT} kbps`;
+        return burst === undefined ? cir : `${cir} cbs ${burst} bytes`;
     }
 
     /** A header and its lines. A block with nothing in it is still written, so that its header exists. */
