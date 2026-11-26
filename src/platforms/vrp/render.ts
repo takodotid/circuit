@@ -20,6 +20,7 @@ import { VrpPolicies } from "./policies";
 import { VrpProbes } from "./probes";
 import { VrpQos } from "./qos";
 import { VrpRouterAdvertisement } from "./router-advertisement";
+import { VrpSwitching } from "./switching";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -122,7 +123,7 @@ export class VrpRender {
         this.managementAcl();
         this.snmpAcl();
         this.ethertypeAclBlocks();
-        this.lines.push(...VrpAcls.blocks(device));
+        this.lines.push(...VrpAcls.blocks(device), ...VrpSwitching.boundAcls(device));
         this.lines.push(...VrpMarking.lines(device));
         this.lines.push(...VrpQos.lines(device));
         this.lines.push(...VrpAaa.serverLines(device));
@@ -137,6 +138,7 @@ export class VrpRender {
                     ...VrpRender.lagMode(lag),
                     ...this.switching(lag),
                     ...VrpRender.rateLimitLines(name, lag.rate_limit),
+                    ...VrpSwitching.boundPortLines(name, lag),
                 ]);
         }
 
@@ -162,6 +164,7 @@ export class VrpRender {
 
         this.lines.push(...VrpEvpn.nve(device));
 
+        this.bindings();
         this.staticRoutes();
         this.ospf();
         this.lines.push(...VrpBgp.lines(device, VrpIsis.policies(device)));
@@ -565,10 +568,19 @@ export class VrpRender {
         if (settings.lldp === false) lines.push("lldp disable");
         if (settings.mac_limit !== undefined) lines.push(`mac-address limit maximum ${settings.mac_limit}`);
         if (settings.ethertypes) lines.push(`traffic-filter acl ${this.ethertypeAcls.get(settings.ethertypes.join(" "))} inbound`);
-        lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl));
+        lines.push(...VrpAcls.portLines(this.device, settings.ingress_acl), ...VrpSwitching.boundPortLines(port, settings));
 
         lines.push(...VrpMonitoring.portLines(this.device, port), ...VrpNetStream.portLines(this.device, port));
         return lines;
+    }
+
+    /** The hosts of bound ports, with their addresses and MAC addresses. */
+    private bindings(): void {
+        const lines = VrpSwitching.boundLines(this.device, (name) => this.nameOf(name));
+        if (!lines.length) return;
+
+        this.lines.push(...lines);
+        this.separator();
     }
 
     /** A route watched by BFD needs a BFD template for its next hop first, from the device's own address on that network, with the device's timers. */

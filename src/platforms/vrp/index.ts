@@ -85,7 +85,7 @@ export class Vrp extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+(?: vpn-instance \S+)?|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
+        /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+(?: vpn-instance \S+)?|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|mac-address learning disable|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
     /** Lines a new line of the same kind replaces whole, so the old one is not undone first: a static route's BFD template, and a port's CAR profile. */
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+|qos car (?!inbound )\S+) /;
@@ -110,6 +110,7 @@ export class Vrp extends Platform {
             VrpOspf.head(line) ??
             VrpDhcpv6.head(line) ??
             VrpNetStream.head(line) ??
+            VrpSwitching.head(line) ??
             VrpMonitoring.head(line) ??
             Vrp.head(line),
     };
@@ -306,7 +307,16 @@ export class Vrp extends Platform {
             if (keys.length && name.length > VrpRender.KEY_NAME)
                 found.push(`system.users.${name}.ssh_keys, a key named after a user over ${VrpRender.KEY_NAME} characters`);
         }
-        found.push(...Derive.untested(device, ["alarm-severity", "bfd-timers", "static-route-bfd", "mac-limit", "ethertype-filter"]));
+        found.push(
+            ...Derive.untested(device, [
+                "alarm-severity",
+                "bfd-timers",
+                "static-route-bfd",
+                "mac-limit",
+                "ethertype-filter",
+                "port-binding",
+            ])
+        );
         found.push(
             ...Derive.unbuilt(device, [
                 "urpf",
@@ -472,6 +482,7 @@ export class Vrp extends Platform {
         const later = [...firstRemovals, ...lastRemovals, ...pools];
         if (top) top.remove = top.remove.filter((line) => !later.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
+        const hosts = VrpSwitching.hostLines(top);
 
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
@@ -485,6 +496,7 @@ export class Vrp extends Platform {
         }
 
         VrpRoutes.place(planned, through, (line) => Vrp.undo(line));
+        VrpRoutes.place(planned, hosts, (line) => Vrp.undo(line), "Hosts of bound ports");
 
         planned.push(
             ...Vrp.removal("ACLs no longer used", lastRemovals),
