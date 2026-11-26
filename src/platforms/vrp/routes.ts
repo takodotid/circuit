@@ -47,11 +47,16 @@ export class VrpRoutes {
         return taken;
     }
 
-    /** The routes through an interface go once the interfaces exist, and go away before anything else. */
-    static place(planned: Step[], through: { add: string[]; remove: string[] }, undo: (line: string) => string): void {
+    /** The routes through an interface, or other lines that name one, go once the interfaces are set, and go away before anything else. */
+    static place(
+        planned: Step[],
+        through: { add: string[]; remove: string[] },
+        undo: (line: string) => string,
+        title = "Static routes through interfaces"
+    ): void {
         if (through.remove.length)
             planned.unshift({
-                title: "Static routes through interfaces, removed",
+                title: `${title}, removed`,
                 show: through.remove.map((line) => `- ${line}`),
                 send: through.remove.map((line) => undo(line)),
             });
@@ -61,6 +66,6 @@ export class VrpRoutes {
         const interfaces = planned.findLastIndex((step) => step.title.startsWith("interface "));
         const after = interfaces === -1 ? planned.findIndex((step) => step.title === "(top level)") : interfaces;
         const show = through.add.map((line) => `+ ${line}`);
-        planned.splice(after + 1, 0, { title: "Static routes through interfaces", show, send: through.add });
+        planned.splice(after + 1, 0, { title, show, send: through.add });
     }
 }

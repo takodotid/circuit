@@ -102,7 +102,7 @@ The port then takes IPv4 and IPv6 only from those MAC addresses with those sourc
 
 A server whose virtual machines are bridged onto its cable lists each machine, so a new machine needs a new entry before it can send. A port with another switch behind it can't be bound host by host. The gateway's check is what protects it.
 
-On Junos the switch can't read inside an ARP packet. So a bound host can still claim a neighbor's address in ARP, but it can no longer send packets from that address.
+On Junos the switch can't read inside an ARP packet. So a bound host can still claim a neighbor's address in ARP, but it can no longer send packets from that address. VRP ties an IPv6 address to the port, not to a MAC address, so it binds a port with IPv6 addresses to one host only.
 
 ## Shedding a flood
 

@@ -78,9 +78,13 @@ test("RouterOS puts an isolated port in the primary VLAN behind a split horizon,
     ]);
 });
 
-test("VRP, Raisecom ROS, and FortiOS refuse them", () => {
+test("Raisecom ROS and FortiOS refuse them, and VRP a trunk of one", () => {
+    const vrp = shared("vrp", "CE6855-48S6Q-HI", "10g-1", "10g-2", "10g-3");
+    expect(Platforms.get("vrp").unsupported(vrp)).toEqual([
+        "interfaces.ethernet.10g-3.trunk_vlans shared, a private VLAN on a trunk: VRP builds it as a MUX VLAN on access ports only, as how a trunk carries one is not known",
+    ]);
+
     for (const [platform, model, refusal] of [
-        ["vrp", "CE6855-48S6Q-HI", "which only Junos and RouterOS build for now"],
         ["raisecom-ros", "RAX721-C-6C48", "which only Junos and RouterOS build for now"],
         ["fortios", "FG-3700D", "ports are routed"],
     ] as const) {

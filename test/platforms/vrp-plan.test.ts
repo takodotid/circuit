@@ -2,6 +2,27 @@ import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
 import { LineDiff } from "../../src/platforms/line-diff";
 
+// Both lists end in `to`, so the old one looked replaced by the new one, which was sent whole, and a VLAN that went was never taken off the list.
+test("a VRP VLAN list that changes only in its last VLAN sends the VLAN added or removed", () => {
+    const adapter = Platforms.get("vrp");
+    const options = { secrets: false, rollback: 10 };
+    const sent = (desired: string, current: string) => adapter.plan(desired, current, options).steps.flatMap((step) => step.send);
+
+    expect(sent("vlan batch 98 3983 to 3987\n#\n", "vlan batch 98 3983 to 3986\n#\n")).toEqual(["vlan batch 3987"]);
+    expect(sent("vlan batch 98 3983 to 3986\n#\n", "vlan batch 98 3983 to 3987\n#\n")).toEqual(["undo vlan batch 3987"]);
+});
+
+// A CE6855 on V200R005C00SPC800 refused `undo interface Eth-Trunk39` while a port was still in it.
+test("a VRP LAG goes after its members have left it", () => {
+    const adapter = Platforms.get("vrp");
+    const current = "interface Eth-Trunk39\n mode lacp-static\n#\ninterface 10GE1/0/48\n eth-trunk 39\n#\n";
+    const desired = "interface 10GE1/0/48\n shutdown\n#\n";
+    const steps = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps;
+
+    expect(steps.map((step) => step.title)).toEqual(["interface 10GE1/0/48", "LAGs no longer used"]);
+    expect(steps.at(-1)!.send).toEqual(["undo interface Eth-Trunk39"]);
+});
+
 // Seen on a CE6855 on V200R005 after its first SNMPv3 user: an engine ID of its own, and the user's own line before its settings.
 test("a VRP SNMPv3 user plans nothing against how the switch prints it", () => {
     const adapter = Platforms.get("vrp");
