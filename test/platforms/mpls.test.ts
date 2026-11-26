@@ -96,14 +96,15 @@ test("Junos refuses an LSR ID other than the router ID, which LDP takes as its o
     );
 });
 
-test("FortiOS, VRP, and Raisecom ROS refuse MPLS", () => {
+test("FortiOS and Raisecom ROS refuse MPLS", () => {
     const device = withMpls("platforms--example-router", ROUTER);
 
     expect(Platforms.get("fortios").unsupported({ ...device, platform: "fortios", model: "FG-3700D" })).toContain(
         "routing.mpls, FortiOS has no MPLS"
     );
-    for (const platform of ["vrp", "raisecom-ros"])
-        expect(Platforms.get(platform).unsupported({ ...device, platform } as Device)).toContain("routing.mpls, not built yet");
+    expect(Platforms.get("raisecom-ros").unsupported({ ...device, platform: "raisecom-ros" } as Device)).toContain(
+        "routing.mpls, not built yet"
+    );
 });
 
 test("the LSR ID is the address of a loopback that OSPF or IS-IS announces", () => {

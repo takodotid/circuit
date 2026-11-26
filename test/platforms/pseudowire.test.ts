@@ -155,7 +155,7 @@ test("Junos, FortiOS, VRP, and Raisecom ROS refuse a pseudowire, each saying why
     const reasons: Record<string, string> = {
         junos: "a pseudowire, not built for Junos yet: its MPLS is experimental, untested on a router that runs it",
         fortios: "a pseudowire: FortiOS has no MPLS",
-        vrp: "a pseudowire, not built yet",
+        vrp: "a pseudowire: V200R005 on a CE6855 has none, as `display mpls l2vc` is not a command and a VLAN interface refuses `mpls l2vc`",
         "raisecom-ros": "a pseudowire, not built yet",
     };
 

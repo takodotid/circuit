@@ -178,7 +178,7 @@ export class VrpPolicies {
     /**
      * An entry of a list, as the switch prints it: `198.51.100.0 24 greater-equal 24 less-equal 32`. One length alone is the exact prefix, `192.0.2.0 24`, and a lower bound of 0 is not printed.
      */
-    private static entry(address: string, length: number, from: number, to: number): string {
+    static entry(address: string, length: number, from: number, to: number): string {
         if (from === length && to === length) return `${VrpPolicies.spell(address)} ${length}`;
         return `${VrpPolicies.spell(address)} ${length}${from ? ` greater-equal ${from}` : ""} less-equal ${to}`;
     }
