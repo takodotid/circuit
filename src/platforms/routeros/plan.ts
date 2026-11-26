@@ -54,6 +54,7 @@ export class RouterOsPlan {
         "/interface bridge port",
         "/interface bridge vlan",
         "/interface bridge filter",
+        "/interface bridge nat",
         "/interface list member",
         // A queue names its queue type and the interface it limits.
         "/queue type",

@@ -24,11 +24,13 @@ import type {
 import { BgpHealth } from "../bgp-health";
 import { BgpWait } from "../bgp-wait";
 import type { WaitLimits } from "../bgp-wait";
+import { RouterOsBridgeFilters } from "./bridge-filters";
 import { RouterOsDhcp } from "./dhcp";
 import { RouterOsEvpn } from "./evpn";
 import { RouterOsIpsec } from "./ipsec";
 import { RouterOsRemoteAccess } from "./remote-access";
 import { RouterOsRsvpTe } from "./rsvp-te";
+import { RouterOsVlanTranslation } from "./vlan-translation";
 import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
@@ -70,7 +72,9 @@ export class RouterOs extends Platform {
         user: (user) => `${user}+cwt`,
     };
 
-    private static readonly NO_MAC_LIMIT = "the platform has no MAC learning limit on a bridge port or a switch port on 7.23";
+    /** A CHR on 7.24.6 took no limit on a bridge port, and passed hosts past the bridge's own limit (TRAPS.md). */
+    private static readonly NO_MAC_LIMIT =
+        "RouterOS 7.24 has no MAC limit for a port: a bridge port takes none, and the bridge's max-learned-entries counts all its ports together and only stops learning, so a host past it still gets through";
 
     /** Over an IPv4 session, a far PE took no IPv6 route of a VRF into its own (TRAPS.md). */
     private static readonly NO_VPNV6_OVER_IPV4 =
@@ -273,8 +277,11 @@ export class RouterOs extends Platform {
                 found.push(
                     `interfaces.${kind}.${name}, the name of RouterOS's own loopback interface: write another name${kind === "loopback" ? ", such as loopback" : ""}`
                 );
-        // MikroTik's changelog adds it in 7.25, which no device here runs yet.
-        if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
+        // A CHR on 7.24.6 took no such setting. MikroTik's changelog adds it in 7.25, which no device here runs yet (TRAPS.md).
+        if (device.switching?.arp_inspection)
+            found.push(
+                "switching.arp_inspection, which RouterOS 7.24 doesn't have: its bridge and ports take no arp-inspection. MikroTik adds it in 7.25, not tested yet"
+            );
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(
@@ -292,6 +299,8 @@ export class RouterOs extends Platform {
                     );
         found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
+        found.push(...RouterOsBridgeFilters.unsupported(device));
+        found.push(...RouterOsVlanTranslation.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
@@ -488,7 +497,7 @@ export class RouterOs extends Platform {
             ])
         );
 
-        // BFD on a static route and a MAC limit are refused above, for the reason the device gave, and an ethertype filter on a LAG as untested.
+        // BFD on a static route and a MAC limit are refused above, for the reason the device gave. An ethertype filter and a bound port are refused on a LAG as untested.
         found.push(
             ...Derive.untested(device, [
                 "bfd-timers",
@@ -496,6 +505,7 @@ export class RouterOs extends Platform {
                 "static-route-bfd",
                 "mac-limit",
                 "ethertype-filter",
+                "port-binding",
                 "routing-tables",
             ])
         );

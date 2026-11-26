@@ -44,26 +44,26 @@ A note in a cell means "works, with this limit".
 
 ### Switching
 
-| Feature             | RouterOS                           | VRP                           | Raisecom ROS                          | Junos                   | FortiOS             |
-| ------------------- | ---------------------------------- | ----------------------------- | ------------------------------------- | ----------------------- | ------------------- |
-| VLANs, access/trunk | ✅                                 | ✅                            | ✅                                    | ✅                      | ✅ VLAN interfaces  |
-| LAG                 | ✅                                 | ✅                            | ✅                                    | ✅                      | ✅                  |
-| STP                 | ✅                                 | ✅                            | MSTP, no port cost                    | ✅                      | ❌ ports are routed |
-| Storm control       | ✅ in percent                      | ✅ in percent                 | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
-| MAC limit           | ❌                                 | ✅ ports                      | ✅ ports                              | ✅                      | ❌                  |
-| Ethertype filter    | ✅ ports                           | ✅ ports                      | ✅ ports                              | ✅                      | ❌                  |
-| Port bound to hosts | ❌                                 | ❌                            | ❌                                    | ✅                      | ❌                  |
-| BPDU and root guard | ✅ ports                           | 🧪                            | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
-| DHCP snooping       | ✅                                 | 🧪                            | 🧪                                    | ✅                      | ❌                  |
-| ARP inspection      | ❌                                 | ❌                            | ❌                                    | ✅                      | ❌                  |
-| Private VLANs       | isolated only, switched by the CPU | ❌                            | ❌                                    | ✅                      | ❌                  |
-| QinQ                | ✅                                 | 🧪                            | ✅ ports                              | ✅                      | ❌                  |
-| VLAN translation    | ❌                                 | ❌                            | ❌                                    | 🧪 no native VLAN       | ❌                  |
-| 802.1ad service tag | ✅ on every switched port at once  | ❌                            | ❌                                    | ❌ needs 22.4           | ❌                  |
-| RA guard            | ✅                                 | ❌                            | ❌                                    | ✅                      | ❌                  |
-| Hardware ACLs       | ✅                                 | ✅ no rate, no VLAN           | ❌                                    | ✅ a rate needs a burst | ✅ drop rules only  |
-| LLDP                | ✅                                 | ✅                            | ✅                                    | ✅                      | ✅                  |
-| Bridge interface    | ❌                                 | ❌ one VLAN per bridge domain | ❌                                    | ❌                      | ✅                  |
+| Feature             | RouterOS                                  | VRP                           | Raisecom ROS                          | Junos                   | FortiOS             |
+| ------------------- | ----------------------------------------- | ----------------------------- | ------------------------------------- | ----------------------- | ------------------- |
+| VLANs, access/trunk | ✅                                        | ✅                            | ✅                                    | ✅                      | ✅ VLAN interfaces  |
+| LAG                 | ✅                                        | ✅                            | ✅                                    | ✅                      | ✅                  |
+| STP                 | ✅                                        | ✅                            | MSTP, no port cost                    | ✅                      | ❌ ports are routed |
+| Storm control       | ✅ in percent                             | ✅ in percent                 | broadcast and unknown unicast, in pps | ✅                      | ❌                  |
+| MAC limit           | ❌ none for a port                        | ✅ ports                      | ✅ ports                              | ✅                      | ❌                  |
+| Ethertype filter    | ✅ ports                                  | ✅ ports                      | ✅ ports                              | ✅                      | ❌                  |
+| Port bound to hosts | ✅ ports, switched by the CPU             | ❌                            | ❌                                    | ✅                      | ❌                  |
+| BPDU and root guard | ✅ ports                                  | 🧪                            | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
+| DHCP snooping       | ✅                                        | 🧪                            | 🧪                                    | ✅                      | ❌                  |
+| ARP inspection      | ❌ none in 7.24                           | ❌                            | ❌                                    | ✅                      | ❌                  |
+| Private VLANs       | isolated only, switched by the CPU        | ❌                            | ❌                                    | ✅                      | ❌                  |
+| QinQ                | ✅                                        | 🧪                            | ✅ ports                              | ✅                      | ❌                  |
+| VLAN translation    | ✅ ports without STP, switched by the CPU | ❌                            | ❌                                    | 🧪 no native VLAN       | ❌                  |
+| 802.1ad service tag | ✅ on every switched port at once         | ❌                            | ❌                                    | ❌ needs 22.4           | ❌                  |
+| RA guard            | ✅                                        | ❌                            | ❌                                    | ✅                      | ❌                  |
+| Hardware ACLs       | ✅                                        | ✅ no rate, no VLAN           | ❌                                    | ✅ a rate needs a burst | ✅ drop rules only  |
+| LLDP                | ✅                                        | ✅                            | ✅                                    | ✅                      | ✅                  |
+| Bridge interface    | ❌                                        | ❌ one VLAN per bridge domain | ❌                                    | ❌                      | ✅                  |
 
 ### Interfaces
 
