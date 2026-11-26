@@ -517,7 +517,8 @@ export class RouterOsRender {
             this.add("/interface bridge port", "add", {
                 "bpdu-guard": RouterOsSyntax.yesWhen(stp?.bpdu_guard),
                 bridge: RouterOsVlanTags.BRIDGE,
-                edge: stp?.edge ? "yes" : undefined,
+                // An edge port without discovery sends no BPDUs and ignores those it gets, so it is how a port leaves spanning tree. No bridge filter drops them (TRAPS.md).
+                edge: settings.stp === false || stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
                 horizon: this.horizon(port, secondary?.type === "isolated"),
                 // The bridge NAT, and a VLAN interface on the port, see only what the CPU switches, not what a switch chip offloads (TRAPS.md).

@@ -2,43 +2,17 @@ import { Derive } from "../../core/derive";
 import type { Device, Lag, Port, Pseudowire } from "../../model";
 import type { RouterOsRender } from "./render";
 
-/** What the bridge itself filters, in software: a port out of spanning tree, and a port bound to its hosts. */
+/** What the bridge itself filters, in software: a port bound to its hosts. */
 export class RouterOsBridgeFilters {
-    private static readonly FILTER = "/interface bridge filter";
-
     private static readonly NAT = "/interface bridge nat";
-
-    /** Destination of spanning tree BPDUs, so a filter can drop them on one port. */
-    private static readonly BPDU_DESTINATION = "01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF";
 
     /** The mask of one whole MAC address, which the bridge prints after it. */
     private static readonly WHOLE_MAC = "FF:FF:FF:FF:FF:FF";
 
-    /** Each port with `stp: false`, then each bound port, in the order the ports are written. */
+    /** Each bound port, in the order the ports are written. */
     static render(render: RouterOsRender, switched: readonly [string, Port | Lag | Pseudowire][]): void {
-        for (const [port, settings] of switched) if (settings.stp === false) RouterOsBridgeFilters.outOfStp(render, render.name(port));
         for (const [port, settings] of switched)
             if (settings.bound_to) RouterOsBridgeFilters.bound(render, render.name(port), settings.bound_to);
-    }
-
-    /** The platform cannot take a port out of spanning tree, so `stp: false` drops the BPDUs it would send and receive. */
-    private static outOfStp(render: RouterOsRender, name: string): void {
-        const comment = `${name} out of spanning tree`;
-        const destination = RouterOsBridgeFilters.BPDU_DESTINATION;
-        render.add(RouterOsBridgeFilters.FILTER, "add", {
-            action: "drop",
-            chain: "input",
-            comment,
-            "dst-mac-address": destination,
-            "in-interface": name,
-        });
-        render.add(RouterOsBridgeFilters.FILTER, "add", {
-            action: "drop",
-            chain: "output",
-            comment,
-            "dst-mac-address": destination,
-            "out-interface": name,
-        });
     }
 
     /**

@@ -135,7 +135,7 @@ export class RouterOsVlanTags {
             for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
                 if (vlan.vpls) found.push(`switching.vlans.${name}.vpls, ${RouterOsVlanTags.UNTESTED}`);
             for (const { where, settings } of holders) {
-                // An 802.1ad bridge sends its BPDUs to another address than the one `stp: false` drops (MikroTik's manual, Bridging and Switching).
+                // An 802.1ad bridge sends its BPDUs to another address (MikroTik's manual, Bridging and Switching), and no edge port was tried on one.
                 if (settings.stp === false) found.push(`${where}.stp false, ${RouterOsVlanTags.UNTESTED}`);
                 for (const field of ["ethertypes", "ingress_acl", "bound_to", "vlan_translation"] as const)
                     if ((settings as Partial<Record<typeof field, unknown>>)[field] !== undefined)
