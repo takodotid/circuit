@@ -103,7 +103,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Feature                      | RouterOS                    | VRP                         | Raisecom ROS             | Junos                 | FortiOS          |
 | ---------------------------- | --------------------------- | --------------------------- | ------------------------ | --------------------- | ---------------- |
 | Static routes                | ✅                          | ✅                          | IPv4 next hop            | ✅                    | ✅               |
-| Next hop with its interface  | ✅                          | ❌                          | ❌                       | ❌                    | ✅               |
+| Next hop with its interface  | ✅                          | ✅                          | ❌                       | ❌                    | ✅               |
 | VRFs                         | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | BGP in a VRF                 | ✅                          | ❌                          | ❌                       | ✅                    | ❌               |
 | Routes taken between VRFs    | ✅ not with main            | ❌                          | ❌                       | 🧪                    | ❌               |

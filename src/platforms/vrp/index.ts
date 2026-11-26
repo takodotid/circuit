@@ -24,6 +24,7 @@ import { VrpMarking } from "./marking";
 import { VrpOspf } from "./ospf";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
+import { VrpRoutes } from "./routes";
 
 export class Vrp extends Platform {
     /** The question to change the password is always answered no, and a system view is left with `return`. The line's banner after a logout or a refused password is answered with Enter. Not yet tested on a device. */
@@ -221,25 +222,7 @@ export class Vrp extends Platform {
         if (bfd && !Vrp.inRange(bfd.multiplier, multiplier))
             found.push(`routing.bfd.multiplier, between ${multiplier.min} and ${multiplier.max} on the platform`);
 
-        for (const route of routing?.static_routes ?? []) {
-            if (!route.bfd) continue;
-
-            const where = `routing.static_routes ${route.prefix} bfd`;
-            const nextHop = route.next_hop && Address.host(route.next_hop);
-            if (route.vrf) found.push(`${where} in a VRF, not tested`);
-            else if (!nextHop || Address.family(nextHop) !== "ipv4") found.push(`${where}, needs an IPv4 next_hop`);
-            else if (!VrpRender.localAddressTo(device, nextHop))
-                found.push(`${where}, the device has no address on the network of ${nextHop}`);
-        }
-
-        for (const [index, route] of (routing?.static_routes ?? []).entries()) {
-            if (route.description && Address.family(Address.split(route.prefix).addr) === "ipv6")
-                found.push(`routing.static_routes[${index}].description for IPv6`);
-            // The render writes the next hop alone, so the interface would be lost.
-            if (route.next_hop && route.interface)
-                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
-        }
-
+        found.push(...VrpRoutes.unsupported(device));
         found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for VRP`);
 
@@ -526,6 +509,7 @@ export class Vrp extends Platform {
         const isis = VrpIsis.removed(top);
 
         if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
+        const through = VrpRoutes.throughInterfaces(top);
 
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
@@ -537,6 +521,8 @@ export class Vrp extends Platform {
             const sent = firstRemovals.filter((line) => !/^vlan \d+$/.test(line)).map((line) => Vrp.undo(line));
             planned.unshift({ title: "VLANs no longer used", show: firstRemovals.map((line) => `- ${line}`), send: sent });
         }
+
+        VrpRoutes.place(planned, through, (line) => Vrp.undo(line));
 
         planned.push(
             ...Vrp.removal("ACLs no longer used", lastRemovals),

@@ -568,14 +568,19 @@ export class VrpRender {
 
         for (const route of routes) {
             const { addr, len } = Address.split(route.prefix);
-            const nextHop = route.blackhole ? "NULL0" : route.next_hop ? Address.host(route.next_hop) : this.nameOf(route.interface!);
+            // The interface comes before the next hop it reaches, `Vlanif10 FE80::1`. The switch prints IPv6 addresses in capitals.
+            const through = [
+                route.interface && this.nameOf(route.interface),
+                route.next_hop && VrpPolicies.spell(Address.host(route.next_hop)),
+            ];
+            const nextHop = route.blackhole ? "NULL0" : through.filter(Boolean).join(" ");
             const vrf = route.vrf ? ` vpn-instance ${route.vrf}` : "";
             const preference = route.distance ? ` preference ${route.distance}` : "";
             const description = route.description ? ` description ${route.description}` : "";
             const bfd = route.bfd ? " bfd enable" : "";
             if (Address.family(addr) === "ipv4")
                 this.line(`ip route-static${vrf} ${addr} ${Address.netmask(len)} ${nextHop}${preference}${description}${bfd}`);
-            else this.line(`ipv6 route-static${vrf} ${addr} ${len} ${nextHop}${preference}`);
+            else this.line(`ipv6 route-static${vrf} ${VrpPolicies.spell(addr)} ${len} ${nextHop}${preference}`);
         }
 
         this.separator();
