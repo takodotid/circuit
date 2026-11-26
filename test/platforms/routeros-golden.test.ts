@@ -78,6 +78,11 @@ function withStpOffAsEdge(text: string): string {
         .join("\n");
 }
 
+/** 0.x wrote an edge port as one without discovery, `edge=yes`, which sends no BPDUs and ignores those it gets. v1 writes one with discovery, which does both, as IEEE 802.1Q's edge port does (TRAPS.md). */
+function withEdgeDiscovering(text: string): string {
+    return text.replaceAll(" edge=yes ", " edge=yes-discover ");
+}
+
 function advertises(device: Device): boolean {
     return Object.values(device.interfaces ?? {}).some((group) =>
         Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
@@ -132,7 +137,7 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
         test(name, () => {
             const device = Fixtures.device(name);
             const rendered = platform.render(device);
-            const old = withStpOffAsEdge(Fixtures.render(name));
+            const old = withStpOffAsEdge(withEdgeDiscovering(Fixtures.render(name)));
 
             expect(platform.unsupported(device)).toEqual([
                 ...(REFUSED_SINCE[name] ?? []),

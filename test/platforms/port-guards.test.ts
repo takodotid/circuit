@@ -1,4 +1,4 @@
-// BPDU guard, root guard, a port out of spanning tree, DHCP snooping, ARP inspection, and RA guard (RFC 6105). The RouterOS lines are as a CCR2216 with RouterOS 7.24.6 exported them, and the edge port as a CHR did. The Junos statements are as a QFX5100 with Junos 21.4R3 printed them after a commit. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
+// BPDU guard, root guard, a port out of spanning tree, DHCP snooping, ARP inspection, and RA guard (RFC 6105). The RouterOS lines are as a CCR2216 with RouterOS 7.24.6 exported them, and the edge ports as a CHR did. The Junos statements are as a QFX5100 with Junos 21.4R3 printed them after a commit. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -45,7 +45,7 @@ test("RouterOS sets them on the bridge and its ports, and sets them back to no w
     expect(messages(device)).toEqual([]);
     expect(desired).toContain("add dhcp-snooping=yes name=bridge protocol-mode=rstp ra-guard=yes vlan-filtering=yes");
     expect(desired).toContain(
-        "add bpdu-guard=yes bridge=bridge edge=yes frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-3 pvid=100"
+        "add bpdu-guard=yes bridge=bridge edge=yes-discover frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-3 pvid=100"
     );
     expect(desired).toContain(
         "add bridge=bridge frame-types=admit-only-vlan-tagged interface=sfp28-4 restricted-role=yes trusted=yes trusted-ra=yes"

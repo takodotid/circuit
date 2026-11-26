@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two. Each runs RSTP on its bridge, and r-01's port toward r-02 has `stp: false`. Skipped without the three CHRs.
+// Three RouterOS CHRs, which the devices workflow boots, the first linked to the other two, and the second to the third. Each runs RSTP on its bridge. r-01's port toward r-02 has `stp: false`, then is an edge port. Skipped without the three CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -12,6 +12,7 @@ const firstRest = process.env.CHR_REST;
 const secondChr = process.env.CIRCUIT_TEST_CHR_B;
 const thirdChr = process.env.CIRCUIT_TEST_CHR_C;
 const password = process.env.CIRCUIT_TEST_CHR_PASSWORD ?? "";
+const withoutChrs = !firstChr || !firstRest || !secondChr || !thirdChr;
 
 const repo = join(import.meta.dir, "..", "..");
 const folder = realpathSync(mkdtempSync(join(tmpdir(), "circuit-chr-stp-")));
@@ -29,6 +30,10 @@ const LISTEN_S = 8;
 /** r-02 has the best bridge priority, r-01 the default, and r-03 the worst. */
 const PRIORITY = { second: 4096, third: 61440 };
 
+/** How long r-01's ether2 stays down, and when its bridge port is looked at once it is up. Toward a host, a port without `edge` waited about 2.7 seconds before it forwarded. By then it had found by itself that it is an edge port (CHR, 7.24.6). */
+const DOWN_S = 2;
+const FIRST_LOOK_MS = 250;
+
 /** Runs Circuit from the sources in the lab project, and prints what it printed, so the job's log shows each plan. */
 function circuit(...args: string[]): { status: number | null; output: string } {
     const run = spawnSync("bun", [join(repo, "src", "cli", "index.ts"), ...args], {
@@ -45,6 +50,11 @@ function circuit(...args: string[]): { status: number | null; output: string } {
 function write(path: string, text: string): void {
     mkdirSync(dirname(join(folder, path)), { recursive: true });
     writeFileSync(join(folder, path), text);
+}
+
+/** The lab project's network. */
+function writeNetwork(): void {
+    write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked port to port." } } });\n`);
 }
 
 /** A device of the lab project on `chr`, with these groups. */
@@ -67,8 +77,8 @@ export default lab.device({
     );
 }
 
-/** r-01, whose port toward r-02 takes no part in spanning tree while `outOfStp`. Its REST API answers once it runs this config. */
-function writeFirst(outOfStp: boolean): void {
+/** r-01, with this `stp` on its port toward r-02, or none. Its REST API answers once it runs this config. */
+function writeFirst(stp?: string): void {
     writeDevice(
         "r-01",
         firstChr!,
@@ -76,7 +86,7 @@ function writeFirst(outOfStp: boolean): void {
     interfaces: {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-            "virtual-2": { description: "r-02", access_vlan: "lan"${outOfStp ? ", stp: false" : ""} },
+            "virtual-2": { description: "r-02", access_vlan: "lan"${stp ? `, stp: ${stp}` : ""} },
             "virtual-3": { description: "r-03", access_vlan: "lan" },
         },
     },
@@ -84,8 +94,14 @@ function writeFirst(outOfStp: boolean): void {
     );
 }
 
-/** r-02 or r-03, with one port toward r-01. */
-function writeNeighbor(name: string, chr: string, network: string, priority: number): void {
+/** r-02 or r-03, with its port toward r-01, an edge port with `edge`, and with `loop` its port toward the other too. Without `priority` it runs no spanning tree, so to r-01 it is a host. */
+function writeNeighbor(
+    name: "r-02" | "r-03",
+    chr: string,
+    network: string,
+    { priority, edge, loop }: { priority?: number; edge?: boolean; loop?: boolean }
+): void {
+    const other = name === "r-02" ? "r-03" : "r-02";
     writeDevice(
         name,
         chr,
@@ -93,22 +109,24 @@ function writeNeighbor(name: string, chr: string, network: string, priority: num
     interfaces: {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["${network}.1/24"] },
-            "virtual-2": { description: "r-01", access_vlan: "lan" },
+            "virtual-2": { description: "r-01", access_vlan: "lan"${edge ? ", stp: { edge: true }" : ""} },${loop ? `\n            "virtual-3": { description: "${other}", access_vlan: "lan" },` : ""}
         },
     },
-    switching: { stp: { priority: ${priority} }, vlans: { lan: { id: 10 } } },`
+    switching: { ${priority === undefined ? "" : `stp: { priority: ${priority} }, `}vlans: { lan: { id: 10 } } },`
     );
 }
 
-/** A script typed on r-01 through its REST API, as a person would type it. */
-async function typed(script: string): Promise<void> {
+/** A script typed on r-01 through its REST API, as a person would type it, and what it printed. */
+async function typed(script: string): Promise<string> {
     const response = await fetch(`http://${firstRest}/rest/execute`, {
         method: "POST",
         headers: { authorization: `Basic ${btoa(`operator:${password}`)}`, "content-type": "application/json" },
         body: JSON.stringify({ script, "as-string": "" }),
     });
-    console.log(`r-01 typed ${script}: ${response.status} ${await response.text()}`);
+    const text = await response.text();
+    console.log(`r-01 typed ${script}: ${response.status} ${text}`);
     expect(response.ok).toBe(true);
+    return (JSON.parse(text) as { ret?: string }).ret ?? "";
 }
 
 /** What `exec` printed for `command` on `device`. */
@@ -116,6 +134,15 @@ function exec(device: string, command: string): string {
     const { status, output } = circuit("exec", device, command);
     expect(status).toBe(0);
     return output;
+}
+
+/** Applies each device's config, and checks that diff then finds nothing to change. */
+function apply(...devices: string[]): void {
+    for (const device of devices) {
+        circuit("diff", device);
+        expect(circuit("apply", device, "--confirm").status).toBe(0);
+        expect(circuit("diff", device).status).toBe(0);
+    }
 }
 
 /** The BPDUs `device` takes on its ether2, from r-01, while it listens. The sniffer draws its list again each second, so a packet counts once by its number. */
@@ -130,67 +157,167 @@ function firstIsRoot(): boolean {
     return /root-bridge: yes/.test(exec("r-01", "/interface bridge monitor bridge once"));
 }
 
+/** How `device` sees the bridge port of its ether2, by the names `/interface bridge port monitor` prints: `role`, `edge-port`, `forwarding`. A disabled port prints its `status` alone. */
+function bridgePort(device: string): Record<string, string> {
+    const output = exec(device, "/interface bridge port monitor [find interface=ether2] once");
+    return Object.fromEntries([...output.matchAll(/^\s*([a-z-]+): (\S*)/gm)].map(([, name, value]) => [name, value]));
+}
+
+/** r-01's ether2 goes down and up, as when a host is plugged into it, and how r-01 sees its bridge port a moment after it is up. Values are `true` and `false` here. */
+async function firstLookAfterUp(): Promise<Record<string, string>> {
+    const printed = await typed(
+        `/interface ethernet disable ether2; :delay ${DOWN_S}s; /interface ethernet enable ether2; :delay ${FIRST_LOOK_MS}ms; :put [/interface bridge port monitor [find interface=ether2] once as-value]`
+    );
+    return Object.fromEntries(
+        printed
+            .trim()
+            .split(";")
+            .map((pair) => pair.split("=", 2))
+    );
+}
+
 /** Waits, so a new topology settles and each designated port has sent a few BPDUs. */
 function settle(): void {
     Bun.sleepSync(LISTEN_S * 1000);
 }
 
-describe.skipIf(!firstChr || !firstRest || !secondChr || !thirdChr)(
-    "a CHR's port with stp: false sends no BPDUs, and ignores those it gets",
+afterAll(() => rmSync(folder, { recursive: true, force: true }));
+
+describe.skipIf(withoutChrs)("a CHR's port with stp: false sends no BPDUs, and ignores those it gets", () => {
+    beforeAll(() => {
+        writeNetwork();
+        writeFirst("false");
+        writeNeighbor("r-02", secondChr!, "10.0.1", { priority: PRIORITY.second });
+        writeNeighbor("r-03", thirdChr!, "10.0.2", { priority: PRIORITY.third });
+    });
+
+    test(
+        "r-02 takes no BPDU from r-01's port with stp: false, r-03 takes them from the other, and r-01 stays its own root",
+        () => {
+            apply("r-02", "r-03", "r-01");
+            settle();
+            exec("r-01", "/interface bridge port monitor [find] once");
+
+            // r-02's priority is better, so r-01 would take it as the root through that port. As the root, each of its ports is designated, and would send BPDUs.
+            expect(firstIsRoot()).toBe(true);
+            expect(bpdusFromFirst("r-02")).toBe(0);
+            expect(bpdusFromFirst("r-03")).toBeGreaterThan(0);
+        },
+        TEST_MS
+    );
+
+    test(
+        "apply removes the bridge filter rules Circuit wrote for stp: false before, and diff then finds nothing to change",
+        async () => {
+            await typed(
+                `/interface bridge filter add action=drop chain=input comment="ether2 out of spanning tree" dst-mac-address=${BPDU} in-interface=ether2; /interface bridge filter add action=drop chain=output comment="ether2 out of spanning tree" dst-mac-address=${BPDU} out-interface=ether2`
+            );
+            expect(circuit("diff", "r-01").status).not.toBe(0);
+            expect(circuit("apply", "r-01", "--confirm").status).toBe(0);
+            expect(circuit("diff", "r-01").status).toBe(0);
+            expect(exec("r-01", ":put [:len [/interface bridge filter find]]")).toMatch(/^0$/m);
+        },
+        TEST_MS
+    );
+
+    test(
+        "without stp: false, apply puts the port back in spanning tree, r-01 takes r-02 as its root, and diff then finds nothing to change",
+        () => {
+            writeFirst();
+            apply("r-01");
+            settle();
+            exec("r-01", "/interface bridge port monitor [find] once");
+
+            expect(firstIsRoot()).toBe(false);
+            expect(bpdusFromFirst("r-03")).toBeGreaterThan(0);
+        },
+        TEST_MS
+    );
+});
+
+describe.skipIf(withoutChrs)(
+    "a CHR's edge port forwards at once and sends BPDUs, and the first BPDU it gets puts it in spanning tree",
     () => {
         beforeAll(() => {
-            write("circuit.ts", `export const lab = circuit({ sites: { lab: { description: "Three CHRs, linked port to port." } } });\n`);
-            writeFirst(true);
-            writeNeighbor("r-02", secondChr!, "10.0.1", PRIORITY.second);
-            writeNeighbor("r-03", thirdChr!, "10.0.2", PRIORITY.third);
+            writeNetwork();
+            writeNeighbor("r-03", thirdChr!, "10.0.2", { priority: PRIORITY.third });
         });
 
-        afterAll(() => rmSync(folder, { recursive: true, force: true }));
-
         test(
-            "r-02 takes no BPDU from r-01's port with stp: false, r-03 takes them from the other, and r-01 stays its own root",
-            () => {
-                for (const device of ["r-02", "r-03", "r-01"]) {
-                    circuit("diff", device);
-                    expect(circuit("apply", device, "--confirm").status).toBe(0);
-                    expect(circuit("diff", device).status).toBe(0);
-                }
-                settle();
-                exec("r-01", "/interface bridge port monitor [find] once");
-
-                // r-02's priority is better, so r-01 would take it as the root through that port. As the root, each of its ports is designated, and would send BPDUs.
-                expect(firstIsRoot()).toBe(true);
-                expect(bpdusFromFirst("r-02")).toBe(0);
-                expect(bpdusFromFirst("r-03")).toBeGreaterThan(0);
-            },
-            TEST_MS
-        );
-
-        test(
-            "apply removes the bridge filter rules Circuit wrote for stp: false before, and diff then finds nothing to change",
+            "toward a host, r-01's edge port forwards as soon as it is up, where a port without edge waits, and it sends BPDUs",
             async () => {
-                await typed(
-                    `/interface bridge filter add action=drop chain=input comment="ether2 out of spanning tree" dst-mac-address=${BPDU} in-interface=ether2; /interface bridge filter add action=drop chain=output comment="ether2 out of spanning tree" dst-mac-address=${BPDU} out-interface=ether2`
-                );
-                expect(circuit("diff", "r-01").status).not.toBe(0);
-                expect(circuit("apply", "r-01", "--confirm").status).toBe(0);
-                expect(circuit("diff", "r-01").status).toBe(0);
-                expect(exec("r-01", ":put [:len [/interface bridge filter find]]")).toMatch(/^0$/m);
+                writeNeighbor("r-02", secondChr!, "10.0.1", {});
+                writeFirst();
+                apply("r-02", "r-01");
+                expect(await firstLookAfterUp()).toMatchObject({ role: "designated-port", "edge-port": "false", forwarding: "false" });
+
+                writeFirst("{ edge: true }");
+                apply("r-01");
+                expect(await firstLookAfterUp()).toMatchObject({ role: "designated-port", "edge-port": "true", forwarding: "true" });
+                expect(exec("r-01", "/interface bridge port export")).toContain("edge=yes-discover");
+
+                // r-02 runs no spanning tree, so each BPDU it takes is r-01's. An edge port without discovery sent none (TRAPS.md).
+                expect(bpdusFromFirst("r-02")).toBeGreaterThan(0);
             },
             TEST_MS
         );
 
         test(
-            "without stp: false, apply puts the port back in spanning tree, r-01 takes r-02 as its root, and diff then finds nothing to change",
+            "once r-02 sends BPDUs with a better priority, r-01's edge port is an edge port no more, and is its root port",
             () => {
-                writeFirst(false);
-                expect(circuit("apply", "r-01", "--confirm").status).toBe(0);
-                expect(circuit("diff", "r-01").status).toBe(0);
+                writeNeighbor("r-02", secondChr!, "10.0.1", { priority: PRIORITY.second });
+                apply("r-02");
                 settle();
-                exec("r-01", "/interface bridge port monitor [find] once");
 
+                expect(bridgePort("r-01")).toMatchObject({ role: "root-port", "edge-port": "no", forwarding: "yes" });
                 expect(firstIsRoot()).toBe(false);
-                expect(bpdusFromFirst("r-03")).toBeGreaterThan(0);
+                expect(circuit("diff", "r-01").status).toBe(0);
+            },
+            TEST_MS
+        );
+
+        test(
+            "in a loop, r-03's edge port toward r-01 takes r-01's BPDUs and blocks",
+            () => {
+                // r-02 is the root, and r-03 reaches it through its own port toward r-02. On the link between r-01 and r-03, r-01 has the better priority.
+                writeNeighbor("r-02", secondChr!, "10.0.1", { priority: PRIORITY.second, loop: true });
+                writeNeighbor("r-03", thirdChr!, "10.0.2", { priority: PRIORITY.third, loop: true, edge: true });
+                apply("r-02", "r-03");
+                settle();
+
+                expect(bridgePort("r-03")).toMatchObject({ role: "alternate-port", "edge-port": "no", forwarding: "no" });
+            },
+            TEST_MS
+        );
+
+        test(
+            "BPDU guard beside the edge port shuts it at the first BPDU, and diff then finds nothing to change",
+            () => {
+                writeFirst("{ edge: true, bpdu_guard: true }");
+                apply("r-01");
+                settle();
+
+                expect(exec("r-01", '/log print where message~"bpdu-guard"')).toContain("bpdu-guard disabling ether2 due to received bpdu");
+                expect(bridgePort("r-01")).toMatchObject({ status: "inactive" });
+                expect(circuit("diff", "r-01").status).toBe(0);
+            },
+            TEST_MS
+        );
+
+        test(
+            "apply turns an edge port without discovery, as Circuit wrote it before, into one with it, and the port is in spanning tree again",
+            async () => {
+                writeFirst("{ edge: true }");
+                apply("r-01");
+                await typed("/interface bridge port set [find interface=ether2] edge=yes");
+
+                const diff = circuit("diff", "r-01");
+                expect(diff.status).not.toBe(0);
+                expect(diff.output).toContain("edge=yes-discover");
+                apply("r-01");
+                settle();
+
+                expect(bridgePort("r-01")).toMatchObject({ role: "root-port", "edge-port": "no", forwarding: "yes" });
             },
             TEST_MS
         );
