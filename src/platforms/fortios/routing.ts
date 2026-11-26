@@ -722,7 +722,7 @@ export class FortiOsRouting {
         const noVrf = "FortiOS 6.2 runs BGP in the default VRF only: BGP in a VRF needs 6.4";
         for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
-        // Neither `router isis` nor its interfaces have a setting for a topology (RFC 5120).
+        // Neither `router isis` nor its interfaces have a setting for a topology, RFC 5120's multi-topology (TRAPS.md).
         if (routing?.isis?.multi_topology) found.push("routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only");
         // The FortiOS 6.2 CLI reference lists `password` and `md5` for `auth-mode-l1` and `auth-mode-l2`, and a key chain's key has no algorithm.
         for (const { where, authentication } of Derive.isisAuthentications(device))
@@ -742,6 +742,7 @@ export class FortiOsRouting {
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
             if (settings?.network && device.interfaces?.loopback?.[name])
                 found.push(`${where}.network, a loopback's link type is loopback on FortiOS`);
+            // Neither `router isis` nor an `isis-interface` entry takes `bfd` (TRAPS.md).
             if (settings?.bfd) found.push(`${where}.bfd, FortiOS 6.2 has no BFD for IS-IS`);
         }
 
