@@ -22,9 +22,6 @@ export class VrpServices {
             if (relay.relay_agent_information)
                 found.push(`services.dhcp_relay.${name}.relay_agent_information, V200R005 adds no Option 82 where it relays`);
         }
-        for (const [name, server] of Object.entries(services.dhcp_server ?? {}))
-            if (server.relay !== undefined)
-                found.push(`services.dhcp_server.${name}.relay, a server for a relay's clients, not built for VRP`);
 
         if (services.dns_server) found.push("services.dns_server");
         if (services.dns64) found.push("services.dns64, which needs services.dns_server");

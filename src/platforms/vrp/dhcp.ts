@@ -1,4 +1,4 @@
-// DHCP servers: a global address pool for each, named after it. On V200R005 a VLAN interface takes neither `dhcp select` nor `dhcp server`, so no line ties a pool to its interface. No client has asked one for an address yet, so a DHCP server is experimental.
+// DHCP servers: a global address pool for each, named after it. On V200R005 a VLAN interface takes neither `dhcp select` nor `dhcp server`, so no line ties a pool to its interface. The switch picks the pool whose network holds the interface's address, or the address of the relay a request came through. No client has asked one for an address yet, so a DHCP server is experimental.
 
 import { Address } from "../../core/address";
 import type { Device, DhcpServer, VlanInterface } from "../../model";
@@ -79,7 +79,10 @@ export class VrpDhcp {
             if (!/^[A-Za-z0-9_.-]+$/.test(name) || name.length > VrpDhcp.NAME_LENGTH)
                 found.push(`${where}, a pool name of letters, digits, '-', '_' and '.', ${VrpDhcp.NAME_LENGTH} characters at most`);
             if (!iface) found.push(`${where}.interface, the switch serves DHCP on VLAN interfaces`);
-            else if (!VrpDhcp.holdsNetwork(iface, server.network))
+            // A relay's requests carry its address, by which the switch picks the pool, as it picks a local client's by the interface's.
+            else if (server.relay !== undefined && !Address.contains(server.network, server.relay))
+                found.push(`${where}.relay, outside ${server.network}: the switch picks a pool by the relay's address`);
+            else if (server.relay === undefined && !VrpDhcp.holdsNetwork(iface, server.network))
                 found.push(`${where}.interface, which has no address in ${server.network}: the switch picks a pool by that address`);
             if ((server.dns?.length ?? 0) > VrpDhcp.MAX_DNS) found.push(`${where}.dns, ${VrpDhcp.MAX_DNS} servers at most`);
             if (server.dns?.some((resolver) => Address.family(resolver) === "ipv6"))

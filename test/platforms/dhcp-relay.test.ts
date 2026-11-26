@@ -140,11 +140,23 @@ test("FortiOS refuses a relay on a loopback, which takes none", () => {
     );
 });
 
-test("VRP refuses both", () => {
-    expect(refusedDhcp("vrp", relaying("platforms--example-switch", "guests"))).toEqual([
+test("VRP serves a relay's clients from a pool for their network, as experimental, and refuses Option 82", () => {
+    const vrp = Platforms.get("vrp");
+    const device = relaying("platforms--example-switch", "guests");
+
+    expect(refusedDhcp("vrp", device)).toEqual([
         "services.dhcp_relay.guests.relay_agent_information, V200R005 adds no Option 82 where it relays",
-        "services.dhcp_server.relayed.relay, a server for a relay's clients, not built for VRP",
     ]);
+    expect(vrp.experimental!(device)).toContain("services.dhcp_server.relayed");
+    // The switch picks a pool by the relay's address, as it picks one for its own clients by the interface's: nothing names the relay.
+    expect(vrp.render(device)).toContain(
+        "ip pool relayed\n vpn-instance guests\n gateway-list 198.51.100.129\n network 198.51.100.128 mask 255.255.255.192\n"
+    );
+
+    device.services!.dhcp_server!.relayed!.relay = "198.51.100.1";
+    expect(refusedDhcp("vrp", device)).toContain(
+        "services.dhcp_server.relayed.relay, outside 198.51.100.128/26: the switch picks a pool by the relay's address"
+    );
 });
 
 test("validate wants an IPv4 relay address, and an IPv4 server for Option 82", () => {
