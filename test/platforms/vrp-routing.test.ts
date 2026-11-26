@@ -354,3 +354,32 @@ test("a session in a VRF is written whole in the VRF's view, without enable, bes
         "quit",
     ]);
 });
+
+test("OSPF on a tunnel or a loopback is point-to-point, which the switch does not print, and takes no other network type", () => {
+    const device = (network: "point-to-point" | "broadcast") =>
+        routed(
+            {
+                static_routes: [{ prefix: "203.0.113.0/24", blackhole: true }],
+                router_id: "192.0.2.250",
+                ospf: {
+                    areas: {
+                        "0.0.0.0": {
+                            interfaces: { "ctest-gre": { cost: 30, network }, "ctest-lo": { passive: true, network: "point-to-point" } },
+                        },
+                    },
+                },
+            },
+            {
+                loopback: { "ctest-lo": { addresses: ["192.0.2.250/32"] } },
+                gre: { "ctest-gre": { local_address: "192.0.2.250", remote_address: "203.0.113.1", addresses: ["192.0.2.37/30"] } },
+            }
+        );
+    const rendered = vrp.render(device("point-to-point"));
+
+    expect(rendered).toContain(" destination 203.0.113.1\n ip address 192.0.2.37 255.255.255.252\n ospf cost 30\n#");
+    expect(rendered).toContain("interface LoopBack0\n ip address 192.0.2.250 255.255.255.255\n#");
+    expect(vrp.unsupported(device("point-to-point"))).toEqual([]);
+    expect(vrp.unsupported(device("broadcast"))).toEqual([
+        "routing.ospf.areas.0.0.0.0.interfaces.ctest-gre.network broadcast, the switch runs OSPF on a tunnel or a loopback as point-to-point only",
+    ]);
+});

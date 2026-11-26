@@ -22,6 +22,13 @@ export class VrpOspf {
                         `${where}.neighbors on a point-to-multipoint link: the platform sends its hellos there by multicast, as \`peer\` is for NBMA links, and V200R005 has no \`p2mp-peer\``
                     );
 
+                // A CE6855 refused `ospf network-type broadcast` on a tunnel: "can not be run on tunnel interfaces".
+                const pointToPoint = device.interfaces?.gre?.[name] ?? device.interfaces?.loopback?.[name];
+                if (pointToPoint && settings?.network && settings.network !== "point-to-point")
+                    found.push(
+                        `${where}.network ${settings.network}, the switch runs OSPF on a tunnel or a loopback as point-to-point only`
+                    );
+
                 const authentication = settings?.authentication;
                 if (authentication && !VrpOspf.AUTH[authentication.algorithm])
                     found.push(

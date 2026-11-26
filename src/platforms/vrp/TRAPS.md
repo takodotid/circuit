@@ -145,3 +145,4 @@ Seen on a CE6855 running V200R005.
     - OSPF in a VRF is `ospf 1 router-id <ID> vpn-instance <name>`, printed as sent, and goes with `undo ospf 1`.
     - A VRF's sessions are whole in `ipv4-family vpn-instance <name>` of the BGP view, `peer <address> as-number` and every other line of each. `peer <address> enable` is `Unrecognized command` there, and a session needs none. Entering the view warns `NO RD is configured for the specified VPN instance` and is taken.
     - `display configuration candidate merge` prints a prefix list's entries without the list's name, `ip ip-prefix index 10 permit 198.51.100.0 24`, where a commit prints it with the name.
+    - OSPF on a tunnel is point-to-point: `ospf network-type p2p` is not printed there, and `ospf network-type broadcast` is refused, `The command is invalid, because the specified OSPF command can not be run on tunnel interfaces`. A loopback runs OSPF as point-to-point too.

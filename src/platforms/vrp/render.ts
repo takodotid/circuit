@@ -65,13 +65,13 @@ export class VrpRender {
     /** One process per device. */
     private static readonly OSPF_PROCESS = 1;
 
-    /** `ospf network-type` for each network type. Broadcast is a VLAN interface's own, which the switch does not print. */
+    /** `ospf network-type` for each network type. */
     private static readonly OSPF_NETWORK = {
-        broadcast: undefined,
+        broadcast: "broadcast",
         "point-to-point": "p2p",
         "point-to-multipoint": "p2mp",
         "non-broadcast": "nbma",
-    } as const satisfies Record<NonNullable<OspfInterface["network"]>, string | undefined>;
+    } as const satisfies Record<NonNullable<OspfInterface["network"]>, string>;
 
     /** The sFlow collectors are numbered from here, in the order the config lists them. */
     private static readonly FIRST_COLLECTOR = 1;
@@ -169,7 +169,11 @@ export class VrpRender {
         }
 
         for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {})) {
-            if (loopback) this.block(`interface ${this.nameOf(name)}`, [...this.addressing(name, loopback), ...this.ospfLines(name)]);
+            if (loopback)
+                this.block(`interface ${this.nameOf(name)}`, [
+                    ...this.addressing(name, loopback),
+                    ...this.ospfLines(name, "point-to-point"),
+                ]);
         }
 
         for (const [name, tunnel] of Object.entries(device.interfaces?.gre ?? {})) {
@@ -496,7 +500,7 @@ export class VrpRender {
             for (const server of relays.flatMap((relay) => relay.servers)) lines.push(`dhcp relay binding server ip ${server}`);
         }
 
-        lines.push(...this.ospfLines(name));
+        lines.push(...this.ospfLines(name, "broadcast"));
         lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
         return lines;
     }
@@ -506,7 +510,7 @@ export class VrpRender {
         const lines = tunnel.description ? [`description ${tunnel.description}`] : [];
         lines.push("tunnel-protocol gre", `source ${Address.host(tunnel.local_address)}`, `destination ${tunnel.remote_address}`);
         const addressing = this.addressing(name, tunnel).filter((line) => !line.startsWith("description "));
-        return [...lines, ...addressing, ...this.ospfLines(name)];
+        return [...lines, ...addressing, ...this.ospfLines(name, "point-to-point")];
     }
 
     /** An interface's description, VRF, and addresses. Binding to a VRF clears the addresses, so it comes first. */
@@ -529,8 +533,8 @@ export class VrpRender {
         return lines;
     }
 
-    /** An interface's own OSPF settings, from the area that holds it. */
-    private ospfLines(name: string): string[] {
+    /** An interface's own OSPF settings, from the area that holds it. The switch does not print the network type that is the interface's own: broadcast on a VLAN interface, point-to-point on a loopback or a tunnel. */
+    private ospfLines(name: string, own: NonNullable<OspfInterface["network"]>): string[] {
         const lines: string[] = [];
 
         for (const area of Object.values(this.device.routing?.ospf?.areas ?? {})) {
@@ -538,8 +542,7 @@ export class VrpRender {
             if (!settings) continue;
 
             if (settings.cost !== undefined) lines.push(`ospf cost ${settings.cost}`);
-            const network = settings.network && VrpRender.OSPF_NETWORK[settings.network];
-            if (network) lines.push(`ospf network-type ${network}`);
+            if (settings.network && settings.network !== own) lines.push(`ospf network-type ${VrpRender.OSPF_NETWORK[settings.network]}`);
             const priority = settings.priority;
             if (priority !== undefined && priority !== VrpRender.OSPF_PRIORITY) lines.push(`ospf dr-priority ${priority}`);
             if (settings.hello_interval !== undefined) lines.push(`ospf timer hello ${settings.hello_interval}`);
