@@ -46,6 +46,7 @@ test("Junos only logs without teardown, and opens the session again after whole 
         );
 });
 
+// FortiOS 6.2.2 has no restart: a neighbor's `set maximum-prefix-restart` was `command parse error`.
 test("FortiOS only warns in each family, and refuses a restart", () => {
     const fortios = Platforms.get("fortios");
     const v6 = {

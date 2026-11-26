@@ -765,6 +765,7 @@ export class FortiOsRouting {
                 found.push(
                     `${where}.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers`
                 );
+            // A neighbor has no `maximum-prefix-restart` (TRAPS.md).
             if (Derive.prefixLimit(settings)?.restart_after !== undefined)
                 found.push(`${where}.max_prefixes.restart_after, FortiOS 6.2 keeps the session closed until it is cleared by hand`);
             if (settings.local_address && !FortiOsNames.holderOf(device, settings.local_address)) {
