@@ -713,8 +713,8 @@ export class FortiOsRouting {
             }
         }
 
-        // The device has no VRF setting for BGP (TRAPS.md).
-        const noVrf = "FortiOS 6.2 runs BGP in the default VRF only";
+        // BGP has one table, the default VRF's, whatever interface reaches a neighbor (TRAPS.md).
+        const noVrf = "FortiOS 6.2 runs BGP in the default VRF only: BGP in a VRF needs 6.4";
         for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
         // Neither `router isis` nor its interfaces have a setting for a topology (RFC 5120).
