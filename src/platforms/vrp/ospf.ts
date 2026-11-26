@@ -12,8 +12,6 @@ export class VrpOspf {
         if (!ospf) return [];
 
         const found: string[] = [];
-        // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
-        if (ospf.vrf) found.push("routing.ospf.vrf, not built yet");
         if (ospf.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
 
         for (const [areaId, area] of Object.entries(ospf.areas))
@@ -22,6 +20,13 @@ export class VrpOspf {
                 if (settings?.network === "point-to-multipoint" && settings.neighbors)
                     found.push(
                         `${where}.neighbors on a point-to-multipoint link: the platform sends its hellos there by multicast, as \`peer\` is for NBMA links, and V200R005 has no \`p2mp-peer\``
+                    );
+
+                // A CE6855 refused `ospf network-type broadcast` on a tunnel: "can not be run on tunnel interfaces".
+                const pointToPoint = device.interfaces?.gre?.[name] ?? device.interfaces?.loopback?.[name];
+                if (pointToPoint && settings?.network && settings.network !== "point-to-point")
+                    found.push(
+                        `${where}.network ${settings.network}, the switch runs OSPF on a tunnel or a loopback as point-to-point only`
                     );
 
                 const authentication = settings?.authentication;
@@ -59,11 +64,11 @@ export class VrpOspf {
         return /^(silent-interface \S+|import-route (direct|static))$/.test(line) ? line : undefined;
     }
 
-    /** A range is undone by its address and mask, without its options, and the process by its number, without its router ID. Undefined for any other line. */
+    /** A range is undone by its address and mask, without its options, and the process by its number, without its router ID or VRF. Undefined for any other line. */
     static undo(line: string): string | undefined {
         const summary = /^abr-summary \S+ \S+/.exec(line);
         if (summary) return `undo ${summary[0]}`;
-        const process = /^ospf \d+(?= router-id )/.exec(line);
+        const process = /^ospf \d+(?= (?:router-id|vpn-instance) )/.exec(line);
         return process ? `undo ${process[0]}` : undefined;
     }
 }

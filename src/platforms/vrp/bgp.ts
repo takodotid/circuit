@@ -3,9 +3,10 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, RouteRule } from "../../model";
+import type { Device, Family, Interface, Neighbor, NeighborSettings, RouteRule } from "../../model";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
+import { VrpNames } from "./names";
 import { VrpPolicies } from "./policies";
 
 export class VrpBgp {
@@ -58,14 +59,20 @@ export class VrpBgp {
         return { ...group, ...neighbor };
     }
 
-    /** The interface that holds `address`, as the switch calls it. Only a VLAN interface routes here. */
+    /** The VLAN interface or loopback that holds `address`, as the switch calls it. */
     static interfaceOf(device: Device, address: string): string | undefined {
+        const holds = (entries: NonNullable<Interface["addresses"]> = []) =>
+            entries.some(
+                (entry) => Address.canonical(Address.host(typeof entry === "string" ? entry : entry.address)) === Address.canonical(address)
+            );
+
         for (const iface of Object.values(device.interfaces?.vlan_interface ?? {})) {
-            const addresses = (iface?.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
             const vlan = iface && device.switching?.vlans?.[iface.vlan];
-            if (vlan && addresses.some((each) => Address.canonical(Address.host(each)) === Address.canonical(address)))
-                return `Vlanif${vlan.id}`;
+            if (vlan && holds(iface.addresses)) return `Vlanif${vlan.id}`;
         }
+
+        for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {}))
+            if (holds(loopback?.addresses)) return VrpNames.loopback(device, name);
 
         return undefined;
     }
@@ -82,17 +89,26 @@ export class VrpBgp {
     static unsupported(device: Device): string[] {
         const bgp = device.routing?.bgp;
         const found: string[] = [];
-        const notBuilt = "not built yet";
 
         if (bgp && bgp.asn === undefined) found.push("routing.bgp.asn, absent: write it here or in circuit.ts");
-        if (bgp?.confederation) found.push(`routing.bgp.confederation, ${notBuilt}`);
-        if (bgp?.aggregates) found.push(`routing.bgp.aggregates, ${notBuilt}`);
         const routerId = device.routing?.router_id;
         if (bgp && routerId && Address.family(routerId) === "ipv6") found.push("routing.router_id, IPv6: BGP takes an IPv4 router ID");
 
         for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
             if (neighbor) found.push(...VrpBgp.neighborGaps(device, `routing.bgp.neighbors.${name}`, neighbor));
         }
+
+        // A CE6855 refused `peer <address> graceful-restart`: `graceful-restart` in the BGP view is for every session.
+        const graceful = Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => ({
+            name,
+            on: !!neighbor && !!VrpBgp.settingsOf(device, neighbor).graceful_restart,
+        }));
+        const first = graceful.find(({ on }) => on)?.name;
+        const without = graceful.filter(({ on }) => !on).map(({ name }) => name);
+        if (first && without.length)
+            found.push(
+                `routing.bgp.neighbors.${first}.graceful_restart, but not on ${without.join(", ")}: the platform turns it on for every session at once. Set it on every neighbor or on none`
+            );
 
         for (const [name, rules] of Object.entries(device.routing?.policies ?? {})) {
             (rules ?? []).forEach((rule, index) => {
@@ -152,14 +168,20 @@ export class VrpBgp {
         const wanted = LineDiff.entries(desired, dialect);
         const key = (path: readonly string[]) => path.join("\u0000");
 
-        for (const group of groups.filter((each) => each.path.length === 1 && each.path[0]?.startsWith("bgp "))) {
+        // A VRF's sessions are whole in its view; the main ones are in the BGP view and its families' views.
+        const ofVrf = (path: readonly string[]) => / vpn-instance /.test(path[1] ?? "");
+        const sessions = (each: { path: readonly string[] }) => each.path.length === 1 || (each.path.length === 2 && ofVrf(each.path));
+
+        for (const group of groups.filter((each) => each.path[0]?.startsWith("bgp ") && sessions(each))) {
             const undone = new Set(group.remove.flatMap((line) => /^peer (\S+) as-number /.exec(line)?.[1] ?? []));
             const ofUndone = (line: string) => undone.has(VrpBgp.PEER.exec(line)?.[1] ?? "");
-            const view = groups.filter((each) => each.path[0] === group.path[0]);
+            const inView = (path: readonly string[]) =>
+                path[0] === group.path[0] && (ofVrf(group.path) ? key(path) === key(group.path) : !ofVrf(path));
+            const view = groups.filter((each) => inView(each.path));
 
             for (const each of view) each.remove = each.remove.filter((line) => !ofUndone(line) || / as-number /.test(line));
 
-            for (const entry of wanted.filter((each) => each.path[0] === group.path[0] && ofUndone(each.line))) {
+            for (const entry of wanted.filter((each) => inView(each.path) && ofUndone(each.line))) {
                 let target = groups.find((each) => key(each.path) === key(entry.path));
                 if (!target) {
                     target = { path: entry.path, remove: [], add: [] };
@@ -169,7 +191,7 @@ export class VrpBgp {
             }
 
             // In the order the render writes them, so a session's AS comes before its other lines.
-            for (const each of groups.filter((other) => other.path[0] === group.path[0])) {
+            for (const each of groups.filter((other) => inView(other.path))) {
                 const order = wanted.filter((entry) => key(entry.path) === key(each.path)).map((entry) => entry.line);
                 each.add.sort((a, b) => order.indexOf(a) - order.indexOf(b));
             }
@@ -183,7 +205,9 @@ export class VrpBgp {
         if (peer) return `undo peer ${peer[1]}`;
 
         const keyword =
-            /^(peer \S+ (?:description|ebgp-max-hop|connect-interface|password|route-limit)|router-id|reflector cluster-id) /.exec(line);
+            /^(confederation id|peer \S+ (?:description|ebgp-max-hop|connect-interface|password|route-limit|valid-ttl-hops)|router-id|reflector cluster-id) /.exec(
+                line
+            );
         if (keyword) return `undo ${keyword[1]}`;
 
         const node = VrpBgp.NODE.exec(line);
@@ -191,6 +215,10 @@ export class VrpBgp {
 
         const entry = /^(ip ip-prefix|ip ipv6-prefix|ip community-filter basic|ip as-path-filter) (\S+ index \d+) /.exec(line);
         if (entry) return `undo ${entry[1]} ${entry[2]}`;
+
+        // An aggregate is undone by its address and mask, without `detail-suppressed`.
+        const aggregate = /^aggregate \S+ \S+/.exec(line);
+        if (aggregate) return `undo ${aggregate[0]}`;
 
         const applied = /^apply (local-preference|cost|as-path|community|comm-filter) /.exec(line);
         if (applied) return `undo apply ${applied[1]}`;
@@ -200,7 +228,7 @@ export class VrpBgp {
 
     /** Which lines are one setting with two values: none of BGP's and the route-policies'. Each line is undone before its new value, and a session's new AS goes through `renewPeers`. */
     static head(line: string): string | undefined {
-        return /^(peer|network|router-id|reflector|if-match|apply|route-policy|bgp) |^(ip ip-prefix|ip ipv6-prefix|ip community-filter|ip as-path-filter) /.test(
+        return /^(peer|network|aggregate|router-id|reflector|if-match|apply|route-policy|bgp) |^(ip ip-prefix|ip ipv6-prefix|ip community-filter|ip as-path-filter) /.test(
             line
         )
             ? line
@@ -224,8 +252,15 @@ export class VrpBgp {
         const bgp = device.routing!.bgp!;
         const routerId = device.routing?.router_id;
         const lines = [`bgp ${bgp.asn}`, ...(routerId ? [` router-id ${routerId}`] : [])];
+        const confederation = bgp.confederation;
+        if (confederation) lines.push(` confederation id ${confederation.identifier}`);
+        if (confederation?.member_as.length) lines.push(` confederation peer-as ${confederation.member_as.join(" ")}`);
+        // One setting for every session: `unsupported()` refuses it on only some.
+        if (neighbors.some((neighbor) => VrpBgp.settingsOf(device, neighbor).graceful_restart)) lines.push(" graceful-restart");
         const families: Record<Family, string[]> = { ipv4: [], ipv6: [] };
         const evpn: string[] = [];
+        // The sessions of each VRF, whole, in its own view. `unsupported()` refuses one from an IPv6 address.
+        const vrfs = new Map<string, string[]>();
 
         for (const prefix of bgp.originated_prefixes ?? []) {
             const { addr, len, family } = Address.split(prefix);
@@ -234,10 +269,26 @@ export class VrpBgp {
             );
         }
 
+        // `detail-suppressed` keeps back the routes inside the aggregate.
+        for (const { prefix, summary_only: summaryOnly } of bgp.aggregates ?? []) {
+            const { addr, len, family } = Address.split(prefix);
+            const mask = family === "ipv4" ? `${addr} ${Address.netmask(len)}` : `${VrpPolicies.spell(addr)} ${len}`;
+            families[family].push(`aggregate ${mask}${summaryOnly ? " detail-suppressed" : ""}`);
+        }
+
         for (const neighbor of neighbors) {
             const settings = VrpBgp.settingsOf(device, neighbor);
             const peer = `peer ${VrpPolicies.spell(neighbor.address)}`;
             const family = Address.family(neighbor.address);
+
+            if (settings.vrf) {
+                const view = vrfs.get(settings.vrf) ?? [];
+                // A session in a VRF exchanges its routes without `enable`, which the switch refuses there.
+                const exchange = VrpBgp.exchange(peer, settings).filter((line) => line !== `${peer} enable`);
+                view.push(...VrpBgp.session(device, peer, settings), ...exchange);
+                vrfs.set(settings.vrf, view);
+                continue;
+            }
 
             lines.push(...VrpBgp.session(device, peer, settings).map((line) => ` ${line}`));
             // An IPv4 session exchanges IPv4 routes until told not to.
@@ -254,6 +305,11 @@ export class VrpBgp {
             if (bgp.cluster_id && clients) families[family].push(`reflector cluster-id ${bgp.cluster_id}`);
             lines.push(" #", ` ${VrpBgp.FAMILY_VIEW[family]}`, ...families[family].map((line) => `  ${line}`));
         }
+        // A VRF announces the originated prefixes it has a route for, as the main table does.
+        const networks = families.ipv4.filter((line) => line.startsWith("network "));
+        for (const [vrf, view] of vrfs)
+            lines.push(" #", ` ipv4-family vpn-instance ${vrf}`, ...[...networks, ...view].map((line) => `  ${line}`));
+
         // The switch takes only the EVPN routes whose targets a segment imports, `policy vpn-target`, its default, which it prints.
         if (evpn.length) lines.push(" #", " l2vpn-family evpn", "  policy vpn-target", ...evpn.map((line) => `  ${line}`));
 
@@ -278,6 +334,8 @@ export class VrpBgp {
         const iface = local && VrpBgp.interfaceOf(device, local);
         if (local && iface) lines.push(`${peer} connect-interface ${iface} ${VrpPolicies.spell(local)}`);
         if (settings.passive) lines.push(`${peer} listen-only`);
+        // Sent with TTL 255, and only TTL 255 taken: one hop (GTSM, RFC 5082).
+        if (settings.ttl_security) lines.push(`${peer} valid-ttl-hops 1`);
         if (settings.password) lines.push(`${peer} password cipher ${Secrets.marker(settings.password)}`);
         return lines;
     }
@@ -299,6 +357,8 @@ export class VrpBgp {
 
         lines.push(`${peer} advertise-community`);
         if (settings.route_reflector_client) lines.push(`${peer} reflect-client`);
+        // Sent whether or not the device has a default route.
+        if (settings.send_default_route) lines.push(`${peer} default-route-advertise`);
         return lines;
     }
 
@@ -307,9 +367,12 @@ export class VrpBgp {
         const found: string[] = [];
         const notBuilt = "not built yet";
 
-        for (const key of ["role", "ttl_security", "bfd", "graceful_restart", "send_default_route", "vrf"] as const)
-            if (settings[key] !== undefined && settings[key] !== false) found.push(`${where}.${key}, ${notBuilt}`);
+        // A CE6855 refused `peer <address> local-role`.
+        if (settings.role) found.push(`${where}.role, V200R005 has no BGP roles`);
+        if (settings.bfd) found.push(`${where}.bfd, ${notBuilt}`);
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
+        if (settings.vrf && Address.family(neighbor.address) === "ipv6") found.push(`${where}.vrf, from an IPv6 address: ${notBuilt}`);
+        if (settings.vrf && settings.route_reflector_client) found.push(`${where}.route_reflector_client in a VRF, ${notBuilt}`);
 
         const family = Address.family(neighbor.address);
         const families = (settings.address_families ?? [family]).filter((each) => each !== "l2vpn-evpn" || family === "ipv4");
@@ -336,7 +399,7 @@ export class VrpBgp {
 
         const local = settings.local_address && Address.host(settings.local_address);
         if (local && !VrpBgp.interfaceOf(device, local))
-            found.push(`${where}.local_address ${local}, no VLAN interface of the device holds it`);
+            found.push(`${where}.local_address ${local}, no VLAN interface or loopback of the device holds it`);
 
         return found;
     }

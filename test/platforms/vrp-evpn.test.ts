@@ -130,7 +130,7 @@ test("VRP refuses what the switch can't take, or what no switch here has run", (
             "interfaces.vxlan.school.vni 16000001, the switch takes 16000000 at most",
             "interfaces.vxlan.school.port, not built yet",
             "interfaces.vxlan.school.mac, the switch gives the NVE interface its own",
-            "interfaces.vxlan.school.local_address 198.51.100.1, no VLAN interface of the device holds it: VRP builds no loopback yet",
+            "interfaces.vxlan.school.local_address 198.51.100.1, no VLAN interface or loopback of the device holds it",
             "interfaces.vlan_interface.school, on the VLAN of interfaces.vxlan.school: a VLAN in a bridge domain is not routed here yet",
             "routing.bgp.neighbors.vtep-b.route_reflector_client beside l2vpn-evpn, not built yet",
             "routing.bgp.neighbors.vtep-b.max_prefixes beside l2vpn-evpn, not built yet",

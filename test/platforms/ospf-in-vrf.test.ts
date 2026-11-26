@@ -135,11 +135,10 @@ end
     expect(fortios.plan(desired, printed, options).steps).toEqual([]);
 });
 
-test("FortiOS refuses OSPFv3 in a VRF, and VRP refuses OSPF in a VRF", () => {
+test("FortiOS refuses OSPFv3 in a VRF", () => {
     expect(Platforms.get("fortios").unsupported(fortiosInVrf({ address_families: ["ipv4", "ipv6"] }))).toContain(
         "routing.ospf.vrf with ipv6 in address_families, FortiOS 6.2 runs OSPFv3 in the default VRF only"
     );
-    expect(Platforms.get("vrp").unsupported(inVrf("platforms--example-switch"))).toContain("routing.ospf.vrf, not built yet");
 });
 
 test("an OSPF interface that routes in another table than OSPF is refused, with what to write", () => {

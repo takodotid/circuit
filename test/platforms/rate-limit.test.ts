@@ -1,4 +1,4 @@
-// Rate limits (RFC 2697). RouterOS is applied and measured on CHRs in CI (routeros-chr-rate-limit.test.ts). FortiOS's shapers and shaping policies were sent to a FG-3700D on 6.2.2 on a spare port, read back, and removed. Junos passed `commit check` on a QFX5100 with 21.4R3, and VRP went into a CE6855's candidate.
+// Rate limits (RFC 2697). RouterOS is applied and measured on CHRs in CI (routeros-chr-rate-limit.test.ts). FortiOS's shapers and shaping policies were sent to a FG-3700D on 6.2.2 on a spare port, read back, and removed. Junos passed `commit check` on a QFX5100 with 21.4R3, and VRP was committed with `commit trial` on a CE6855's spare port and read back.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -300,10 +300,30 @@ test("VRP polices a port through a CAR profile, only with --experimental", () =>
     ]);
     expect(Platforms.get("vrp").experimental?.(vrp)).toEqual(["interfaces.ethernet.10g-3.rate_limit"]);
     const text = Platforms.get("vrp").render(vrp);
-    expect(text).toContain("qos car rate-limit-10g-3 cir 200000 cbs 250000");
+    expect(text).toContain("qos car rate-limit-10g-3 cir 200000 kbps cbs 250000 bytes");
     expect(text).toContain(
-        "interface 10GE1/0/3\n port default vlan 10\n qos car inbound rate-limit-10g-3\n qos lr cir 1500000 kbps outbound\n#"
+        "interface 10GE1/0/3\n port default vlan 10\n qos lr cir 1500000 kbps outbound\n qos car inbound rate-limit-10g-3\n#"
     );
+});
+
+// A CE6855 on V200R005C00SPC800 printed each with its units, refused to remove a CAR profile a port used, and took a new one over it whole.
+test("VRP writes a burst in bytes as the switch prints it, and sends a CAR profile that changes over the old one", () => {
+    const limited = (rateLimit: object) =>
+        Platforms.get("vrp").render(device("vrp", "CE6855-48S6Q-HI", { ethernet: { "10g-48": { rate_limit: rateLimit } } }));
+    const burst = limited({ input: { cir: "200M", bc: 250_000 }, output: { cir: "100M", bc: 125_000 } });
+    const rate = limited({ input: "200M", output: "100M" });
+
+    expect(burst).toContain("qos car rate-limit-10g-48 cir 200000 kbps cbs 250000 bytes\n");
+    expect(burst).toContain(" qos lr cir 100000 kbps cbs 125000 bytes outbound\n qos car inbound rate-limit-10g-48\n");
+    expect(rate).toContain("qos car rate-limit-10g-48 cir 200000 kbps\n");
+    const change = Platforms.get("vrp").plan(rate, burst, options).steps;
+    expect(change.flatMap((step) => step.send)).toEqual([
+        "qos car rate-limit-10g-48 cir 200000 kbps",
+        "interface 10GE1/0/48",
+        "undo qos lr outbound",
+        "qos lr cir 100000 kbps outbound",
+        "quit",
+    ]);
 });
 
 test("Raisecom ROS limits a port and a LAG in kbit/s, with the switch's own burst unless one is written, as a RAX721 with ROS 6.5.2 printed them", () => {
