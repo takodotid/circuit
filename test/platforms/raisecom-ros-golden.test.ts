@@ -117,6 +117,6 @@ test("fields a Raisecom switch can't take are refused, not skipped", () => {
     } as Device;
 
     const found = platform.unsupported(device);
-    expect(found).toContain(`interfaces.ethernet.${port}.ipv6_ra`);
+    expect(found).toContain(`interfaces.ethernet.${port}.ipv6_ra, ROS 6.5.2 has no setting that turns router advertisements on or off`);
     expect(found).toContain("routing.router_id without routing.ospf, only OSPF uses it here");
 });

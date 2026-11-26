@@ -134,7 +134,7 @@ test("a field a platform renders nothing for is unsupported", () => {
             "switching.vlans.servers.description",
             "interfaces.vlan_interface.management.mtu",
             "interfaces.vlan_interface.management.addresses 2001:db8::3/64, only IPv4 here",
-            "routing.static_routes 2001:db8:1::/48, only an IPv4 next_hop in the default table",
+            "routing.static_routes 2001:db8:1::/48, only an IPv4 next_hop",
             "routing.static_routes 2001:db8:1::/48 description and distance",
         ])
     );
