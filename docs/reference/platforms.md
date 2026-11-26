@@ -168,7 +168,7 @@ On Junos, policy routing is Juniper's filter-based forwarding, experimental: a Q
 | ---------------------------------- | ---------------------------------------- | ----------------------------- | -------------------------- | -------------------------------------------- | ----------------------------------------------- |
 | Firewall filter                    | ✅                                       | ❌                            | ❌                         | ❌                                           | ✅                                              |
 | NAT                                | ✅                                       | ❌                            | ❌                         | ❌                                           | IPv4                                            |
-| CGNAT pool, deterministic          | ✅                                       | ❌                            | ❌                         | ❌                                           | ❌                                              |
+| CGNAT pool, deterministic          | ✅                                       | ❌                            | ❌                         | ❌                                           | ❌ shares from port 5117                        |
 | CGNAT pool, dynamic                | ❌                                       | ❌                            | ❌                         | ❌                                           | ✅ 64 to 4096 ports in a block, 1 to 128 blocks |
 | CGNAT pool, block timeout          | ❌                                       | ❌                            | ❌                         | ❌                                           | ✅ 3 to 300 seconds                             |
 | NAT64                              | ❌                                       | ❌                            | ❌                         | ❌                                           | 🧪 a /96 prefix                                 |
@@ -232,6 +232,8 @@ NAT64 and DNS64 are built on FortiOS only:
 - **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.
 
 On FortiOS a TCP MSS clamp is the `tcp-mss` of the interface its `if.in_interface` names. FortiOS 6.2 lowers the MSS of each SYN and SYN-ACK that arrives on that interface, of both families, and leaves one that offers less as it is. So a clamp there names its interface alone, with a number of bytes, not `path_mtu`, and the clamps of one interface agree.
+
+FortiOS refuses a deterministic CGNAT pool. FortiOS 6.2's pool of `type fixed-port-range` gives each subscriber of a pool address an equal share of the ports from 5117 to 65532, with no setting for the first port or the size of a share, so its shares are not `port_set_size` ports from 1024. Fortinet's fixed port range algorithm also gives a port past a full share, so `circuit nat lookup` couldn't always find a port's subscriber. Fortinet's 7.0.1 CLI reference has `startport` and `port-per-user`.
 
 Option 82 on a DHCP relay is proven on RouterOS. Two platforms build it, but no request relayed through them has shown what they add:
 

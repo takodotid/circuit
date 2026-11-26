@@ -516,11 +516,11 @@ export class FortiOsUnsupported {
         return found;
     }
 
-    /** A pool that hands out blocks of ports, as `firewall ippool` takes it on 6.2.2. A deterministic one has no pool here: a fixed port range pool moves a session out of its block once the block is full (Fortinet's fixed port range algorithm). */
+    /** A pool that hands out blocks of ports, as `firewall ippool` takes it on 6.2.2. A deterministic one has no pool here. A fixed port range pool sets its own shares of ports, and gives a port past a full share (TRAPS.md). */
     private static poolGaps(where: string, rule: PoolNatRule): string[] {
         if (rule.port_allocation !== "dynamic")
             return [
-                `${where}.port_allocation ${rule.port_allocation}: a fixed port range pool does not keep a subscriber's sessions in its block of ports. Write dynamic, whose blocks the device logs`,
+                `${where}.port_allocation ${rule.port_allocation}: FortiOS 6.2 shares ports 5117 to 65532 alike among the subscribers of a pool address, not port_set_size each from 1024, and may give a port past a share. Write dynamic, whose blocks the device logs`,
             ];
 
         const { size, perSubscriber, timeout } = FortiOsFirewall.BLOCK_POOL;
