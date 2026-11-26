@@ -673,9 +673,10 @@ export class FortiOsUnsupported {
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
                 found.push(`services.dhcp_server.${name}.dns, at most ${FortiOsRender.RESOLVERS.dhcp}`);
-            if (server.relay !== undefined)
+            // The device answers a relayed request from the server whose network holds the relay's address (TRAPS.md).
+            if (server.relay !== undefined && !Address.contains(server.network, server.relay))
                 found.push(
-                    `services.dhcp_server.${name}.relay, FortiOS 6.2 has no setting for a relay's clients: relay-agent comes in 7.4`
+                    `services.dhcp_server.${name}.relay ${server.relay}, outside network ${server.network}: FortiOS answers a relay from the server whose network holds its address, so write the network the relay is in`
                 );
         }
 
