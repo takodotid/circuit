@@ -196,3 +196,18 @@ test("GTSM is valid-ttl-hops 1, undone without its value", () => {
         "quit",
     ]);
 });
+
+test("a default route to a neighbor is default-route-advertise in its family, printed with a space after it", () => {
+    const rendered = vrp.render(sessions({ send_default_route: true }));
+
+    expect(rendered).toContain("  peer 192.0.2.2 default-route-advertise\n");
+    expect(plan(rendered, rendered.replace(/default-route-advertise\n/g, "default-route-advertise \n")).steps).toEqual([]);
+    expect(sent(vrp.render(sessions({})), rendered)).toEqual([
+        "bgp 65001",
+        "ipv4-family unicast",
+        "undo peer 192.0.2.3 default-route-advertise",
+        "undo peer 192.0.2.2 default-route-advertise",
+        "quit",
+        "quit",
+    ]);
+});

@@ -310,6 +310,8 @@ export class VrpBgp {
 
         lines.push(`${peer} advertise-community`);
         if (settings.route_reflector_client) lines.push(`${peer} reflect-client`);
+        // Sent whether or not the device has a default route.
+        if (settings.send_default_route) lines.push(`${peer} default-route-advertise`);
         return lines;
     }
 
@@ -318,7 +320,7 @@ export class VrpBgp {
         const found: string[] = [];
         const notBuilt = "not built yet";
 
-        for (const key of ["role", "bfd", "graceful_restart", "send_default_route", "vrf"] as const)
+        for (const key of ["role", "bfd", "graceful_restart", "vrf"] as const)
             if (settings[key] !== undefined && settings[key] !== false) found.push(`${where}.${key}, ${notBuilt}`);
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
 

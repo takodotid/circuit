@@ -155,7 +155,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Graceful restart (RFC 4724)  | ❌                          | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
 | Prefix limit that restarts   | ❌                          | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
 | Prefix limit that only warns | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
-| Default route to a neighbor  | ✅                          | ❌                          | ❌                       | ✅                    | ✅               |
+| Default route to a neighbor  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
