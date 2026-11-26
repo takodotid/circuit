@@ -67,12 +67,12 @@ export default lab.device({
     );
 }
 
-/** r-01, whose port toward r-02 takes no part in spanning tree while `outOfStp`. */
+/** r-01, whose port toward r-02 takes no part in spanning tree while `outOfStp`. Its REST API answers once it runs this config. */
 function writeFirst(outOfStp: boolean): void {
     writeDevice(
         "r-01",
         firstChr!,
-        `management: { allow: ["10.0.0.0/24"], ssh: {} },
+        `management: { allow: ["10.0.0.0/24"], ssh: {}, http: {} },
     interfaces: {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["10.0.0.1/24"] },
@@ -149,17 +149,12 @@ describe.skipIf(!firstChr || !firstRest || !secondChr || !thirdChr)(
 
         test(
             "r-02 takes no BPDU from r-01's port with stp: false, r-03 takes them from the other, and r-01 stays its own root",
-            async () => {
-                // What Circuit wrote for stp: false before, which the plan removes.
-                await typed(
-                    `/interface bridge filter add action=drop chain=input comment="ether2 out of spanning tree" dst-mac-address=${BPDU} in-interface=ether2; /interface bridge filter add action=drop chain=output comment="ether2 out of spanning tree" dst-mac-address=${BPDU} out-interface=ether2`
-                );
+            () => {
                 for (const device of ["r-02", "r-03", "r-01"]) {
                     circuit("diff", device);
                     expect(circuit("apply", device, "--confirm").status).toBe(0);
                     expect(circuit("diff", device).status).toBe(0);
                 }
-                expect(exec("r-01", ":put [:len [/interface bridge filter find]]")).toMatch(/^0$/m);
                 settle();
                 exec("r-01", "/interface bridge port monitor [find] once");
 
@@ -167,6 +162,20 @@ describe.skipIf(!firstChr || !firstRest || !secondChr || !thirdChr)(
                 expect(firstIsRoot()).toBe(true);
                 expect(bpdusFromFirst("r-02")).toBe(0);
                 expect(bpdusFromFirst("r-03")).toBeGreaterThan(0);
+            },
+            TEST_MS
+        );
+
+        test(
+            "apply removes the bridge filter rules Circuit wrote for stp: false before, and diff then finds nothing to change",
+            async () => {
+                await typed(
+                    `/interface bridge filter add action=drop chain=input comment="ether2 out of spanning tree" dst-mac-address=${BPDU} in-interface=ether2; /interface bridge filter add action=drop chain=output comment="ether2 out of spanning tree" dst-mac-address=${BPDU} out-interface=ether2`
+                );
+                expect(circuit("diff", "r-01").status).not.toBe(0);
+                expect(circuit("apply", "r-01", "--confirm").status).toBe(0);
+                expect(circuit("diff", "r-01").status).toBe(0);
+                expect(exec("r-01", ":put [:len [/interface bridge filter find]]")).toMatch(/^0$/m);
             },
             TEST_MS
         );
