@@ -157,7 +157,10 @@ export class Junos extends Platform {
         const interfaces = Derive.interfaces(device);
 
         for (const { name, kind } of interfaces) {
-            if (kind === "bridge") found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
+            if (kind === "bridge")
+                found.push(
+                    `interfaces.bridge.${name}, a bridge that firewall.filter.forward filters, which Junos doesn't build: a QFX5100 joins two VLANs only by vlan_translation on a trunk`
+                );
             if (kind === "pseudowire")
                 found.push(
                     `interfaces.pseudowire.${name}, a pseudowire, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`
