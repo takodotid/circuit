@@ -668,7 +668,9 @@ export class FortiOsUnsupported {
     private static serviceGaps(device: Device): string[] {
         const found: string[] = [];
         if (device.services?.pppoe_server) found.push("services.pppoe_server, FortiOS has a PPPoE client only, no server");
-        for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for FortiOS`);
+        // `get` in a server's entry lists no RADIUS setting (TRAPS.md).
+        for (const where of Derive.radiusLeases(device))
+            found.push(`${where}, a lease checked by RADIUS: a FortiOS DHCP or DHCPv6 server has no RADIUS setting, up to 7.6`);
 
         for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {})) {
             if ((server.dns?.length ?? 0) > FortiOsRender.RESOLVERS.dhcp)
