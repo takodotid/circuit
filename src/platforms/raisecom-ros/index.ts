@@ -7,12 +7,12 @@ import type { Device, Finding } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
-import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import { RaisecomRosLldp } from "./lldp";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosServices } from "./services";
@@ -289,13 +289,13 @@ export class RaisecomRos extends Platform {
         const session = await this.session(device, options);
 
         try {
-            return RaisecomRos.lldpRemotes(await session.run("show lldp remote detail", RaisecomRos.SLOW_TIMEOUT_MS), device);
+            return RaisecomRosLldp.remotes(await session.run("show lldp remote detail", RaisecomRos.SLOW_TIMEOUT_MS), device);
         } finally {
             session.close();
         }
     }
 
-    /** A `<port> has N remotes:` line per port, then a block per remote of `Key: value` lines. A long value wraps onto lines that start with spaces, cut mid-word. A remote without a system name is named by its chassis ID. A port the catalog does not have, such as the out-of-band port, is left out. */
+    /** What Circuit prints of the device's answers, with the keys the read hides hidden. */
     override scrubOutput(text: string): string {
         return RaisecomRos.hideKeys(text);
     }
@@ -306,53 +306,6 @@ export class RaisecomRos extends Platform {
             .replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>")
             .replace(RaisecomRos.CLEAR_KEY, "$1 <redacted>")
             .replace(RaisecomRos.TRAP_COMMUNITY, "$1 <redacted>");
-    }
-
-    static lldpRemotes(text: string, device: Device): Neighbor[] {
-        const tidy = (port: string) => port.replace(/\s+/g, "").toLowerCase();
-        const ports = new Map(
-            Catalog.ports(device.platform, device.model).map((port) => [tidy(Catalog.spell(device.platform, device.model, port)), port])
-        );
-
-        const neighbors: Neighbor[] = [];
-        let port: string | undefined;
-        let remote: Record<string, string> | undefined;
-        let key: string | undefined;
-
-        const finish = () => {
-            const system = remote?.SysName?.trim() || remote?.ChassisId?.trim();
-            if (port && system) neighbors.push({ port, system, remote_port: remote?.PortId?.trim() ?? "" });
-
-            remote = undefined;
-            key = undefined;
-        };
-
-        for (const line of text.replace(/\r/g, "").split("\n")) {
-            const header = /^(\S+) has\s+\d+ remotes:/.exec(line);
-            if (header) {
-                finish();
-                port = ports.get(tidy(header[1]!));
-                continue;
-            }
-
-            if (/^Remote \d+\s*$/.test(line)) {
-                finish();
-                remote = {};
-                continue;
-            }
-
-            if (!remote) continue;
-
-            const field = /^([A-Za-z][^:]*?):\s*(.*)$/.exec(line);
-            if (field) {
-                key = field[1]!;
-                remote[key] = field[2]!;
-            } else if (key && /^\s+\S/.test(line)) remote[key] += line.trimStart();
-            else key = undefined;
-        }
-
-        finish();
-        return neighbors;
     }
 
     override plan(desired: string, current: string, options: ApplyOptions): Plan {
