@@ -4,7 +4,7 @@ import type { Device } from "../../model";
 
 /** What Junos takes of DHCP and DHCPv6 servers and relays, and what is only from its documentation. */
 export class JunosDhcp {
-    /** A server on an interface in a VRF only passed `commit check`. Option 82 on a relay is from Juniper's reference, not tried on a QFX5100. */
+    /** A server on an interface in a VRF, and one for a relay's clients, only passed `commit check`. Option 82 on a relay is from Juniper's reference, not tried on a QFX5100. */
     static experimental(device: Device): string[] {
         const found: string[] = [];
         for (const group of ["dhcp_server", "dhcpv6_server"] as const)
@@ -12,6 +12,9 @@ export class JunosDhcp {
                 if (Derive.settings(device, server.interface)?.vrf) found.push(`services.${group}.${name}.interface`);
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {}))
             if (relay.relay_agent_information) found.push(`services.dhcp_relay.${name}.relay_agent_information`);
+        // A server for a relay's clients passed `commit check` only, and no relayed request reached it.
+        for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {}))
+            if (server.relay !== undefined) found.push(`services.dhcp_server.${name}.relay`);
         return found;
     }
 
@@ -25,9 +28,9 @@ export class JunosDhcp {
             if (relayed.has(server.interface)) found.push(`services.dhcp_server.${name}.interface, which a DHCP relay also uses`);
 
             if (Derive.settings(device, server.interface)?.vrf) found.push(`services.dhcp_server.${name}.interface, which routes in a VRF`);
-            if (server.relay !== undefined)
+            if (server.relay !== undefined && !Address.contains(server.network, server.relay))
                 found.push(
-                    `services.dhcp_server.${name}.relay, not built for Junos: its server picks the pool whose network holds the relay's address, untried`
+                    `services.dhcp_server.${name}.relay ${server.relay}, outside network ${server.network}: Junos picks the pool whose network holds the relay's address, so write the network the relay is in`
                 );
         }
 

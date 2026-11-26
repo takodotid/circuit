@@ -879,11 +879,15 @@ export class JunosRender {
         this.out.set(filter, "term circuit-default then accept");
     }
 
-    /** Each server is an address pool, served on its interface. */
+    /** Each server is an address pool. The servers of one interface share a group, named after the first: a second group on it fails `commit check`. The switch picks the pool whose network holds a relay's address, or else the interface's. */
     private dhcpServers(): void {
+        const grouped = new Set<string>();
+
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
             const instance = JunosBgp.instance(Derive.settings(this.device, server.interface)?.vrf);
-            this.out.set(`${instance}system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
+            const unit = this.names.unit(server.interface);
+            if (!grouped.has(unit)) this.out.set(`${instance}system services dhcp-local-server group ${name} interface`, unit);
+            grouped.add(unit);
 
             const pool = `${instance}access address-assignment pool ${name} family inet`;
             const [low, high] = server.pool;

@@ -57,16 +57,30 @@ test("RouterOS writes the server's relay and the relay's Option 82, and sets bot
     expect(sent).toContain("/ip dhcp-server set [ find name=relayed ] relay=0.0.0.0");
 });
 
-test("Junos adds Option 82 to the relay's group, as experimental, and refuses a server for a relay's clients", () => {
+// A QFX5100 on 21.4R3-S8.5 took a pool for a relay's clients beside one for the interface's own in `commit check`, in one group on the interface. A second group there failed it with `Interface irb.3541 already configured.` Nothing was committed.
+test("Junos adds Option 82 to the relay's group, and serves a relay's clients in the interface's one group, experimentally", () => {
     const junos = Platforms.get("junos");
     const device = relaying("platforms--example-aggregation-switch", "management");
+    const own = Fixtures.device("platforms--example-aggregation-switch").services!.dhcp_server!.management!;
+    device.services!.dhcp_server = { management: own, relayed: device.services!.dhcp_server!.relayed! };
+    const desired = junos.render(device);
 
-    expect(junos.render(device)).toContain(
-        "set routing-instances guests forwarding-options dhcp-relay group guests relay-option-82 circuit-id"
+    expect(desired).toContain("set routing-instances guests forwarding-options dhcp-relay group guests relay-option-82 circuit-id");
+    expect(desired).toContain("set system services dhcp-local-server group management interface irb.10");
+    expect(desired).not.toContain("dhcp-local-server group relayed");
+    expect(desired).toContain("set access address-assignment pool relayed family inet network 198.51.100.128/26");
+    expect(junos.experimental!(device)).toEqual(
+        expect.arrayContaining(["services.dhcp_relay.guests.relay_agent_information", "services.dhcp_server.relayed.relay"])
     );
-    expect(junos.experimental!(device)).toContain("services.dhcp_relay.guests.relay_agent_information");
+    expect(refusedDhcp("junos", device)).toEqual([]);
+});
+
+test("Junos refuses a relay outside the network it serves, as the switch picks the pool by the relay's address", () => {
+    const device = relaying("platforms--example-aggregation-switch", "management");
+    device.services!.dhcp_server!.relayed = { ...RELAYED, interface: "management", relay: "192.0.2.1" };
+
     expect(refusedDhcp("junos", device)).toEqual([
-        "services.dhcp_server.relayed.relay, not built for Junos: its server picks the pool whose network holds the relay's address, untried",
+        "services.dhcp_server.relayed.relay 192.0.2.1, outside network 198.51.100.128/26: Junos picks the pool whose network holds the relay's address, so write the network the relay is in",
     ]);
 });
 
