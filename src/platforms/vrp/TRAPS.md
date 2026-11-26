@@ -140,3 +140,4 @@ Seen on a CE6855 running V200R005.
     - `peer <address> default-route-advertise` prints in the family's view, with a space after it.
     - `graceful-restart` goes in the BGP view, for every session: `peer <address> graceful-restart` is `Unrecognized command`. On a running BGP, `undo graceful-restart` asks `Changing the parameter in this command resets the peer session. Continue? [Y/N]`.
     - `aggregate <address> <mask> detail-suppressed` prints first in its family's view, with two spaces after it, and an IPv6 one in capitals with its length. An aggregate with a route inside it is a route to `NULL0` in the routing table. Its undo takes the address and mask alone.
+    - `confederation id <AS>` and `confederation peer-as <AS> ...` print after `router-id`. A new `peer-as` list warns `This operation will reset all peers in specified confederation sub-AS`, and is taken. The aggregator of an aggregate is the confederation's AS.

@@ -89,10 +89,8 @@ export class VrpBgp {
     static unsupported(device: Device): string[] {
         const bgp = device.routing?.bgp;
         const found: string[] = [];
-        const notBuilt = "not built yet";
 
         if (bgp && bgp.asn === undefined) found.push("routing.bgp.asn, absent: write it here or in circuit.ts");
-        if (bgp?.confederation) found.push(`routing.bgp.confederation, ${notBuilt}`);
         const routerId = device.routing?.router_id;
         if (bgp && routerId && Address.family(routerId) === "ipv6") found.push("routing.router_id, IPv6: BGP takes an IPv4 router ID");
 
@@ -201,7 +199,7 @@ export class VrpBgp {
         if (peer) return `undo peer ${peer[1]}`;
 
         const keyword =
-            /^(peer \S+ (?:description|ebgp-max-hop|connect-interface|password|route-limit|valid-ttl-hops)|router-id|reflector cluster-id) /.exec(
+            /^(confederation id|peer \S+ (?:description|ebgp-max-hop|connect-interface|password|route-limit|valid-ttl-hops)|router-id|reflector cluster-id) /.exec(
                 line
             );
         if (keyword) return `undo ${keyword[1]}`;
@@ -248,6 +246,9 @@ export class VrpBgp {
         const bgp = device.routing!.bgp!;
         const routerId = device.routing?.router_id;
         const lines = [`bgp ${bgp.asn}`, ...(routerId ? [` router-id ${routerId}`] : [])];
+        const confederation = bgp.confederation;
+        if (confederation) lines.push(` confederation id ${confederation.identifier}`);
+        if (confederation?.member_as.length) lines.push(` confederation peer-as ${confederation.member_as.join(" ")}`);
         // One setting for every session: `unsupported()` refuses it on only some.
         if (neighbors.some((neighbor) => VrpBgp.settingsOf(device, neighbor).graceful_restart)) lines.push(" graceful-restart");
         const families: Record<Family, string[]> = { ipv4: [], ipv6: [] };

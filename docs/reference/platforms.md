@@ -151,7 +151,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | BGP roles (RFC 9234)         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                     | ✅                          | ❌                       | ❌                    | ❌               |
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
-| Confederations (RFC 5065)    | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| Confederations (RFC 5065)    | ❌                          | ✅                          | ❌                       | ✅                    | ✅               |
 | Graceful restart (RFC 4724)  | ❌                          | ✅ all or no sessions       | ❌                       | ✅ all or no sessions | ✅               |
 | Prefix limit that restarts   | ❌                          | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
 | Prefix limit that only warns | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |

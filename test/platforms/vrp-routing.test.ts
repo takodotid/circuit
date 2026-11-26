@@ -254,3 +254,18 @@ test("an aggregate is written in its family's view, and undone by its address an
         "quit",
     ]);
 });
+
+test("a confederation is its identifier and its other member ASes, after the router ID", () => {
+    const confederation = (members: number[]) => sessions({}, { confederation: { identifier: 64500, member_as: members } });
+    const rendered = vrp.render(confederation([65002, 65003]));
+
+    expect(rendered).toContain("bgp 65001\n router-id 192.0.2.250\n confederation id 64500\n confederation peer-as 65002 65003\n");
+    expect(vrp.render(confederation([]))).not.toContain("peer-as");
+    expect(sent(vrp.render(confederation([65002])), rendered)).toEqual([
+        "bgp 65001",
+        "undo confederation peer-as 65002 65003",
+        "confederation peer-as 65002",
+        "quit",
+    ]);
+    expect(sent(vrp.render(sessions({})), vrp.render(confederation([])))).toEqual(["bgp 65001", "undo confederation id", "quit"]);
+});
