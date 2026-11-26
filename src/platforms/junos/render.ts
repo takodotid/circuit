@@ -18,6 +18,7 @@ import type {
 } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { Utils } from "../../core/utils";
 import { JunosBgp } from "./bgp";
 import { JunosEvpn } from "./evpn";
 import { JunosIsis } from "./isis";
@@ -26,6 +27,7 @@ import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
 import { JunosOspf } from "./ospf";
+import { JunosPolicyRouting } from "./policy-routing";
 import { JunosQos } from "./qos";
 import { JunosStatements } from "./statements";
 import { JunosSwitching } from "./switching";
@@ -90,6 +92,11 @@ export class JunosRender {
         native: ["tcp", 830],
     } as const;
 
+    private static readonly BGP_PORT = 179;
+
+    /** The TTL a packet from a directly connected neighbor arrives with (RFC 5082). */
+    private static readonly GTSM_TTL = 255;
+
     /** Kinds of frame as `ether-type` names them, in the order the render writes them. */
     private static readonly ETHERTYPES: readonly Ethertype[] = ["ipv4", "ipv6", "arp"];
 
@@ -130,6 +137,7 @@ export class JunosRender {
         render.stormProfiles();
         render.servicesFilter();
         render.vrfs();
+        JunosPolicyRouting.render(render.out, device, render.names);
         render.staticRoutes();
         render.layer2.spanningTree();
         render.layer2.dhcpSnooping();
@@ -350,6 +358,8 @@ export class JunosRender {
             this.out.set(statement);
             if (settings.port !== undefined && settings.port !== JunosRender.SERVICE_PORTS[service][1])
                 this.out.set(statement, "port", settings.port);
+            // Only the REST API takes a routing instance (TRAPS.md).
+            if (service === "api" && management.api?.vrf) this.out.set("system services rest routing-instance", management.api.vrf);
         }
     }
 
@@ -614,7 +624,8 @@ export class JunosRender {
 
         const ntp = this.device.system?.ntp;
         const keepsTimeQuietly = !!ntp?.servers.length && !this.device.services?.ntp_server;
-        if (!guarded.length && !keepsTimeQuietly) return;
+        const gtsm = JunosBgp.gtsmNeighbors(this.device);
+        if (!guarded.length && !keepsTimeQuietly && !gtsm.length) return;
 
         const families = [
             ["inet", "ipv4", "protocol"],
@@ -624,6 +635,17 @@ export class JunosRender {
         for (const [family, addressFamily, protocolWord] of families) {
             const filter = `firewall family ${family} filter ${JunosRender.SERVICES_FILTER[family]}`;
             const ofFamily = (prefix: string) => Address.family(Address.host(prefix)) === addressFamily;
+
+            // GTSM (RFC 5082): BGP from a neighbor with it is dropped unless it arrives with TTL 255, or hop limit 255.
+            const peers = gtsm.filter(ofFamily);
+            if (peers.length) {
+                const term = `${filter} term gtsm`;
+                for (const peer of peers) this.out.set(term, "from source-address", JunosRender.withLength(peer));
+                this.out.set(term, "from", protocolWord, "tcp");
+                this.out.set(term, "from port", JunosRender.BGP_PORT);
+                this.out.set(term, "from", family === "inet" ? "ttl-except" : "hop-limit-except", JunosRender.GTSM_TTL);
+                this.out.set(term, "then discard");
+            }
 
             for (const { service, sources } of guarded) {
                 const [protocol, standardPort] = JunosRender.SERVICE_PORTS[service];
@@ -692,12 +714,13 @@ export class JunosRender {
         }
     }
 
-    /** A route with a distance names its next hop as qualified, so two routes to one prefix can each have their own. */
+    /** A route with a distance names its next hop as qualified, so two routes to one prefix can each have their own. A next hop with its interface is qualified too, as only a qualified one takes an interface. */
     private staticRoutes(): void {
         if (this.device.routing?.router_id) this.out.set("routing-options router-id", this.device.routing.router_id);
 
         for (const route of this.device.routing?.static_routes ?? []) {
-            const statement = `${JunosBgp.options(Address.family(Address.split(route.prefix).addr), route.vrf)} static route ${route.prefix}`;
+            const table = route.vrf ?? Utils.otherTable(route.routing_table);
+            const statement = `${JunosBgp.options(Address.family(Address.split(route.prefix).addr), table)} static route ${route.prefix}`;
 
             if (route.blackhole) {
                 this.out.set(statement, "discard");
@@ -706,8 +729,11 @@ export class JunosRender {
             }
 
             const nextHop = route.next_hop ? Address.host(route.next_hop) : this.names.unit(route.interface!);
-            if (route.distance === undefined) this.out.set(statement, "next-hop", nextHop);
-            else this.out.set(statement, "qualified-next-hop", nextHop, "preference", route.distance);
+            const qualified = route.distance !== undefined || (route.next_hop && route.interface);
+            if (!qualified) this.out.set(statement, "next-hop", nextHop);
+            if (route.distance !== undefined) this.out.set(statement, "qualified-next-hop", nextHop, "preference", route.distance);
+            if (route.next_hop && route.interface)
+                this.out.set(statement, "qualified-next-hop", nextHop, "interface", this.names.unit(route.interface));
 
             if (route.bfd) this.out.bfd(statement, this.device.routing?.bfd);
         }
@@ -859,11 +885,15 @@ export class JunosRender {
         this.out.set(filter, "term circuit-default then accept");
     }
 
-    /** Each server is an address pool, served on its interface. */
+    /** Each server is an address pool. The servers of one interface share a group, named after the first: a second group on it fails `commit check`. The switch picks the pool whose network holds a relay's address, or else the interface's. */
     private dhcpServers(): void {
+        const grouped = new Set<string>();
+
         for (const [name, server] of Object.entries(this.device.services?.dhcp_server ?? {})) {
             const instance = JunosBgp.instance(Derive.settings(this.device, server.interface)?.vrf);
-            this.out.set(`${instance}system services dhcp-local-server group ${name} interface`, this.names.unit(server.interface));
+            const unit = this.names.unit(server.interface);
+            if (!grouped.has(unit)) this.out.set(`${instance}system services dhcp-local-server group ${name} interface`, unit);
+            grouped.add(unit);
 
             const pool = `${instance}access address-assignment pool ${name} family inet`;
             const [low, high] = server.pool;

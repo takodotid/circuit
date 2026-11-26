@@ -60,16 +60,70 @@ test("RouterOS refuses GTSM on an iBGP session, whose TTL it does not check", ()
     );
 });
 
-test("Junos, FortiOS, and VRP refuse GTSM, and Raisecom ROS refuses BGP itself", () => {
-    const junos = withNeighbor("platforms--example-aggregation-switch", "hurricane-electric", {
+// On Junos, as a QFX5100 on 21.4R3-S8.5 printed it in a private candidate, which passed `commit check`. Nothing was committed.
+test("Junos sends with TTL 255 and drops BGP from the neighbor that arrives with less, in the loopback's filter, experimentally", () => {
+    const junos = Platforms.get("junos");
+    const v4 = withNeighbor("platforms--example-aggregation-switch", "hurricane-electric", {
         address: "203.0.113.1",
         remote_as: 6939,
         ttl_security: true,
     });
-    expect(Platforms.get("junos").unsupported(junos)).toContain(
-        "routing.bgp.neighbors.hurricane-electric.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255"
-    );
+    const device = withNeighbor("platforms--example-aggregation-switch", "hurricane-electric-v6", {
+        address: "2001:db8:31::2",
+        remote_as: 6939,
+        ttl_security: true,
+    });
+    device.routing!.bgp!.neighbors!["hurricane-electric"] = v4.routing!.bgp!.neighbors!["hurricane-electric"]!;
+    const desired = junos.render(device);
 
+    const printed = [
+        "set protocols bgp group hurricane-electric ttl 255",
+        "set firewall family inet filter circuit-services term gtsm from source-address 203.0.113.1/32",
+        "set firewall family inet filter circuit-services term gtsm from protocol tcp",
+        "set firewall family inet filter circuit-services term gtsm from ttl-except 255",
+        "set firewall family inet filter circuit-services term gtsm from port 179",
+        "set firewall family inet filter circuit-services term gtsm then discard",
+        "set protocols bgp group hurricane-electric-v6 ttl 255",
+        "set firewall family inet6 filter circuit-services-v6 term gtsm from source-address 2001:db8:31::2/128",
+        "set firewall family inet6 filter circuit-services-v6 term gtsm from next-header tcp",
+        "set firewall family inet6 filter circuit-services-v6 term gtsm from port 179",
+        "set firewall family inet6 filter circuit-services-v6 term gtsm from hop-limit-except 255",
+        "set firewall family inet6 filter circuit-services-v6 term gtsm then discard",
+    ];
+    for (const line of printed) expect(desired).toContain(line);
+
+    // The term comes first in each filter, before the services' own.
+    const terms = desired.split("\n").filter((line) => line.startsWith("set firewall family inet filter circuit-services term"));
+    expect(terms[0]).toContain("term gtsm ");
+
+    // The switch prints the TTL before the port.
+    const inet = "set firewall family inet filter circuit-services term gtsm from";
+    const asPrinted = desired.replace(`${inet} port 179\n${inet} ttl-except 255`, `${inet} ttl-except 255\n${inet} port 179`);
+    expect(asPrinted).not.toEqual(desired);
+    expect(junos.plan(desired, asPrinted, options).steps).toEqual([]);
+
+    expect(junos.unsupported(device).filter((gap) => gap.includes("ttl_security"))).toEqual([]);
+    expect(junos.experimental!(device)).toEqual(
+        expect.arrayContaining([
+            "routing.bgp.neighbors.hurricane-electric.ttl_security",
+            "routing.bgp.neighbors.hurricane-electric-v6.ttl_security",
+        ])
+    );
+});
+
+test("Junos refuses GTSM on an iBGP session, as the switch fails ttl 255 there in commit check", () => {
+    const internal = withNeighbor("platforms--example-aggregation-switch", "core-02", {
+        address: "203.0.113.66",
+        remote_as: 64500,
+        ttl_security: true,
+    });
+
+    expect(Platforms.get("junos").unsupported(internal)).toContain(
+        "routing.bgp.neighbors.core-02.ttl_security on an iBGP session, Junos sets TTL 255 on single-hop eBGP sessions only"
+    );
+});
+
+test("FortiOS and VRP refuse GTSM, and Raisecom ROS refuses BGP itself", () => {
     // On a FG-3700D with FortiOS 6.2.2, a neighbor's `set ttl-security-hops` was `command parse error`.
     const fortios = withNeighbor("platforms--example-firewall", "arelion", { address: "203.0.113.9", remote_as: 1299, ttl_security: true });
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
