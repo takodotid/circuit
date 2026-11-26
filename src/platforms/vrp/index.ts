@@ -159,14 +159,26 @@ export class Vrp extends Platform {
         const interfaces = Derive.interfaces(device);
 
         for (const { name, kind, settings } of interfaces) {
-            if (kind === "bridge") found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
+            // A CE6855 refused a second `l2 binding vlan` in a bridge domain, and one for a VLAN with a VLAN interface (TRAPS.md).
+            if (kind === "bridge")
+                found.push(
+                    `interfaces.bridge.${name}, a bridge: a CloudEngine bridge domain binds one VLAN, and no VLAN that has a VLAN interface`
+                );
             if (kind === "vlan_interface" && (settings as VlanInterface).mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
 
         for (const [name, port] of Derive.ports(device)) {
-            for (const field of ["speed", "mtu", "addresses", "urpf", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["speed", "mtu", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`interfaces.ethernet.${name}.${field}, ports are switched; use a VLAN interface`);
+            }
+
+            // A CE6855 refused `undo portswitch` until VLANs are reserved for routed ports (TRAPS.md), a range of the network's own.
+            for (const field of ["addresses", "urpf", "vrrp", "vrf", "ipv6_ra"] as const) {
+                if (port[field] !== undefined)
+                    found.push(
+                        `interfaces.ethernet.${name}.${field}, a routed port: the switch routes a port only on a VLAN it reserves for it, which Circuit has no key for. Use a VLAN interface`
+                    );
             }
 
             for (const field of ["mac_limit", "ethertypes"] as const) {
@@ -287,7 +299,10 @@ export class Vrp extends Platform {
         for (const { where, settings } of Derive.switchedHolders(device))
             if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
         const { tpid, innerVlans } = Derive.stackedTags(device);
-        for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
+        for (const where of tpid) found.push(`${where}, which only RouterOS builds for now`);
+        // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
+        for (const where of innerVlans)
+            found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
         // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
         for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
             if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);

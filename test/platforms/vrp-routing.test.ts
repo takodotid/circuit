@@ -148,3 +148,22 @@ test("a GRE tunnel is Tunnel0 and on, and sends its protocol and its ends before
     const inVrf = routed({ vrfs: { ctest: {} } }, { gre: { "ctest-gre": { ...tunnel, vrf: "ctest" } } });
     expect(vrp.unsupported(inVrf)).toContain("interfaces.gre.ctest-gre.vrf, a GRE tunnel in a VRF, not tested");
 });
+
+test("a routed port, a bridge, and a VLAN interface on an inner VLAN are refused with what the switch said", () => {
+    const device = routed(
+        {},
+        {
+            ethernet: { ...base.interfaces!.ethernet, "10g-48": { addresses: ["192.0.2.33/30"] } },
+            vlan_interface: { inner: { vlan: "home", inner_vlan_id: 100, addresses: ["192.0.2.65/28"] } },
+            bridge: { both: { member_interfaces: ["inner"] } },
+        }
+    );
+
+    expect(vrp.unsupported(device)).toEqual(
+        expect.arrayContaining([
+            "interfaces.bridge.both, a bridge: a CloudEngine bridge domain binds one VLAN, and no VLAN that has a VLAN interface",
+            "interfaces.ethernet.10g-48.addresses, a routed port: the switch routes a port only on a VLAN it reserves for it, which Circuit has no key for. Use a VLAN interface",
+            "interfaces.vlan_interface.inner.inner_vlan_id, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port",
+        ])
+    );
+});
