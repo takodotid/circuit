@@ -13,10 +13,11 @@ import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Entry, Group } from "../line-diff";
 import { Platform } from "../platform";
-import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import type { ApplyOptions, BgpSession, OsSupport, Plan, ReadOptions, ReadSession, Step, Tool } from "../platform";
 import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
+import { VrpBgpSessions } from "./bgp-sessions";
 import { VrpDhcp } from "./dhcp";
 import { VrpDhcpv6 } from "./dhcpv6";
 import { VrpEvpn } from "./evpn";
@@ -163,6 +164,9 @@ export class Vrp extends Platform {
     override readonly extension = ".cfg";
 
     override readonly console = Vrp.CONSOLE;
+
+    /** A CE6855 printed its sessions, but none came up: the switch has no peer, and refused a route from the main table to a VRF of its own. */
+    override readonly experimentalTools: readonly Tool[] = ["bgp"];
 
     override unsupported(device: Device): string[] {
         const found: string[] = [];
@@ -590,6 +594,10 @@ export class Vrp extends Platform {
         }
 
         return neighbors;
+    }
+
+    override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        return VrpBgpSessions.read(device, session);
     }
 
     override readOnly(command: string): boolean {
