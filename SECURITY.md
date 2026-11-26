@@ -25,6 +25,7 @@ A flaw in Circuit itself. For example:
 
 - a secret printed, logged, written to a file in plain text, or sent to Studio's page unencrypted;
 - `circuit exec` sending a command that changes a device;
+- Circuit sending a password or a key to a device, or to a console's jump host, before it checked the SSH host key against `known_hosts`, or after the key matched none known for that host ([Host keys](https://circuit.tako.id/guide/apply#host-keys));
 - the commit hook Circuit wrote letting a plain-text secret through;
 - a secrets file that opens without its password, or a value that opens under another name;
 - Studio answering on a host name it wasn't told to allow, or reading a device when started with `--host`;

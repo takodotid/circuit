@@ -206,6 +206,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | NetFlow v9                         | Practice: RFC 3954 (Informational)                                                          | `flow_export` `netflow-v9`                     |
 | IPFIX                              | STD 77 (RFC 7011)                                                                           | `flow_export` `ipfix`                          |
 | SSH, user keys                     | RFC 4251 to RFC 4254 (keys: RFC 4252)                                                       | `management.ssh`, user `ssh_keys`              |
+| A device's SSH host key, checked   | RFC 4251 §4.1. Practice: OpenSSH's `known_hosts` with `StrictHostKeyChecking accept-new`    | [How Circuit logs in](/guide/apply#host-keys)  |
 | Logins through servers, accounting | TACACS+: RFC 8907 (Informational). RADIUS: RFC 2865, RFC 2866 (Informational)               | `system.aaa`                                   |
 | The device's own services in a VRF | Practice: OpenConfig's `network-instance` of an NTP server and of a syslog server           | `vrf` on a service or a server                 |
 | Certificates in PEM                | RFC 5280 (X.509), RFC 7468 (PEM)                                                            | `system.certificates`                          |

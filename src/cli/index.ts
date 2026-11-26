@@ -44,7 +44,7 @@ class Cli {
         if (command === "--version" || command === "-V") return console.log(VERSION);
         Releases.tidy();
         OnePassword.waiting = (message) => Ui.blocked(message);
-        Ssh.report = (message, refused) => (refused ? Ui.warn(message) : console.log(Ui.dim(`   ${message}`)));
+        Ssh.report = (message, warning) => (warning ? Ui.warn(message) : console.log(Ui.dim(`   ${message}`)));
         Ssh.waiting = (message) => Ui.blocked(message);
 
         // The manager keeps itself current before every command but `uninstall`. A version it started, or Studio's own reads, leave that to it.
