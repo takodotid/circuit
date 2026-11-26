@@ -34,6 +34,11 @@ export class RaisecomRosRouting {
         return lines;
     }
 
+    /** An interface's uRPF check (RFC 3704) of IPv4 packets, `strict` or `loose`. */
+    static urpfLines(settings: Pick<Routed, "urpf">): string[] {
+        return settings.urpf?.ipv4 ? [`ip urpf ${settings.urpf.ipv4}`] : [];
+    }
+
     /** Each VRF, a block of its own that holds nothing: its interfaces and routes name it. */
     static vrfs(device: Device): string[] {
         return Object.entries(device.routing?.vrfs ?? {}).flatMap(([name, vrf]) => (vrf ? [`ip vrf ${name}`, "!"] : []));

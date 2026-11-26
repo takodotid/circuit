@@ -169,6 +169,56 @@ test("a VRF has no description here", () => {
     expect(platform.unsupported(described)).toEqual(["routing.vrfs.test.description, the switch has no description for a VRF"]);
 });
 
+const checked: Device = {
+    ...routed,
+    interfaces: {
+        ...routed.interfaces,
+        ethernet: {
+            ...routed.interfaces?.ethernet,
+            "10g-24": { description: "circuit test", addresses: ["198.51.100.1/30"], urpf: { ipv4: "loose" } },
+        },
+        vlan_interface: {
+            ...routed.interfaces?.vlan_interface,
+            test: { vlan: "test", addresses: ["192.0.2.129/25"], urpf: { ipv4: "strict" } },
+        },
+    },
+} as Device;
+
+// Tested on tako-mmr-01, 2026-11-26: uRPF on a spare port and on a VLAN with no ports.
+const PRINTED_URPF = `interface tengigabitethernet 1/3/24
+description circuit test
+ip address 198.51.100.1 255.255.255.252
+ip urpf loose
+!
+interface vlan 3999
+ip address 192.0.2.129 255.255.255.128
+ip urpf strict
+!
+`;
+
+test("uRPF checks IPv4 on a routed port and a VLAN interface, as the switch printed it, and goes by its keyword", () => {
+    expect(platform.unsupported(checked)).toEqual([]);
+    expect(platform.experimental!(checked)).toEqual(["interfaces.ethernet.10g-24.urpf.ipv4", "interfaces.vlan_interface.test.urpf.ipv4"]);
+    const headers = ["interface tengigabitethernet 1/3/24", "interface vlan 3999"];
+    expect(sent(blocks(platform.render(checked), headers), PRINTED_URPF)).toEqual([]);
+    expect(sent(blocks(platform.render(routed), headers), PRINTED_URPF)).toEqual([
+        "interface vlan 3999",
+        "no ip urpf",
+        "exit",
+        "interface tengigabitethernet 1/3/24",
+        "no ip urpf",
+        "exit",
+    ]);
+
+    const ipv6 = structuredClone(checked);
+    ipv6.interfaces!.vlan_interface!.test!.urpf = { ipv6: "strict" };
+    ipv6.interfaces!.lag = { uplink: { trunk_vlans: ["test"], urpf: { ipv4: "loose" } } };
+    expect(platform.unsupported(ipv6)).toEqual([
+        "interfaces.lag.uplink.urpf, a LAG here only switches",
+        "interfaces.vlan_interface.test.urpf.ipv6, only IPv4 here",
+    ]);
+});
+
 test("a routed port, a loopback, and a route keep to what the switch takes", () => {
     const astray = {
         ...routed,

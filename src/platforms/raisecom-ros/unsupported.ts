@@ -53,7 +53,17 @@ export class RaisecomRosUnsupported {
             if (!lag) continue;
             const where = `interfaces.lag.${name}`;
 
-            for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of [
+                "addresses",
+                "vrrp",
+                "vrf",
+                "urpf",
+                "mtu",
+                "storm_control",
+                "stp",
+                "ipv6_ra",
+                "hardware_offload",
+            ] as const) {
                 if (lag[field] !== undefined) found.push(`${where}.${field}, a LAG here only switches`);
             }
             for (const field of ["mac_limit", "ethertypes", "qinq_vlan"] as const) {
@@ -75,7 +85,7 @@ export class RaisecomRosUnsupported {
             }
             if (iface.rate_limit) found.push(`${where}.rate_limit, the platform limits ports and LAGs`);
 
-            found.push(...RaisecomRosUnsupported.ipv6Addresses(where, iface));
+            found.push(...RaisecomRosUnsupported.ipv6Addresses(where, iface), ...RaisecomRosUnsupported.urpf(where, iface));
 
             for (const group of iface.vrrp ?? []) {
                 if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
@@ -98,12 +108,17 @@ export class RaisecomRosUnsupported {
 
     /** A routed port takes its addresses, its description, and LLDP. Its other layer 2 settings were tried on switched ports alone. */
     private static routedPort(where: string, port: Port): string[] {
-        if (!RaisecomRosRouting.routes(port)) return [];
+        if (!RaisecomRosRouting.routes(port)) return port.urpf ? [`${where}.urpf, on a port that does not route: give it addresses`] : [];
 
-        const found = RaisecomRosUnsupported.ipv6Addresses(where, port);
+        const found = [...RaisecomRosUnsupported.ipv6Addresses(where, port), ...RaisecomRosUnsupported.urpf(where, port)];
         for (const field of ["stp", "storm_control", "mac_limit", "ethertypes", "rate_limit", "dhcp_trusted"] as const)
             if (port[field] !== undefined) found.push(`${where}.${field} on a routed port, tested on switched ports alone`);
         return found;
+    }
+
+    /** The switch checks IPv6 too, `ipv6 urpf`, but an interface here holds IPv4 addresses alone. */
+    private static urpf(where: string, settings: Pick<Port, "urpf">): string[] {
+        return settings.urpf?.ipv6 ? [`${where}.urpf.ipv6, only IPv4 here`] : [];
     }
 
     /** A loopback holds IPv4 addresses, numbered 1 to 1024 by its place. */
@@ -365,7 +380,7 @@ export class RaisecomRosUnsupported {
         // SNMP takes its own access-list, and SSH and telnet share the management one. A user's keys are refused above, with why.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
         found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
-        found.push(...Derive.unbuilt(device, ["rate-limit"]));
+        found.push(...Derive.unbuilt(device, ["rate-limit", "urpf"]));
         found.push(...Derive.unbuiltMonitoring(device));
         // Raisecom's RAX721 guide (P200R003) lists SLA operations over Y.1731 only.
         for (const name of Object.keys(device.monitoring?.probes ?? {}))

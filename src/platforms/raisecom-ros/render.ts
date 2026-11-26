@@ -188,6 +188,7 @@ export class RaisecomRosRender {
             if (ospfSettings?.cost !== undefined) lines.push(`ip ospf cost ${ospfSettings.cost}`);
             if (ospfSettings?.passive) lines.push("ip ospf passive-interface enable");
             if (ospfSettings?.bfd) lines.push("ip ospf bfd");
+            lines.push(...RaisecomRosRouting.urpfLines(iface));
 
             for (const group of iface.vrrp ?? []) lines.push(...RaisecomRosRender.vrrp(group));
 
@@ -326,7 +327,7 @@ export class RaisecomRosRender {
     /** A routed port: one without `portswitch`, the switch's default for a port, with its addresses. */
     static routedPort(settings: Port, lldpOff: boolean): string[] {
         const lines = settings.description ? [`description ${settings.description}`] : [];
-        lines.push(...RaisecomRosRouting.addressLines(settings));
+        lines.push(...RaisecomRosRouting.addressLines(settings), ...RaisecomRosRouting.urpfLines(settings));
         if (settings.lldp === false || lldpOff) lines.push("lldp disable");
         return lines;
     }

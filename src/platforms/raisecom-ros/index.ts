@@ -67,7 +67,7 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding ))/,
@@ -165,7 +165,9 @@ export class RaisecomRos extends Platform {
         return RaisecomRosUnsupported.of(device);
     }
 
-    /** Each turns on a setting for the whole switch, so on tako-mmr-01, which carries live traffic, its line was only parsed, never sent. A trusted port's line was sent to a spare port and read back. */
+    /**
+     * Each turns on a setting for the whole switch, so on tako-mmr-01, which carries live traffic, its line was only parsed, never sent. A trusted port's line was sent to a spare port and read back. uRPF was applied to a spare port and a VLAN with no ports, read back, and planned empty, but the switch restarted before its removal ran.
+     */
     override experimental(device: Device): string[] {
         const found: string[] = [];
         if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
@@ -174,6 +176,9 @@ export class RaisecomRos extends Platform {
             if (typeof settings.stp === "object" && settings.stp.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
             if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
         }
+
+        for (const { where, kind, settings } of Derive.holders(device))
+            if ((kind === "ethernet" || kind === "vlan_interface") && settings.urpf?.ipv4) found.push(`${where}.urpf.ipv4`);
 
         return found;
     }
