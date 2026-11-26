@@ -3,6 +3,7 @@
 import { Address } from "../../core/address";
 import { Catalog } from "../../core/catalog";
 import type { Device, Port, Routed } from "../../model";
+import { RaisecomRosOspf } from "./ospf";
 
 export class RaisecomRosRouting {
     /** A loopback's number: the switch takes 1 to 1024. */
@@ -34,9 +35,11 @@ export class RaisecomRosRouting {
         return lines;
     }
 
-    /** An interface's uRPF check (RFC 3704) of IPv4 packets, `strict` or `loose`. */
-    static urpfLines(settings: Pick<Routed, "urpf">): string[] {
-        return settings.urpf?.ipv4 ? [`ip urpf ${settings.urpf.ipv4}`] : [];
+    /** An interface's layer 3 lines: its VRF and addresses, the routing protocols that run on it, and its uRPF check (RFC 3704). */
+    static layer3(device: Device, name: string, settings: Pick<Routed, "addresses" | "vrf"> & { urpf?: Routed["urpf"] }): string[] {
+        const lines = [...RaisecomRosRouting.addressLines(settings), ...RaisecomRosOspf.interfaceLines(device, name)];
+        if (settings.urpf?.ipv4) lines.push(`ip urpf ${settings.urpf.ipv4}`);
+        return lines;
     }
 
     /** Each VRF, a block of its own that holds nothing: its interfaces and routes name it. */
@@ -49,7 +52,7 @@ export class RaisecomRosRouting {
         const ids = RaisecomRosRouting.loopbackIds(device);
 
         return Object.entries(device.interfaces?.loopback ?? {}).flatMap(([name, loopback]) =>
-            loopback ? [`interface loopback ${ids.get(name)}`, ...RaisecomRosRouting.addressLines(loopback), "!"] : []
+            loopback ? [`interface loopback ${ids.get(name)}`, ...RaisecomRosRouting.layer3(device, name, loopback), "!"] : []
         );
     }
 

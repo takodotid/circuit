@@ -13,6 +13,7 @@ import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
 import { Platform } from "../platform";
 import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosUnsupported } from "./unsupported";
 
@@ -67,7 +68,7 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding ))/,
@@ -91,12 +92,17 @@ export class RaisecomRos extends Platform {
                 // A route is sent tracking `bfd N` and prints as tracking `bfd-session N`.
                 .replace(/ track bfd-session (\d+)$/, " track bfd $1")
                 // An access group prints a notify view the render leaves to its default.
-                .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2"),
+                .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2")
+                // A routing protocol's key prints in clear, and the read hides it.
+                .replace(new RegExp(RaisecomRos.CLEAR_KEY.source), "$1 <secret>"),
         order: RaisecomRos.order,
     };
 
     /** Blocks after the top level. A LAG exists before a port joins it, and an OSPF process comes after its interfaces. A BFD session binds to a VLAN interface, so it comes last. Only one session binds to a peer, so an old one goes first, with the routes at the top level. A route takes a session that does not exist yet. */
     private static readonly BLOCK_ORDER = [/^interface port-channel/, /^interface /, /^router ospf/, /^bfd /];
+
+    /** A routing protocol's key, which the switch prints in clear: OSPF's `ip ospf authentication-key md5 7 0 <key>`. */
+    private static readonly CLEAR_KEY = /^(\s*ip ospf authentication-key (?:md5 \d+|simple) 0) \S+$/gm;
 
     /** The firmware offers only an `ssh-rsa` host key, so that one is allowed for this platform alone. Key exchange, cipher, and MAC still negotiate modern ones. */
     private static readonly HOST_KEYS = ["ssh-rsa"];
@@ -139,6 +145,9 @@ export class RaisecomRos extends Platform {
     /** An interface's IP settings, which `ip vrf forwarding` removes: `All IP related configurations on this interface are removed.` */
     private static readonly IP_SETTING = /^(ip (?!vrf forwarding )|ipv6 |isis |vrrp )/;
 
+    /** An OSPF link's timers, which a new network type sets back to the type's own. */
+    private static readonly OSPF_TIMER = /^ip ospf (hello|dead)-interval /;
+
     /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
     private static readonly STANDALONE = /^(logging host|snmp-server access-list) /;
 
@@ -166,7 +175,7 @@ export class RaisecomRos extends Platform {
     }
 
     /**
-     * Each turns on a setting for the whole switch, so on tako-mmr-01, which carries live traffic, its line was only parsed, never sent. A trusted port's line was sent to a spare port and read back. uRPF was applied to a spare port and a VLAN with no ports, read back, and planned empty, but the switch restarted before its removal ran.
+     * Each turns on a setting for the whole switch, so on tako-mmr-01, which carries live traffic, its line was only parsed, never sent. A trusted port's line was sent to a spare port and read back. uRPF and OSPF's areas, ranges, timers, priority, NBMA links, and keys were applied, read back, and planned empty, but the switch restarted before their removal ran.
      */
     override experimental(device: Device): string[] {
         const found: string[] = [];
@@ -180,7 +189,7 @@ export class RaisecomRos extends Platform {
         for (const { where, kind, settings } of Derive.holders(device))
             if ((kind === "ethernet" || kind === "vlan_interface") && settings.urpf?.ipv4) found.push(`${where}.urpf.ipv4`);
 
-        return found;
+        return [...found, ...RaisecomRosOspf.experimental(device)];
     }
 
     /** The switch answers time queries while it takes time from servers, and Raisecom's guide has no setting to stop it. */
@@ -279,7 +288,9 @@ export class RaisecomRos extends Platform {
 
     /** Stored credentials print as ciphers, and an SNMPv3 user's localized keys, which authenticate as well as the passphrase, in clear. */
     private static hideKeys(text: string): string {
-        return LineDiff.scrub(text).replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>");
+        return LineDiff.scrub(text)
+            .replace(/(authkey \S+|privkey\s+\S+) \S+/g, "$1 <redacted>")
+            .replace(RaisecomRos.CLEAR_KEY, "$1 <redacted>");
     }
 
     static lldpRemotes(text: string, device: Device): Neighbor[] {
@@ -382,13 +393,19 @@ export class RaisecomRos extends Platform {
             else if (routes && switched.has(group.path[0]!)) group.add.unshift("no portswitch");
         }
 
-        // Putting an interface in a VRF, or taking it out, removes its IP settings, so they are sent again after.
+        // Putting an interface in a VRF, or taking it out, removes its IP settings, and a new OSPF network type sets its timers back to the type's own. So they are sent again after.
         const wanted = LineDiff.entries(desired, RaisecomRos.DIALECT);
         for (const group of groups) {
-            if (![...group.add, ...group.remove].some((line) => line.startsWith("ip vrf forwarding "))) continue;
+            const changed = [...group.add, ...group.remove];
+            const reset = changed.some((line) => line.startsWith("ip vrf forwarding "))
+                ? RaisecomRos.IP_SETTING
+                : changed.some((line) => line.startsWith("ip ospf network "))
+                  ? RaisecomRos.OSPF_TIMER
+                  : undefined;
+            if (!reset) continue;
 
             const settings = wanted
-                .filter((entry) => entry.path.join("\n") === group.path.join("\n") && RaisecomRos.IP_SETTING.test(entry.line))
+                .filter((entry) => entry.path.join("\n") === group.path.join("\n") && reset.test(entry.line))
                 .map((entry) => entry.line);
             group.add = [...group.add.filter((line) => !settings.includes(line)), ...settings];
         }
@@ -575,6 +592,10 @@ export class RaisecomRos extends Platform {
         // An address goes by itself, without its mask: `no ip address` alone is incomplete on a routed port.
         const address = /^ip address (\S+) /.exec(line);
         if (address) return `no ip address ${address[1]}`;
+
+        // An OSPF key goes by its ID, as the read hides the key itself. Not tried on a switch: OSPF's keys are experimental.
+        const ospfKey = /^(ip ospf authentication-key (?:md5 \d+|simple)) /.exec(line);
+        if (ospfKey) return `no ${ospfKey[1]}`;
 
         const ospfProcess = /^router ospf (\d+)/.exec(line);
         if (ospfProcess) return `no router ospf ${ospfProcess[1]}`;

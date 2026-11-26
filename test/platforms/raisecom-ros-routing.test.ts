@@ -219,6 +219,167 @@ test("uRPF checks IPv4 on a routed port and a VLAN interface, as the switch prin
     ]);
 });
 
+const withOspf: Device = {
+    ...routed,
+    switching: { ...routed.switching, vlans: { ...routed.switching?.vlans, test2: { id: 3998 } } },
+    interfaces: {
+        ...routed.interfaces,
+        ethernet: {
+            ...routed.interfaces?.ethernet,
+            "10g-24": { description: "circuit test", addresses: ["198.51.100.1/30"], urpf: { ipv4: "loose" } },
+        },
+        vlan_interface: {
+            ...routed.interfaces?.vlan_interface,
+            test: { vlan: "test", addresses: ["192.0.2.129/25"], urpf: { ipv4: "strict" } },
+            test2: { vlan: "test2", addresses: ["198.51.100.9/30"] },
+        },
+    },
+    routing: {
+        ...routed.routing,
+        router_id: "203.0.113.1",
+        ospf: {
+            areas: {
+                "0.0.0.0": {
+                    interfaces: {
+                        "10g-24": { network: "point-to-point", hello_interval: 5, dead_interval: 20, cost: 100, bfd: true },
+                        main: {},
+                    },
+                },
+                "0.0.0.1": {
+                    type: "nssa",
+                    no_summaries: true,
+                    stub_default_cost: 10,
+                    ranges: [{ prefix: "192.0.2.128/25", advertise: true }],
+                    interfaces: {
+                        test: { network: "non-broadcast", neighbors: ["192.0.2.130"], priority: 5, hello_interval: 15, dead_interval: 60 },
+                    },
+                },
+                "0.0.0.2": {
+                    type: "stub",
+                    ranges: [{ prefix: "198.51.100.8/29", advertise: false }],
+                    interfaces: {
+                        test2: {
+                            hello_interval: 10,
+                            dead_interval: 40,
+                            priority: 1,
+                            authentication: { algorithm: "md5", key_id: 7, key: { secret: "OSPF_KEY" } },
+                        },
+                    },
+                },
+            },
+        },
+    },
+} as Device;
+
+// Tested on tako-mmr-01, 2026-11-26: OSPF on a spare port, a loopback, and two VLANs with no ports, with uRPF on two of them. The key printed in clear.
+const PRINTED_OSPF = `interface tengigabitethernet 1/3/24
+description circuit test
+ip address 198.51.100.1 255.255.255.252
+ip ospf network ptp
+ip ospf hello-interval 5
+ip ospf cost 100
+ip ospf bfd
+ip urpf loose
+!
+interface vlan 3998
+ip address 198.51.100.9 255.255.255.252
+ip ospf authentication md5
+ip ospf authentication-key md5 7 0 ctestospfkey
+!
+interface vlan 3999
+ip address 192.0.2.129 255.255.255.128
+ip ospf network non-broadcast
+ip ospf hello-interval 15
+ip ospf priority 5
+ip urpf strict
+!
+router ospf 1 router-id 203.0.113.1
+ neighbor 192.0.2.130
+ area 0.0.0.1 nssa no-summary
+ area 0.0.0.2 stub
+ area 0.0.0.1 default-cost 10
+ network 192.0.2.128 0.0.0.127 area 0.0.0.1
+ network 198.51.100.0 0.0.0.3 area 0.0.0.0
+ network 198.51.100.8 0.0.0.3 area 0.0.0.2
+ network 203.0.113.1 0.0.0.0 area 0.0.0.0
+ area 0.0.0.1 range 192.0.2.128 255.255.255.128
+ area 0.0.0.2 range 198.51.100.8 255.255.255.248 not-advertise
+!
+`;
+
+test("OSPF's areas, ranges, timers, NBMA neighbors, and MD5 key, and uRPF, render as the switch printed them", () => {
+    const rendered = platform.render(withOspf);
+    expect(platform.unsupported(withOspf)).toEqual([]);
+
+    // The read hides the key, which the switch prints in clear.
+    const read = platform.scrubOutput!(PRINTED_OSPF);
+    expect(read).toContain("ip ospf authentication-key md5 7 0 <redacted>\n");
+    expect(read).not.toContain("ctestospfkey");
+
+    const headers = ["interface tengigabitethernet 1/3/24", "interface vlan 3998", "interface vlan 3999", "router ospf"];
+    expect(sent(blocks(rendered, headers), read)).toEqual([]);
+    // A dead interval of four hellos, and a hello interval or priority the link has unless set, print nothing.
+    expect(blocks(rendered, ["interface vlan 3998"])).not.toContain("interval");
+
+    // The switch restarted before they were removed one by one.
+    expect(platform.experimental!(withOspf)).toEqual([
+        "interfaces.ethernet.10g-24.urpf.ipv4",
+        "interfaces.vlan_interface.test.urpf.ipv4",
+        "routing.ospf.areas.0.0.0.0.interfaces.10g-24.hello_interval",
+        "routing.ospf.areas.0.0.0.0.interfaces.10g-24.dead_interval",
+        "routing.ospf.areas.0.0.0.1.type",
+        "routing.ospf.areas.0.0.0.1.no_summaries",
+        "routing.ospf.areas.0.0.0.1.stub_default_cost",
+        "routing.ospf.areas.0.0.0.1.ranges",
+        "routing.ospf.areas.0.0.0.1.interfaces.test.hello_interval",
+        "routing.ospf.areas.0.0.0.1.interfaces.test.dead_interval",
+        "routing.ospf.areas.0.0.0.1.interfaces.test.priority",
+        "routing.ospf.areas.0.0.0.1.interfaces.test.neighbors",
+        "routing.ospf.areas.0.0.0.1.interfaces.test.network",
+        "routing.ospf.areas.0.0.0.2.type",
+        "routing.ospf.areas.0.0.0.2.ranges",
+        "routing.ospf.areas.0.0.0.2.interfaces.test2.hello_interval",
+        "routing.ospf.areas.0.0.0.2.interfaces.test2.dead_interval",
+        "routing.ospf.areas.0.0.0.2.interfaces.test2.priority",
+        "routing.ospf.areas.0.0.0.2.interfaces.test2.authentication",
+    ]);
+});
+
+test("OSPF in a VRF is refused, as the switch restarted minutes after one was removed", () => {
+    const inVrfOspf = structuredClone(withOspf);
+    inVrfOspf.routing!.ospf!.vrf = "test";
+
+    expect(platform.unsupported(inVrfOspf)).toContain(
+        "routing.ospf.vrf, not built: a RAX721 restarted minutes after one was removed, and the cause is not known"
+    );
+});
+
+test("a new OSPF network type sends the link's timers again, as it sets them back to its own", () => {
+    const changed = structuredClone(withOspf);
+    changed.routing!.ospf!.areas["0.0.0.1"]!.interfaces.test = { hello_interval: 15, dead_interval: 60 };
+
+    expect(
+        sent(blocks(platform.render(changed), ["interface vlan 3999"]), blocks(platform.render(withOspf), ["interface vlan 3999"]))
+    ).toEqual(["interface vlan 3999", "no ip ospf priority", "no ip ospf network", "ip ospf hello-interval 15", "exit"]);
+});
+
+test("OSPF and uRPF keep to what the switch takes", () => {
+    const astray = structuredClone(withOspf);
+    const areas = astray.routing!.ospf!.areas;
+    areas["0.0.0.0"]!.interfaces.main = { passive: true };
+    areas["0.0.0.0"]!.interfaces["10g-24"] = { network: "point-to-multipoint" };
+    areas["0.0.0.2"]!.interfaces.test2 = { authentication: { algorithm: "hmac-sha-256", key_id: 0, key: { secret: "OSPF_KEY" } } };
+    astray.interfaces!.vlan_interface!.test = { vlan: "test", addresses: ["192.0.2.129/25"], urpf: { ipv6: "strict" } };
+
+    expect(platform.unsupported(astray)).toEqual([
+        "interfaces.vlan_interface.test.urpf.ipv6, only IPv4 here",
+        "routing.ospf.areas.0.0.0.0.interfaces.10g-24.network point-to-multipoint, the switch has none",
+        "routing.ospf.areas.0.0.0.0.interfaces.main, a loopback forms no adjacency and takes no OSPF setting here: write {}",
+        "routing.ospf.areas.0.0.0.2.interfaces.test2.authentication.algorithm hmac-sha-256, the switch signs with MD5 alone",
+        "routing.ospf.areas.0.0.0.2.interfaces.test2.authentication.key_id 0, the switch takes 1 to 255",
+    ]);
+});
+
 test("a routed port, a loopback, and a route keep to what the switch takes", () => {
     const astray = {
         ...routed,

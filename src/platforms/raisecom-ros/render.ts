@@ -4,6 +4,7 @@ import { Utils } from "../../core/utils";
 import type { Device, Ethertype, Limit, Port, Prefix, RateLimit, Severity, SnmpUser, Switched, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRouting } from "./routing";
 
 export class RaisecomRosRender {
@@ -50,8 +51,6 @@ export class RaisecomRosRender {
 
     /** The SNMPv3 authentication each `auth` takes on this platform. One missing here cannot be expressed. */
     static readonly SNMP_AUTH: Partial<Record<SnmpUser["auth"], string>> = { sha1: "sha" };
-
-    private static readonly OSPF_PROCESS = 1;
 
     /** The SNMPv3 access group every user belongs to, read-only on the whole tree. */
     private static readonly SNMP_GROUP = "circuit";
@@ -164,7 +163,7 @@ export class RaisecomRosRender {
                 settings !== undefined && RaisecomRosRender.lldpOn(device) && !RaisecomRosRender.lldpRuns(device, port, settings);
             const portLines =
                 settings && RaisecomRosRouting.routes(settings)
-                    ? RaisecomRosRender.routedPort(settings, lldpOff)
+                    ? RaisecomRosRender.routedPort(device, port, settings, lldpOff)
                     : RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers, lldpOff);
             lines.push(
                 `interface ${Catalog.spell(device.platform, device.model, port)}`,
@@ -176,42 +175,17 @@ export class RaisecomRosRender {
 
         lines.push(...RaisecomRosRouting.loopbacks(device));
 
-        const ospf = device.routing?.ospf;
-
         for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
             if (!iface) continue;
 
-            lines.push(`interface vlan ${vlanId(iface.vlan)}`, ...RaisecomRosRouting.addressLines(iface));
-
-            const ospfSettings = Object.values(ospf?.areas ?? {}).find((area) => area.interfaces[name])?.interfaces[name];
-            if (ospfSettings?.network === "point-to-point") lines.push("ip ospf network ptp");
-            if (ospfSettings?.cost !== undefined) lines.push(`ip ospf cost ${ospfSettings.cost}`);
-            if (ospfSettings?.passive) lines.push("ip ospf passive-interface enable");
-            if (ospfSettings?.bfd) lines.push("ip ospf bfd");
-            lines.push(...RaisecomRosRouting.urpfLines(iface));
+            lines.push(`interface vlan ${vlanId(iface.vlan)}`, ...RaisecomRosRouting.layer3(device, name, iface));
 
             for (const group of iface.vrrp ?? []) lines.push(...RaisecomRosRender.vrrp(group));
 
             lines.push("!");
         }
 
-        if (ospf) {
-            const routerId = device.routing?.router_id;
-            lines.push(`router ospf ${RaisecomRosRender.OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}`);
-
-            for (const [areaId, area] of Object.entries(ospf.areas)) {
-                for (const [iface, settings] of Object.entries(area.interfaces)) {
-                    if (!settings) continue;
-
-                    for (const prefix of Derive.ipv4Networks(device, iface)) {
-                        lines.push(`network ${Address.host(prefix)} ${Address.wildcard(Address.split(prefix).len)} area ${areaId}`);
-                    }
-                }
-            }
-
-            for (const source of ospf.redistribute ?? []) lines.push(`redistribute ${source}`);
-            lines.push("!");
-        }
+        lines.push(...RaisecomRosOspf.process(device));
 
         // Storm control acts only once detection is on.
         if (Derive.ports(device).some(([, port]) => port.storm_control)) lines.push("storm-control detection enable");
@@ -324,10 +298,10 @@ export class RaisecomRosRender {
         return lines;
     }
 
-    /** A routed port: one without `portswitch`, the switch's default for a port, with its addresses. */
-    static routedPort(settings: Port, lldpOff: boolean): string[] {
+    /** A routed port: one without `portswitch`, the switch's default for a port, with its addresses and routing. */
+    static routedPort(device: Device, name: string, settings: Port, lldpOff: boolean): string[] {
         const lines = settings.description ? [`description ${settings.description}`] : [];
-        lines.push(...RaisecomRosRouting.addressLines(settings), ...RaisecomRosRouting.urpfLines(settings));
+        lines.push(...RaisecomRosRouting.layer3(device, name, settings));
         if (settings.lldp === false || lldpOff) lines.push("lldp disable");
         return lines;
     }
