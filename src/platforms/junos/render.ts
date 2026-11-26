@@ -358,6 +358,8 @@ export class JunosRender {
             this.out.set(statement);
             if (settings.port !== undefined && settings.port !== JunosRender.SERVICE_PORTS[service][1])
                 this.out.set(statement, "port", settings.port);
+            // Only the REST API takes a routing instance (TRAPS.md).
+            if (service === "api" && management.api?.vrf) this.out.set("system services rest routing-instance", management.api.vrf);
         }
     }
 

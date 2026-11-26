@@ -117,7 +117,7 @@ export class Junos extends Platform {
     /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF only passed `commit check`. */
     override experimental(device: Device): string[] {
         const found = Derive.serviceVrfs(device)
-            .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa."))
+            .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa.") || where === "management.api.vrf")
             .map(({ where }) => where);
         if (device.routing?.vrf_imports) found.push("routing.vrf_imports");
         // GTSM passed `commit check` only, and which TTL the loopback's filter sees was not tried (TRAPS.md).
@@ -217,9 +217,16 @@ export class Junos extends Platform {
 
         // `system services ssh routing-instance` is a syntax error, and a resolver takes only `mgmt_junos` (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) {
-            if (where.startsWith("management.")) found.push(`${where}, Junos has no VRF setting for its services`);
+            if (where.startsWith("management.") && where !== "management.api.vrf")
+                found.push(
+                    `${where}, Junos runs it in the main table only: of the management services, only the REST API takes a routing instance`
+                );
             if (where === "system.dns.vrf") found.push(`${where}, Junos 21.4 reaches a resolver through mgmt_junos only`);
-            if (where === "monitoring.snmp.vrf") found.push(`${where}, not built yet`);
+            // Juniper's SNMP for routing instances (TRAPS.md).
+            if (where === "monitoring.snmp.vrf")
+                found.push(
+                    `${where}, as a manager in a routing instance sends Junos the community <instance>@<community>, not the one written`
+                );
         }
 
         if (management.telnet?.port) found.push("management.telnet.port");
