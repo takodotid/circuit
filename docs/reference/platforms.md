@@ -262,7 +262,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | SNMP v2c and v3                   | ✅ v3 SHA1 only                 | ✅                              | ✅ v3 SHA1 only   | ✅                     | ✅ v3 SHA1 only                   |
 | SNMP traps                        | one community or user, port 162 | ❌                              | ❌                | ✅                     | ✅                                |
 | Syslog                            | ✅                              | ✅                              | ✅                | ✅                     | ✅ up to 4                        |
-| Syslog over TLS                   | ❌                              | ❌                              | ❌                | ❌                     | 🧪                                |
+| Syslog over TLS                   | ❌                              | ❌                              | ❌                | ❌ no certificates     | 🧪                                |
 | Flow export                       | NetFlow 9, IPFIX                | sFlow                           | ❌                | sFlow                  | sFlow, NetFlow 9                  |
 | Flow timeouts                     | ✅                              | ❌                              | ❌                | ❌                     | 🧪                                |
 | ICMP probes                       | ✅                              | ❌                              | ❌                | 🧪                     | ✅ not in a VRF                   |

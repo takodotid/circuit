@@ -240,7 +240,7 @@ export class Junos extends Platform {
         (device.monitoring?.syslog ?? []).forEach((collector, index) => {
             if (collector.transport_security)
                 found.push(
-                    `monitoring.syslog[${index}].transport_security, which needs system.certificates: the platform loads a CA certificate with an operational command`
+                    `monitoring.syslog[${index}].transport_security, which needs its CA certificate on the switch: Junos loads one with an operational command, request security pki ca-certificate load, not a statement`
                 );
         });
 
