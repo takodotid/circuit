@@ -102,9 +102,11 @@ test("Junos imports into each table through one policy, whose terms match the in
     expect(junos.experimental?.(device)).toEqual(["routing.vrf_imports"]);
 });
 
-test("FortiOS, VRP, and Raisecom ROS refuse imports between tables", () => {
+test("FortiOS, VRP, and Raisecom ROS refuse imports between tables, FortiOS saying which version has them", () => {
+    expect(Platforms.get("fortios").unsupported(withImports("platforms--example-firewall", BOTH_WAYS))).toContain(
+        "routing.vrf_imports, FortiOS 6.2 takes no routes from one VRF into another: route leaking between VRFs needs 6.4"
+    );
     for (const [platform, fixture] of [
-        ["fortios", "platforms--example-firewall"],
         ["vrp", "platforms--example-switch"],
         ["raisecom-ros", "platforms--example-core-switch"],
     ] as const)

@@ -17,6 +17,7 @@ function withAggregates(fixture: string, aggregates: Aggregates, originated?: re
     };
 }
 
+// A CCR2216 and a CHR with RouterOS 7.24.6 have no BGP aggregates (TRAPS.md).
 test("RouterOS refuses aggregates", () => {
     const device = withAggregates("edge-router--edge-01", [{ prefix: "198.51.100.0/24" }]);
     expect(Platforms.get("routeros").unsupported(device)).toContain("routing.bgp.aggregates, RouterOS 7 BGP has no aggregate routes");

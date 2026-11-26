@@ -69,16 +69,18 @@ export class FortiOsUnsupported {
         }
         if (device.routing?.mpls) found.push("routing.mpls, FortiOS has no MPLS");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN: FortiOS has no MPLS`);
-        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN, not built for FortiOS yet`);
+        // No `config system evpn`, and no EVPN on a VXLAN or a BGP neighbor (TRAPS.md).
+        for (const where of Derive.evpn(device)) found.push(`${where}, EVPN: FortiOS 6.2 has none. EVPN over VXLAN needs 7.4`);
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS: FortiOS has no MPLS`);
         // The device's own traffic leaves from the management VDOM, if there is one (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, FortiOS 6.2 has no VRF setting for it`);
 
-        // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session.
-        found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom"]));
-        // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for, and FortiOsShaping.gaps a rate for each prefix.
+        // Tested on a FG-3700D on FortiOS 6.2.2, in NAT mode, with the management VDOM and BFD on a route in a VRF. FortiOsRouting.gaps refuses BFD on a multihop BGP session, and tables beside the main one, which the device has none of.
+        found.push(...Derive.untested(device, ["bfd-timers", "static-route-bfd", "multihop-bfd", "management-vdom", "routing-tables"]));
+        // FortiOsRouting.gaps refuses a range's cost, which the device has no setting for, and imports between VRFs, which it has none of. FortiOsShaping.gaps refuses a rate for each prefix.
         found.push(
             ...Derive.unbuilt(device, [
+                "vrf-imports",
                 "proxy-arp",
                 "urpf",
                 "rate-limit",

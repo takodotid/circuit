@@ -3,6 +3,7 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
+import { Utils } from "../../core/utils";
 import type {
     Device,
     Family,
@@ -190,6 +191,9 @@ export class FortiOsRouting {
 
     static readonly ACCESS_LIST = { ipv4: "router access-list", ipv6: "router access-list6" } as const;
 
+    /** Why RPKI is refused: BGP has none on 6.2 (TRAPS.md). */
+    private static readonly NO_RPKI = "FortiOS 6.2 has no route origin validation: RPKI needs 8.0";
+
     /** The longest prefix of each family. */
     static readonly BITS = { ipv4: 32, ipv6: 128 } as const;
 
@@ -310,7 +314,7 @@ export class FortiOsRouting {
     }
 
     /**
-     * An area runs on the networks of its interfaces. An interface with a cost, a link type, a priority, or BFD has an entry of its own. The neighbors a link sends its hellos to are the router's, each found on the link whose network holds it.
+     * An area runs on the networks of its interfaces, in the VRF they route in, which the device runs an OSPF process for. An interface with a cost, a link type, a priority, or BFD has an entry of its own. The neighbors a link sends its hellos to are the router's, each found on the link whose network holds it.
      */
     private static ospf(root: FortiOsNode, device: Device): void {
         const ospf = device.routing?.ospf;
@@ -674,14 +678,19 @@ export class FortiOsRouting {
         const found: string[] = [];
         const routing = device.routing;
 
-        if (routing?.rpki) found.push("routing.rpki, the platform has no route origin validation");
+        if (routing?.rpki) found.push(`routing.rpki, ${FortiOsRouting.NO_RPKI}`);
+        // `router bgp` has no `config vrf-leak` (TRAPS.md).
+        if (routing?.vrf_imports)
+            found.push("routing.vrf_imports, FortiOS 6.2 takes no routes from one VRF into another: route leaking between VRFs needs 6.4");
         if (routing?.router_id && !routing.ospf && !routing.bgp) found.push("routing.router_id without OSPF or BGP, which each hold it");
+        found.push(...FortiOsRouting.tableGaps(device));
         if (routing?.bgp && routing.bgp.asn === undefined) found.push("routing.bgp without asn, which the platform's BGP needs");
 
         const ospf = routing?.ospf;
         if (ospf?.address_families?.includes("ipv6") && !routing?.router_id) found.push("routing.ospf for IPv6 without routing.router_id");
-        // `router ospf` and `router ospf6` have no VRF setting (TRAPS.md).
-        if (ospf?.vrf) found.push("routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only");
+        // OSPF runs in the VRF its interfaces route in, and OSPFv3 in the default VRF only (TRAPS.md).
+        if (ospf?.vrf && ospf.address_families?.includes("ipv6"))
+            found.push("routing.ospf.vrf with ipv6 in address_families, FortiOS 6.2 runs OSPFv3 in the default VRF only");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
             // `config range` holds a prefix, `advertise`, and a prefix to announce in its place, but no cost.
@@ -712,11 +721,11 @@ export class FortiOsRouting {
             }
         }
 
-        // The device has no VRF setting for BGP (TRAPS.md).
-        const noVrf = "FortiOS 6.2 runs BGP in the default VRF only";
+        // BGP has one table, the default VRF's, whatever interface reaches a neighbor (TRAPS.md).
+        const noVrf = "FortiOS 6.2 runs BGP in the default VRF only: BGP in a VRF needs 6.4";
         for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
             if (group?.vrf) found.push(`routing.bgp.neighbor_groups.${name}.vrf, ${noVrf}`);
-        // Neither `router isis` nor its interfaces have a setting for a topology (RFC 5120).
+        // Neither `router isis` nor its interfaces have a setting for a topology, RFC 5120's multi-topology (TRAPS.md).
         if (routing?.isis?.multi_topology) found.push("routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only");
         // The FortiOS 6.2 CLI reference lists `password` and `md5` for `auth-mode-l1` and `auth-mode-l2`, and a key chain's key has no algorithm.
         for (const { where, authentication } of Derive.isisAuthentications(device))
@@ -736,6 +745,7 @@ export class FortiOsRouting {
             if (settings?.passive) found.push(`${where}.passive, FortiOS has none: only a loopback forms no adjacency`);
             if (settings?.network && device.interfaces?.loopback?.[name])
                 found.push(`${where}.network, a loopback's link type is loopback on FortiOS`);
+            // Neither `router isis` nor an `isis-interface` entry takes `bfd` (TRAPS.md).
             if (settings?.bfd) found.push(`${where}.bfd, FortiOS 6.2 has no BFD for IS-IS`);
         }
 
@@ -747,15 +757,18 @@ export class FortiOsRouting {
 
             if (neighbor.vrf) found.push(`${where}.vrf, ${noVrf}`);
 
-            if (settings.role) found.push(`${where}.role, the platform has no BGP roles`);
+            // A neighbor has no `role` (TRAPS.md).
+            if (settings.role) found.push(`${where}.role, FortiOS 6.2 has no BGP roles (RFC 9234)`);
+            // A neighbor has no `ttl-security-hops` (TRAPS.md).
             if (settings.ttl_security)
                 found.push(
-                    `${where}.ttl_security, the platform's BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`
+                    `${where}.ttl_security, FortiOS BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`
                 );
             if (settings.bfd && settings.multihop)
                 found.push(
                     `${where}.bfd, FortiOS 6.2 runs single-hop BFD on a multihop session, which a peer running multihop BFD never answers`
                 );
+            // A neighbor has no `maximum-prefix-restart` (TRAPS.md).
             if (Derive.prefixLimit(settings)?.restart_after !== undefined)
                 found.push(`${where}.max_prefixes.restart_after, FortiOS 6.2 keeps the session closed until it is cleared by hand`);
             if (settings.local_address && !FortiOsNames.holderOf(device, settings.local_address)) {
@@ -776,6 +789,25 @@ export class FortiOsRouting {
         return found;
     }
 
+    /** A table beside the main one, and policy routing to it. A static route takes the VRF of the interface it leaves through, and a policy route sends traffic to a next hop, not to a table (TRAPS.md). */
+    private static tableGaps(device: Device): string[] {
+        const routing = device.routing;
+        const noTables = "FortiOS 6.2 has no routing table beside its VRFs";
+        const found: string[] = [];
+
+        if (routing?.tables) found.push(`routing.tables, ${noTables}`);
+        if (routing?.policy_routing)
+            found.push("routing.policy_routing, FortiOS 6.2 policy routes send traffic to a next hop, not to a table");
+        for (const route of routing?.static_routes ?? [])
+            if (Utils.otherTable(route.routing_table)) found.push(`routing.static_routes ${route.prefix} routing_table, ${noTables}`);
+        for (const [name, group] of Object.entries(routing?.bgp?.neighbor_groups ?? {}))
+            if (Utils.otherTable(group?.routing_table)) found.push(`routing.bgp.neighbor_groups.${name}.routing_table, ${noTables}`);
+        for (const [name, neighbor] of Object.entries(routing?.bgp?.neighbors ?? {}))
+            if (Utils.otherTable(neighbor?.routing_table)) found.push(`routing.bgp.neighbors.${name}.routing_table, ${noTables}`);
+
+        return found;
+    }
+
     private static ruleGaps(device: Device, where: string, rule: PolicyRule): string[] {
         if (!FortiOsRouting.isRouteRule(rule)) {
             return "communities" in rule && rule.communities !== undefined
@@ -790,9 +822,8 @@ export class FortiOsRouting {
         if ((rule.if || rule.set) && !rule.then)
             found.push(`${where}, a rule without then: the platform stops at the first rule that matches`);
 
-        for (const field of ["rpki", "large_community"] as const) {
-            if (match[field] !== undefined) found.push(`${where}.if.${field}`);
-        }
+        if (match.rpki !== undefined) found.push(`${where}.if.rpki, ${FortiOsRouting.NO_RPKI}`);
+        if (match.large_community !== undefined) found.push(`${where}.if.large_community`);
 
         const asPath = FortiOsRouting.AS_PATH_FIELDS.filter((field) => match[field] !== undefined);
         if (asPath.length > 1)

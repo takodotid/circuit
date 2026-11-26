@@ -124,7 +124,7 @@ test("Junos can't set the TPID on 21.4, and no other platform builds either key 
     expect(Platforms.get("junos").unsupported(junos)).toEqual(
         expect.arrayContaining([
             "interfaces.ethernet.10g-1.tpid 0x88a8, which Junos 21.4 on a QFX5100 can't set: Juniper lists it from 22.4R1",
-            "interfaces.vlan_interface.cust-1001.inner_vlan_id, which only RouterOS builds for now",
+            "interfaces.vlan_interface.cust-1001.inner_vlan_id, which a QFX5100 doesn't route: Juniper supports two tags with family inet on no QFX5000 switch",
         ])
     );
     for (const [platform, model] of [

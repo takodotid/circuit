@@ -1,4 +1,4 @@
-// A prefix limit that opens the session again after a time, or only warns. Tested on a QFX5100 on Junos 21.4R3 and a FG-3700D on FortiOS 6.2.2: each plan after the commit was empty.
+// A prefix limit that opens the session again after a time, or only warns. Tested on a QFX5100 on Junos 21.4R3 and a FG-3700D on FortiOS 6.2.2: each plan after the commit was empty. RouterOS is refused: on a CCR2216 and a CHR with 7.24.6, a session at its limit stayed closed until it was cleared (TRAPS.md).
 
 import { expect, test } from "bun:test";
 import type { Device, Neighbor } from "../../src/model";
@@ -46,6 +46,7 @@ test("Junos only logs without teardown, and opens the session again after whole 
         );
 });
 
+// FortiOS 6.2.2 has no restart: a neighbor's `set maximum-prefix-restart` was `command parse error`.
 test("FortiOS only warns in each family, and refuses a restart", () => {
     const fortios = Platforms.get("fortios");
     const v6 = {

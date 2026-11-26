@@ -114,7 +114,7 @@ test("RouterOS refuses what it cannot send: another port, a second sender, a com
             "monitoring.snmp.traps[0].port, the platform sends traps to port 162",
             "monitoring.snmp.traps[1], with another community or user than traps[0]: the platform sends every trap with one",
             "monitoring.snmp.traps[1].community, other than monitoring.snmp.community: the platform sends traps with one of its communities",
-            "monitoring.syslog[0].transport_security, the platform sends syslog over UDP only: its TLS carries CEF, not syslog",
+            "monitoring.syslog[0].transport_security, RouterOS sends each message over TLS without the framing of RFC 5425, no length before it and no line feed after it (TRAPS.md)",
         ])
     );
 });
@@ -189,8 +189,8 @@ test("Junos refuses a community's receivers on two ports, syslog over TLS, and f
     expect(Platforms.get("junos").unsupported(device)).toEqual(
         expect.arrayContaining([
             "monitoring.snmp.traps[1].port, unlike another receiver of its community: a trap group has one port",
-            "monitoring.syslog[0].transport_security, which needs system.certificates: the platform loads a CA certificate with an operational command",
-            "monitoring.flow_export.idle_timeout, the platform exports sFlow, which has no flows",
+            "monitoring.syslog[0].transport_security, which needs its CA certificate on the switch: Junos loads one with an operational command, request security pki ca-certificate load, not a statement",
+            "monitoring.flow_export.idle_timeout, a QFX5100 exports sFlow only, which has no flows: Juniper lists IPFIX for no QFX5100",
         ])
     );
 });

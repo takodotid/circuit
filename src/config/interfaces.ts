@@ -311,9 +311,9 @@ export type VlanInterface<Vlan extends string, Vrf extends string, Scheduler ext
      */
     mac?: MacAddress;
     /**
-     * Addresses in its subnet that are really somewhere else. It answers ARP for them with its own MAC, then routes their traffic. Use it for an address you moved out of the subnet to another link, which the hosts on the subnet still think is a neighbor. None when absent.
+     * Addresses in its subnet that are really somewhere else. It answers ARP for them with its own MAC, then routes their traffic. Use it for an address you moved out of the subnet to another link, which the hosts on the subnet still think is a neighbor. Give the device a route to each, such as a static route: RouterOS answers only while it has one. None when absent.
      */
-    proxy_arp?: readonly IP[];
+    proxy_arp?: readonly IPv4[];
     /** Limits the traffic through this VLAN interface, each way. Not limited when absent. */
     rate_limit?: RateLimit;
     /** How this VLAN interface sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */

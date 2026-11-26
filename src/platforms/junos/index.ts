@@ -10,6 +10,7 @@ import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { Utils } from "../../core/utils";
 import type { TestedFeature } from "../../core/derive";
 import { Platform } from "../platform";
 import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, Plan, ReadOptions, ReadSession, Tool } from "../platform";
@@ -24,6 +25,7 @@ import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosOspf } from "./ospf";
+import { JunosPolicyRouting } from "./policy-routing";
 import { JunosPlan } from "./plan";
 import { JunosQos } from "./qos";
 import { JunosRateLimits } from "./rate-limits";
@@ -92,6 +94,8 @@ export class Junos extends Platform {
         "mac-limit",
         "ethertype-filter",
         "port-binding",
+        // Tables and policy routing are experimental, and a BGP session's table is refused, in `JunosPolicyRouting`.
+        "routing-tables",
     ];
 
     override readonly name = "junos";
@@ -113,9 +117,15 @@ export class Junos extends Platform {
     /** Imports between tables: their statements were committed by hand on a QFX5100 (TRAPS.md), but Circuit has not sent them or read them back yet. NTP and AAA servers in a VRF only passed `commit check`. */
     override experimental(device: Device): string[] {
         const found = Derive.serviceVrfs(device)
-            .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa."))
+            .filter(({ where }) => where === "system.ntp.vrf" || where.startsWith("system.aaa.") || where === "management.api.vrf")
             .map(({ where }) => where);
         if (device.routing?.vrf_imports) found.push("routing.vrf_imports");
+        // GTSM passed `commit check` only, and which TTL the loopback's filter sees was not tried (TRAPS.md).
+        for (const [name, neighbor] of Object.entries(device.routing?.bgp?.neighbors ?? {}))
+            if (neighbor && JunosBgp.settingsOf(device, neighbor).ttl_security) found.push(`routing.bgp.neighbors.${name}.ttl_security`);
+        // A next hop with its interface passed `commit check` only.
+        for (const route of device.routing?.static_routes ?? [])
+            if (route.next_hop && route.interface) found.push(`routing.static_routes ${route.prefix} interface`);
         found.push(...JunosDhcp.experimental(device));
         // MPLS and LDP passed `commit check` only: the QFX5100 has no license to run them.
         if (device.routing?.mpls) found.push("routing.mpls");
@@ -131,7 +141,7 @@ export class Junos extends Platform {
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         // RPM's tests passed `commit check` only, in a candidate that was never committed.
         for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
-        found.push(...JunosOspf.experimental(device));
+        found.push(...JunosOspf.experimental(device), ...JunosPolicyRouting.experimental(device));
         // EVPN-VXLAN passed `commit check` only, with warnings for the licenses the QFX5100 lacks.
         found.push(...Derive.evpn(device));
         found.push(...JunosQos.experimental(device), ...JunosMarking.experimental(device));
@@ -147,13 +157,21 @@ export class Junos extends Platform {
         const interfaces = Derive.interfaces(device);
 
         for (const { name, kind } of interfaces) {
-            if (kind === "bridge") found.push(`interfaces.bridge.${name}, a bridge, which only FortiOS builds for now`);
+            if (kind === "bridge")
+                found.push(
+                    `interfaces.bridge.${name}, a bridge that firewall.filter.forward filters, which Junos doesn't build: a QFX5100 joins two VLANs only by vlan_translation on a trunk`
+                );
             if (kind === "pseudowire")
                 found.push(
                     `interfaces.pseudowire.${name}, a pseudowire, not built for Junos yet: its MPLS is experimental, untested on a router that runs it`
                 );
             if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
+            // `proxy-arp restricted` answers nothing in the interface's own subnet, `unrestricted` every address with a route, and a static ARP entry needs a MAC and a port (TRAPS.md).
+            if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.proxy_arp)
+                found.push(
+                    `interfaces.vlan_interface.${name}.proxy_arp, which Junos can't answer for some addresses only: its proxy ARP answers for every address it has a route to, or for none in the interface's own subnet`
+                );
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
@@ -202,9 +220,16 @@ export class Junos extends Platform {
 
         // `system services ssh routing-instance` is a syntax error, and a resolver takes only `mgmt_junos` (TRAPS.md).
         for (const { where } of Derive.serviceVrfs(device)) {
-            if (where.startsWith("management.")) found.push(`${where}, Junos has no VRF setting for its services`);
+            if (where.startsWith("management.") && where !== "management.api.vrf")
+                found.push(
+                    `${where}, Junos runs it in the main table only: of the management services, only the REST API takes a routing instance`
+                );
             if (where === "system.dns.vrf") found.push(`${where}, Junos 21.4 reaches a resolver through mgmt_junos only`);
-            if (where === "monitoring.snmp.vrf") found.push(`${where}, not built yet`);
+            // Juniper's SNMP for routing instances (TRAPS.md).
+            if (where === "monitoring.snmp.vrf")
+                found.push(
+                    `${where}, as a manager in a routing instance sends Junos the community <instance>@<community>, not the one written`
+                );
         }
 
         if (management.telnet?.port) found.push("management.telnet.port");
@@ -225,7 +250,7 @@ export class Junos extends Platform {
         (device.monitoring?.syslog ?? []).forEach((collector, index) => {
             if (collector.transport_security)
                 found.push(
-                    `monitoring.syslog[${index}].transport_security, which needs system.certificates: the platform loads a CA certificate with an operational command`
+                    `monitoring.syslog[${index}].transport_security, which needs its CA certificate on the switch: Junos loads one with an operational command, request security pki ca-certificate load, not a statement`
                 );
         });
 
@@ -343,34 +368,40 @@ export class Junos extends Platform {
             found.push("switching.stp.priority, in steps of 4096");
 
         const routing = device.routing;
-        found.push(...Junos.bgpGaps(device));
+        found.push(...JunosBgp.unsupported(device));
 
         const tables = new Map<string, number>();
 
         for (const route of routing?.static_routes ?? []) {
             if (route.description) found.push(`routing.static_routes ${route.prefix} description`);
-            // The render writes the next hop alone, so the interface would be lost.
-            if (route.next_hop && route.interface)
-                found.push(`routing.static_routes ${route.prefix} next_hop with interface, write only one of them`);
+            // The switch fails `commit check` on it: `link-local next-hop must be configured with an interface` (TRAPS.md).
+            if (route.next_hop && !route.interface && Address.contains("fe80::/10", Address.host(route.next_hop)))
+                found.push(
+                    `routing.static_routes ${route.prefix} next_hop ${route.next_hop} without interface: write the interface that reaches it`
+                );
 
-            const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
+            const table = `${route.vrf ?? Utils.otherTable(route.routing_table) ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             tables.set(table, (tables.get(table) ?? 0) + 1);
         }
 
         for (const route of routing?.static_routes ?? []) {
-            const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
+            const table = `${route.vrf ?? Utils.otherTable(route.routing_table) ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             if (route.blackhole && tables.get(table)! > 1)
                 found.push(`routing.static_routes ${route.prefix}, a blackhole beside another route to the same prefix`);
         }
 
-        found.push(...JunosOspf.unsupported(device));
+        found.push(...JunosOspf.unsupported(device), ...JunosPolicyRouting.unsupported(device, names));
 
         if (device.firewall !== undefined) found.push("firewall");
         if (device.firewall?.ipsec) found.push("firewall.ipsec, IPsec: a QFX switch does not encrypt the traffic it forwards");
         if (device.services?.ipsec_remote_access)
             found.push("services.ipsec_remote_access, IPsec: a QFX switch does not encrypt the traffic it forwards");
         if (system.hardware_offload !== undefined) found.push("system.hardware_offload");
-        if (system.certificates !== undefined) found.push("system.certificates");
+        // A revocation list's `revocation-check crl url` passes `commit check`, but the certificate of its CA is in no statement (TRAPS.md).
+        if (system.certificates !== undefined)
+            found.push(
+                "system.certificates, which Junos loads with an operational command, request security pki ca-certificate load, not a statement: Circuit writes none, nor the crl_url of one"
+            );
 
         found.push(...JunosDhcp.unsupported(device));
         if (device.services?.pppoe_server)
@@ -380,7 +411,10 @@ export class Junos extends Platform {
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
         if (flow?.protocol === "sflow" && flow.sampling === undefined) found.push("monitoring.flow_export.sampling, the platform samples");
         for (const key of ["active_timeout", "idle_timeout"] as const)
-            if (flow?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, the platform exports sFlow, which has no flows`);
+            if (flow?.[key] !== undefined)
+                found.push(
+                    `monitoring.flow_export.${key}, a QFX5100 exports sFlow only, which has no flows: Juniper lists IPFIX for no QFX5100`
+                );
 
         for (const name of flow?.interfaces ?? []) {
             if (names.members(name).some((port) => port.startsWith("em")))
@@ -405,6 +439,8 @@ export class Junos extends Platform {
                 "vrf-imports",
                 "rate-limit",
                 "rate-limit-per-prefix",
+                // Proxy ARP is refused below, with its reason.
+                "proxy-arp",
                 "queues",
                 "marking",
                 "marking-class",
@@ -833,118 +869,6 @@ export class Junos extends Platform {
         }
 
         return sizes.length > 1 ? sizes.slice(1) : sizes;
-    }
-
-    /** BGP settings Junos 21 has no statement for, and policy steps it cannot take. */
-    /** Whether a policy, or one it calls, matches a route's RPKI state. */
-    private static matchesRpki(device: Device, policy: string, seen: Set<string>): boolean {
-        if (seen.has(policy)) return false;
-        seen.add(policy);
-
-        return (device.routing?.policies?.[policy] ?? []).some((rule) =>
-            JunosBgp.isRouteRule(rule)
-                ? rule.if?.rpki !== undefined
-                : "call" in rule && !!rule.call && Junos.matchesRpki(device, rule.call, seen)
-        );
-    }
-
-    private static bgpGaps(device: Device): string[] {
-        const found: string[] = [];
-        const bgp = device.routing?.bgp;
-
-        if (bgp && bgp.asn === undefined) found.push("routing.bgp.asn, absent: write it here or in circuit.ts");
-
-        for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
-            if (!neighbor) continue;
-
-            const settings = JunosBgp.settingsOf(device, neighbor);
-            if (settings.role) found.push(`routing.bgp.neighbors.${name}.role, Junos 21 has no BGP roles`);
-            if (settings.ttl_security)
-                found.push(
-                    `routing.bgp.neighbors.${name}.ttl_security, Junos BGP sets only the TTL it sends, and has no setting that drops packets arriving with less than 255`
-                );
-            // IPv4 routes over an IPv6 session need a local IPv4 address the config has no field for.
-            if (Address.family(neighbor.address) === "ipv6" && settings.address_families?.includes("ipv4")) {
-                found.push(`routing.bgp.neighbors.${name}.address_families ipv4 over an IPv6 session`);
-            }
-
-            if (settings.keepalive !== undefined)
-                found.push(`routing.bgp.neighbors.${name}.keepalive, the platform keeps it at a third of hold_time`);
-
-            const restart = Derive.prefixLimit(settings)?.restart_after;
-            const minutes = (restart ?? 0) / JunosBgp.SECONDS_PER_MINUTE;
-            if (restart !== undefined && (!Number.isInteger(minutes) || minutes < 1 || minutes > JunosBgp.MAX_IDLE_MINUTES))
-                found.push(
-                    `routing.bgp.neighbors.${name}.max_prefixes.restart_after ${restart}, Junos waits whole minutes, up to ${JunosBgp.MAX_IDLE_MINUTES}: write a multiple of ${JunosBgp.SECONDS_PER_MINUTE}`
-                );
-            if (settings.route_reflector_client && !bgp?.cluster_id)
-                found.push(
-                    `routing.bgp.neighbors.${name}.route_reflector_client without routing.bgp.cluster_id: Junos needs a cluster ID, so write one`
-                );
-
-            const validated = [settings.import_policy, settings.export_policy].find(
-                (policy) => policy && Junos.matchesRpki(device, policy, new Set())
-            );
-            if (settings.vrf && validated)
-                found.push(
-                    `routing.bgp.neighbors.${name}.vrf with policy ${validated}, which matches rpki: Circuit sets up route validation in the main routing instance only`
-                );
-        }
-
-        // `routing-options graceful-restart` turns it on for the whole router, OSPF too.
-        const graceful = Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => ({
-            name,
-            on: !!neighbor && JunosBgp.settingsOf(device, neighbor).graceful_restart,
-        }));
-        const first = graceful.find(({ on }) => on)?.name;
-        const without = graceful.filter(({ on }) => !on).map(({ name }) => name);
-        if (first && without.length)
-            found.push(
-                `routing.bgp.neighbors.${first}.graceful_restart, but not on ${without.join(", ")}: Junos turns it on for every session at once. Set it on every neighbor or on none`
-            );
-        if (first && device.routing?.ospf)
-            found.push(`routing.bgp.neighbors.${first}.graceful_restart with routing.ospf, Junos turns graceful restart on for OSPF too`);
-
-        const clients = Object.values(bgp?.neighbors ?? {}).some(
-            (neighbor) => neighbor && JunosBgp.settingsOf(device, neighbor).route_reflector_client
-        );
-        if (bgp?.cluster_id && !clients)
-            found.push("routing.bgp.cluster_id without a route_reflector_client: Junos holds the cluster ID on its clients' sessions");
-
-        for (const server of device.routing?.rpki ?? []) {
-            if (server.description) found.push(`routing.rpki ${server.address} description`);
-        }
-
-        for (const [name, rules] of Object.entries(device.routing?.policies ?? {})) {
-            (rules ?? []).forEach((rule, index) => {
-                const where = `routing.policies.${name}[${index}]`;
-                if ("communities" in rule && rule.communities !== undefined)
-                    found.push(`${where}.communities, a rule the platform does not write`);
-                if (!JunosBgp.isRouteRule(rule)) return;
-
-                if (rule.set?.preferred_source) found.push(`${where}.set.preferred_source`);
-                if (rule.if?.prefix && rule.if.prefix_length) found.push(`${where}.if.prefix with prefix_length`);
-
-                const match = rule.if ?? {};
-                const regexes = [
-                    ...(match.as_path_length ? (["as_path_length"] as const) : []),
-                    ...JunosBgp.AS_FIELDS.filter((field) => match[field] !== undefined && !JunosBgp.listable(match[field])),
-                ];
-                if (regexes.length > 1)
-                    found.push(
-                        `${where}.if.${regexes[1]} with ${regexes[0]}: Junos matches both by regular expression and joins two of those by OR. Leave AS 0 and AS 4294967295 out, which only a regular expression matches, or match each in a rule of its own`
-                    );
-            });
-        }
-
-        // A rule takes its family from its prefix set, so a set holds one.
-        for (const [name, set] of Object.entries(device.routing?.prefix_sets ?? {})) {
-            const families = new Set(JunosBgp.prefixesOf(set ?? { prefixes: [] }).map((prefix) => Address.family(Address.host(prefix))));
-            if (families.size > 1)
-                found.push(`routing.prefix_sets.${name}.prefixes of both families, a policy rule takes its family from them`);
-        }
-
-        return found;
     }
 
     private static routedGaps(where: string, settings: Pick<Routed, "addresses" | "vrrp">): string[] {
