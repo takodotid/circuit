@@ -253,3 +253,14 @@ test("ARP inspection trusts the ports DHCP snooping trusts, and turns on after t
     expect(steps[on + 1]).toBe("ip arp-inspection dhcp-snooping");
     expect(steps.indexOf("ip arp-inspection trust")).toBeLessThan(on);
 });
+
+test("a QinQ port takes the service tag too, as a spare port took `tpid 88a8` beside `dot1q-tunnel`", () => {
+    const device = {
+        ...core,
+        interfaces: { ...core.interfaces, ethernet: { "10g-12": { qinq_vlan: "servers", tpid: "0x88a8" } } },
+        routing: undefined,
+    } as Device;
+
+    expect(platform.unsupported(device)).toEqual([]);
+    expect(platform.render(device)).toContain("interface tengigabitethernet 1/3/12\nswitchport access vlan 20\ndot1q-tunnel\ntpid 88a8\n!");
+});
