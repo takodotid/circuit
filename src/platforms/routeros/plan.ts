@@ -131,6 +131,8 @@ export class RouterOsPlan {
         "/ipv6 route",
         "/ip address",
         "/ipv6 address",
+        // The neighbors the router finds, and a DHCP server's leases.
+        "/ip arp",
         "/ip firewall address-list",
         "/ipv6 firewall address-list",
         "/ip firewall filter",

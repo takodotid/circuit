@@ -625,6 +625,8 @@ export class RouterOsExport {
         "/ipv6 route": ["dst-address", "routing-table", "gateway"],
         "/ip address": ["address"],
         "/ipv6 address": ["address"],
+        // One address may be published on several interfaces.
+        "/ip arp": ["address", "interface"],
         "/ip dhcp-server network": ["address"],
         "/ip dhcp-server lease": ["address"],
         "/ip traffic-flow target": ["dst-address", "port"],

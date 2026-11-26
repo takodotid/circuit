@@ -141,7 +141,7 @@ export class RouterOsMonitoring {
         (monitoring?.syslog ?? []).forEach((collector, index) => {
             if (collector.transport_security)
                 found.push(
-                    `monitoring.syslog[${index}].transport_security, the platform sends syslog over UDP only: its TLS carries CEF, not syslog`
+                    `monitoring.syslog[${index}].transport_security, RouterOS sends each message over TLS without the framing of RFC 5425, no length before it and no line feed after it (TRAPS.md)`
                 );
         });
 

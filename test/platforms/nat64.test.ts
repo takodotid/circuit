@@ -167,8 +167,8 @@ test("RouterOS refuses NAT64 and DNS64, and the platforms without a DNS server r
     };
     expect(Platforms.get("routeros").unsupported(device)).toEqual(
         expect.arrayContaining([
-            "firewall.nat.source[0].then nat64, RouterOS has no NAT64",
-            "services.dns64, RouterOS's DNS server has no DNS64",
+            "firewall.nat.source[0].then nat64, RouterOS has no NAT64 (TRAPS.md)",
+            "services.dns64, RouterOS's DNS server has no DNS64 (TRAPS.md)",
         ])
     );
 

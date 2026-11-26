@@ -108,8 +108,10 @@ test("RouterOS refuses a dynamic pool, and its timeout", () => {
     const device: Device = { ...router, firewall: { ...router.firewall, nat: { source: [rule] } } };
     const refused = Platforms.get("routeros").unsupported(device);
 
-    expect(refused).toContain("firewall.nat.source[0].port_allocation dynamic, RouterOS has no port block allocation: write deterministic");
-    expect(refused).toContain("firewall.nat.source[0].port_set_timeout, RouterOS has no port block allocation");
+    expect(refused).toContain(
+        "firewall.nat.source[0].port_allocation dynamic, RouterOS has no port block allocation (TRAPS.md): write deterministic"
+    );
+    expect(refused).toContain("firewall.nat.source[0].port_set_timeout, RouterOS has no port block allocation (TRAPS.md)");
 });
 
 test("FortiOS warns when no syslog collector keeps a dynamic pool's log of its blocks, written at notice", () => {

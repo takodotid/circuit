@@ -278,7 +278,7 @@ export class RouterOs extends Platform {
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(
-                `interfaces.ipsec.${name}, which RouterOS has only from 7.25, where it cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
+                `interfaces.ipsec.${name}, which RouterOS 7.24 has no interface for, and whose XFRM interface in 7.25 cut a router off in a test (TRAPS.md). Write a policy-based tunnel in firewall.ipsec`
             );
         found.push(...RouterOsIpsec.unsupported(device));
         found.push(...RouterOsRemoteAccess.unsupported(device));
@@ -391,7 +391,9 @@ export class RouterOs extends Platform {
             if (limit?.warn_only)
                 found.push(`routing.bgp.neighbors.${name}.max_prefixes.warn_only, RouterOS always closes the session at its limit`);
             if (neighbor.graceful_restart ?? group?.graceful_restart)
-                found.push(`routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7 has no setting for it`);
+                found.push(
+                    `routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7.24 offers it on every session with a restart time of 0, so its neighbors drop its routes at once when it restarts, and no setting changes that`
+                );
         }
 
         for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
@@ -464,6 +466,7 @@ export class RouterOs extends Platform {
                 "shaping",
                 "port-shaping",
                 "tcp-mss",
+                "proxy-arp",
                 "dhcp-client",
                 "lag-mac",
                 "wireguard-table",
