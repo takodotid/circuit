@@ -164,6 +164,11 @@ export class Junos extends Platform {
                 );
             if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
+            // `proxy-arp restricted` answers nothing in the interface's own subnet, `unrestricted` every address with a route, and a static ARP entry needs a MAC and a port (TRAPS.md).
+            if (kind === "vlan_interface" && device.interfaces?.vlan_interface?.[name]?.proxy_arp)
+                found.push(
+                    `interfaces.vlan_interface.${name}.proxy_arp, which Junos can't answer for some addresses only: its proxy ARP answers for every address it has a route to, or for none in the interface's own subnet`
+                );
         }
         found.push(...JunosSwitching.gaps(device));
         found.push(...JunosMpls.unsupported(device));
@@ -417,6 +422,8 @@ export class Junos extends Platform {
                 "vrf-imports",
                 "rate-limit",
                 "rate-limit-per-prefix",
+                // Proxy ARP is refused below, with its reason.
+                "proxy-arp",
                 "queues",
                 "marking",
                 "marking-class",
