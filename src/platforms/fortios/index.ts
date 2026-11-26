@@ -126,9 +126,6 @@ export class FortiOs extends Platform {
             if (relay.relay_agent_information) found.push(`services.dhcp_relay.${name}.relay_agent_information`);
         // SNMP answers on the interfaces of its VRF, as SSH did in a VRF of a test VDOM, but no SNMP manager was in reach of the test.
         if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
-        // A CA's list of revoked certificates is from Fortinet's 6.2 reference: no FortiGate has fetched one.
-        for (const [name, certificate] of Object.entries(device.system?.certificates ?? {}))
-            if (certificate?.crl_url) found.push(`system.certificates.${name}.crl_url`);
         // Applied, read back, changed, and removed, but no route was seen to leak: IS-IS takes neither a link between VDOMs nor a GRE tunnel, so no neighbor sent one.
         if (device.routing?.isis?.level2_to_level1) found.push("routing.isis.level2_to_level1");
         // Applied, read back, changed, and removed, but no client used EAP: no RADIUS server was in reach of the test.

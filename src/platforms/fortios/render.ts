@@ -389,7 +389,7 @@ export class FortiOsRender {
         for (const [section, block] of vdom.blocks) root.blocks.set(FortiOsVdoms.key(management.name, section), block);
     }
 
-    /** A certificate with its key is the device's own; one without is only trusted. A CA's list of what it revoked is an entry of its name, which the device fetches from the URL, as Fortinet's 6.2 reference has it. */
+    /** A certificate with its key is the device's own; one without is only trusted. A CA's list of what it revoked is an entry of its name, which the device fetches from the URL at once, from the VDOM that holds it (TRAPS.md). */
     private static certificates(local: FortiOsNode, trusted: FortiOsNode, lists: FortiOsNode, device: Device): void {
         for (const [name, certificate] of Object.entries(device.system?.certificates ?? {})) {
             if (!certificate) continue;

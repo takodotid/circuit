@@ -271,7 +271,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Flow timeouts                     | ✅                              | 🧪 NetFlow 9                    | ❌                | ❌ sFlow only          | 🧪                                |
 | ICMP probes                       | ✅                              | ✅                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌ no web interface or PKI      | ❌                | web, API               | ✅                                |
-| Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
+| Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | ✅                                |
 | Management in a VRF               | ✅ not FTP                      | ❌ by interface, not VRF        | ❌                | 🧪 the REST API only   | ✅                                |
 | SNMP in a VRF                     | ✅                              | 🧪                              | ❌                | ❌ another community   | 🧪 no traps                       |
 | NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌ needs 7.6.1                    |
@@ -282,7 +282,7 @@ On FortiOS a management service, and SNMP, answer on the interfaces of their VRF
 The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
 
 - **RouterOS.** It checks certificates against the lists for the whole router, so each CA of the device takes a `crl_url` once one does. It refuses a certificate that points to the list of its CA while it holds no list of that CA.
-- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet: no HTTP server was in reach of the test VDOMs.
+- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is. The FortiGate fetches the list as soon as the plan adds the entry. Fortinet documents a new fetch once the list expires, at the next update it gives. In multi-VDOM mode the list comes from root, as the certificates are root's, by root's routes, not the management VDOM's.
 
 OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
 
