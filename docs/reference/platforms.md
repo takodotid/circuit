@@ -276,6 +276,8 @@ The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
 
 OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
 
+Syslog over TLS is built on FortiOS only. RouterOS 7.24 sends syslog over TLS and checks the collector's CA, but sends each message without the length RFC 5425 puts before it, or even a line feed after it, so a collector can't tell where one message ends.
+
 ### Circuit's own tools
 
 | Tool                                                           | RouterOS | VRP | Raisecom ROS | Junos | FortiOS |

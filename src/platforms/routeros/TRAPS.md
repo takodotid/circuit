@@ -59,6 +59,7 @@
 - `strong-crypto=yes` also hardens the device's own SSH client, which then fails silently toward devices that only speak older algorithms.
 - SNMPv3 authenticates with MD5 or SHA1 only on 7.23.
 - `/snmp` sends every trap with one `trap-version` and one `trap-community`, the name of a `/snmp community` entry, which exists first. For version 3 that entry is the user. `trap-target` takes addresses only, so traps go to port 162. Out of the box `trap-generators` is `temp-exception`, so no trap reports a port going down (CCR2216, 7.24.6).
+- A logging action with `remote-protocol=tls remote-log-format=syslog` sends syslog over TLS 1.2, though MikroTik's 7.24 reference says syslog always goes over UDP. With `check-certificate=yes`, it refused a collector of a CA it doesn't hold, `unknown ca`, and took one of its CA with another name and address. Each message is in RFC 3164's format, `<28>Nov 26 12:57:38 office-01 one`, in a TLS record of its own. No length comes before it, and no line feed after it. RFC 5425 frames each message with its length, so a collector reading the stream can't tell where one ends. `syslog-time-format=iso8601` changes the time alone, and `remote-protocol=tcp` sent the same without TLS. So Circuit refuses `transport_security` (CHR, 7.24.6).
 - In a quoted string `$` starts a variable. The adapter escapes it.
 - A script sent over SSH exec runs as one line; a multi-line script fails with `expected closing brace`.
 - `:find` on an array returns a number or `nil`. Globals persist between exec commands of one login.
