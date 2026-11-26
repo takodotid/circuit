@@ -402,9 +402,10 @@ export class VrpRender {
         this.block("aaa", lines);
     }
 
+    /** A VRF routes both families, as on every platform. A VPN instance takes an IPv6 address, route, or server only once it has `ipv6-family`. */
     private vrfs(): void {
         for (const [name, vrf] of Object.entries(this.device.routing?.vrfs ?? {})) {
-            if (vrf) this.block(`ip vpn-instance ${name}`, ["ipv4-family"]);
+            if (vrf) this.block(`ip vpn-instance ${name}`, ["ipv4-family", "ipv6-family"]);
         }
     }
 

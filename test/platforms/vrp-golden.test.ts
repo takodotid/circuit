@@ -11,6 +11,11 @@ const vrp = new Vrp();
 /** Fixtures whose render differs from 0.x only in order, inside a section the platform treats as unordered, with why. None so far. */
 const ORDER_ONLY: Record<string, string> = {};
 
+/** What v1 writes that 0.x didn't, left out of the comparison: a VRF's IPv6 family, which an IPv6 address, route, or server in the VRF needs (TRAPS.md). */
+function withoutNewInV1(text: string): string {
+    return text.replace(/^ ipv6-family\n/gm, "");
+}
+
 /** A path 0.x wrote, and how v1 writes it. The first that matches is used. An interface's path also takes its group, from the device. */
 const PATHS: [RegExp, string][] = [
     [/^ports\.([^.\s,]+)\.acl\b/, "interfaces.ethernet.$1.ingress_acl"],
@@ -65,7 +70,7 @@ test("every 0.x VRP device is a fixture", () => {
 for (const name of names) {
     test(`${name} renders as 0.x rendered it`, () => {
         const device = Fixtures.device(name);
-        const rendered = vrp.render(device);
+        const rendered = withoutNewInV1(vrp.render(device));
         const old = Fixtures.render(name);
 
         if (!ORDER_ONLY[name]) {
