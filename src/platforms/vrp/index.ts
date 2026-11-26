@@ -25,6 +25,7 @@ import { VrpMonitoring } from "./monitoring";
 import { VrpOspf } from "./ospf";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
+import { VrpServices } from "./services";
 import { VrpRoutes } from "./routes";
 
 export class Vrp extends Platform {
@@ -253,34 +254,11 @@ export class Vrp extends Platform {
             if (value !== undefined) found.push(path);
         }
 
-        if (device.services?.pppoe_server)
-            found.push("services.pppoe_server, VRP serves PPPoE subscribers on NE routers (BRAS) only, which Circuit does not support");
-        if (device.services?.ipsec_remote_access)
-            found.push("services.ipsec_remote_access, IPsec: a CloudEngine switch does not encrypt the traffic it forwards");
-
-        for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {})) {
-            if (!device.interfaces?.vlan_interface?.[relay.interface])
-                found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
-            if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
-            if (relay.relay_agent_information)
-                found.push(`services.dhcp_relay.${name}.relay_agent_information, Option 82, not built for VRP`);
-        }
-        for (const [name, server] of Object.entries(device.services?.dhcp_server ?? {}))
-            if (server.relay !== undefined)
-                found.push(`services.dhcp_server.${name}.relay, a server for a relay's clients, not built for VRP`);
+        found.push(...VrpServices.unsupported(device));
 
         if (device.system?.users?.admin) found.push("system.users.admin, the platform reserves the name");
         found.push(...VrpAaa.unsupported(device));
         found.push(...VrpBgp.unsupported(device));
-
-        const management = device.management ?? {};
-
-        for (const field of ["http", "https", "api", "api_tls", "ftp", "native_protocol", "privilege_password"] as const) {
-            if (management[field]) found.push(`management.${field}`);
-        }
-
-        if (management.ssh?.auth_timeout || management.ssh?.auth_retries) found.push("management.ssh.auth_timeout and auth_retries");
-        for (const { where } of Derive.serviceVrfs(device)) found.push(`${where}, not built yet`);
 
         const lldp = device.switching?.lldp;
         if (lldp && lldp !== true) found.push("switching.lldp.interfaces, use lldp on the ports instead");
@@ -319,8 +297,6 @@ export class Vrp extends Platform {
         const system = device.system ?? {};
 
         if (system.dns || system.release_channel || system.banner) found.push("system.dns, release_channel and banner");
-        if (device.services?.dns_server) found.push("services.dns_server");
-        if (device.services?.dns64) found.push("services.dns64, which needs services.dns_server");
 
         found.push(...VrpMonitoring.unsupported(device));
 
