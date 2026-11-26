@@ -2,6 +2,7 @@ import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { Device, Port, RateLimit, Switched } from "../../model";
 import { RaisecomRosRender } from "./render";
+import { RaisecomRosRouting } from "./routing";
 
 /** What Raisecom ROS can't express, or what Circuit has not built for it, each with where it is written and why. */
 export class RaisecomRosUnsupported {
@@ -33,9 +34,10 @@ export class RaisecomRosUnsupported {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
 
-            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}`);
             }
+            found.push(...RaisecomRosUnsupported.routedPort(where, port));
 
             if (port.in_lag && (port.mac_limit !== undefined || port.ethertypes))
                 found.push(`${where}.mac_limit and ethertypes on a LAG member, tested on a port alone`);
@@ -73,26 +75,61 @@ export class RaisecomRosUnsupported {
             }
             if (iface.rate_limit) found.push(`${where}.rate_limit, the platform limits ports and LAGs`);
 
-            for (const entry of iface.addresses ?? []) {
-                const address = typeof entry === "string" ? entry : entry.address;
-                if (Address.family(address) === "ipv6") found.push(`${where}.addresses ${address}, only IPv4 here`);
-            }
+            found.push(...RaisecomRosUnsupported.ipv6Addresses(where, iface));
 
             for (const group of iface.vrrp ?? []) {
                 if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
             }
         }
 
-        // Only LAGs and VLAN interfaces are built here.
+        found.push(...RaisecomRosUnsupported.loopbacks(device));
+
+        // Only LAGs, VLAN interfaces, and loopbacks are built here.
         for (const { name, kind } of interfaces) {
             if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
             else if (kind === "pseudowire") found.push(`interfaces.pseudowire.${name}, a pseudowire, not built yet`);
             else if (kind === "pppoe_client")
                 found.push(`interfaces.pppoe_client.${name}, a PPPoE client: Raisecom ROS only adds PPPoE+ tags to what it switches`);
-            else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
+            else if (kind !== "lag" && kind !== "vlan_interface" && kind !== "loopback") found.push(`interfaces.${kind}.${name}`);
         }
 
         return found;
+    }
+
+    /** A routed port takes its addresses, its description, and LLDP. Its other layer 2 settings were tried on switched ports alone. */
+    private static routedPort(where: string, port: Port): string[] {
+        if (!RaisecomRosRouting.routes(port)) return [];
+
+        const found = RaisecomRosUnsupported.ipv6Addresses(where, port);
+        for (const field of ["stp", "storm_control", "mac_limit", "ethertypes", "rate_limit", "dhcp_trusted"] as const)
+            if (port[field] !== undefined) found.push(`${where}.${field} on a routed port, tested on switched ports alone`);
+        return found;
+    }
+
+    /** A loopback holds IPv4 addresses, numbered 1 to 1024 by its place. */
+    private static loopbacks(device: Device): string[] {
+        const found: string[] = [];
+        const ids = RaisecomRosRouting.loopbackIds(device);
+
+        for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {})) {
+            if (!loopback) continue;
+            const where = `interfaces.loopback.${name}`;
+
+            for (const field of ["description", "mtu", "vrrp", "vrf", "ipv6_ra"] as const)
+                if (loopback[field] !== undefined) found.push(`${where}.${field}, not on a loopback here`);
+            found.push(...RaisecomRosUnsupported.ipv6Addresses(where, loopback));
+            if (ids.get(name)! > RaisecomRosRouting.LOOPBACK.max)
+                found.push(`${where}, past the ${RaisecomRosRouting.LOOPBACK.max} loopbacks the switch takes`);
+        }
+
+        return found;
+    }
+
+    private static ipv6Addresses(where: string, settings: Pick<Port, "addresses">): string[] {
+        return (settings.addresses ?? []).flatMap((entry) => {
+            const address = typeof entry === "string" ? entry : entry.address;
+            return Address.family(address) === "ipv6" ? [`${where}.addresses ${address}, only IPv4 here`] : [];
+        });
     }
 
     /** A port runs spanning tree only while the switch does. The switch finds edge ports by itself unless told, and BPDU guard shuts down any edge port a BPDU reaches. So with BPDU guard, each port that runs spanning tree says which it is. */
@@ -199,16 +236,24 @@ export class RaisecomRosUnsupported {
                 found.push(`${where}, only an IPv4 next_hop in the default table`);
             }
 
-            if (route.next_hop && route.interface) found.push(`${where} next_hop with interface, write the next_hop alone`);
+            if (route.next_hop && route.interface && !RaisecomRosUnsupported.routesThrough(device, route.interface))
+                found.push(`${where} interface ${route.interface}, a route here names a routed port or a VLAN interface`);
 
             if (route.description || route.distance) found.push(`${where} description and distance`);
 
-            if (route.bfd && route.next_hop && !RaisecomRosRender.bfdSessions(device).has(route.next_hop)) {
+            if (route.bfd && route.next_hop && !RaisecomRosRouting.bfdSessions(device).has(route.next_hop)) {
                 found.push(`${where} bfd, the next hop must be on a VLAN interface's network`);
             }
         }
 
         return found;
+    }
+
+    /** Whether a route may name the interface after its next hop: a routed port or a VLAN interface. */
+    private static routesThrough(device: Device, name: string): boolean {
+        const port = device.interfaces?.ethernet?.[name];
+        if (port) return RaisecomRosRouting.routes(port);
+        return RaisecomRosRouting.routeInterface(device, name) !== undefined;
     }
 
     private static switching(device: Device): string[] {

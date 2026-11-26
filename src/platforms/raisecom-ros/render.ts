@@ -4,6 +4,7 @@ import { Utils } from "../../core/utils";
 import type { Device, Ethertype, Limit, Port, Prefix, RateLimit, Severity, SnmpUser, Switched, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { RaisecomRosRouting } from "./routing";
 
 export class RaisecomRosRender {
     /** The access-list that guards every management service. */
@@ -160,26 +161,26 @@ export class RaisecomRosRender {
             const settings = device.interfaces?.ethernet?.[port];
             const lldpOff =
                 settings !== undefined && RaisecomRosRender.lldpOn(device) && !RaisecomRosRender.lldpRuns(device, port, settings);
+            const portLines =
+                settings && RaisecomRosRouting.routes(settings)
+                    ? RaisecomRosRender.routedPort(settings, lldpOff)
+                    : RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers, lldpOff);
             lines.push(
                 `interface ${Catalog.spell(device.platform, device.model, port)}`,
-                ...RaisecomRosRender.physicalPort(settings, vlanId, lagNumbers, lldpOff),
+                ...portLines,
                 ...(settings?.ethertypes ? [`filter ingress access-list ${RaisecomRosRender.ethertypeAcl(index)}`] : []),
                 "!"
             );
         });
+
+        lines.push(...RaisecomRosRouting.loopbacks(device));
 
         const ospf = device.routing?.ospf;
 
         for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {})) {
             if (!iface) continue;
 
-            lines.push(`interface vlan ${vlanId(iface.vlan)}`);
-
-            for (const entry of iface.addresses ?? []) {
-                const address = typeof entry === "string" ? entry : entry.address;
-                if (Address.family(address) === "ipv4")
-                    lines.push(`ip address ${Address.host(address)} ${Address.netmask(Address.split(address).len)}`);
-            }
+            lines.push(`interface vlan ${vlanId(iface.vlan)}`, ...RaisecomRosRouting.addressLines(iface));
 
             const ospfSettings = Object.values(ospf?.areas ?? {}).find((area) => area.interfaces[name])?.interfaces[name];
             if (ospfSettings?.network === "point-to-point") lines.push("ip ospf network ptp");
@@ -245,19 +246,11 @@ export class RaisecomRosRender {
         if ((snmp?.community || snmpUsers.length) && snmpAcl) lines.push(`snmp-server access-list ${snmpAcl}`);
 
         // A static route watched by BFD tracks a BFD session, one per next hop, bound to the VLAN interface the next hop is on.
-        const sessions = RaisecomRosRender.bfdSessions(device);
-
-        for (const [via, session] of sessions) {
+        for (const [via, session] of RaisecomRosRouting.bfdSessions(device)) {
             lines.push(`bfd ${session.id} bind peer-ip ${via} interface vlan ${vlanId(session.vlan)}`, "session enable", "!");
         }
 
-        for (const route of device.routing?.static_routes ?? []) {
-            const { addr, len } = Address.split(route.prefix);
-            if (Address.family(addr) !== "ipv4" || !route.next_hop) continue;
-
-            const session = route.bfd ? sessions.get(route.next_hop) : undefined;
-            lines.push(`ip route ${addr} ${Address.netmask(len)} ${route.next_hop}${session ? ` track bfd ${session.id}` : ""}`);
-        }
+        lines.push(...RaisecomRosRouting.staticRoutes(device));
 
         if (management.telnet) {
             lines.push("telnet-server enable");
@@ -329,6 +322,14 @@ export class RaisecomRosRender {
         return lines;
     }
 
+    /** A routed port: one without `portswitch`, the switch's default for a port, with its addresses. */
+    static routedPort(settings: Port, lldpOff: boolean): string[] {
+        const lines = settings.description ? [`description ${settings.description}`] : [];
+        lines.push(...RaisecomRosRouting.addressLines(settings));
+        if (settings.lldp === false || lldpOff) lines.push("lldp disable");
+        return lines;
+    }
+
     /** A port the config does not declare is shut down. A LAG member holds its membership, description, and LLDP; the LAG holds the rest. */
     private static physicalPort(
         settings: Port | undefined,
@@ -397,27 +398,6 @@ export class RaisecomRosRender {
             ...(rateLimit?.input ? [line("ingress", rateLimit.input)] : []),
             ...(rateLimit?.output ? [line("egress", rateLimit.output)] : []),
         ];
-    }
-
-    /** The BFD session for each next hop a static route watches, numbered from 1 in the order the routes come, with the VLAN its interface is on. A next hop on no VLAN interface's network has none. */
-    static bfdSessions(device: Device): Map<string, { id: number; vlan: string }> {
-        const sessions = new Map<string, { id: number; vlan: string }>();
-
-        for (const route of device.routing?.static_routes ?? []) {
-            const nextHop = route.next_hop;
-            if (!route.bfd || !nextHop || sessions.has(nextHop)) continue;
-
-            const holder = Object.values(device.interfaces?.vlan_interface ?? {}).find((iface) =>
-                (iface?.addresses ?? []).some((entry) => {
-                    const address = typeof entry === "string" ? entry : entry.address;
-                    return Address.family(address) === "ipv4" && Address.contains(Address.prefixOf(address), nextHop);
-                })
-            );
-
-            if (holder) sessions.set(nextHop, { id: sessions.size + 1, vlan: holder.vlan });
-        }
-
-        return sessions;
     }
 
     /** The MAC access-list of the port at `index` in the catalog, for its `ethertypes`. MAC access-lists are 3000 and up. */

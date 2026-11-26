@@ -67,7 +67,7 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|ip address|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip ospf cost|ip ospf network|switchport port-security maximum)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |access-list |router ospf |bfd \d+ bind )/,
@@ -123,11 +123,12 @@ export class RaisecomRos extends Platform {
     /** How much of the device's answer an error shows. */
     private static readonly ANSWER_CHARS = 300;
 
+    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.` */
     private static readonly REFUSED =
-        /^(%|Error|Incomplete|Unrecognized|Exceed)|can not|cannot |is in use|Wrong parameter|invalid|unsuccessful/im;
+        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal/im;
 
     /** Lines that ask for `y` and do nothing without it. */
-    private static readonly CONFIRM = /^(portswitch|switchport trunk allowed vlan|switchport mode)/;
+    private static readonly CONFIRM = /^(portswitch|no portswitch|switchport trunk allowed vlan|switchport mode)/;
 
     /** A service letting go of an access-list, so the list can change. */
     private static readonly RELEASE = /^no (\S+ access-list \d+)$/;
@@ -360,11 +361,14 @@ export class RaisecomRos extends Platform {
             (ids) => ids.map((id) => `vlan ${id}`)
         );
 
-        // A port takes layer 2 settings only once it is switched.
+        // A port takes layer 2 settings only once it is switched, and an address only once it is not.
+        const switched = RaisecomRos.switchedPorts(current);
         for (const group of groups) {
             const isPort = group.path[0]?.startsWith("interface ") ?? false;
             const switches = group.add.some((line) => line.startsWith("switchport") || line.startsWith("port-channel"));
+            const routes = group.add.some((line) => line.startsWith("ip address "));
             if (isPort && switches) group.add.unshift("portswitch");
+            else if (routes && switched.has(group.path[0]!)) group.add.unshift("no portswitch");
         }
 
         // A LAG is removed only once no port is in it, so its removal goes after every other step.
@@ -416,6 +420,15 @@ export class RaisecomRos extends Platform {
             group.add = group.add.filter((line) => !line.startsWith("hostname "));
         }
 
+        // A route through a VLAN interface is refused until the interface exists, so routes come after the interfaces.
+        const routes: string[] = [];
+
+        for (const group of groups) {
+            if (group.path.length) continue;
+            routes.push(...group.add.filter((line) => line.startsWith("ip route ")));
+            group.add = group.add.filter((line) => !line.startsWith("ip route "));
+        }
+
         // The switch snoops once the trusted ports are set, so a DHCP server behind one is never cut off.
         const snooping: string[] = [];
 
@@ -433,6 +446,7 @@ export class RaisecomRos extends Platform {
 
         for (const line of hostnames) planned.unshift({ title: "hostname", show: [`+ ${line}`], send: ["exit", line, "config"] });
 
+        if (routes.length) planned.push({ title: "static routes", show: routes.map((line) => `+ ${line}`), send: routes });
         if (snooping.length) planned.push({ title: "DHCP snooping", show: snooping.map((line) => `+ ${line}`), send: snooping });
 
         if (aclRemovals.length) {
@@ -528,12 +542,16 @@ export class RaisecomRos extends Platform {
         const vrrp = /^(no )?vrrp (\d+) (ip \S+|priority|timers advertise-interval|preempt)/.exec(line);
         if (vrrp) return vrrp[1] ? `vrrp ${vrrp[2]} preempt` : `no vrrp ${vrrp[2]} ${vrrp[3]}`;
 
-        // A route goes by its prefix and next hop, whatever it tracks. A BFD session goes by its number.
-        const route = /^(ip route \S+ \S+ \S+)/.exec(line);
+        // A route goes by its prefix, next hop, and interface, whatever it tracks: without its interface, `no ip route` answers `Set successfully.` and keeps it. A BFD session goes by its number.
+        const route = /^(ip route \S+ \S+ \S+(?: (?!track )\S+ \S+)?)/.exec(line);
         if (route) return `no ${route[1]}`;
 
         const bfdSession = /^bfd (\d+) bind /.exec(line);
         if (bfdSession) return `no bfd ${bfdSession[1]}`;
+
+        // An address goes by itself, without its mask: `no ip address` alone is incomplete on a routed port.
+        const address = /^ip address (\S+) /.exec(line);
+        if (address) return `no ip address ${address[1]}`;
 
         const ospfProcess = /^router ospf (\d+)/.exec(line);
         if (ospfProcess) return `no router ospf ${ospfProcess[1]}`;
@@ -634,6 +652,20 @@ export class RaisecomRos extends Platform {
         };
 
         return session;
+    }
+
+    /** The ports, by their `interface` line, that the device has switched. The read leaves `portswitch` out, as the plan sends it where a port needs it. */
+    private static switchedPorts(config: string): Set<string> {
+        const ports = new Set<string>();
+        let block: string | undefined;
+
+        for (const line of config.split("\n").map((each) => each.trim())) {
+            if (line.startsWith("interface ")) block = line;
+            else if (line === "!") block = undefined;
+            else if (block && line === "portswitch") ports.add(block);
+        }
+
+        return ports;
     }
 
     /** The ports, by their `interface` line, that filter what they take in with an access-list. */
