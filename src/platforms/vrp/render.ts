@@ -691,7 +691,8 @@ export class VrpRender {
             for (const link of virtualLinks) if (link.transit_area_id === areaId) areaLines.push(` vlink-peer ${link.router_id}`);
         }
 
-        this.block(`ospf ${VrpRender.OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}`, [...lines, ...areaLines]);
+        const vrf = ospf.vrf ? ` vpn-instance ${ospf.vrf}` : "";
+        this.block(`ospf ${VrpRender.OSPF_PROCESS}${routerId ? ` router-id ${routerId}` : ""}${vrf}`, [...lines, ...areaLines]);
     }
 
     private wantsBfd(): boolean {

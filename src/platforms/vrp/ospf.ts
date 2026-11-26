@@ -12,8 +12,6 @@ export class VrpOspf {
         if (!ospf) return [];
 
         const found: string[] = [];
-        // `ospf <process> vpn-instance <vrf>` exists, but no switch has shown how it prints the process, or moves it between tables.
-        if (ospf.vrf) found.push("routing.ospf.vrf, not built yet");
         if (ospf.address_families?.includes("ipv6")) found.push("routing.ospf for IPv6");
 
         for (const [areaId, area] of Object.entries(ospf.areas))
@@ -59,11 +57,11 @@ export class VrpOspf {
         return /^(silent-interface \S+|import-route (direct|static))$/.test(line) ? line : undefined;
     }
 
-    /** A range is undone by its address and mask, without its options, and the process by its number, without its router ID. Undefined for any other line. */
+    /** A range is undone by its address and mask, without its options, and the process by its number, without its router ID or VRF. Undefined for any other line. */
     static undo(line: string): string | undefined {
         const summary = /^abr-summary \S+ \S+/.exec(line);
         if (summary) return `undo ${summary[0]}`;
-        const process = /^ospf \d+(?= router-id )/.exec(line);
+        const process = /^ospf \d+(?= (?:router-id|vpn-instance) )/.exec(line);
         return process ? `undo ${process[0]}` : undefined;
     }
 }

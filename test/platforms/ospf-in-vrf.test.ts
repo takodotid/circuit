@@ -66,11 +66,10 @@ test("Junos runs OSPF in the VRF's routing instance, with the router's ID, as th
     expect(desired).not.toContain("set protocols ospf");
 });
 
-test("FortiOS and VRP refuse OSPF in a VRF", () => {
+test("FortiOS refuses OSPF in a VRF", () => {
     expect(Platforms.get("fortios").unsupported(inVrf("platforms--example-firewall"))).toContain(
         "routing.ospf.vrf, FortiOS 6.2 runs OSPF in the default VRF only"
     );
-    expect(Platforms.get("vrp").unsupported(inVrf("platforms--example-switch"))).toContain("routing.ospf.vrf, not built yet");
 });
 
 test("an OSPF interface that routes in another table than OSPF is refused, with what to write", () => {

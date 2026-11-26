@@ -280,3 +280,21 @@ test("BGP roles and route origin validation are refused, as V200R005 has neither
         "routing.bgp.neighbors.member.role, V200R005 has no BGP roles",
     ]);
 });
+
+test("OSPF in a VRF is its process with vpn-instance, undone by its number", () => {
+    const device = routed(
+        {
+            vrfs: { ctest: {} },
+            router_id: "192.0.2.251",
+            ospf: { vrf: "ctest", redistribute: ["static"], areas: { "0.0.0.0": { interfaces: { "ctest-b": { cost: 20 } } } } },
+        },
+        { vlan_interface: { "ctest-b": { vlan: "home", vrf: "ctest", addresses: ["192.0.2.17/28"] } } }
+    );
+    const rendered = vrp.render(device);
+
+    expect(rendered).toContain(
+        "ospf 1 router-id 192.0.2.251 vpn-instance ctest\n import-route static\n area 0.0.0.0\n  network 192.0.2.16 0.0.0.15\n#"
+    );
+    expect(vrp.unsupported(device)).toEqual([]);
+    expect(sent(vrp.render(base), rendered)).toContain("undo ospf 1");
+});
