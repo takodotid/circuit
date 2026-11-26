@@ -302,6 +302,11 @@ export class AddressSpace {
                     take(neighbor.address, `BGP neighbor ${name} of ${device.name}`);
             }
 
+            // A host that moved elsewhere still holds its address in the subnet.
+            for (const [name, iface] of Object.entries(device.interfaces?.vlan_interface ?? {}))
+                for (const address of iface?.proxy_arp ?? [])
+                    if (Address.isValid(address)) take(address, `proxy ARP on ${device.name} ${name}`);
+
             const peers = Object.entries(device.interfaces?.wireguard ?? {}).flatMap(([name, tunnel]) =>
                 (tunnel?.peers ?? []).map((peer) => ({ peer, what: `WireGuard peer ${peer.name} on ${device.name} ${name}` }))
             );

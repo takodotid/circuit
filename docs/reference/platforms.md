@@ -87,7 +87,7 @@ A note in a cell means "works, with this limit".
 | Shaping (CAKE)                  | ✅                                                                                         | ❌                          | ❌                                  | ❌                                                                                            | ❌                                              |
 | Rate limit                      | ✅ routed ports and VLAN interfaces, not beside the fast path or hardware offload; 🧪 LAGs | 🧪 ports and LAGs           | ports and LAGs, a burst in whole kB | in on switched ports, with a burst; 🧪 LAGs; not out: a QFX5100 ignores a port's shaping-rate | ✅ no burst                                     |
 | Rate limit for each prefix      | ✅ PCQ, where a rate limit works; 🧪 LAGs                                                  | ❌ no rate for each address | ❌                                  | ❌ none on a QFX5100                                                                          | ❌                                              |
-| Proxy ARP for an address        | ❌                                                                                         | ❌                          | ❌                                  | ❌                                                                                            | ✅                                              |
+| Proxy ARP for an address        | ✅                                                                                         | ❌                          | ❌                                  | ❌                                                                                            | ✅                                              |
 | VRRP                            | ✅                                                                                         | IPv4                        | IPv4                                | IPv4                                                                                          | IPv4                                            |
 | IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                          | ❌                                  | ✅                                                                                            | ✅                                              |
 | uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4              | ❌                                  | ✅ strict                                                                                     | 🧪 strict, one mode for the VDOM                |
@@ -120,7 +120,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | OSPF virtual links           | ✅ one family               | ✅                          | ❌ not yet               | 🧪                    | ✅               |
 | OSPF traffic engineering     | ✅ one area                 | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric        | ✅ VLAN interfaces          | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS multi-topology         | ❌                          | ✅                          | ❌                       | 🧪                    | ❌               |
+| IS-IS multi-topology         | ❌ one topology             | ✅                          | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                          | MD5, HMAC-SHA-256           | ❌                       | MD5; 🧪 HMAC-SHA-1    | MD5              |
 | IS-IS overload bit           | ❌                          | ✅                          | ❌                       | ✅                    | ✅               |
 | IS-IS leaks into level 1     | ❌ leaks every route        | ✅                          | ❌                       | 🧪                    | 🧪               |
@@ -151,12 +151,12 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | BGP roles (RFC 9234)         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                     | ❌                          | ❌                       | ❌                    | ❌               |
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
-| Confederations (RFC 5065)    | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
-| Graceful restart (RFC 4724)  | ❌                          | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
-| Prefix limit that restarts   | ❌                          | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
-| Prefix limit that only warns | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| Confederations (RFC 5065)    | ❌ breaks RFC 5065          | ❌                          | ❌                       | ✅                    | ✅               |
+| Graceful restart (RFC 4724)  | ❌ restart time 0           | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
+| Prefix limit that restarts   | ❌ stays closed             | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
+| Prefix limit that only warns | ❌ always closes            | ❌                          | ❌                       | ✅                    | ✅               |
 | Default route to a neighbor  | ✅                          | ❌                          | ❌                       | ✅                    | ✅               |
-| BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| BGP aggregates               | ❌ none in RouterOS 7       | ❌                          | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
 
@@ -198,7 +198,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 
 Policy-based IPsec:
 
-- **RouterOS.** The IKE daemon has no AES-GCM, and runs in the main table only, so a tunnel's `local_address` is outside every VRF. It takes a peer's certificate that any certificate it holds signed, so `ca_certificate` must be its only certificate without a private key. It has no setting for a liveness check's retries, ESP in UDP without a NAT, or the NAT keepalive interval, and its remote ID matches the identity the peer sends. So a policy-based tunnel takes none of these yet, nor `remote_identity`.
+- **RouterOS.** The IKE daemon has no AES-GCM, and runs in the main table only, so a tunnel's `local_address` is outside every VRF. It takes a peer's certificate that any certificate it holds signed, so `ca_certificate` must be its only certificate without a private key. It has no setting for ESP in UDP without a NAT, or for the NAT keepalive interval, and asks a silent peer again every 5 seconds, whatever the interval says. It matches the peer's identity by the ID the peer sends, never by a certificate's subject, and only when the peer starts IKE: as the end that starts it, it takes the peer whatever identity it expects. So a policy-based tunnel takes none of these yet, nor `remote_identity`.
 - **FortiOS.** A policy-based tunnel is a phase 1 without an interface, a phase 2 for each traffic selector, and a firewall policy with `action ipsec` for each, which sends the selector's traffic into the tunnel and lets the far end's in. The policies come before those of `firewall.filter.forward`, so they take the selectors' traffic whatever the forward chain says. FortiOS 6.2 takes such a policy only with named interfaces: its `srcintf` is each interface whose network holds the local prefix or lies inside it, or that a static route inside it leaves through, so a local prefix needs one. 6.2 runs policy-based tunnels for IPv4 only: write a route-based tunnel for IPv6.
 - **Junos, VRP, Raisecom ROS.** The switches don't encrypt what they forward.
 
@@ -222,7 +222,7 @@ Marking is refused on RouterOS beside a `fast_path` rule, and with `system.hardw
 NAT64 and DNS64 are built on FortiOS only:
 
 - **FortiOS.** NAT64 is on for the whole VDOM, with one NAT64 prefix, a /96, which DNS64 uses too. Each rule is a NAT64 policy, which also lets its traffic through: FortiOS checks NAT64 traffic against NAT64 policies alone, not against the forward chain, and `validate` warns when the forward chain has rules. Its DNS server is DNS64 whenever NAT64 is on, so beside a `nat64` rule, `dns_server` needs `dns64`. Both are experimental: a FG-3700D took the config, but no traffic crossed it.
-- **RouterOS.** MikroTik's NAT page says RouterOS does not support NAT64, and its DNS server has no DNS64.
+- **RouterOS.** MikroTik's NAT page says RouterOS does not support NAT64, and its DNS server has no DNS64. A CHR with 7.24.6 has no setting for either.
 - **Junos.** A QFX5100 has no NAT: Juniper's Feature Explorer lists none for it on 21.4. NAT64 runs on SRX firewalls and on MX routers with a services card.
 - **VRP.** Circuit builds no NAT there. Huawei's FAQ on NAT in CloudEngine switches gives it to the CE12800 with a firewall card only, and Huawei builds NAT64 on NE routers with a CGN board.
 - **Raisecom ROS.** Circuit builds no firewall there, and no DNS server.
@@ -275,6 +275,8 @@ The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
 - **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet: no HTTP server was in reach of the test VDOMs.
 
 OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
+
+Syslog over TLS is built on FortiOS only. RouterOS 7.24 sends syslog over TLS and checks the collector's CA, but sends each message without the length RFC 5425 puts before it, or even a line feed after it, so a collector can't tell where one message ends.
 
 ### Circuit's own tools
 

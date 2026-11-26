@@ -114,7 +114,7 @@ test("RouterOS refuses what it cannot send: another port, a second sender, a com
             "monitoring.snmp.traps[0].port, the platform sends traps to port 162",
             "monitoring.snmp.traps[1], with another community or user than traps[0]: the platform sends every trap with one",
             "monitoring.snmp.traps[1].community, other than monitoring.snmp.community: the platform sends traps with one of its communities",
-            "monitoring.syslog[0].transport_security, the platform sends syslog over UDP only: its TLS carries CEF, not syslog",
+            "monitoring.syslog[0].transport_security, RouterOS sends each message over TLS without the framing of RFC 5425, no length before it and no line feed after it (TRAPS.md)",
         ])
     );
 });

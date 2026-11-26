@@ -97,6 +97,7 @@ Circuit doesn't use the well-known BLACKHOLE community `65535:666` (RFC 7999). A
 | IPv6 addressing                   | RFC 4291                                              | every IPv6 address; `address` helpers                     |
 | How IPv6 is written               | RFC 5952                                              | `address.host`, `.first`, `.last`                         |
 | IPv6 router advertisements        | RFC 4861; RFC 8106 for DNS servers and search domains | interface `ipv6_ra`                                       |
+| Proxy ARP                         | Practice: RFC 1027                                    | VLAN interface `proxy_arp`                                |
 
 ## Switching
 

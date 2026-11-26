@@ -1,4 +1,4 @@
-// BGP confederations (RFC 5065), tested on a QFX5100 with Junos 21.4R3 and a FortiGate 3700D with FortiOS 6.2.2. RouterOS is refused after a test on a CCR2216 with 7.24.6 (TRAPS.md). Each device held a neighbor in another member AS and an external one. The lines it printed are fed to the adapters, with names and addresses replaced.
+// BGP confederations (RFC 5065), tested on a QFX5100 with Junos 21.4R3 and a FortiGate 3700D with FortiOS 6.2.2. RouterOS is refused after tests on a CCR2216 and on three CHRs with 7.24.6 (TRAPS.md). Each device held a neighbor in another member AS and an external one. The lines it printed are fed to the adapters, with names and addresses replaced.
 
 import { expect, test } from "bun:test";
 import type { Device, Neighbor } from "../../src/model";
