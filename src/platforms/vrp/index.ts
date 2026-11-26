@@ -66,8 +66,8 @@ export class Vrp extends Platform {
     private static readonly UNDO_BY_KEYWORD =
         /^(description|name|port default vlan|port link-type|port trunk pvid vlan|set authentication password|eth-trunk|ip binding vpn-instance|ssh server cipher|ssh server hmac|ssh server key-exchange|info-center max-logfile-number|info-center source default channel \d+ log level|info-center loghost \S+|alarm \S+ severity|ip route-static bfd \S+|mac-address limit|ospf timer hello|ospf timer dead|ospf authentication-mode|ospf dr-priority|ospf network-type|stub|nssa|default-cost|default-domain admin|cmd recording-scheme|hwtacacs server source-ip|recording-mode)\b/;
 
-    /** Lines a new line of the same kind replaces whole, so the old one is not undone first. */
-    private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+) /;
+    /** Lines a new line of the same kind replaces whole, so the old one is not undone first: a static route's BFD template, and a port's CAR profile. */
+    private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+|qos car (?!inbound )\S+) /;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
@@ -407,7 +407,7 @@ export class Vrp extends Platform {
         return found;
     }
 
-    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable` from the CloudEngine command reference, and some of OSPF (`VrpOspf`). So is a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, QinQ's `port link-type dot1q-tunnel`, and rate limits went into a candidate on a CE6855. They were never committed, so how the switch prints them is not known. */
+    /** Built from Huawei's documentation and not tested on a switch (decision 114): `ip urpf enable`, some of OSPF (`VrpOspf`), and a BGP session from an IPv6 address. The spanning tree guards, DHCP snooping, and QinQ went into a candidate on a CE6855, so how the switch prints them is not known. Rate limits were committed on a spare port, but no packet crossed it. */
     override experimental(device: Device): string[] {
         const found = Object.entries(device.interfaces?.vlan_interface ?? {})
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
@@ -778,7 +778,7 @@ export class Vrp extends Platform {
         }
     }
 
-    /** A static route's BFD template sent again replaces the old one whole, options left out included, so the old one is not undone: a route still uses it. */
+    /** A static route's BFD template, or a CAR profile, sent again replaces the old one whole, options left out included. So the old one is not undone: a route or a port still uses it. */
     private static keepReplacedWhole(groups: Group[]): void {
         const kind = (line: string) => Vrp.REPLACED_WHOLE.exec(line)?.[1];
 
