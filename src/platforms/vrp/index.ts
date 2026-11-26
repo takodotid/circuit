@@ -188,7 +188,8 @@ export class Vrp extends Platform {
             else if (kind === "pppoe_client")
                 found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
             else if (kind === "vxlan" && !("evpn" in settings && settings.evpn)) found.push(`${where}, a VXLAN without EVPN`);
-            else if (kind !== "vlan_interface" && kind !== "lag" && kind !== "vxlan") found.push(`${where}, a ${kind}`);
+            else if (!["vlan_interface", "lag", "vxlan", "loopback"].includes(kind)) found.push(`${where}, a ${kind}`);
+            if (settings.vrrp?.length && kind !== "vlan_interface" && kind !== "lag") found.push(`${where}.vrrp, on VLAN interfaces only`);
             if (kind === "lag" && settings.addresses?.length) found.push(`${where}.addresses, LAGs are switched`);
             if (kind === "lag" && (settings as Lag).mac_limit !== undefined) found.push(`${where}.mac_limit, on a LAG is not tested`);
             if (kind === "lag" && (settings as Lag).ethertypes) found.push(`${where}.ethertypes, on a LAG is not tested`);

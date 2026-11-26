@@ -3,9 +3,10 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
-import type { Device, Family, Neighbor, NeighborSettings, RouteRule } from "../../model";
+import type { Device, Family, Interface, Neighbor, NeighborSettings, RouteRule } from "../../model";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
+import { VrpNames } from "./names";
 import { VrpPolicies } from "./policies";
 
 export class VrpBgp {
@@ -58,14 +59,20 @@ export class VrpBgp {
         return { ...group, ...neighbor };
     }
 
-    /** The interface that holds `address`, as the switch calls it. Only a VLAN interface routes here. */
+    /** The VLAN interface or loopback that holds `address`, as the switch calls it. */
     static interfaceOf(device: Device, address: string): string | undefined {
+        const holds = (entries: NonNullable<Interface["addresses"]> = []) =>
+            entries.some(
+                (entry) => Address.canonical(Address.host(typeof entry === "string" ? entry : entry.address)) === Address.canonical(address)
+            );
+
         for (const iface of Object.values(device.interfaces?.vlan_interface ?? {})) {
-            const addresses = (iface?.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
             const vlan = iface && device.switching?.vlans?.[iface.vlan];
-            if (vlan && addresses.some((each) => Address.canonical(Address.host(each)) === Address.canonical(address)))
-                return `Vlanif${vlan.id}`;
+            if (vlan && holds(iface.addresses)) return `Vlanif${vlan.id}`;
         }
+
+        for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {}))
+            if (holds(loopback?.addresses)) return VrpNames.loopback(device, name);
 
         return undefined;
     }
@@ -336,7 +343,7 @@ export class VrpBgp {
 
         const local = settings.local_address && Address.host(settings.local_address);
         if (local && !VrpBgp.interfaceOf(device, local))
-            found.push(`${where}.local_address ${local}, no VLAN interface of the device holds it`);
+            found.push(`${where}.local_address ${local}, no VLAN interface or loopback of the device holds it`);
 
         return found;
     }

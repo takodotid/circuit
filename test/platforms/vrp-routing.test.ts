@@ -69,3 +69,31 @@ test("a static route through an interface names it before its next hop, and goes
     });
     expect(vrp.unsupported(watched)).toEqual(["routing.static_routes 198.51.100.0/24 bfd beside interface, not tested"]);
 });
+
+test("loopbacks are LoopBack0 and on, in the order the config lists them, with OSPF, and a BGP session may start from one", () => {
+    const device = routed(
+        {
+            router_id: "192.0.2.250",
+            ospf: { areas: { "0.0.0.0": { interfaces: { "ctest-lo": { passive: true, cost: 10 } } } } },
+            bgp: { asn: 64500, neighbors: { member: { address: "192.0.2.3", remote_as: 64500, local_address: "192.0.2.250" } } },
+        },
+        {
+            loopback: {
+                "ctest-lo": { description: "ctest loopback", addresses: ["192.0.2.250/32", "2001:db8:39::1/128"] },
+                second: { addresses: ["192.0.2.251/32"] },
+            },
+        }
+    );
+    const rendered = vrp.render(device);
+
+    expect(rendered).toContain(
+        "interface LoopBack0\n description ctest loopback\n ipv6 enable\n ip address 192.0.2.250 255.255.255.255\n ipv6 address 2001:DB8:39::1/128\n ospf cost 10\n#"
+    );
+    expect(rendered).toContain("interface LoopBack1\n ip address 192.0.2.251 255.255.255.255\n#");
+    expect(rendered).toContain(" silent-interface LoopBack0\n");
+    expect(rendered).toContain(" peer 192.0.2.3 connect-interface LoopBack0 192.0.2.250\n");
+    expect(vrp.unsupported(device)).toEqual([]);
+
+    const vrrp = routed({}, { loopback: { "ctest-lo": { addresses: ["192.0.2.250/32"], vrrp: [{ id: 1, address: "192.0.2.249" }] } } });
+    expect(vrp.unsupported(vrrp)).toContain("interfaces.loopback.ctest-lo.vrrp, on VLAN interfaces only");
+});

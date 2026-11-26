@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Lag, Limit, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
+import type { Device, Lag, Limit, Loopback, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
@@ -11,6 +11,7 @@ import { VrpDhcp } from "./dhcp";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
+import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
 import { VrpQos } from "./qos";
@@ -167,6 +168,10 @@ export class VrpRender {
             if (iface) this.block(`interface ${this.nameOf(name)}`, this.vlanInterface(name, iface));
         }
 
+        for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {})) {
+            if (loopback) this.block(`interface ${this.nameOf(name)}`, [...this.addressing(name, loopback), ...this.ospfLines(name)]);
+        }
+
         for (const port of Catalog.ports(device.platform, device.model)) {
             this.block(`interface ${this.nameOf(port)}`, this.physicalPort(port, device.interfaces?.ethernet?.[port]));
         }
@@ -269,14 +274,14 @@ export class VrpRender {
         return this.vlans[name]!.id;
     }
 
-    /** What the platform calls a port, a LAG, or a VLAN interface. */
+    /** What the platform calls a port, a LAG, a VLAN interface, or a loopback. */
     private nameOf(portOrInterface: string): string {
         if (this.lags[portOrInterface]) return `Eth-Trunk${this.lagNumbers.get(portOrInterface)}`;
 
         const vlanInterface = this.vlanInterfaces[portOrInterface];
         if (vlanInterface) return `Vlanif${this.vlanId(vlanInterface.vlan)}`;
 
-        return Catalog.spell(this.device.platform, this.device.model, portOrInterface);
+        return VrpNames.loopback(this.device, portOrInterface) ?? Catalog.spell(this.device.platform, this.device.model, portOrInterface);
     }
 
     private system(): void {
@@ -473,20 +478,7 @@ export class VrpRender {
 
     private vlanInterface(name: string, iface: VlanInterface): string[] {
         const device = this.device;
-        const lines: string[] = [];
-        if (iface.description) lines.push(`description ${iface.description}`);
-        // Binding to a VRF clears the addresses, so it comes first.
-        if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
-
-        // The switch takes an IPv6 address, or IS-IS for IPv6, only once IPv6 is on.
-        const addresses = (iface.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
-        if (addresses.some((address) => Address.family(address) === "ipv6") || VrpIsis.runsIpv6(device, name)) lines.push("ipv6 enable");
-
-        for (const address of addresses) {
-            if (Address.family(address) === "ipv4")
-                lines.push(`ip address ${Address.host(address)} ${Address.netmask(Address.split(address).len)}`);
-            else lines.push(`ipv6 address ${VrpPolicies.spell(address)}`);
-        }
+        const lines = this.addressing(name, iface);
 
         // Loose, the CloudEngine command reference's only mode on a VLAN interface. `unsupported()` refuses the rest.
         if (iface.urpf?.ipv4 === "loose") lines.push("ip urpf enable");
@@ -499,7 +491,36 @@ export class VrpRender {
             for (const server of relays.flatMap((relay) => relay.servers)) lines.push(`dhcp relay binding server ip ${server}`);
         }
 
-        for (const area of Object.values(device.routing?.ospf?.areas ?? {})) {
+        lines.push(...this.ospfLines(name));
+        lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
+        return lines;
+    }
+
+    /** An interface's description, VRF, and addresses. Binding to a VRF clears the addresses, so it comes first. */
+    private addressing(name: string, iface: VlanInterface | Loopback): string[] {
+        const lines: string[] = [];
+        if (iface.description) lines.push(`description ${iface.description}`);
+        if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
+
+        // The switch takes an IPv6 address, or IS-IS for IPv6, only once IPv6 is on.
+        const addresses = (iface.addresses ?? []).map((entry) => (typeof entry === "string" ? entry : entry.address));
+        if (addresses.some((address) => Address.family(address) === "ipv6") || VrpIsis.runsIpv6(this.device, name))
+            lines.push("ipv6 enable");
+
+        for (const address of addresses) {
+            if (Address.family(address) === "ipv4")
+                lines.push(`ip address ${Address.host(address)} ${Address.netmask(Address.split(address).len)}`);
+            else lines.push(`ipv6 address ${VrpPolicies.spell(address)}`);
+        }
+
+        return lines;
+    }
+
+    /** An interface's own OSPF settings, from the area that holds it. */
+    private ospfLines(name: string): string[] {
+        const lines: string[] = [];
+
+        for (const area of Object.values(this.device.routing?.ospf?.areas ?? {})) {
             const settings = area.interfaces[name];
             if (!settings) continue;
 
@@ -518,7 +539,6 @@ export class VrpRender {
             if (settings.bfd) lines.push("ospf bfd enable", ...this.bfdTimers("ospf bfd"));
         }
 
-        lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
         return lines;
     }
 
