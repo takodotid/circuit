@@ -18,6 +18,7 @@ import type {
 } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { Utils } from "../../core/utils";
 import { JunosBgp } from "./bgp";
 import { JunosEvpn } from "./evpn";
 import { JunosIsis } from "./isis";
@@ -26,6 +27,7 @@ import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosMonitoring } from "./monitoring";
 import { JunosOspf } from "./ospf";
+import { JunosPolicyRouting } from "./policy-routing";
 import { JunosQos } from "./qos";
 import { JunosStatements } from "./statements";
 import { JunosSwitching } from "./switching";
@@ -135,6 +137,7 @@ export class JunosRender {
         render.stormProfiles();
         render.servicesFilter();
         render.vrfs();
+        JunosPolicyRouting.render(render.out, device, render.names);
         render.staticRoutes();
         render.layer2.spanningTree();
         render.layer2.dhcpSnooping();
@@ -714,7 +717,8 @@ export class JunosRender {
         if (this.device.routing?.router_id) this.out.set("routing-options router-id", this.device.routing.router_id);
 
         for (const route of this.device.routing?.static_routes ?? []) {
-            const statement = `${JunosBgp.options(Address.family(Address.split(route.prefix).addr), route.vrf)} static route ${route.prefix}`;
+            const table = route.vrf ?? Utils.otherTable(route.routing_table);
+            const statement = `${JunosBgp.options(Address.family(Address.split(route.prefix).addr), table)} static route ${route.prefix}`;
 
             if (route.blackhole) {
                 this.out.set(statement, "discard");

@@ -107,7 +107,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | VRFs                         | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
 | BGP in a VRF                 | ✅                          | ❌                          | ❌                       | ✅                    | ❌               |
 | Routes taken between VRFs    | ✅ not with main            | ❌                          | ❌                       | 🧪                    | ❌               |
-| Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ not yet       |
+| Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet               | 🧪 no BGP             | ❌ not yet       |
 | OSPF                         | ✅                          | IPv4                        | IPv4                     | ✅                    | ✅               |
 | OSPF in a VRF                | ✅                          | ❌                          | ❌                       | ✅                    | ❌               |
 | OSPF stub and NSSA areas     | ✅                          | 🧪                          | ❌                       | ✅                    | ✅               |
@@ -159,6 +159,8 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
 
 On Junos, GTSM is a session's `ttl 255` and a term of the loopback's filter that drops BGP from the neighbor when it arrives with another TTL or hop limit. A QFX5100 took both in `commit check`, on single-hop eBGP sessions only. Juniper doesn't say whether the loopback's filter sees the TTL a packet arrived with or one less, so GTSM stays experimental there.
+
+On Junos, policy routing is Juniper's filter-based forwarding, experimental: a QFX5100 took it in `commit check`. A table is a `virtual-router` routing instance without interfaces, as the switch has no `forwarding` instance. A RIB group puts the main table's interface routes in each table, so a table's routes reach their next hops, and the networks the switch is on stay reachable from it. A filter of each family sends what a rule matches to its table. It sits on each VLAN interface, routed port, and tunnel of the main table with an address of the family, so the switch policy-routes what it routes, not what it sends itself. A table whose rules fall back to main does so through a default route to the main table, so the table takes no default route of its own, and its rules all fall back alike. Junos puts no BGP session's routes in a table, and refuses policy routing beside `qos.marking` or a routed port's `ingress_acl`, as an interface takes one filter of each family.
 
 ### Firewall and services
 

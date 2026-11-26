@@ -10,6 +10,7 @@ import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
+import { Utils } from "../../core/utils";
 import type { TestedFeature } from "../../core/derive";
 import { Platform } from "../platform";
 import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, Plan, ReadOptions, ReadSession, Tool } from "../platform";
@@ -24,6 +25,7 @@ import { JunosMonitoring } from "./monitoring";
 import { JunosMpls } from "./mpls";
 import { JunosNames } from "./names";
 import { JunosOspf } from "./ospf";
+import { JunosPolicyRouting } from "./policy-routing";
 import { JunosPlan } from "./plan";
 import { JunosQos } from "./qos";
 import { JunosRateLimits } from "./rate-limits";
@@ -92,6 +94,8 @@ export class Junos extends Platform {
         "mac-limit",
         "ethertype-filter",
         "port-binding",
+        // Tables and policy routing are experimental, and a BGP session's table is refused, in `JunosPolicyRouting`.
+        "routing-tables",
     ];
 
     override readonly name = "junos";
@@ -137,7 +141,7 @@ export class Junos extends Platform {
         for (const { where, kind } of Derive.rateLimited(device)) if (kind === "lag") found.push(`${where}.rate_limit`);
         // RPM's tests passed `commit check` only, in a candidate that was never committed.
         for (const name of Object.keys(device.monitoring?.probes ?? {})) found.push(`monitoring.probes.${name}`);
-        found.push(...JunosOspf.experimental(device));
+        found.push(...JunosOspf.experimental(device), ...JunosPolicyRouting.experimental(device));
         // EVPN-VXLAN passed `commit check` only, with warnings for the licenses the QFX5100 lacks.
         found.push(...Derive.evpn(device));
         found.push(...JunosQos.experimental(device), ...JunosMarking.experimental(device));
@@ -361,17 +365,17 @@ export class Junos extends Platform {
                     `routing.static_routes ${route.prefix} next_hop ${route.next_hop} without interface: write the interface that reaches it`
                 );
 
-            const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
+            const table = `${route.vrf ?? Utils.otherTable(route.routing_table) ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             tables.set(table, (tables.get(table) ?? 0) + 1);
         }
 
         for (const route of routing?.static_routes ?? []) {
-            const table = `${route.vrf ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
+            const table = `${route.vrf ?? Utils.otherTable(route.routing_table) ?? ""} ${Address.split(route.prefix).addr}/${Address.split(route.prefix).len}`;
             if (route.blackhole && tables.get(table)! > 1)
                 found.push(`routing.static_routes ${route.prefix}, a blackhole beside another route to the same prefix`);
         }
 
-        found.push(...JunosOspf.unsupported(device));
+        found.push(...JunosOspf.unsupported(device), ...JunosPolicyRouting.unsupported(device, names));
 
         if (device.firewall !== undefined) found.push("firewall");
         if (device.firewall?.ipsec) found.push("firewall.ipsec, IPsec: a QFX switch does not encrypt the traffic it forwards");
