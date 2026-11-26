@@ -113,3 +113,20 @@ test("VRP shows an established session's prefixes and uptime, and nothing withou
     const none = await new Vrp().bgpSessions(device, answering({}));
     expect(none.every((session) => session.uptime === "no session")).toBe(true);
 });
+
+test("VRP's check after an apply waits for each session established before, and names one that is not back", async () => {
+    let answers: Record<string, string> = UP;
+    const vrp = new (class extends Vrp {
+        override session(): Promise<ReadSession> {
+            return Promise.resolve(answering(answers));
+        }
+    })();
+
+    const check = await vrp.health(device, { steps: [], problems: [] }, { bgp: { seconds: 0.2, every: 0.05 } });
+    expect(await check.run()).toEqual([]);
+
+    answers = NOT_UP;
+    expect(await check.run()).toEqual([
+        "BGP session ctest-self was established before the apply and is not 0.2 s after it (Connect). Look with: circuit bgp switch",
+    ]);
+});

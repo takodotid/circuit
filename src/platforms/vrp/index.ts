@@ -12,8 +12,20 @@ import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Entry, Group } from "../line-diff";
+import { BgpHealth } from "../bgp-health";
 import { Platform } from "../platform";
-import type { ApplyOptions, BgpSession, OsSupport, Plan, ReadOptions, ReadSession, Step, Tool } from "../platform";
+import type {
+    ApplyOptions,
+    BgpSession,
+    HealthCheck,
+    HealthOptions,
+    OsSupport,
+    Plan,
+    ReadOptions,
+    ReadSession,
+    Step,
+    Tool,
+} from "../platform";
 import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
@@ -166,7 +178,7 @@ export class Vrp extends Platform {
     override readonly console = Vrp.CONSOLE;
 
     /** A CE6855 printed its sessions, but none came up: the switch has no peer, and refused a route from the main table to a VRF of its own. */
-    override readonly experimentalTools: readonly Tool[] = ["bgp"];
+    override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
 
     override unsupported(device: Device): string[] {
         const found: string[] = [];
@@ -598,6 +610,11 @@ export class Vrp extends Platform {
 
     override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
         return VrpBgpSessions.read(device, session);
+    }
+
+    /** Each BGP session established before the apply must be established again. */
+    override health(device: Device, _plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        return BgpHealth.check(this, device, options);
     }
 
     override readOnly(command: string): boolean {
