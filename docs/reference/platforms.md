@@ -28,7 +28,7 @@ description: The device operating systems Circuit works with, their versions, an
 - **Junos EVPN.** Experimental: Juniper documents EVPN-VXLAN on a QFX5100 as a VTEP that bridges its VXLAN segments and routes none, and the switch here took it in `commit check` without the `evpn-vxlan` and `vxlan` licenses it lacks. Circuit writes it in the default switch, one EVPN instance with one route distinguisher, so a QFX5100 takes one segment. The segment starts from the main loopback's one IPv4 address, needs one import and one export target, and no VLAN interface routes its VLAN. A neighbor that carries `l2vpn-evpn` may carry `ipv4` or `ipv6` beside it, and its policies see those routes only.
 - **RouterOS RSVP-TE.** A tunnel carries the pseudowires whose far PE is its `destination`, those BGP sets up for a VPLS too, and nothing else: routes and an L3VPN's traffic keep to LDP and the IGP, and no route can point into a tunnel. CSPF reads OSPF's traffic engineering, and IS-IS carries none, so beside IS-IS a tunnel needs `explicit_path`, and takes no `admin_groups`. RouterOS keeps a tunnel's priorities and record route on its paths alone, so Circuit writes them on each path of the tunnel. It sets up ahead one secondary path, the first that comes up, so `standby` goes on the first secondary path. A tunnel on a secondary path tries its primary path again about every 30 seconds. A tunnel that goes down keeps its pseudowires, whose frames are lost until it is up again. Turning OSPF's traffic engineering off crashed the routing process each way it was tried, so Circuit doesn't do it: the plan stops and says why. RouterOS has no fast reroute and no link or node protection. Junos refuses RSVP-TE while its MPLS is experimental.
 - **RouterOS IS-IS on both levels.** A router on both levels leaks every level 2 route into level 1, and its filter chain held none back, so Circuit refuses `level2_to_level1` there, and `circuit validate` warns about `level_capability: "level-1-2"`. The level 1 routers behind it got no default route from it either.
-- **Raisecom ROS.** The switch answers time queries whenever it takes time from `system.ntp`, and nothing stops it, so write `services.ntp_server`, or `validate` warns. BPDU guard is one setting for the whole switch, and the switch finds edge ports by itself: with `bpdu_guard`, write `edge` on each port that runs spanning tree. Raisecom's guide doesn't say how an ACL rule matches a TCP or UDP port, and a switch's SSH key belongs to no user, so hardware ACLs and SSH keys wait.
+- **Raisecom ROS.** The switch answers time queries whenever it takes time from `system.ntp`, and nothing stops it, so write `services.ntp_server`, or `validate` warns. BPDU guard is one setting for the whole switch, and the switch finds edge ports by itself: with `bpdu_guard`, write `edge` on each port that runs spanning tree. Raisecom's guide doesn't say how an ACL rule matches a TCP or UDP port, and a switch's SSH key belongs to no user, so hardware ACLs and SSH keys wait. A loopback forms no OSPF adjacency and takes no OSPF setting there: write it as `{}`. A RAX721 restarted minutes after a plan removed an OSPF process in a VRF, with no cause in its log, so Circuit refuses OSPF in a VRF and sends OSPF's newer settings and uRPF with `--experimental` only.
 
 ## Feature matrix
 
@@ -71,7 +71,7 @@ A note in a cell means "works, with this limit".
 | ------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------ | ----------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | VLAN interface                  | ✅                                                                                         | ✅                             | ✅                                  | ✅                                                                                            | ✅                                              |
 | VLAN interface on an inner VLAN | ✅                                                                                         | ❌ no QinQ on a VLAN interface | ❌                                  | ❌ not on a QFX5000                                                                           | ❌                                              |
-| Routed port, loopback           | ✅                                                                                         | loopback, no routed port       | ❌                                  | ✅                                                                                            | ✅                                              |
+| Routed port, loopback           | ✅                                                                                         | loopback, no routed port       | IPv4                                | ✅                                                                                            | ✅                                              |
 | GRE                             | ✅                                                                                         | IPv4 ends                      | ❌                                  | ✅                                                                                            | ✅                                              |
 | VXLAN                           | ✅                                                                                         | 🧪 in EVPN                     | ❌                                  | 🧪 one segment in EVPN                                                                        | ✅                                              |
 | IPsec, route-based (IKEv2)      | ❌                                                                                         | ❌                             | ❌                                  | ❌                                                                                            | ✅                                              |
@@ -89,8 +89,8 @@ A note in a cell means "works, with this limit".
 | Rate limit for each prefix      | ✅ PCQ, where a rate limit works; 🧪 LAGs                                                  | ❌ no rate for each address    | ❌                                  | ❌ none on a QFX5100                                                                          | ❌                                              |
 | Proxy ARP for an address        | ✅                                                                                         | ❌                             | ❌                                  | ❌ every address or none                                                                      | ✅                                              |
 | VRRP                            | ✅                                                                                         | IPv4                           | IPv4                                | IPv4                                                                                          | IPv4                                            |
-| IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                             | ❌                                  | ✅                                                                                            | ✅                                              |
-| uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4                 | ❌                                  | ✅ strict                                                                                     | 🧪 strict, one mode for the VDOM                |
+| IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                             | ❌ no setting turns them on or off  | ✅                                                                                            | ✅                                              |
+| uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4                 | 🧪 IPv4                             | ✅ strict                                                                                     | 🧪 strict, one mode for the VDOM                |
 
 FortiOS refuses `rate_limit.per_prefix`. Its per-IP shaper counts every packet of a session, both ways, against the address that started the session, so a session started from outside would count against the far end, not the customer.
 
@@ -100,63 +100,63 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 
 ### Routing
 
-| Feature                      | RouterOS                    | VRP                         | Raisecom ROS             | Junos                 | FortiOS          |
-| ---------------------------- | --------------------------- | --------------------------- | ------------------------ | --------------------- | ---------------- |
-| Static routes                | ✅                          | ✅                          | IPv4 next hop            | ✅                    | ✅               |
-| Next hop with its interface  | ✅                          | ✅                          | ❌                       | 🧪                    | ✅               |
-| VRFs                         | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
-| BGP in a VRF                 | ✅                          | IPv4                        | ❌                       | ✅                    | ❌ needs 6.4     |
-| Routes taken between VRFs    | ✅ not with main            | ❌ BGP's routes only        | ❌                       | 🧪                    | ❌ needs 6.4     |
-| Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet               | 🧪 no BGP             | ❌ no tables     |
-| OSPF                         | ✅                          | IPv4                        | IPv4                     | ✅                    | ✅               |
-| OSPF in a VRF                | ✅                          | ✅                          | ❌                       | ✅                    | ✅ OSPFv2        |
-| OSPF stub and NSSA areas     | ✅                          | 🧪                          | ❌                       | ✅                    | ✅               |
-| OSPF hello and dead timers   | ✅                          | 🧪                          | ❌                       | ✅                    | ✅               |
-| OSPF authentication          | ✅                          | 🧪                          | ❌                       | MD5                   | MD5              |
-| OSPF area ranges             | ✅                          | ✅                          | ❌ not yet               | 🧪                    | ✅               |
-| OSPF range cost              | ✅                          | ✅                          | ❌ not yet               | 🧪 from 1             | ❌               |
-| OSPF router priority         | ✅                          | ✅                          | ❌ not yet               | 🧪                    | ✅               |
-| OSPF NBMA and P2MP links     | ✅ OSPFv2                   | ✅ no P2MP neighbors        | ❌ not yet               | 🧪 OSPFv2             | ✅ OSPFv2        |
-| OSPF virtual links           | ✅ one family               | ✅                          | ❌ not yet               | 🧪                    | ✅               |
-| OSPF traffic engineering     | ✅ one area                 | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ not yet       |
-| IS-IS                        | ✅ no passive metric        | ✅ VLAN interfaces          | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS multi-topology         | ❌ one topology             | ✅                          | ❌                       | 🧪                    | ❌               |
-| IS-IS authentication         | ❌                          | MD5, HMAC-SHA-256           | ❌                       | MD5; 🧪 HMAC-SHA-1    | MD5              |
-| IS-IS overload bit           | ❌                          | ✅                          | ❌                       | ✅                    | ✅               |
-| IS-IS leaks into level 1     | ❌ leaks every route        | ✅                          | ❌                       | 🧪                    | 🧪               |
-| BFD for IS-IS                | ❌                          | ✅                          | ❌                       | ✅                    | ❌               |
-| MPLS with LDP                | ✅                          | ❌                          | ❌                       | 🧪                    | ❌               |
-| LDP for IPv6                 | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| Targeted LDP                 | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| LDP label policies           | ✅ /32 or prefix set        | ❌                          | ❌                       | ❌                    | ❌               |
-| LDP policies per neighbor    | ✅ /32 or prefix set        | ❌                          | ❌                       | ❌                    | ❌               |
-| RSVP-TE tunnels              | ✅ pseudowires only         | ❌                          | ❌                       | ❌                    | ❌               |
-| RSVP-TE secondary paths      | ✅ standby on the first     | ❌                          | ❌                       | ❌                    | ❌               |
-| RSVP-TE priorities           | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| RSVP-TE admin groups         | ✅ OSPF                     | ❌                          | ❌                       | ❌                    | ❌               |
-| RSVP-TE record route         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| L3VPN over MPLS              | ✅ no VRF imports           | ❌                          | ❌                       | ❌                    | ❌               |
-| VRF import/export policies   | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
-| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496     | ❌                          | ❌                       | ❌                    | ❌               |
-| Pseudowire MTU, control word | ✅ MTU 1500 or more         | ❌                          | ❌                       | ❌                    | ❌               |
-| Tagged and QinQ pseudowires  | ✅ not on an 802.1ad bridge | ❌                          | ❌                       | ❌                    | ❌               |
-| VPLS whose PEs BGP finds     | ✅ VLAN interfaces 1496     | ❌                          | ❌                       | ❌                    | ❌               |
-| EVPN over VXLAN              | ✅ IPv4 VTEPs, iBGP         | 🧪 VTEP on a VLAN interface | ❌                       | 🧪 one segment        | ❌ needs 7.4     |
-| BFD                          | ✅ not on static routes     | ✅                          | static routes, no timers | ✅                    | ✅               |
-| BGP                          | ✅                          | ✅ one family per session   | ❌                       | ✅                    | ✅               |
-| Route policies, prefix sets  | ✅                          | ✅ each rule decides        | ❌                       | ✅                    | ✅               |
-| BGP communities              | ✅                          | ✅ standard, no `*`         | ❌                       | ✅                    | ✅ no large ones |
-| AS path matches              | ✅                          | ✅ one per rule, no length  | ❌                       | ✅ 21.3 or later      | ✅ one per rule  |
-| RPKI                         | ✅                          | ❌ not in V200R005          | ❌                       | ✅                    | ❌ needs 8.0     |
-| BGP roles (RFC 9234)         | ✅                          | ❌ not in V200R005          | ❌                       | ❌ needs 25.2         | ❌               |
-| GTSM (RFC 5082)              | ✅ eBGP                     | ✅                          | ❌                       | 🧪 eBGP               | ❌               |
-| Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
-| Confederations (RFC 5065)    | ❌ breaks RFC 5065          | ✅                          | ❌                       | ✅                    | ✅               |
-| Graceful restart (RFC 4724)  | ❌ restart time 0           | ✅ all or no sessions       | ❌                       | ✅ all or no sessions | ✅               |
-| Prefix limit that restarts   | ❌ stays closed             | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
-| Prefix limit that only warns | ❌ always closes            | ❌ stops taking routes      | ❌                       | ✅                    | ✅               |
-| Default route to a neighbor  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
-| BGP aggregates               | ❌ none in RouterOS 7       | ✅                          | ❌                       | ✅                    | ✅               |
+| Feature                      | RouterOS                    | VRP                         | Raisecom ROS                      | Junos                 | FortiOS          |
+| ---------------------------- | --------------------------- | --------------------------- | --------------------------------- | --------------------- | ---------------- |
+| Static routes                | ✅                          | ✅                          | IPv4 next hop                     | ✅                    | ✅               |
+| Next hop with its interface  | ✅                          | ✅                          | a routed port or a VLAN interface | 🧪                    | ✅               |
+| VRFs                         | ✅                          | ✅                          | no description                    | ✅                    | ✅               |
+| BGP in a VRF                 | ✅                          | IPv4                        | ❌                                | ✅                    | ❌ needs 6.4     |
+| Routes taken between VRFs    | ✅ not with main            | ❌ BGP's routes only        | ❌                                | 🧪                    | ❌ needs 6.4     |
+| Policy routing, more tables  | ✅                          | ❌ not yet                  | ❌ not yet                        | 🧪 no BGP             | ❌ no tables     |
+| OSPF                         | ✅                          | IPv4                        | IPv4                              | ✅                    | ✅               |
+| OSPF in a VRF                | ✅                          | ✅                          | ❌                                | ✅                    | ✅ OSPFv2        |
+| OSPF stub and NSSA areas     | ✅                          | 🧪                          | 🧪                                | ✅                    | ✅               |
+| OSPF hello and dead timers   | ✅                          | 🧪                          | 🧪                                | ✅                    | ✅               |
+| OSPF authentication          | ✅                          | 🧪                          | 🧪 MD5                            | MD5                   | MD5              |
+| OSPF area ranges             | ✅                          | ✅                          | 🧪                                | 🧪                    | ✅               |
+| OSPF range cost              | ✅                          | ✅                          | ❌ none on the switch             | 🧪 from 1             | ❌               |
+| OSPF router priority         | ✅                          | ✅                          | 🧪                                | 🧪                    | ✅               |
+| OSPF NBMA and P2MP links     | ✅ OSPFv2                   | ✅ no P2MP neighbors        | 🧪 NBMA                           | 🧪 OSPFv2             | ✅ OSPFv2        |
+| OSPF virtual links           | ✅ one family               | ✅                          | ❌ none on the switch             | 🧪                    | ✅               |
+| OSPF traffic engineering     | ✅ one area                 | ❌ not yet                  | ❌ not yet                        | ❌ not yet            | ❌ not yet       |
+| IS-IS                        | ✅ no passive metric        | ✅ VLAN interfaces          | ❌                                | ✅                    | ✅ no passive    |
+| IS-IS multi-topology         | ❌ one topology             | ✅                          | ❌                                | 🧪                    | ❌               |
+| IS-IS authentication         | ❌                          | MD5, HMAC-SHA-256           | ❌                                | MD5; 🧪 HMAC-SHA-1    | MD5              |
+| IS-IS overload bit           | ❌                          | ✅                          | ❌                                | ✅                    | ✅               |
+| IS-IS leaks into level 1     | ❌ leaks every route        | ✅                          | ❌                                | 🧪                    | 🧪               |
+| BFD for IS-IS                | ❌                          | ✅                          | ❌                                | ✅                    | ❌               |
+| MPLS with LDP                | ✅                          | ❌                          | ❌                                | 🧪                    | ❌               |
+| LDP for IPv6                 | ✅                          | ❌                          | ❌                                | ❌                    | ❌               |
+| Targeted LDP                 | ✅                          | ❌                          | ❌                                | ❌                    | ❌               |
+| LDP label policies           | ✅ /32 or prefix set        | ❌                          | ❌                                | ❌                    | ❌               |
+| LDP policies per neighbor    | ✅ /32 or prefix set        | ❌                          | ❌                                | ❌                    | ❌               |
+| RSVP-TE tunnels              | ✅ pseudowires only         | ❌                          | ❌                                | ❌                    | ❌               |
+| RSVP-TE secondary paths      | ✅ standby on the first     | ❌                          | ❌                                | ❌                    | ❌               |
+| RSVP-TE priorities           | ✅                          | ❌                          | ❌                                | ❌                    | ❌               |
+| RSVP-TE admin groups         | ✅ OSPF                     | ❌                          | ❌                                | ❌                    | ❌               |
+| RSVP-TE record route         | ✅                          | ❌                          | ❌                                | ❌                    | ❌               |
+| L3VPN over MPLS              | ✅ no VRF imports           | ❌                          | ❌                                | ❌                    | ❌               |
+| VRF import/export policies   | ✅                          | ❌                          | ❌                                | ❌                    | ❌               |
+| Ethernet pseudowires, VPLS   | ✅ VLAN interfaces 1496     | ❌                          | ❌                                | ❌                    | ❌               |
+| Pseudowire MTU, control word | ✅ MTU 1500 or more         | ❌                          | ❌                                | ❌                    | ❌               |
+| Tagged and QinQ pseudowires  | ✅ not on an 802.1ad bridge | ❌                          | ❌                                | ❌                    | ❌               |
+| VPLS whose PEs BGP finds     | ✅ VLAN interfaces 1496     | ❌                          | ❌                                | ❌                    | ❌               |
+| EVPN over VXLAN              | ✅ IPv4 VTEPs, iBGP         | 🧪 VTEP on a VLAN interface | ❌                                | 🧪 one segment        | ❌ needs 7.4     |
+| BFD                          | ✅ not on static routes     | ✅                          | static routes, no timers          | ✅                    | ✅               |
+| BGP                          | ✅                          | ✅ one family per session   | ❌                                | ✅                    | ✅               |
+| Route policies, prefix sets  | ✅                          | ✅ each rule decides        | ❌                                | ✅                    | ✅               |
+| BGP communities              | ✅                          | ✅ standard, no `*`         | ❌                                | ✅                    | ✅ no large ones |
+| AS path matches              | ✅                          | ✅ one per rule, no length  | ❌                                | ✅ 21.3 or later      | ✅ one per rule  |
+| RPKI                         | ✅                          | ❌ not in V200R005          | ❌                                | ✅                    | ❌ needs 8.0     |
+| BGP roles (RFC 9234)         | ✅                          | ❌ not in V200R005          | ❌                                | ❌ needs 25.2         | ❌               |
+| GTSM (RFC 5082)              | ✅ eBGP                     | ✅                          | ❌                                | 🧪 eBGP               | ❌               |
+| Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                                | ✅                    | ✅               |
+| Confederations (RFC 5065)    | ❌ breaks RFC 5065          | ✅                          | ❌                                | ✅                    | ✅               |
+| Graceful restart (RFC 4724)  | ❌ restart time 0           | ✅ all or no sessions       | ❌                                | ✅ all or no sessions | ✅               |
+| Prefix limit that restarts   | ❌ stays closed             | ✅ whole minutes            | ❌                                | ✅ whole minutes      | ❌               |
+| Prefix limit that only warns | ❌ always closes            | ❌ stops taking routes      | ❌                                | ✅                    | ✅               |
+| Default route to a neighbor  | ✅                          | ✅                          | ❌                                | ✅                    | ✅               |
+| BGP aggregates               | ❌ none in RouterOS 7       | ✅                          | ❌                                | ✅                    | ✅               |
 
 On Junos, GTSM is a session's `ttl 255` and a term of the loopback's filter that drops BGP from the neighbor when it arrives with another TTL or hop limit. A QFX5100 took both in `commit check`, on single-hop eBGP sessions only. Juniper doesn't say whether the loopback's filter sees the TTL a packet arrived with or one less, so GTSM stays experimental there.
 

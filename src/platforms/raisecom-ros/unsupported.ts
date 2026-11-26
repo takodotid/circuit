@@ -1,7 +1,9 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { Device, Port, RateLimit, Switched } from "../../model";
+import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
+import { RaisecomRosRouting } from "./routing";
 
 /** What Raisecom ROS can't express, or what Circuit has not built for it, each with where it is written and why. */
 export class RaisecomRosUnsupported {
@@ -33,9 +35,10 @@ export class RaisecomRosUnsupported {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
 
-            for (const field of ["speed", "ingress_acl", "mtu", "addresses", "vrrp", "vrf", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}`);
             }
+            found.push(...RaisecomRosUnsupported.routedPort(where, port));
 
             if (port.in_lag && (port.mac_limit !== undefined || port.ethertypes))
                 found.push(`${where}.mac_limit and ethertypes on a LAG member, tested on a port alone`);
@@ -51,7 +54,17 @@ export class RaisecomRosUnsupported {
             if (!lag) continue;
             const where = `interfaces.lag.${name}`;
 
-            for (const field of ["addresses", "vrrp", "vrf", "mtu", "storm_control", "stp", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of [
+                "addresses",
+                "vrrp",
+                "vrf",
+                "urpf",
+                "mtu",
+                "storm_control",
+                "stp",
+                "ipv6_ra",
+                "hardware_offload",
+            ] as const) {
                 if (lag[field] !== undefined) found.push(`${where}.${field}, a LAG here only switches`);
             }
             for (const field of ["mac_limit", "ethertypes", "qinq_vlan"] as const) {
@@ -68,31 +81,76 @@ export class RaisecomRosUnsupported {
             if (!iface) continue;
             const where = `interfaces.vlan_interface.${name}`;
 
-            for (const field of ["vrf", "description", "mtu", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["description", "mtu", "hardware_offload"] as const) {
                 if (iface[field] !== undefined) found.push(`${where}.${field}`);
             }
             if (iface.rate_limit) found.push(`${where}.rate_limit, the platform limits ports and LAGs`);
 
-            for (const entry of iface.addresses ?? []) {
-                const address = typeof entry === "string" ? entry : entry.address;
-                if (Address.family(address) === "ipv6") found.push(`${where}.addresses ${address}, only IPv4 here`);
-            }
+            found.push(...RaisecomRosUnsupported.ipv6Addresses(where, iface), ...RaisecomRosUnsupported.urpf(where, iface));
 
             for (const group of iface.vrrp ?? []) {
                 if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
             }
         }
 
-        // Only LAGs and VLAN interfaces are built here.
+        found.push(...RaisecomRosUnsupported.loopbacks(device));
+
+        // ROS 6.5.2 takes the settings of a router advertisement, but has none that sends them or stops them: see TRAPS.md.
+        for (const { where, kind, settings } of Derive.holders(device))
+            if ((kind === "ethernet" || kind === "vlan_interface" || kind === "loopback") && settings.ipv6_ra !== undefined)
+                found.push(`${where}.ipv6_ra, ROS 6.5.2 has no setting that turns router advertisements on or off`);
+
+        // Only LAGs, VLAN interfaces, and loopbacks are built here.
         for (const { name, kind } of interfaces) {
             if (kind === "ipsec") found.push(`interfaces.ipsec.${name}, IPsec: the switch does not encrypt the traffic it forwards`);
             else if (kind === "pseudowire") found.push(`interfaces.pseudowire.${name}, a pseudowire, not built yet`);
             else if (kind === "pppoe_client")
                 found.push(`interfaces.pppoe_client.${name}, a PPPoE client: Raisecom ROS only adds PPPoE+ tags to what it switches`);
-            else if (kind !== "lag" && kind !== "vlan_interface") found.push(`interfaces.${kind}.${name}`);
+            else if (kind !== "lag" && kind !== "vlan_interface" && kind !== "loopback") found.push(`interfaces.${kind}.${name}`);
         }
 
         return found;
+    }
+
+    /** A routed port takes its addresses, its description, and LLDP. Its other layer 2 settings were tried on switched ports alone. */
+    private static routedPort(where: string, port: Port): string[] {
+        if (!RaisecomRosRouting.routes(port)) return port.urpf ? [`${where}.urpf, on a port that does not route: give it addresses`] : [];
+
+        const found = [...RaisecomRosUnsupported.ipv6Addresses(where, port), ...RaisecomRosUnsupported.urpf(where, port)];
+        for (const field of ["stp", "storm_control", "mac_limit", "ethertypes", "rate_limit", "dhcp_trusted"] as const)
+            if (port[field] !== undefined) found.push(`${where}.${field} on a routed port, tested on switched ports alone`);
+        return found;
+    }
+
+    /** The switch checks IPv6 too, `ipv6 urpf`, but an interface here holds IPv4 addresses alone. */
+    private static urpf(where: string, settings: Pick<Port, "urpf">): string[] {
+        return settings.urpf?.ipv6 ? [`${where}.urpf.ipv6, only IPv4 here`] : [];
+    }
+
+    /** A loopback holds IPv4 addresses, numbered 1 to 1024 by its place. */
+    private static loopbacks(device: Device): string[] {
+        const found: string[] = [];
+        const ids = RaisecomRosRouting.loopbackIds(device);
+
+        for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {})) {
+            if (!loopback) continue;
+            const where = `interfaces.loopback.${name}`;
+
+            for (const field of ["description", "mtu", "vrrp"] as const)
+                if (loopback[field] !== undefined) found.push(`${where}.${field}, not on a loopback here`);
+            found.push(...RaisecomRosUnsupported.ipv6Addresses(where, loopback));
+            if (ids.get(name)! > RaisecomRosRouting.LOOPBACK.max)
+                found.push(`${where}, past the ${RaisecomRosRouting.LOOPBACK.max} loopbacks the switch takes`);
+        }
+
+        return found;
+    }
+
+    private static ipv6Addresses(where: string, settings: Pick<Port, "addresses">): string[] {
+        return (settings.addresses ?? []).flatMap((entry) => {
+            const address = typeof entry === "string" ? entry : entry.address;
+            return Address.family(address) === "ipv6" ? [`${where}.addresses ${address}, only IPv4 here`] : [];
+        });
     }
 
     /** A port runs spanning tree only while the switch does. The switch finds edge ports by itself unless told, and BPDU guard shuts down any edge port a BPDU reaches. So with BPDU guard, each port that runs spanning tree says which it is. */
@@ -178,37 +236,75 @@ export class RaisecomRosUnsupported {
         const ospf = routing?.ospf;
         if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
         if (ospf?.address_families?.includes("ipv6")) found.push("routing.ospf.address_families ipv6, OSPF runs for IPv4 here");
+        // See TRAPS.md: the switch restarted minutes after a plan removed an OSPF process in a VRF.
+        if (ospf?.vrf)
+            found.push("routing.ospf.vrf, not built: a RAX721 restarted minutes after one was removed, and the cause is not known");
 
         for (const [areaId, area] of Object.entries(ospf?.areas ?? {})) {
             const where = `routing.ospf.areas.${areaId}`;
-            for (const key of ["type", "no_summaries", "stub_default_cost"] as const)
-                if (area[key] !== undefined) found.push(`${where}.${key}, not tested on the platform`);
+            (area.ranges ?? []).forEach((range, index) => {
+                if (Address.family(range.prefix) === "ipv6") found.push(`${where}.ranges[${index}], only IPv4 here`);
+                if (range.cost !== undefined) found.push(`${where}.ranges[${index}].cost, the switch has no cost for a range`);
+            });
+            if (area.virtual_links) found.push(`${where}.virtual_links, ROS 6.5.2 has no virtual link`);
 
             for (const [name, settings] of Object.entries(area.interfaces)) {
-                if (settings && !device.interfaces?.vlan_interface?.[name])
-                    found.push(`${where}.interfaces.${name}, OSPF runs on VLAN interfaces here`);
-                for (const key of ["hello_interval", "dead_interval", "authentication"] as const)
-                    if (settings?.[key] !== undefined) found.push(`${where}.interfaces.${name}.${key}, not tested on the platform`);
+                if (!settings) continue;
+                const at = `${where}.interfaces.${name}`;
+
+                if (!RaisecomRosUnsupported.routesHere(device, name))
+                    found.push(`${at}, OSPF runs on routed ports, loopbacks, and VLAN interfaces here`);
+                if (device.interfaces?.loopback?.[name] && Object.keys(settings).length)
+                    found.push(`${at}, a loopback forms no adjacency and takes no OSPF setting here: write {}`);
+                if (settings.network === "point-to-multipoint") found.push(`${at}.network point-to-multipoint, the switch has none`);
+
+                const auth = settings.authentication;
+                if (auth && auth.algorithm !== "md5")
+                    found.push(`${at}.authentication.algorithm ${auth.algorithm}, the switch signs with MD5 alone`);
+                if (auth && (auth.key_id < RaisecomRosOspf.KEY_ID.min || auth.key_id > RaisecomRosOspf.KEY_ID.max))
+                    found.push(
+                        `${at}.authentication.key_id ${auth.key_id}, the switch takes ${RaisecomRosOspf.KEY_ID.min} to ${RaisecomRosOspf.KEY_ID.max}`
+                    );
             }
         }
+
+        for (const [name, vrf] of Object.entries(routing?.vrfs ?? {}))
+            if (vrf?.description) found.push(`routing.vrfs.${name}.description, the switch has no description for a VRF`);
 
         for (const route of routing?.static_routes ?? []) {
             const where = `routing.static_routes ${route.prefix}`;
 
-            if (!route.next_hop || route.vrf || Address.family(route.prefix) === "ipv6") {
-                found.push(`${where}, only an IPv4 next_hop in the default table`);
+            if (!route.next_hop || Address.family(route.prefix) === "ipv6") {
+                found.push(`${where}, only an IPv4 next_hop`);
             }
 
-            if (route.next_hop && route.interface) found.push(`${where} next_hop with interface, write the next_hop alone`);
+            if (route.next_hop && route.interface && !RaisecomRosUnsupported.routesThrough(device, route.interface))
+                found.push(`${where} interface ${route.interface}, a route here names a routed port or a VLAN interface`);
 
             if (route.description || route.distance) found.push(`${where} description and distance`);
 
-            if (route.bfd && route.next_hop && !RaisecomRosRender.bfdSessions(device).has(route.next_hop)) {
+            if (route.bfd && route.vrf) found.push(`${where} bfd in a VRF, tested in the main table alone`);
+            else if (route.bfd && route.next_hop && !RaisecomRosRouting.bfdSessions(device).has(route.next_hop)) {
                 found.push(`${where} bfd, the next hop must be on a VLAN interface's network`);
             }
         }
 
         return found;
+    }
+
+    /** Whether an interface routes: a routed port, a loopback, or a VLAN interface. */
+    private static routesHere(device: Device, name: string): boolean {
+        const port = device.interfaces?.ethernet?.[name];
+        return port
+            ? RaisecomRosRouting.routes(port)
+            : Boolean(device.interfaces?.loopback?.[name] || device.interfaces?.vlan_interface?.[name]);
+    }
+
+    /** Whether a route may name the interface after its next hop: a routed port or a VLAN interface. */
+    private static routesThrough(device: Device, name: string): boolean {
+        const port = device.interfaces?.ethernet?.[name];
+        if (port) return RaisecomRosRouting.routes(port);
+        return RaisecomRosRouting.routeInterface(device, name) !== undefined;
     }
 
     private static switching(device: Device): string[] {
@@ -261,8 +357,6 @@ export class RaisecomRosUnsupported {
             ["routing.prefix_sets", routing?.prefix_sets],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
-            ["routing.vrfs", routing?.vrfs],
-            ["routing.ospf.vrf", routing?.ospf?.vrf],
             ["monitoring.flow_export", device.monitoring?.flow_export],
         ];
 
@@ -317,7 +411,9 @@ export class RaisecomRosUnsupported {
         // SNMP takes its own access-list, and SSH and telnet share the management one. A user's keys are refused above, with why.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
         found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
-        found.push(...Derive.unbuilt(device, ["rate-limit"]));
+        // A range's cost and virtual links are refused in `routing()`, with why.
+        const ospf = ["ospf-ranges", "ospf-range-cost", "ospf-priority", "ospf-unicast-links", "ospf-virtual-links"] as const;
+        found.push(...Derive.unbuilt(device, ["rate-limit", "urpf", ...ospf]));
         found.push(...Derive.unbuiltMonitoring(device));
         // Raisecom's RAX721 guide (P200R003) lists SLA operations over Y.1731 only.
         for (const name of Object.keys(device.monitoring?.probes ?? {}))
