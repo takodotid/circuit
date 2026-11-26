@@ -141,7 +141,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Pseudowire MTU, control word | ✅ MTU 1500 or more         | ❌                          | ❌                       | ❌                    | ❌               |
 | Tagged and QinQ pseudowires  | ✅ not on an 802.1ad bridge | ❌                          | ❌                       | ❌                    | ❌               |
 | VPLS whose PEs BGP finds     | ✅ VLAN interfaces 1496     | ❌                          | ❌                       | ❌                    | ❌               |
-| EVPN over VXLAN              | ✅ IPv4 VTEPs, iBGP         | 🧪 VTEP on a VLAN interface | ❌                       | 🧪 one segment        | ❌ not yet       |
+| EVPN over VXLAN              | ✅ IPv4 VTEPs, iBGP         | 🧪 VTEP on a VLAN interface | ❌                       | 🧪 one segment        | ❌ needs 7.4     |
 | BFD                          | ✅ not on static routes     | ✅                          | static routes, no timers | ✅                    | ✅               |
 | BGP                          | ✅                          | ✅ one family per session   | ❌                       | ✅                    | ✅               |
 | Route policies, prefix sets  | ✅                          | ✅ each rule decides        | ❌                       | ✅                    | ✅               |
