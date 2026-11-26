@@ -16,6 +16,7 @@ import { RaisecomRosLldp } from "./lldp";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosServices } from "./services";
+import { RaisecomRosSwitching } from "./switching";
 import { RaisecomRosUnsupported } from "./unsupported";
 
 /** `fresh` tests access in a fresh login: a new SSH session, or logging out and in again on the console. */
@@ -56,7 +57,7 @@ export class RaisecomRos extends Platform {
         [/^ip ospf passive-interface enable$/, "ip ospf passive-interface disable"],
         [/^lldp disable$/, "lldp enable"],
         [/^spanning-tree disable$/, "spanning-tree enable"],
-        [/^switchport mode trunk$/, "switchport mode access"],
+        [/^switchport mode (trunk|private-vlan (host|promiscuous))$/, "switchport mode access"],
         [/^telnet-server disable$/, "telnet-server enable"],
         [/^shutdown$/, "no shutdown"],
         // `no` is refused for these, and `auto` is the default edge setting.
@@ -69,7 +70,7 @@ export class RaisecomRos extends Platform {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum|gateway|lease expired)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum|switchport private-vlan host-association|switchport private-vlan mapping|tpid|gateway|lease expired)\b/;
 
     private static readonly DIALECT: Dialect = {
         block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding )|ip dhcp server pool )/,
@@ -143,9 +144,9 @@ export class RaisecomRos extends Platform {
     /** How much of the device's answer an error shows. */
     private static readonly ANSWER_CHARS = 300;
 
-    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Please delete the static bind of the pool` */
+    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Conflict with previous rule of current ACL.`, `Acl name has existed.`, `Please delete the static bind of the pool` */
     private static readonly REFUSED =
-        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|Please delete/im;
+        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error|Conflict)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|has existed|Please delete/im;
 
     /** Lines that ask for `y` and do nothing without it. */
     private static readonly CONFIRM = /^(portswitch|no portswitch|switchport trunk allowed vlan|switchport mode)/;
@@ -165,8 +166,19 @@ export class RaisecomRos extends Platform {
     /** Lines that each add one more of a kind rather than set a value: `snmp-server access-list 1001` beside `1000` binds both. */
     private static readonly STANDALONE = /^(logging host|snmp-server access-list|snmp-server host) /;
 
-    /** Turn DHCP snooping and the DHCP relay on for the whole switch, once the ports and interfaces are set. */
-    private static readonly SNOOPING = ["ip dhcp snooping", ...RaisecomRosServices.RELAY];
+    /** Turn DHCP snooping, ARP inspection, and the DHCP relay on for the whole switch, once the ports and interfaces are set. */
+    private static readonly SNOOPING = ["ip dhcp snooping", RaisecomRosSwitching.ARP_INSPECTION, ...RaisecomRosServices.RELAY];
+
+    /** The line that lists every community VLAN. */
+    private static readonly COMMUNITIES = "private-vlan community vlan ";
+
+    /** A private VLAN's own lines, in the order they go once no port is in them: its secondaries, then their kinds, then the primary VLAN. */
+    private static readonly PRIVATE_VLAN = [
+        /^private-vlan association /,
+        /^private-vlan community /,
+        /^private-vlan isolated /,
+        /^private-vlan primary /,
+    ];
 
     /** A `?` sent by a script is run, so a line with one is refused. */
     private static readonly READS = /^show\s[^?]*$/;
@@ -203,7 +215,12 @@ export class RaisecomRos extends Platform {
         for (const { where, kind, settings } of Derive.holders(device))
             if ((kind === "ethernet" || kind === "vlan_interface") && settings.urpf?.ipv4) found.push(`${where}.urpf.ipv4`);
 
-        return [...found, ...RaisecomRosOspf.experimental(device), ...RaisecomRosServices.experimental(device)];
+        return [
+            ...found,
+            ...RaisecomRosOspf.experimental(device),
+            ...RaisecomRosSwitching.experimental(device),
+            ...RaisecomRosServices.experimental(device),
+        ];
     }
 
     /** The switch answers time queries while it takes time from servers, and Raisecom's guide has no setting to stop it. */
@@ -353,6 +370,15 @@ export class RaisecomRos extends Platform {
             (ids) => ids.map((id) => `vlan ${id}`)
         );
 
+        // The community VLANs print as one list too, and a gone one is taken out of it by itself.
+        LineDiff.vlanListChange(
+            groups,
+            RaisecomRos.COMMUNITIES,
+            (line) => RaisecomRos.idsOf(line.slice(RaisecomRos.COMMUNITIES.length)),
+            (ids) => [`${RaisecomRos.COMMUNITIES}${RaisecomRosRender.vlanList(ids)}`],
+            (ids) => [`${RaisecomRos.COMMUNITIES}${RaisecomRosRender.vlanList(ids)}`]
+        );
+
         // A port takes layer 2 settings only once it is switched, and an address only once it is not.
         const switched = RaisecomRos.switchedPorts(current);
         for (const group of groups) {
@@ -459,6 +485,9 @@ export class RaisecomRos extends Platform {
             group.add = group.add.filter((line) => !RaisecomRos.SNOOPING.includes(line));
         }
 
+        // A VLAN goes once its ports have left it, a private VLAN's own lines first.
+        const vlanRemovals = RaisecomRos.vlanRemovals(groups);
+
         const planned = LineDiff.steps(
             groups.filter((group) => group.add.length || group.remove.length),
             RaisecomRos.DIALECT,
@@ -481,6 +510,14 @@ export class RaisecomRos extends Platform {
                 title: "access-lists no longer used",
                 show: aclRemovals.map((line) => `- ${line}`),
                 send: aclRemovals.map((line) => RaisecomRos.undo(line)),
+            });
+        }
+
+        if (vlanRemovals.length) {
+            planned.push({
+                title: "VLANs no longer used",
+                show: vlanRemovals.map((line) => `- ${line}`),
+                send: vlanRemovals.map((line) => RaisecomRos.undo(line)),
             });
         }
 
@@ -572,6 +609,13 @@ export class RaisecomRos extends Platform {
         // A route goes by its VRF, prefix, next hop, and interface, whatever it tracks: without its interface, `no ip route` answers `Set successfully.` and keeps it. A BFD session goes by its number.
         const route = /^(ip route (?:vrf \S+ )?\S+ \S+ \S+(?: (?!track )\S+ \S+)?)/.exec(line);
         if (route) return `no ${route[1]}`;
+
+        // A list goes by its number, whatever its name. A private VLAN's secondaries and a translation go by the VLAN they start with.
+        const list = /^(access-list \d+) name /.exec(line);
+        if (list) return `no ${list[1]}`;
+
+        const byFirstVlan = /^(private-vlan association \d+|switchport vlan-mapping both outer \d+) /.exec(line);
+        if (byFirstVlan) return `no ${byFirstVlan[1]}`;
 
         const bfdSession = /^bfd (\d+) bind /.exec(line);
         if (bfdSession) return `no bfd ${bfdSession[1]}`;
@@ -691,6 +735,20 @@ export class RaisecomRos extends Platform {
         return session;
     }
 
+    /** Takes out of the top level each VLAN that goes, and each private VLAN line, to be sent after the ports: private VLAN lines in their order, then the VLANs. */
+    private static vlanRemovals(groups: Group[]): string[] {
+        const top = groups.find((group) => !group.path.length);
+        if (!top) return [];
+
+        const rank = (line: string) => {
+            const kind = RaisecomRos.PRIVATE_VLAN.findIndex((pattern) => pattern.test(line));
+            return kind === -1 ? RaisecomRos.PRIVATE_VLAN.length : kind;
+        };
+        const late = top.remove.filter((line) => rank(line) < RaisecomRos.PRIVATE_VLAN.length || /^vlan \d+$/.test(line));
+        top.remove = top.remove.filter((line) => !late.includes(line));
+        return late.sort((a, b) => rank(a) - rank(b));
+    }
+
     /** The ports, by their `interface` line, that the device has switched. The read leaves `portswitch` out, as the plan sends it where a port needs it. */
     private static switchedPorts(config: string): Set<string> {
         const ports = new Set<string>();
@@ -719,7 +777,11 @@ export class RaisecomRos extends Platform {
 
     /** The VLAN IDs of a `create vlan 10,20-30 active` line. */
     private static createdIds(line: string): number[] {
-        const list = line.replace(/^create vlan /, "").replace(/ active$/, "");
+        return RaisecomRos.idsOf(line.replace(/^create vlan /, "").replace(/ active$/, ""));
+    }
+
+    /** The VLAN IDs of a list such as `10,20-30`. */
+    private static idsOf(list: string): number[] {
         const ids: number[] = [];
 
         for (const part of list.split(",")) {

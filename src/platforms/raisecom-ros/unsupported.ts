@@ -1,15 +1,21 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { Device, Port, RateLimit, Switched } from "../../model";
+import { RaisecomRosAcls } from "./acls";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosRouting } from "./routing";
 import { RaisecomRosServices } from "./services";
+import { RaisecomRosSwitching } from "./switching";
 
 /** What Raisecom ROS can't express, or what Circuit has not built for it, each with where it is written and why. */
 export class RaisecomRosUnsupported {
-    /** No public command reference, and the switch applies each line at once, so nothing here was tried. */
-    private static readonly RA_GUARD = "which only RouterOS and Junos build for now";
+    /** ROS 6.5.2's ND snooping trusts ports and checks router solicitations, and has no setting for router advertisements. */
+    private static readonly RA_GUARD = "ROS 6.5.2 has no RA guard: its ND snooping checks router solicitations, not advertisements";
+
+    /** IP source guard is one setting for the switch, `ip verify source`, after which every port drops IP from hosts it has no binding for unless trusted. */
+    private static readonly SOURCE_GUARD =
+        "IP source guard here is one setting for the whole switch, which drops IP on every other port unless it is trusted, and checks no ARP: not tried on a switch in service";
 
     static of(device: Device): string[] {
         return [
@@ -28,7 +34,7 @@ export class RaisecomRosUnsupported {
         const interfaces = Derive.interfaces(device);
 
         for (const { name, kind, settings } of interfaces) {
-            if (kind === "bridge") found.push(`interfaces.bridge.${name}, which only FortiOS builds for now`);
+            if (kind === "bridge") found.push(`interfaces.bridge.${name}, the switch has no bridge interface`);
             if (kind === "vlan_interface" && "mac" in settings && settings.mac)
                 found.push(`interfaces.vlan_interface.${name}.mac, which only RouterOS sets for now`);
         }
@@ -36,7 +42,7 @@ export class RaisecomRosUnsupported {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
 
-            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "hardware_offload"] as const) {
+            for (const field of ["speed", "mtu", "vrrp", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}`);
             }
             found.push(...RaisecomRosUnsupported.routedPort(where, port));
@@ -107,7 +113,7 @@ export class RaisecomRosUnsupported {
             else if (kind === "pseudowire") found.push(`interfaces.pseudowire.${name}, a pseudowire, not built yet`);
             else if (kind === "pppoe_client")
                 found.push(`interfaces.pppoe_client.${name}, a PPPoE client: Raisecom ROS only adds PPPoE+ tags to what it switches`);
-            else if (kind !== "lag" && kind !== "vlan_interface" && kind !== "loopback") found.push(`interfaces.${kind}.${name}`);
+            else if (!["lag", "vlan_interface", "loopback", "bridge"].includes(kind)) found.push(`interfaces.${kind}.${name}`);
         }
 
         return found;
@@ -314,7 +320,6 @@ export class RaisecomRosUnsupported {
 
         for (const [name, vlan] of Object.entries(switching?.vlans ?? {})) {
             if (vlan?.description) found.push(`switching.vlans.${name}.description`);
-            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
         }
 
         const lldp = switching?.lldp;
@@ -326,20 +331,12 @@ export class RaisecomRosUnsupported {
 
         if (switching?.stp?.mode && switching.stp.mode !== "mstp") found.push("switching.stp.mode other than mstp");
         if (switching?.ra_guard) found.push(`switching.ra_guard, ${RaisecomRosUnsupported.RA_GUARD}`);
-        if (switching?.arp_inspection) found.push("switching.arp_inspection, which only Junos builds for now");
-        // A rule's TCP or UDP port is not in Raisecom's guide, nor how a port's IPv4, IPv6, and MAC lists together decide.
-        if (switching?.acls)
-            found.push(
-                "switching.acls, Raisecom's guide does not say how a rule matches a TCP or UDP port, or how a port's IPv4, IPv6, and MAC lists combine"
-            );
         for (const { where, settings } of Derive.switchedHolders(device)) {
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${RaisecomRosUnsupported.RA_GUARD}`);
-            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
+            if (settings.bound_to) found.push(`${where}.bound_to, ${RaisecomRosUnsupported.SOURCE_GUARD}`);
         }
-        const { tpid, innerVlans } = Derive.stackedTags(device);
-        for (const where of [...tpid, ...innerVlans]) found.push(`${where}, which only RouterOS builds for now`);
 
-        return found;
+        return [...found, ...RaisecomRosSwitching.unsupported(device), ...RaisecomRosAcls.unsupported(device)];
     }
 
     private static services(device: Device): string[] {
@@ -420,7 +417,8 @@ export class RaisecomRosUnsupported {
 
         // SNMP takes its own access-list, and SSH and telnet share the management one. A user's keys are refused above, with why.
         found.push(...Derive.switchUnsupported(device, ["snmp"], true));
-        found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd"]));
+        // A port bound to hosts is refused in `switching()`, with why.
+        found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd", "port-binding"]));
         // A range's cost and virtual links are refused in `routing()`, with why.
         const ospf = ["ospf-ranges", "ospf-range-cost", "ospf-priority", "ospf-unicast-links", "ospf-virtual-links"] as const;
         found.push(...Derive.unbuilt(device, ["rate-limit", "urpf", ...ospf]));
