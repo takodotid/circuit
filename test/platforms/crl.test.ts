@@ -1,4 +1,4 @@
-// A CA's list of revoked certificates (RFC 5280 §5), `crl_url`. RouterOS was proven on two CHRs with 7.24.6 (test/platforms/routeros-chr-ipsec.test.ts). FortiOS writes it from Fortinet's 6.2 reference.
+// A CA's list of revoked certificates (RFC 5280 §5), `crl_url`. RouterOS was proven on two CHRs with 7.24.6 (test/platforms/routeros-chr-ipsec.test.ts), FortiOS on a FG-3700D on 6.2.2 against a RouterOS peer (decision 273).
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -43,13 +43,13 @@ test("RouterOS refuses a CA without a list beside one with a list, since it then
     );
 });
 
-test("FortiOS writes a list's entry of the CA's name, from the vendor's documentation, and names it experimental", () => {
+test("FortiOS writes a list's entry of the CA's name, which a FortiGate fetched and refused a revoked certificate by", () => {
     const fortios = Platforms.get("fortios");
     const device = withCertificates("platforms--example-firewall", { "branch-ca": { crl_url: URL } });
     const desired = fortios.render(device);
 
     expect(desired).toContain(`config vpn certificate crl\n    edit "branch-ca"\n        set http-url "${URL}"\n    next\nend`);
-    expect(fortios.experimental?.(device)).toContain("system.certificates.branch-ca.crl_url");
+    expect(fortios.experimental?.(device)).not.toContain("system.certificates.branch-ca.crl_url");
     expect(fortios.plan(desired, desired, options)).toEqual({ steps: [], problems: [] });
 });
 

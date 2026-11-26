@@ -36,6 +36,7 @@ import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
 import { VrpMonitoring } from "./monitoring";
+import { VrpMpls } from "./mpls";
 import { VrpNetStream } from "./netstream";
 import { VrpOspf } from "./ospf";
 import { VrpProbes } from "./probes";
@@ -105,6 +106,7 @@ export class Vrp extends Platform {
         order: Vrp.order,
         head: (line) =>
             VrpBgp.head(line) ??
+            VrpMpls.head(line) ??
             VrpMarking.head(line) ??
             VrpIsis.head(line) ??
             VrpOspf.head(line) ??
@@ -122,6 +124,7 @@ export class Vrp extends Platform {
         /^traffic policy /,
         /^diffserv domain /,
         /^$/,
+        /^mpls/,
         /^bridge-domain /,
         /^route-policy /,
         /^isis /,
@@ -143,6 +146,17 @@ export class Vrp extends Platform {
         /^(snmp-agent usm-user v3 \S+ (?:authentication|privacy)-mode \S+) cipher <secret:([A-Za-z0-9_./:-]+)>$/;
 
     private static readonly NOT_SAVED = "Not saved: a reboot restores the previous configuration.";
+
+    /** A CE6855 refused each as `Unrecognized command`, and took `vsi <name>` as "The VSI does not exist" (TRAPS.md). */
+    private static readonly NO_PSEUDOWIRE =
+        "a pseudowire: V200R005 on a CE6855 has none, as `display mpls l2vc` is not a command and a VLAN interface refuses `mpls l2vc`";
+
+    private static readonly NO_VPLS =
+        "a VPLS: V200R005 on a CE6855 has none, as `display vsi` and a VLAN interface's `l2 binding vsi` are not commands";
+
+    /** Huawei's MPLS guide says a CE switch can't be a PE, and the switch asks to reset a session that starts to carry VPN routes (TRAPS.md). */
+    private static readonly NO_L3VPN =
+        "L3VPN: Huawei's guide says a CloudEngine switch can't be a PE on an MPLS network, and V200R005 asks to reset each session that starts to carry vpnv4, so it was not tried";
 
     /** A `?` sent by a script is run, not taken as help, so a line with one is refused. */
     private static readonly READS = /^display\s[^?]*$/;
@@ -227,7 +241,7 @@ export class Vrp extends Platform {
         for (const { name, kind, settings } of interfaces) {
             const where = `interfaces.${kind}.${name}`;
             if (kind === "ipsec") found.push(`${where}, IPsec: a CloudEngine switch does not encrypt the traffic it forwards`);
-            else if (kind === "pseudowire") found.push(`${where}, a pseudowire, not built yet`);
+            else if (kind === "pseudowire") found.push(`${where}, ${Vrp.NO_PSEUDOWIRE}`);
             else if (kind === "pppoe_client")
                 found.push(`${where}, a PPPoE client: VRP runs one on AR routers, and a CloudEngine switch has none`);
             else if (kind === "vxlan" && !("evpn" in settings && settings.evpn)) found.push(`${where}, a VXLAN without EVPN`);
@@ -253,10 +267,10 @@ export class Vrp extends Platform {
         }
 
         found.push(...VrpIsis.unsupported(device));
-        if (routing?.mpls) found.push("routing.mpls, not built yet");
-        for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
+        found.push(...VrpMpls.unsupported(device));
+        for (const where of Derive.l3vpn(device)) found.push(`${where}, ${Vrp.NO_L3VPN}`);
         found.push(...VrpEvpn.unsupported(device));
-        for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
+        for (const where of Derive.vpls(device)) found.push(`${where}, ${Vrp.NO_VPLS}`);
         // A CE6855 refused `rpki` and `prefix origin-validation enable`.
         if (routing?.rpki) found.push("routing.rpki, V200R005 has no route origin validation");
         found.push(...VrpOspf.unsupported(device));
@@ -330,6 +344,8 @@ export class Vrp extends Platform {
                 "ospf-priority",
                 "ospf-unicast-links",
                 "ospf-virtual-links",
+                // OSPF's traffic engineering is refused in `VrpMpls.unsupported()`, with what the switch said.
+                "ospf-traffic-engineering",
             ]),
             ...VrpMarking.unsupported(device),
             ...VrpQos.unsupported(device)
@@ -371,7 +387,8 @@ export class Vrp extends Platform {
             ...VrpBgp.experimental(device),
             ...VrpMarking.experimental(device),
             ...VrpQos.experimental(device),
-            ...Derive.evpn(device)
+            ...Derive.evpn(device),
+            ...VrpMpls.experimental(device)
         );
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
         found.push(...VrpSwitching.experimental(device));
@@ -481,6 +498,7 @@ export class Vrp extends Platform {
         const lags = top?.remove.filter((line) => /^interface Eth-Trunk\d+$/.test(line)) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
+        const mpls = VrpMpls.removed(top);
 
         const leaving = VrpSwitching.leaveMux(groups, current);
         const later = [...firstRemovals, ...lastRemovals, ...pools, ...lags];
@@ -511,6 +529,7 @@ export class Vrp extends Platform {
             ...Vrp.removal("DHCPv6 pools no longer used", pools),
             ...Vrp.removal("DiffServ domains no longer used", domains),
             ...Vrp.removal("IS-IS no longer used", isis),
+            ...Vrp.removal("MPLS no longer used", mpls),
             ...Vrp.removal("Route policies and lists no longer used", unused),
             ...Vrp.removal("ICMP probes no longer used", probes)
         );
@@ -648,6 +667,7 @@ export class Vrp extends Platform {
         if (server) return server;
         const routing =
             VrpBgp.undo(line) ??
+            VrpMpls.undo(line) ??
             VrpIsis.undo(line, path) ??
             VrpOspf.undo(line) ??
             VrpMarking.undo(line) ??

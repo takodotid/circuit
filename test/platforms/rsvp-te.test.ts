@@ -173,7 +173,8 @@ test("Junos refuses RSVP-TE while its MPLS is experimental, and every platform b
     expect(Platforms.get("junos").unsupported(device)).toContain(
         "routing.mpls.rsvp_te, not built for Junos yet: its MPLS is experimental, untested on a router that runs it"
     );
-    for (const platform of ["junos", "vrp", "fortios", "raisecom-ros"])
+    // VRP's refusal says what the switch said (test/platforms/vrp-mpls.test.ts).
+    for (const platform of ["junos", "fortios", "raisecom-ros"])
         expect(Platforms.get(platform).unsupported(device)).toContain(
             "routing.ospf.areas.0.0.0.0.traffic_engineering, not built yet, since no device of the platform has run it"
         );

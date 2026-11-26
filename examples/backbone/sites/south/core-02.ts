@@ -44,6 +44,8 @@ export default as64500.device({
                 remote_address: "192.0.2.20",
                 certificate: "core-02",
                 ca_certificate: "as64500-ipsec-ca",
+                // The CA signs every office's certificate: only branch 1's opens this tunnel.
+                remote_identity: { distinguished_name: "CN=branch-1" },
                 ike: { encryption: "aes-256-gcm", prf: "hmac-sha2-256", dh_group: 19, lifetime: 86400 },
                 esp: { encryption: "aes-256-gcm", pfs_group: 19, lifetime: 3600 },
                 liveness_check: { interval: 10, retries: 3 },

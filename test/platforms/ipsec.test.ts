@@ -198,7 +198,7 @@ function withCertificates(ipsec: Record<string, Ipsec>, vdoms = false): Device {
 
 const CERTIFIED: Ipsec = { ...TUNNEL, pre_shared_key: undefined, certificate: "web", ca_certificate: "branch-ca" };
 
-// Tested on the FG-3700D on 6.2.2, in a test VDOM: a subject added, changed, taken away, and added again with the tunnel removed, each plan empty after. No IKE peer sent a certificate, so it is experimental.
+// Tested on the FG-3700D on 6.2.2, in a test VDOM: a subject added, changed, taken away, and added again with the tunnel removed, each plan empty after. Against a RouterOS peer, it took the subject written and refused another of the same CA (decision 272).
 test("FortiOS takes only the peer's certificate with the subject written, through a user peer of the tunnel's own and an exact match", () => {
     const anyCertificate = fortios.render(withCertificates({ "ipsec-branch-1": CERTIFIED }));
     const identity = { distinguished_name: "CN=branch-1,O=Example" };
@@ -206,7 +206,7 @@ test("FortiOS takes only the peer's certificate with the subject written, throug
     const desired = fortios.render(device);
 
     expect(fortios.unsupported(device)).toEqual([]);
-    expect(fortios.experimental!(device)).toContain("interfaces.ipsec.ipsec-branch-1.remote_identity");
+    expect(fortios.experimental!(device)).not.toContain("interfaces.ipsec.ipsec-branch-1.remote_identity");
     expect(desired).toContain(`config vpn certificate setting
     set subject-match value
 end
