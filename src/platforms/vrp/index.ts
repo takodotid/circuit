@@ -4,7 +4,7 @@ import type { Client, ClientChannel } from "ssh2";
 import { Address } from "../../core/address";
 import type { Neighbor } from "../../core/cabling";
 import { Secrets } from "../../core/secrets";
-import type { Device, Gre, Lag, Port, VlanInterface } from "../../model";
+import type { Device, Gre, Lag, VlanInterface } from "../../model";
 import { ConsoleShell, SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
@@ -43,6 +43,7 @@ import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
 import { VrpRouterAdvertisement } from "./router-advertisement";
 import { VrpServices } from "./services";
+import { VrpSwitching } from "./switching";
 import { VrpRoutes } from "./routes";
 
 export class Vrp extends Platform {
@@ -284,36 +285,7 @@ export class Vrp extends Platform {
         const lldp = device.switching?.lldp;
         if (lldp && lldp !== true) found.push("switching.lldp.interfaces, use lldp on the ports instead");
 
-        // The CE6855 on V200R005 refused `ipv6 nd raguard`, `ipv6 raguard`, and `nd raguard` in every view.
-        const noRaGuard = "the platform has no RA guard command";
-        if (device.switching?.ra_guard) found.push(`switching.ra_guard, ${noRaGuard}`);
-        const holders = Derive.switchedHolders(device).filter(({ settings }) => !("in_lag" in settings && settings.in_lag));
-        for (const { where, settings } of holders) if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${noRaGuard}`);
-        // The CE6855 took `arp anti-attack check user-bind enable` in a VLAN's view only (TRAPS.md).
-        if (device.switching?.arp_inspection)
-            found.push("switching.arp_inspection, the platform checks a whole VLAN, and whether it passes dhcp_trusted ports is not known");
-        // Snooping runs on each port, over all of its VLANs.
-        for (const { where, settings } of device.switching?.dhcp_snooping ? Derive.switchedHolders(device) : [])
-            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.dhcp_snooping, which the platform runs on every VLAN`);
-        for (const { where, settings } of Derive.switchedHolders(device))
-            if (settings.vlan_translation) found.push(`${where}.vlan_translation, which only Junos builds for now`);
-        const { tpid, innerVlans } = Derive.stackedTags(device);
-        for (const where of tpid) found.push(`${where}, which only RouterOS builds for now`);
-        // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
-        for (const where of innerVlans)
-            found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
-        // MUX VLAN, the platform's counterpart, went into a CE6855's candidate, but how a trunk carries it is not known (TRAPS.md).
-        for (const [name, vlan] of Object.entries(device.switching?.vlans ?? {}))
-            if (vlan?.private_vlan) found.push(`switching.vlans.${name}.private_vlan, which only Junos and RouterOS build for now`);
-
-        // `stp bpdu-protection` guards every edge port at once.
-        const stpOf = (settings: Port | Lag) => (typeof settings.stp === "object" ? settings.stp : undefined);
-        const edges = holders.filter(({ settings }) => stpOf(settings)?.edge);
-        if (edges.some(({ settings }) => stpOf(settings)?.bpdu_guard)) {
-            for (const { where, settings } of edges)
-                if (!stpOf(settings)?.bpdu_guard)
-                    found.push(`${where}.stp without bpdu_guard, the platform guards every edge port or none: write it on each`);
-        }
+        found.push(...VrpSwitching.unsupported(device));
 
         const system = device.system ?? {};
 
@@ -379,7 +351,6 @@ export class Vrp extends Platform {
             .filter(([, iface]) => iface?.urpf?.ipv4 === "loose")
             .map(([name]) => `interfaces.vlan_interface.${name}.urpf.ipv4`);
 
-        if (device.switching?.dhcp_snooping) found.push("switching.dhcp_snooping");
         // `snmp-agent protocol vpn-instance` went into a candidate only: the switch's own SNMP would have left the network that polls it.
         if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
         // NetStream was committed on a CE6855, but no packet crossed a watched port, and Huawei's documentation doesn't list it for the CE6855HI.
@@ -393,13 +364,7 @@ export class Vrp extends Platform {
             ...Derive.evpn(device)
         );
         for (const { where, kind } of Derive.rateLimited(device)) if (kind !== "vlan_interface") found.push(`${where}.rate_limit`);
-        for (const { where, settings } of Derive.switchedHolders(device)) {
-            const stp = typeof settings.stp === "object" ? settings.stp : undefined;
-            if (stp?.bpdu_guard) found.push(`${where}.stp.bpdu_guard`);
-            if (stp?.guard) found.push(`${where}.stp.guard`);
-            if (settings.dhcp_trusted) found.push(`${where}.dhcp_trusted`);
-            if (settings.qinq_vlan) found.push(`${where}.qinq_vlan`);
-        }
+        found.push(...VrpSwitching.experimental(device));
 
         found.push(...VrpOspf.experimental(device));
         return found;
