@@ -35,7 +35,7 @@ export class RaisecomRosUnsupported {
         for (const [name, port] of Derive.ports(device)) {
             const where = `interfaces.ethernet.${name}`;
 
-            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["speed", "ingress_acl", "mtu", "vrrp", "hardware_offload"] as const) {
                 if (port[field] !== undefined) found.push(`${where}.${field}`);
             }
             found.push(...RaisecomRosUnsupported.routedPort(where, port));
@@ -81,7 +81,7 @@ export class RaisecomRosUnsupported {
             if (!iface) continue;
             const where = `interfaces.vlan_interface.${name}`;
 
-            for (const field of ["description", "mtu", "ipv6_ra", "hardware_offload"] as const) {
+            for (const field of ["description", "mtu", "hardware_offload"] as const) {
                 if (iface[field] !== undefined) found.push(`${where}.${field}`);
             }
             if (iface.rate_limit) found.push(`${where}.rate_limit, the platform limits ports and LAGs`);
@@ -94,6 +94,11 @@ export class RaisecomRosUnsupported {
         }
 
         found.push(...RaisecomRosUnsupported.loopbacks(device));
+
+        // ROS 6.5.2 takes the settings of a router advertisement, but has none that sends them or stops them: see TRAPS.md.
+        for (const { where, kind, settings } of Derive.holders(device))
+            if ((kind === "ethernet" || kind === "vlan_interface" || kind === "loopback") && settings.ipv6_ra !== undefined)
+                found.push(`${where}.ipv6_ra, ROS 6.5.2 has no setting that turns router advertisements on or off`);
 
         // Only LAGs, VLAN interfaces, and loopbacks are built here.
         for (const { name, kind } of interfaces) {
@@ -131,7 +136,7 @@ export class RaisecomRosUnsupported {
             if (!loopback) continue;
             const where = `interfaces.loopback.${name}`;
 
-            for (const field of ["description", "mtu", "vrrp", "ipv6_ra"] as const)
+            for (const field of ["description", "mtu", "vrrp"] as const)
                 if (loopback[field] !== undefined) found.push(`${where}.${field}, not on a loopback here`);
             found.push(...RaisecomRosUnsupported.ipv6Addresses(where, loopback));
             if (ids.get(name)! > RaisecomRosRouting.LOOPBACK.max)
