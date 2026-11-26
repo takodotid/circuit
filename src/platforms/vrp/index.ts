@@ -18,6 +18,7 @@ import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
+import { VrpDhcpv6 } from "./dhcpv6";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
@@ -86,12 +87,18 @@ export class Vrp extends Platform {
         first: /^(authentication-mode|network-entity) /,
         canon: Vrp.canon,
         order: Vrp.order,
-        head: (line) => VrpBgp.head(line) ?? VrpMarking.head(line) ?? VrpIsis.head(line) ?? VrpOspf.head(line) ?? Vrp.head(line),
+        head: (line) =>
+            VrpBgp.head(line) ??
+            VrpMarking.head(line) ??
+            VrpIsis.head(line) ??
+            VrpOspf.head(line) ??
+            VrpDhcpv6.head(line) ??
+            Vrp.head(line),
     };
 
-    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, then marking's classifiers, behaviors, and policy, then the DiffServ domain ports trust. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
+    /** Blocks other blocks refer to come first: VRFs, VLANs, ACLs, login servers, users, BFD, DHCPv6 pools, then marking's classifiers, behaviors, and policy, then the DiffServ domain ports trust. Then come device-wide lines, such as prefix lists, then route-policies, which IS-IS names, IS-IS, which interfaces name, LAGs, ports, VLAN interfaces, OSPF, BGP, and the rest, such as logins. */
     private static readonly BLOCK_ORDER = [
-        /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd)/,
+        /^(ip vpn-instance|vlan |acl |radius server group|hwtacacs server template|aaa|bfd|dhcpv6 pool )/,
         /^traffic (classifier|behavior) /,
         /^traffic policy /,
         /^diffserv domain /,
@@ -244,10 +251,10 @@ export class Vrp extends Platform {
 
         found.push(...VrpRoutes.unsupported(device));
         found.push(...Vrp.firewallGaps(device), ...VrpAcls.unsupported(device), ...VrpDhcp.unsupported(device));
+        found.push(...VrpDhcpv6.unsupported(device));
         for (const where of Derive.radiusLeases(device)) found.push(`${where}, a lease checked by RADIUS, not built for VRP`);
 
         const refusedGroups = [
-            ["services.dhcpv6_server", device.services?.dhcpv6_server],
             ["system.hardware_offload", device.system?.hardware_offload],
             ["system.certificates", device.system?.certificates],
         ] as const;
@@ -449,6 +456,7 @@ export class Vrp extends Platform {
         Vrp.removeLoghosts(groups, desired, current);
         Vrp.replaceRules(groups, desired, current);
         VrpDhcp.rebuild(groups, desired, current, Vrp.DIALECT);
+        VrpDhcpv6.order(groups);
         Vrp.emptyAlarmView(groups, current);
         Vrp.keepReplacedWhole(groups);
         VrpAaa.order(groups, desired, current, Vrp.DIALECT);
@@ -470,10 +478,13 @@ export class Vrp extends Platform {
 
         // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
         const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
+        // A DHCPv6 pool goes once its VLAN interface lets go of it.
+        const pools = top?.remove.filter((line) => line.startsWith("dhcpv6 pool ")) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
 
-        if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line) && !lastRemovals.includes(line));
+        const later = [...firstRemovals, ...lastRemovals, ...pools];
+        if (top) top.remove = top.remove.filter((line) => !later.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
 
         const planned = LineDiff.steps(
@@ -491,6 +502,7 @@ export class Vrp extends Platform {
 
         planned.push(
             ...Vrp.removal("ACLs no longer used", lastRemovals),
+            ...Vrp.removal("DHCPv6 pools no longer used", pools),
             ...Vrp.removal("DiffServ domains no longer used", domains),
             ...Vrp.removal("IS-IS no longer used", isis),
             ...Vrp.removal("Route policies and lists no longer used", unused)
@@ -636,7 +648,7 @@ export class Vrp extends Platform {
         if (description) return `undo ${description[0]}`;
         // An ACL rule is removed by its number.
         if (/^rule \d+/.test(line)) return `undo ${line.split(" ").slice(0, 2).join(" ")}`;
-        const pool = Vrp.undoInPool(line, path);
+        const pool = Vrp.undoInPool(line, path) ?? VrpDhcpv6.undo(line, path);
         if (pool) return pool;
 
         const keyword = Vrp.UNDO_BY_KEYWORD.exec(line);

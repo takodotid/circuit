@@ -8,6 +8,7 @@ import { VrpAaa } from "./aaa";
 import { VrpAcls } from "./acls";
 import { VrpBgp } from "./bgp";
 import { VrpDhcp } from "./dhcp";
+import { VrpDhcpv6 } from "./dhcpv6";
 import { VrpEvpn } from "./evpn";
 import { VrpIsis } from "./isis";
 import { VrpMarking } from "./marking";
@@ -125,7 +126,7 @@ export class VrpRender {
         this.lines.push(...VrpAaa.serverLines(device));
         this.users();
         this.vrfs();
-        this.lines.push(...VrpDhcp.blocks(device));
+        this.lines.push(...VrpDhcp.blocks(device), ...VrpDhcpv6.blocks(device));
         this.carProfiles();
 
         for (const [name, lag] of Object.entries(this.lags)) {
@@ -170,6 +171,10 @@ export class VrpRender {
         if (snooping || [relays, servers].some((each) => each && Object.keys(each).length)) {
             this.line("dhcp enable");
             if (snooping) this.line("dhcp snooping enable");
+            this.separator();
+        }
+        if (VrpDhcpv6.serves(device)) {
+            this.line("dhcpv6 enable");
             this.separator();
         }
 
@@ -466,6 +471,7 @@ export class VrpRender {
             lines.push("dhcp select relay");
             for (const server of relays.flatMap((relay) => relay.servers)) lines.push(`dhcp relay binding server ip ${server}`);
         }
+        lines.push(...VrpDhcpv6.interfaceLines(device, name));
 
         lines.push(...this.ospfLines(name, "broadcast"));
         lines.push(...VrpIsis.interfaceLines(device, name, this.bfdTimers("isis bfd")));
