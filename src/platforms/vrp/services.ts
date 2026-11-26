@@ -23,7 +23,8 @@ export class VrpServices {
                 found.push(`services.dhcp_relay.${name}.relay_agent_information, V200R005 adds no Option 82 where it relays`);
         }
 
-        if (services.dns_server) found.push("services.dns_server");
+        // A CE6855 on V200R005 refused `dns proxy enable` and `dns relay enable`.
+        if (services.dns_server) found.push("services.dns_server, a CloudEngine answers no DNS queries for others");
         if (services.dns64) found.push("services.dns64, which needs services.dns_server");
 
         return [...found, ...VrpServices.management(device), ...VrpServices.inVrfs(device)];

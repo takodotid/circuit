@@ -17,3 +17,8 @@ test("a new VRF leaves the view its ipv4-family enters, so the next block is not
 
     expect(lines.slice(at, at + 4)).toEqual(["ip vpn-instance ctest", "ipv4-family", "quit", "quit"]);
 });
+
+test("a CloudEngine answers no DNS queries for others, so VRP refuses a DNS server", () => {
+    const device: Device = { ...base, services: { dns_server: true } };
+    expect(vrp.unsupported(device)).toContain("services.dns_server, a CloudEngine answers no DNS queries for others");
+});
