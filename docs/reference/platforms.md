@@ -156,7 +156,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | Prefix limit that restarts   | ❌ stays closed             | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
 | Prefix limit that only warns | ❌ always closes            | ❌                          | ❌                       | ✅                    | ✅               |
 | Default route to a neighbor  | ✅                          | ❌                          | ❌                       | ✅                    | ✅               |
-| BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| BGP aggregates               | ❌ none in RouterOS 7       | ❌                          | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
 
