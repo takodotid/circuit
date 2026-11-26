@@ -111,11 +111,11 @@ test("VRP checks a VLAN interface in loose mode, built from Huawei's documentati
     );
 });
 
-test("Raisecom ROS refuses uRPF, and a check refuses it where its family has no address", () => {
+test("Raisecom ROS checks IPv4 on each interface, experimental until its removal runs, and a check refuses uRPF where its family has no address", () => {
     const device = checked("platforms--example-core-switch", { ipv4: "strict" });
-    expect(Platforms.get("raisecom-ros").unsupported(device)).toContain(
-        "interfaces.vlan_interface.management.urpf, which the platform does not build"
-    );
+    expect(Platforms.get("raisecom-ros").unsupported(device)).toEqual([]);
+    expect(Platforms.get("raisecom-ros").experimental!(device)).toEqual(["interfaces.vlan_interface.management.urpf.ipv4"]);
+    expect(Platforms.get("raisecom-ros").render(device)).toMatch(/interface vlan 10\n(?:.*\n)*ip urpf strict\n/);
 
     const management = device.interfaces!.vlan_interface!.management!;
     const ipv6 = {

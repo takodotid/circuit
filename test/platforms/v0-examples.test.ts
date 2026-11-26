@@ -53,9 +53,9 @@ test("a platform that has not proved them refuses a MAC limit and an ethertype f
     }
 });
 
-// Tested on Junos alone.
+// Tested on Junos and RouterOS alone.
 test("a platform that has not proved it refuses a port bound to its hosts", () => {
-    for (const device of examples.filter((example) => example.platform !== "junos")) {
+    for (const device of examples.filter((example) => !["junos", "routeros"].includes(example.platform))) {
         const [port, settings] = Object.entries(device.interfaces?.ethernet ?? {})[0]!;
         const bound: Device = {
             ...device,
@@ -212,8 +212,8 @@ test("a platform that doesn't build EoIP, round robin, shaping, MSS clamps or pr
     expect(junos.unsupported(device)).toContain("firewall.tcp_mss, which the platform does not build");
 });
 
-// Raisecom ROS would write the next hop alone and lose the interface. Junos writes both, experimentally, and so does VRP (vrp-routing.test.ts).
-test("a next hop with its interface is refused on Raisecom ROS", () => {
+// Junos writes a next hop with its interface, experimentally, and so do VRP (vrp-routing.test.ts) and Raisecom ROS.
+test("a next hop with its interface is refused on no switch platform", () => {
     const route: StaticRoute = { prefix: "192.0.2.0/24", next_hop: "198.51.100.1", interface: "vlan10" };
     const refused = (fixture: string) => {
         const device = Fixtures.device(fixture);
@@ -224,7 +224,5 @@ test("a next hop with its interface is refused on Raisecom ROS", () => {
 
     expect(refused("platforms--example-switch")).toEqual([]);
     expect(refused("platforms--example-aggregation-switch")).toEqual([]);
-    expect(refused("platforms--example-core-switch")).toEqual([
-        "routing.static_routes 192.0.2.0/24 next_hop with interface, write the next_hop alone",
-    ]);
+    expect(refused("platforms--example-core-switch")).toEqual([]);
 });

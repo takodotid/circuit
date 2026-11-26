@@ -13,6 +13,12 @@ export const terramix = {
             interfaces: {
                 ethernet: {
                     "100g-1": { trunk_vlans: ["terramix-internet", "terramix-private"] },
+                    // Terramix's second site comes over a carrier's line, which tags Terramix's private VLAN with an ID of its own.
+                    "25g-7": {
+                        description: "Terramix second site, over a carrier",
+                        trunk_vlans: ["terramix-private"],
+                        vlan_translation: [{ from: 3001, to: "terramix-private" }],
+                    },
                     // Terramix buys 1 Gbit/s on its private circuit, and 10 Gbit/s of internet, each way.
                     "25g-4": {
                         description: "Terramix private circuit",

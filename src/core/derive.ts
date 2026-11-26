@@ -8,6 +8,7 @@ import type {
     AsNumbers,
     AsRange,
     BgpFamily,
+    BoundHost,
     DeterministicPoolNatRule,
     Device,
     Dhcpv6Server,
@@ -137,6 +138,12 @@ export class Derive {
         ["bound_to", "port-binding"],
     ] as const;
 
+    /** The sources every host on a bound port sends from (`boundSources`). */
+    private static readonly BOUND_ALWAYS: Readonly<Record<Family, readonly string[]>> = {
+        ipv4: ["0.0.0.0/32"],
+        ipv6: ["fe80::/10", "::/128"],
+    };
+
     /** The kinds of interface without `urpf`: no packet arrives on a loopback, and a bridge or a pseudowire doesn't route. */
     private static readonly UNCHECKED_KINDS: readonly Holder["kind"][] = ["loopback", "bridge", "pseudowire"];
 
@@ -204,6 +211,15 @@ export class Derive {
         return Object.entries<Port | undefined>(device.interfaces?.ethernet ?? {}).flatMap(([name, port]) =>
             port ? [[name, port] as [string, Port]] : []
         );
+    }
+
+    /**
+     * What a host on a bound port may send IP packets from, in each family, each with its length. These are its own addresses, then those every host sends from. That is `0.0.0.0` while it asks DHCP for an address, and IPv6's link-local addresses and `::` while it checks that an address is free.
+     */
+    static boundSources(host: BoundHost): Record<Family, string[]> {
+        const own = (family: Family) =>
+            host.addresses.filter((address) => Address.family(address.split("/")[0]!) === family).map(Address.withLength);
+        return { ipv4: [...own("ipv4"), ...Derive.BOUND_ALWAYS.ipv4], ipv6: [...own("ipv6"), ...Derive.BOUND_ALWAYS.ipv6] };
     }
 
     /** Ports, then LAGs: what can switch, with where each is written. */

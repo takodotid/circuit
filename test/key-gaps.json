@@ -67,7 +67,6 @@
         "interfaces.ethernet.*.stp.priority",
         "interfaces.ethernet.*.storm_control.multicast.pps",
         "interfaces.ethernet.*.storm_control.unknown_unicast.pps",
-        "interfaces.ethernet.*.bound_to",
         "interfaces.ethernet.*.mtu",
         "interfaces.ethernet.*.in_lag",
         "interfaces.ethernet.*.link.through",

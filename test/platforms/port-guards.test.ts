@@ -1,4 +1,4 @@
-// BPDU guard, root guard, DHCP snooping, ARP inspection, and RA guard (RFC 6105). The RouterOS lines are as a CCR2216 with RouterOS 7.24.6 exported them, and the Junos statements as a QFX5100 with Junos 21.4R3 printed them after a commit. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
+// BPDU guard, root guard, a port out of spanning tree, DHCP snooping, ARP inspection, and RA guard (RFC 6105). The RouterOS lines are as a CCR2216 with RouterOS 7.24.6 exported them, and the edge port as a CHR did. The Junos statements are as a QFX5100 with Junos 21.4R3 printed them after a commit. The VRP lines went into a CE6855's candidate (V200R005), which was cleared.
 
 import { expect, test } from "bun:test";
 import { Checks } from "../../src/checks";
@@ -62,6 +62,34 @@ test("RouterOS sets them on the bridge and its ports, and sets them back to no w
         "/interface bridge port set [ find interface=sfp28-3 ] bpdu-guard=no edge=auto",
         "/interface bridge port set [ find interface=sfp28-4 ] restricted-role=no trusted=no trusted-ra=no",
     ]);
+});
+
+test("RouterOS takes a port out of spanning tree as an edge port, and removes the bridge filter rules it wrote for that before", () => {
+    const routeros = Platforms.get("routeros");
+    const device = guarded("routeros", "CCR2216-1G-12XS-2XQ", "25g-3", "25g-4");
+    device.interfaces!.ethernet!["25g-5"] = { access_vlan: "servers", stp: false };
+    const desired = routeros.render(device);
+    const port = "add bridge=bridge edge=yes frame-types=admit-only-untagged-and-priority-tagged interface=sfp28-5 pvid=100";
+
+    expect(messages(device)).toEqual([]);
+    expect(desired).toContain(port);
+    expect(desired).not.toContain("/interface bridge filter");
+
+    // The bridge's own BPDUs pass both rules (TRAPS.md).
+    const rule = 'comment="sfp28-5 out of spanning tree" dst-mac-address=01:80:C2:00:00:00/FF:FF:FF:FF:FF:FF';
+    const before = [
+        desired.replace(port, port.replace(" edge=yes", "")),
+        "/interface bridge filter",
+        `add action=drop chain=input ${rule} in-interface=sfp28-5`,
+        `add action=drop chain=output ${rule} out-interface=sfp28-5`,
+    ].join("\n");
+
+    expect(sent("routeros", desired, before)).toEqual([
+        "/interface bridge port set [ find interface=sfp28-5 ] edge=yes",
+        '/interface bridge filter remove [ find chain="input" ]',
+        '/interface bridge filter remove [ find chain="output" ]',
+    ]);
+    expect(sent("routeros", desired, desired)).toEqual([]);
 });
 
 test("Junos guards each port and VLAN, and names every port's DHCP trust, as the switch prints them", () => {

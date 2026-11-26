@@ -158,7 +158,7 @@ end
     expect(sent("fortios", desired, printed)).toEqual([]);
 });
 
-test("VRP renders the new keys behind --experimental, and Raisecom ROS refuses them", () => {
+test("VRP renders the new keys behind --experimental, and Raisecom ROS writes them behind it too", () => {
     const vrp = Platforms.get("vrp");
     const device = withOspf("platforms--example-switch", {
         areas: {
@@ -178,14 +178,18 @@ test("VRP renders the new keys behind --experimental, and Raisecom ROS refuses t
     ]);
 
     const raisecom = withOspf("platforms--example-core-switch", {
-        areas: { "0.0.0.10": { type: "stub", interfaces: { management: { dead_interval: 40 } } } },
+        areas: { "0.0.0.10": { type: "stub", interfaces: { management: { dead_interval: 60 } } } },
     });
-    expect(Platforms.get("raisecom-ros").unsupported(raisecom)).toEqual(
-        expect.arrayContaining([
-            "routing.ospf.areas.0.0.0.10.type, not tested on the platform",
-            "routing.ospf.areas.0.0.0.10.interfaces.management.dead_interval, not tested on the platform",
-        ])
-    );
+    expect(
+        Platforms.get("raisecom-ros")
+            .unsupported(raisecom)
+            .filter((field) => field.includes("ospf"))
+    ).toEqual([]);
+    expect(Platforms.get("raisecom-ros").render(raisecom)).toContain("\narea 0.0.0.10 stub\n");
+    expect(Platforms.get("raisecom-ros").experimental!(raisecom)).toEqual([
+        "routing.ospf.areas.0.0.0.10.type",
+        "routing.ospf.areas.0.0.0.10.interfaces.management.dead_interval",
+    ]);
 });
 
 /** An ABR whose uplink is point-to-multipoint and whose port to a carrier's service is NBMA, each with a neighbor, and whose area 1 is summarized. */
@@ -268,21 +272,11 @@ test("RouterOS sets a range's advertise and a template's priority and type back,
     ]);
 });
 
-test("Raisecom ROS refuses ranges, priorities, and point-to-multipoint and NBMA links until one of its devices runs them", () => {
-    const fixtures = {
-        "raisecom-ros": "platforms--example-core-switch",
-    };
-    const untried = "not built yet, since no device of the platform has run it";
-    for (const [platform, fixture] of Object.entries(fixtures))
-        expect(Platforms.get(platform).unsupported(withOspf(fixture, designed))).toEqual(
-            expect.arrayContaining([
-                `routing.ospf.areas.0.0.0.0.interfaces.uplink.network point-to-multipoint, ${untried}`,
-                `routing.ospf.areas.0.0.0.0.interfaces.uplink.neighbors, ${untried}`,
-                `routing.ospf.areas.0.0.0.0.interfaces.1g-1.priority, ${untried}`,
-                `routing.ospf.areas.0.0.0.0.interfaces.1g-1.network non-broadcast, ${untried}`,
-                `routing.ospf.areas.0.0.0.1.ranges, ${untried}`,
-            ])
-        );
+test("Raisecom ROS writes ranges, priorities, and NBMA links behind --experimental, and refuses point-to-multipoint, which it has none of", () => {
+    const found = Platforms.get("raisecom-ros").unsupported(withOspf("platforms--example-core-switch", designed));
+
+    expect(found).toContain("routing.ospf.areas.0.0.0.0.interfaces.uplink.network point-to-multipoint, the switch has none");
+    expect(found.filter((field) => /priority|non-broadcast|ranges|neighbors/.test(field))).toEqual([]);
 });
 
 /** A border router with no link into the backbone, which a virtual link across area 1 joins to it. It sums area 2 into a range at a cost of its own. */
@@ -356,18 +350,13 @@ test("RouterOS unsets a range's cost, and removes a virtual link before its tran
     ]);
 });
 
-test("Raisecom ROS refuses a virtual link and a range's cost until one of its devices runs them", () => {
-    const fixtures = {
-        "raisecom-ros": "platforms--example-core-switch",
-    };
-    const untried = "not built yet, since no device of the platform has run it";
-    for (const [platform, fixture] of Object.entries(fixtures))
-        expect(Platforms.get(platform).unsupported(withOspf(fixture, cutOff))).toEqual(
-            expect.arrayContaining([
-                `routing.ospf.areas.0.0.0.0.virtual_links, ${untried}`,
-                `routing.ospf.areas.0.0.0.2.ranges[0].cost, ${untried}`,
-            ])
-        );
+test("Raisecom ROS refuses a virtual link and a range's cost, which ROS 6.5.2 has none of", () => {
+    expect(Platforms.get("raisecom-ros").unsupported(withOspf("platforms--example-core-switch", cutOff))).toEqual(
+        expect.arrayContaining([
+            "routing.ospf.areas.0.0.0.0.virtual_links, ROS 6.5.2 has no virtual link",
+            "routing.ospf.areas.0.0.0.2.ranges[0].cost, the switch has no cost for a range",
+        ])
+    );
 });
 
 /** What `show router ospf` prints after the section's own settings when nothing is redistributed. */

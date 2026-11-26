@@ -49,10 +49,24 @@ const ALIKE: Record<string, string> = {
 /** Sections v1 manages and 0.x did not. These fixtures leave them empty, and 0.x did not print them. */
 const SINCE_V1 = ["router aspath-list"];
 
-/** The render without the empty sections 0.x did not print. It also leaves out turning Option 82 off on a relay, which 0.x left on (TRAPS.md). */
-function as0x(render: string): string {
+/** Interfaces in a VRF. Since decision 263 they answer only the services of their VRF, where 0.x had every service answer. */
+const IN_VRF: Record<string, readonly string[]> = { "platforms--example-firewall": ["guests"] };
+
+/** The `allowaccess` line of an interface in a render. */
+const accessLine = (render: string, name: string) => {
+    const line = new RegExp(`edit "${name}"\\n(?:(?! {4}next)[^\\n]*\\n)*?( {8}set allowaccess [^\\n]*\\n)`).exec(render)?.[1];
+    if (!line) throw new Error(`no allowaccess on ${name}`);
+    return line;
+};
+
+/** The render without the empty sections 0.x did not print. It also leaves out turning Option 82 off on a relay, which 0.x left on (TRAPS.md). An interface in a VRF gets the services 0.x gave it. */
+function as0x(render: string, fixture: string): string {
     const sections = SINCE_V1.reduce((text, section) => text.replace(`config ${section}\nend\n`, ""), render);
-    return sections.replace(/^ *set dhcp-relay-agent-option disable\n/gm, "");
+    const relays = sections.replace(/^ *set dhcp-relay-agent-option disable\n/gm, "");
+    return (IN_VRF[fixture] ?? []).reduce(
+        (text, name) => text.replace(accessLine(text, name), accessLine(Fixtures.render(fixture), name)),
+        relays
+    );
 }
 
 describe("0.x's FortiOS devices", () => {
@@ -64,7 +78,7 @@ describe("0.x's FortiOS devices", () => {
 
     for (const name of names) {
         test(`${name} renders what 0.x rendered`, () => {
-            const rendered = as0x(platform.render(Fixtures.device(name)));
+            const rendered = as0x(platform.render(Fixtures.device(name)), name);
 
             if (!ALIKE[name]) {
                 expect(rendered).toEqual(Fixtures.render(name));

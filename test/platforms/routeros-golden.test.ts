@@ -63,6 +63,21 @@ function withoutGatewayVrf(text: string): string {
     return text.replace(/( gateway="?[^\s"@]+)@[^\s"]+/g, "$1");
 }
 
+/** 0.x took a port out of spanning tree with bridge filter rules that drop BPDUs, which the bridge's own BPDUs pass. v1 makes the port an edge port, which sends none (TRAPS.md). So 0.x's render is read with the port an edge port, and without those rules. */
+function withStpOffAsEdge(text: string): string {
+    const out = new Set([...text.matchAll(/ comment="(\S+) out of spanning tree" /g)].map(([, port]) => port));
+    const lines = text.split("\n").filter((line) => !line.includes(' out of spanning tree" '));
+    return lines
+        .filter((line, index) => line !== "/interface bridge filter" || (lines[index + 1] ?? "/").startsWith("add "))
+        .map((line) => {
+            const port = / interface=(\S+)/.exec(line)?.[1];
+            return port && out.has(port) && line.startsWith("add bridge=bridge ")
+                ? line.replace("bridge=bridge ", "bridge=bridge edge=yes ")
+                : line;
+        })
+        .join("\n");
+}
+
 function advertises(device: Device): boolean {
     return Object.values(device.interfaces ?? {}).some((group) =>
         Object.values(group ?? {}).some((settings) => typeof settings === "object" && settings !== null && "ipv6_ra" in settings)
@@ -117,7 +132,7 @@ describe("RouterOS renders each 0.x device as 0.x did", () => {
         test(name, () => {
             const device = Fixtures.device(name);
             const rendered = platform.render(device);
-            const old = Fixtures.render(name);
+            const old = withStpOffAsEdge(Fixtures.render(name));
 
             expect(platform.unsupported(device)).toEqual([
                 ...(REFUSED_SINCE[name] ?? []),

@@ -113,6 +113,7 @@ export class RouterOsExport {
             "trusted-ra": "no",
             horizon: "none",
             "tag-stacking": "no",
+            hw: "yes",
         },
         "/interface bonding": { mode: "balance-rr", "transmit-hash-policy": "layer-2", mtu: "1500" },
         // A VPLS interface is added disabled, and prints `disabled=no` once it runs (TRAPS.md). `pw-l2mtu` and `pw-control-word` set to these print them, and one without `pw-type` runs raw mode.
@@ -661,6 +662,7 @@ export class RouterOsExport {
         "/ip firewall raw",
         "/ipv6 firewall raw",
         "/interface bridge filter",
+        "/interface bridge nat",
         "/interface ethernet switch rule",
         // RADIUS servers are asked in this order.
         "/radius",
