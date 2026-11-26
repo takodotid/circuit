@@ -391,7 +391,9 @@ export class RouterOs extends Platform {
             if (limit?.warn_only)
                 found.push(`routing.bgp.neighbors.${name}.max_prefixes.warn_only, RouterOS always closes the session at its limit`);
             if (neighbor.graceful_restart ?? group?.graceful_restart)
-                found.push(`routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7 has no setting for it`);
+                found.push(
+                    `routing.bgp.neighbors.${name}.graceful_restart, RouterOS 7.24 offers it on every session with a restart time of 0, so its neighbors drop its routes at once when it restarts, and no setting changes that`
+                );
         }
 
         for (const [name, server] of Object.entries(device.services?.dhcpv6_server ?? {})) {
