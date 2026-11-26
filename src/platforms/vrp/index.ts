@@ -73,7 +73,8 @@ export class Vrp extends Platform {
     private static readonly REPLACED_WHOLE = /^(ip route-static bfd \S+|qos car (?!inbound )\S+) /;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) )/,
+        // A VRF's `ipv4-family` holds nothing, but enters a view of its own all the same.
+        block: /^(interface |vlan \d+$|acl (?:number|name|ipv6) |bridge-domain |diffserv domain |aaa$|user-interface |ospf \d+|isis \d+$|ip vpn-instance |ip pool |bfd$|alarm$|route-policy |bgp |traffic (?:classifier|behavior|policy) |ipv4-family$)/,
         indented: true,
         terminator: "#",
         // The users' domain is the switch's. The administrators' is read, as `system.aaa` gives it schemes.
