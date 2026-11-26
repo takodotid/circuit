@@ -517,6 +517,27 @@ test("UPnP interfaces are told apart by their interface", () => {
     ]);
 });
 
+// A CHR on 7.24.6 printed a published ARP entry as it was sent, and kept one address on two interfaces apart.
+test("an address for proxy ARP is a published ARP entry of its VLAN interface, which plans nothing once printed, and goes with it", () => {
+    const adapter = Platforms.get("routeros");
+    const [name, iface] = Object.entries(router.interfaces!.vlan_interface!).find(([, settings]) => settings?.addresses?.length)!;
+    const withProxy: Device = {
+        ...router,
+        interfaces: {
+            ...router.interfaces,
+            vlan_interface: { ...router.interfaces!.vlan_interface, [name]: { ...iface!, proxy_arp: ["192.0.2.50"] } },
+        },
+    };
+    const entry = `add address=192.0.2.50 interface=${name} published=yes`;
+    const printed = ["/ip arp", entry, "add address=192.0.2.50 interface=ether2 published=yes"].join("\n");
+
+    expect(adapter.unsupported(withProxy).filter((gap) => gap.includes("proxy_arp"))).toEqual([]);
+    expect(adapter.render(withProxy)).toContain(`/ip arp\n${entry}\n`);
+    expect(adapter.plan(`/ip arp\n${entry}\n`, printed, { secrets: false, rollback: 10 }).steps.flatMap((step) => step.send)).toEqual([
+        "/ip arp remove [ find address=192.0.2.50 and interface=ether2 and !dynamic ]",
+    ]);
+});
+
 // On an RB5009 on 7.24.6, `find` matched a host route or an interface address only as a whole prefix. It matched a list such as `topics` only quoted, with `;` between its items.
 test("a selector writes a host as a prefix and a list with semicolons", () => {
     const adapter = Platforms.get("routeros");

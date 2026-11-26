@@ -87,7 +87,7 @@ A note in a cell means "works, with this limit".
 | Shaping (CAKE)                  | ✅                                                                                         | ❌                          | ❌                                  | ❌                                                                                            | ❌                                              |
 | Rate limit                      | ✅ routed ports and VLAN interfaces, not beside the fast path or hardware offload; 🧪 LAGs | 🧪 ports and LAGs           | ports and LAGs, a burst in whole kB | in on switched ports, with a burst; 🧪 LAGs; not out: a QFX5100 ignores a port's shaping-rate | ✅ no burst                                     |
 | Rate limit for each prefix      | ✅ PCQ, where a rate limit works; 🧪 LAGs                                                  | ❌ no rate for each address | ❌                                  | ❌ none on a QFX5100                                                                          | ❌                                              |
-| Proxy ARP for an address        | ❌                                                                                         | ❌                          | ❌                                  | ❌                                                                                            | ✅                                              |
+| Proxy ARP for an address        | ✅                                                                                         | ❌                          | ❌                                  | ❌                                                                                            | ✅                                              |
 | VRRP                            | ✅                                                                                         | IPv4                        | IPv4                                | IPv4                                                                                          | IPv4                                            |
 | IPv6 router advertisement       | ✅ no search domains                                                                       | ❌                          | ❌                                  | ✅                                                                                            | ✅                                              |
 | uRPF (RFC 3704)                 | ✅ IPv4, one mode for the router; 🧪 strict beside VRFs                                    | 🧪 loose, IPv4              | ❌                                  | ✅ strict                                                                                     | 🧪 strict, one mode for the VDOM                |
@@ -120,7 +120,7 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | OSPF virtual links           | ✅ one family               | ✅                          | ❌ not yet               | 🧪                    | ✅               |
 | OSPF traffic engineering     | ✅ one area                 | ❌ not yet                  | ❌ not yet               | ❌ not yet            | ❌ not yet       |
 | IS-IS                        | ✅ no passive metric        | ✅ VLAN interfaces          | ❌                       | ✅                    | ✅ no passive    |
-| IS-IS multi-topology         | ❌                          | ✅                          | ❌                       | 🧪                    | ❌               |
+| IS-IS multi-topology         | ❌ one topology             | ✅                          | ❌                       | 🧪                    | ❌               |
 | IS-IS authentication         | ❌                          | MD5, HMAC-SHA-256           | ❌                       | MD5; 🧪 HMAC-SHA-1    | MD5              |
 | IS-IS overload bit           | ❌                          | ✅                          | ❌                       | ✅                    | ✅               |
 | IS-IS leaks into level 1     | ❌ leaks every route        | ✅                          | ❌                       | 🧪                    | 🧪               |
@@ -151,12 +151,12 @@ A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and t
 | BGP roles (RFC 9234)         | ✅                          | ❌                          | ❌                       | ❌                    | ❌               |
 | GTSM (RFC 5082)              | ✅ eBGP                     | ❌                          | ❌                       | ❌                    | ❌               |
 | Route reflection (RFC 4456)  | ✅                          | ✅                          | ❌                       | ✅                    | ✅               |
-| Confederations (RFC 5065)    | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
-| Graceful restart (RFC 4724)  | ❌                          | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
-| Prefix limit that restarts   | ❌                          | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
-| Prefix limit that only warns | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| Confederations (RFC 5065)    | ❌ breaks RFC 5065          | ❌                          | ❌                       | ✅                    | ✅               |
+| Graceful restart (RFC 4724)  | ❌ restart time 0           | ❌                          | ❌                       | ✅ all or no sessions | ✅               |
+| Prefix limit that restarts   | ❌ stays closed             | ✅ whole minutes            | ❌                       | ✅ whole minutes      | ❌               |
+| Prefix limit that only warns | ❌ always closes            | ❌                          | ❌                       | ✅                    | ✅               |
 | Default route to a neighbor  | ✅                          | ❌                          | ❌                       | ✅                    | ✅               |
-| BGP aggregates               | ❌                          | ❌                          | ❌                       | ✅                    | ✅               |
+| BGP aggregates               | ❌ none in RouterOS 7       | ❌                          | ❌                       | ✅                    | ✅               |
 
 ### Firewall and services
 

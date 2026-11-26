@@ -15,11 +15,11 @@ function withNeighbors(fixture: string, neighbors: Record<string, Neighbor>): De
 /** A session with Hurricane Electric. */
 const he: Neighbor = { address: "203.0.113.1", remote_as: 6939, graceful_restart: true };
 
-test("RouterOS refuses it: no setting turns it on or off", () => {
+test("RouterOS refuses it: every session offers it with a restart time of 0, and no setting changes that", () => {
     const device = withNeighbors("edge-router--edge-01", { "hurricane-electric": { ...he } });
 
     expect(Platforms.get("routeros").unsupported(device)).toContain(
-        "routing.bgp.neighbors.hurricane-electric.graceful_restart, RouterOS 7 has no setting for it"
+        "routing.bgp.neighbors.hurricane-electric.graceful_restart, RouterOS 7.24 offers it on every session with a restart time of 0, so its neighbors drop its routes at once when it restarts, and no setting changes that"
     );
 });
 

@@ -74,7 +74,13 @@ export default as64500.device({
         vlan_interface: {
             mgmt: { vlan: "mgmt", addresses: [dc_1.addresses.router_on_switches], vrf: "management" },
             // The gateway of the small tenants on tor-02, which hands them their addresses.
-            shared: { vlan: "shared", addresses: ["198.51.100.65/27", "2001:db8:100:2::1/64"], ipv6_ra: true },
+            // A Terramix server moved from here to Terramix's own VLAN, and kept its address for the hosts here that still use it. They take it for a neighbor, so the router answers ARP for it, and routes it there.
+            shared: {
+                vlan: "shared",
+                addresses: ["198.51.100.65/27", "2001:db8:100:2::1/64"],
+                ipv6_ra: true,
+                proxy_arp: ["198.51.100.66"],
+            },
             transit: { vlan: "transit", addresses: ["203.0.113.2/30"] },
             exchange: { vlan: "exchange", addresses: ["192.0.2.10/24", "2001:db8:ffff::10/64"] },
         },
@@ -119,6 +125,7 @@ export default as64500.device({
         static_routes: [
             { prefix: as64500.prefixes.ours.v4, blackhole: true, description: "Originate" },
             { prefix: as64500.prefixes.ours.v6, blackhole: true, description: "Originate" },
+            { prefix: "198.51.100.66/32", next_hop: "198.51.100.10", description: "Terramix server, moved from the shared VLAN" },
         ],
         bgp: {
             originated_prefixes: [as64500.prefixes.ours.v4, as64500.prefixes.ours.v6],
