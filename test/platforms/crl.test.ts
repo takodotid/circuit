@@ -53,6 +53,14 @@ test("FortiOS writes a list's entry of the CA's name, from the vendor's document
     expect(fortios.plan(desired, desired, options)).toEqual({ steps: [], problems: [] });
 });
 
+test("VRP refuses certificates, and so their lists, as V200R005 has no PKI", () => {
+    const device = withCertificates("platforms--example-router", { "branch-ca": { crl_url: URL } });
+    const vrp = Platforms.get("vrp").unsupported({ ...Fixtures.device("platforms--example-switch"), system: device.system });
+    expect(vrp).toContain(
+        "system.certificates, V200R005 has no PKI, and loads a certificate only from a file on the switch's flash, which Circuit does not copy there"
+    );
+});
+
 test("validate takes a list's URL on a CA's certificate only, over HTTP", () => {
     const device = withCertificates("platforms--example-router", {
         "branch-ca": { crl_url: "ldap://pki.example.net/cn=branch-ca" as `http://${string}` },
