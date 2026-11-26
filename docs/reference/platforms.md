@@ -55,7 +55,7 @@ A note in a cell means "works, with this limit".
 | Port bound to hosts | ❌                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
 | BPDU and root guard | ✅ ports                           | 🧪                  | root guard; 🧪 BPDU guard             | ✅                      | ❌                  |
 | DHCP snooping       | ✅                                 | 🧪                  | 🧪                                    | ✅                      | ❌                  |
-| ARP inspection      | ❌                                 | ❌                  | ❌                                    | ✅                      | ❌                  |
+| ARP inspection      | ❌ none in 7.24                    | ❌                  | ❌                                    | ✅                      | ❌                  |
 | Private VLANs       | isolated only, switched by the CPU | ❌                  | ❌                                    | ✅                      | ❌                  |
 | QinQ                | ✅                                 | 🧪                  | ✅ ports                              | ✅                      | ❌                  |
 | VLAN translation    | ❌                                 | ❌                  | ❌                                    | 🧪 no native VLAN       | ❌                  |

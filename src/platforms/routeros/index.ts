@@ -275,8 +275,11 @@ export class RouterOs extends Platform {
                 found.push(
                     `interfaces.${kind}.${name}, the name of RouterOS's own loopback interface: write another name${kind === "loopback" ? ", such as loopback" : ""}`
                 );
-        // MikroTik's changelog adds it in 7.25, which no device here runs yet.
-        if (device.switching?.arp_inspection) found.push("switching.arp_inspection, which RouterOS has only from 7.25, not tested yet");
+        // A CHR on 7.24.6 took no such setting. MikroTik's changelog adds it in 7.25, which no device here runs yet (TRAPS.md).
+        if (device.switching?.arp_inspection)
+            found.push(
+                "switching.arp_inspection, which RouterOS 7.24 doesn't have: its bridge and ports take no arp-inspection. MikroTik adds it in 7.25, not tested yet"
+            );
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(
