@@ -124,9 +124,6 @@ export class FortiOs extends Platform {
         // Option 82 on a relay was applied, read back, changed, and removed on a FortiGate, but no request was relayed to see what it adds.
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {}))
             if (relay.relay_agent_information) found.push(`services.dhcp_relay.${name}.relay_agent_information`);
-        // Between two VDOMs of one FortiGate, a tunnel took a certificate of another subject (TRAPS.md).
-        for (const [name, tunnel] of Object.entries(device.interfaces?.ipsec ?? {}))
-            if (tunnel?.remote_identity) found.push(`interfaces.ipsec.${name}.remote_identity`);
         // SNMP answers on the interfaces of its VRF, as SSH did in a VRF of a test VDOM, but no SNMP manager was in reach of the test.
         if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
         // A CA's list of revoked certificates is from Fortinet's 6.2 reference: no FortiGate has fetched one.

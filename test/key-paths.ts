@@ -25,7 +25,9 @@ export class KeyPaths {
      * Keys that are experimental on every platform that has them, each with why. Examples validate without `--experimental`, so no example writes one of these, and it needs no example until a platform has it tested. Then it leaves this list for an example.
      */
     static readonly EXPERIMENTAL_EVERYWHERE: Readonly<Record<string, string>> = {
-        "interfaces.ipsec.*.remote_identity": "FortiOS only, where a FG-3700D took a certificate of another subject",
+        "interfaces.ipsec.*.remote_identity.fqdn": "on no platform yet: FortiOS matches a certificate's subject alone",
+        "interfaces.ipsec.*.remote_identity.email": "on no platform yet: FortiOS matches a certificate's subject alone",
+        "interfaces.ipsec.*.remote_identity.address": "on no platform yet: FortiOS matches a certificate's subject alone",
         "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
         "services.dns64": "FortiOS only, where no host asked its DNS server on the FG-3700D",
     };
