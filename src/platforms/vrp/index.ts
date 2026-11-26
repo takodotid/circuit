@@ -25,6 +25,7 @@ import { VrpMonitoring } from "./monitoring";
 import { VrpOspf } from "./ospf";
 import { VrpQos } from "./qos";
 import { VrpRender } from "./render";
+import { VrpRouterAdvertisement } from "./router-advertisement";
 import { VrpServices } from "./services";
 import { VrpRoutes } from "./routes";
 
@@ -211,11 +212,11 @@ export class Vrp extends Platform {
             if (ends.some((end) => Address.family(Address.host(end)) === "ipv6"))
                 found.push(`${where}, GRE between IPv6 addresses, not built yet`);
             if (kind === "gre" && settings.vrf) found.push(`${where}.vrf, a GRE tunnel in a VRF, not tested`);
-            if (settings.ipv6_ra) found.push(`${where}.ipv6_ra`);
             if (settings.hardware_offload !== undefined) found.push(`${where}.hardware_offload, the switch chip forwards everything`);
             for (const group of settings.vrrp ?? []) if (Address.family(group.address) === "ipv6") found.push(`${where}.vrrp for IPv6`);
         }
 
+        found.push(...VrpRouterAdvertisement.unsupported(device));
         const routing = device.routing;
 
         for (const [name, vrf] of Object.entries(routing?.vrfs ?? {})) {
@@ -404,8 +405,9 @@ export class Vrp extends Platform {
     private static head(line: string): string {
         const description = /^rule \d+ description/.exec(line);
         if (description) return description[0];
-        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links.
-        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer) /.test(line)) return line;
+        // A second NET is added beside the first, rather than replacing it. So are an OSPF area's ranges and virtual links. A prefix a router advertisement announces is undone before it changes.
+        if (/^(gateway-list|dns-list|excluded-ip-address|static-bind|network-entity|abr-summary|vlink-peer|ipv6 nd ra prefix) /.test(line))
+            return line;
 
         return LineDiff.head(line);
     }
@@ -616,7 +618,13 @@ export class Vrp extends Platform {
         if (path[0] === "aaa" && path[1]?.startsWith("domain ")) return `undo ${line.split(" ").slice(0, -1).join(" ")}`;
         const server = VrpAaa.undo(line);
         if (server) return server;
-        const routing = VrpBgp.undo(line) ?? VrpIsis.undo(line, path) ?? VrpOspf.undo(line) ?? VrpMarking.undo(line) ?? VrpQos.undo(line);
+        const routing =
+            VrpBgp.undo(line) ??
+            VrpIsis.undo(line, path) ??
+            VrpOspf.undo(line) ??
+            VrpMarking.undo(line) ??
+            VrpQos.undo(line) ??
+            VrpRouterAdvertisement.undo(line);
         if (routing) return routing;
         // A user's key is let go of without its name: `undo ssh user <user> assign rsa-key`.
         const assigned = /^(ssh user \S+ assign \S+-key) \S+$/.exec(line);

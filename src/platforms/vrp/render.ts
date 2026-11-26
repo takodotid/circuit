@@ -16,6 +16,7 @@ import { VrpNames } from "./names";
 import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
 import { VrpQos } from "./qos";
+import { VrpRouterAdvertisement } from "./router-advertisement";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -456,6 +457,7 @@ export class VrpRender {
 
         // Loose, the CloudEngine command reference's only mode on a VLAN interface. `unsupported()` refuses the rest.
         if (iface.urpf?.ipv4 === "loose") lines.push("ip urpf enable");
+        lines.push(...VrpRouterAdvertisement.lines(iface));
 
         for (const group of iface.vrrp ?? []) lines.push(...VrpRender.vrrpLines(group));
 
