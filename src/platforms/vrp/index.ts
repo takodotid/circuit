@@ -476,10 +476,12 @@ export class Vrp extends Platform {
         const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
         // A DHCPv6 pool goes once its VLAN interface lets go of it.
         const pools = top?.remove.filter((line) => line.startsWith("dhcpv6 pool ")) ?? [];
+        // A LAG goes once its members have left it: before, the switch refuses with "the trunk has member interfaces".
+        const lags = top?.remove.filter((line) => /^interface Eth-Trunk\d+$/.test(line)) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
 
-        const later = [...firstRemovals, ...lastRemovals, ...pools];
+        const later = [...firstRemovals, ...lastRemovals, ...pools, ...lags];
         if (top) top.remove = top.remove.filter((line) => !later.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
         const hosts = VrpSwitching.hostLines(top);
@@ -499,6 +501,7 @@ export class Vrp extends Platform {
         VrpRoutes.place(planned, hosts, (line) => Vrp.undo(line), "Hosts of bound ports");
 
         planned.push(
+            ...Vrp.removal("LAGs no longer used", lags),
             ...Vrp.removal("ACLs no longer used", lastRemovals),
             ...Vrp.removal("DHCPv6 pools no longer used", pools),
             ...Vrp.removal("DiffServ domains no longer used", domains),

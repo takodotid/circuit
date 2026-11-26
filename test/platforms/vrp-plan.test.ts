@@ -2,6 +2,17 @@ import { expect, test } from "bun:test";
 import { Platforms } from "../../src/platforms";
 import { LineDiff } from "../../src/platforms/line-diff";
 
+// A CE6855 on V200R005C00SPC800 refused `undo interface Eth-Trunk39` while a port was still in it.
+test("a VRP LAG goes after its members have left it", () => {
+    const adapter = Platforms.get("vrp");
+    const current = "interface Eth-Trunk39\n mode lacp-static\n#\ninterface 10GE1/0/48\n eth-trunk 39\n#\n";
+    const desired = "interface 10GE1/0/48\n shutdown\n#\n";
+    const steps = adapter.plan(desired, current, { secrets: false, rollback: 10 }).steps;
+
+    expect(steps.map((step) => step.title)).toEqual(["interface 10GE1/0/48", "LAGs no longer used"]);
+    expect(steps.at(-1)!.send).toEqual(["undo interface Eth-Trunk39"]);
+});
+
 // Seen on a CE6855 on V200R005 after its first SNMPv3 user: an engine ID of its own, and the user's own line before its settings.
 test("a VRP SNMPv3 user plans nothing against how the switch prints it", () => {
     const adapter = Platforms.get("vrp");
