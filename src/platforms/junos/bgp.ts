@@ -523,4 +523,120 @@ export class JunosBgp {
         for (const value of members) this.out.set(`policy-options community ${name} members`, JunosStatements.quote(value));
         return name;
     }
+
+    /** Whether a policy, or one it calls, matches a route's RPKI state. */
+    private static matchesRpki(device: Device, policy: string, seen: Set<string>): boolean {
+        if (seen.has(policy)) return false;
+        seen.add(policy);
+
+        return (device.routing?.policies?.[policy] ?? []).some((rule) =>
+            JunosBgp.isRouteRule(rule)
+                ? rule.if?.rpki !== undefined
+                : "call" in rule && !!rule.call && JunosBgp.matchesRpki(device, rule.call, seen)
+        );
+    }
+
+    /** BGP settings Junos 21 has no statement for, and policy steps it cannot take. */
+    static unsupported(device: Device): string[] {
+        const found: string[] = [];
+        const bgp = device.routing?.bgp;
+
+        if (bgp && bgp.asn === undefined) found.push("routing.bgp.asn, absent: write it here or in circuit.ts");
+
+        for (const [name, neighbor] of Object.entries(bgp?.neighbors ?? {})) {
+            if (!neighbor) continue;
+
+            const settings = JunosBgp.settingsOf(device, neighbor);
+            if (settings.role)
+                found.push(
+                    `routing.bgp.neighbors.${name}.role, which Junos 21.4 lacks: Juniper builds BGP roles from 25.2R1, and a QFX5100 refuses otc-local-role`
+                );
+            // `ttl 255` fails `commit check` on any session but a single-hop eBGP one (TRAPS.md).
+            if (settings.ttl_security && settings.remote_as === bgp?.asn)
+                found.push(
+                    `routing.bgp.neighbors.${name}.ttl_security on an iBGP session, Junos sets TTL 255 on single-hop eBGP sessions only`
+                );
+            // IPv4 routes over an IPv6 session need a local IPv4 address the config has no field for.
+            if (Address.family(neighbor.address) === "ipv6" && settings.address_families?.includes("ipv4")) {
+                found.push(`routing.bgp.neighbors.${name}.address_families ipv4 over an IPv6 session`);
+            }
+
+            if (settings.keepalive !== undefined)
+                found.push(`routing.bgp.neighbors.${name}.keepalive, the platform keeps it at a third of hold_time`);
+
+            const restart = Derive.prefixLimit(settings)?.restart_after;
+            const minutes = (restart ?? 0) / JunosBgp.SECONDS_PER_MINUTE;
+            if (restart !== undefined && (!Number.isInteger(minutes) || minutes < 1 || minutes > JunosBgp.MAX_IDLE_MINUTES))
+                found.push(
+                    `routing.bgp.neighbors.${name}.max_prefixes.restart_after ${restart}, Junos waits whole minutes, up to ${JunosBgp.MAX_IDLE_MINUTES}: write a multiple of ${JunosBgp.SECONDS_PER_MINUTE}`
+                );
+            if (settings.route_reflector_client && !bgp?.cluster_id)
+                found.push(
+                    `routing.bgp.neighbors.${name}.route_reflector_client without routing.bgp.cluster_id: Junos needs a cluster ID, so write one`
+                );
+
+            const validated = [settings.import_policy, settings.export_policy].find(
+                (policy) => policy && JunosBgp.matchesRpki(device, policy, new Set())
+            );
+            if (settings.vrf && validated)
+                found.push(
+                    `routing.bgp.neighbors.${name}.vrf with policy ${validated}, which matches rpki: Circuit sets up route validation in the main routing instance only`
+                );
+        }
+
+        // `routing-options graceful-restart` turns it on for the whole router, OSPF too.
+        const graceful = Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => ({
+            name,
+            on: !!neighbor && JunosBgp.settingsOf(device, neighbor).graceful_restart,
+        }));
+        const first = graceful.find(({ on }) => on)?.name;
+        const without = graceful.filter(({ on }) => !on).map(({ name }) => name);
+        if (first && without.length)
+            found.push(
+                `routing.bgp.neighbors.${first}.graceful_restart, but not on ${without.join(", ")}: Junos turns it on for every session at once. Set it on every neighbor or on none`
+            );
+        if (first && device.routing?.ospf)
+            found.push(`routing.bgp.neighbors.${first}.graceful_restart with routing.ospf, Junos turns graceful restart on for OSPF too`);
+
+        const clients = Object.values(bgp?.neighbors ?? {}).some(
+            (neighbor) => neighbor && JunosBgp.settingsOf(device, neighbor).route_reflector_client
+        );
+        if (bgp?.cluster_id && !clients)
+            found.push("routing.bgp.cluster_id without a route_reflector_client: Junos holds the cluster ID on its clients' sessions");
+
+        for (const server of device.routing?.rpki ?? []) {
+            if (server.description) found.push(`routing.rpki ${server.address} description`);
+        }
+
+        for (const [name, rules] of Object.entries(device.routing?.policies ?? {})) {
+            (rules ?? []).forEach((rule, index) => {
+                const where = `routing.policies.${name}[${index}]`;
+                if ("communities" in rule && rule.communities !== undefined)
+                    found.push(`${where}.communities, a rule the platform does not write`);
+                if (!JunosBgp.isRouteRule(rule)) return;
+
+                if (rule.set?.preferred_source) found.push(`${where}.set.preferred_source`);
+                if (rule.if?.prefix && rule.if.prefix_length) found.push(`${where}.if.prefix with prefix_length`);
+
+                const match = rule.if ?? {};
+                const regexes = [
+                    ...(match.as_path_length ? (["as_path_length"] as const) : []),
+                    ...JunosBgp.AS_FIELDS.filter((field) => match[field] !== undefined && !JunosBgp.listable(match[field])),
+                ];
+                if (regexes.length > 1)
+                    found.push(
+                        `${where}.if.${regexes[1]} with ${regexes[0]}: Junos matches both by regular expression and joins two of those by OR. Leave AS 0 and AS 4294967295 out, which only a regular expression matches, or match each in a rule of its own`
+                    );
+            });
+        }
+
+        // A rule takes its family from its prefix set, so a set holds one.
+        for (const [name, set] of Object.entries(device.routing?.prefix_sets ?? {})) {
+            const families = new Set(JunosBgp.prefixesOf(set ?? { prefixes: [] }).map((prefix) => Address.family(Address.host(prefix))));
+            if (families.size > 1)
+                found.push(`routing.prefix_sets.${name}.prefixes of both families, a policy rule takes its family from them`);
+        }
+
+        return found;
+    }
 }
