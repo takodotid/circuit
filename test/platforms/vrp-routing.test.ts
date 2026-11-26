@@ -211,3 +211,13 @@ test("a default route to a neighbor is default-route-advertise in its family, pr
         "quit",
     ]);
 });
+
+test("graceful restart is one setting for every session, so one on only some neighbors is refused", () => {
+    expect(vrp.render(sessions({ graceful_restart: true }))).toContain("bgp 65001\n router-id 192.0.2.250\n graceful-restart\n");
+
+    const some = sessions({});
+    some.routing!.bgp!.neighbors!.transit!.graceful_restart = true;
+    expect(vrp.unsupported(some)).toEqual([
+        "routing.bgp.neighbors.transit.graceful_restart, but not on member: the platform turns it on for every session at once. Set it on every neighbor or on none",
+    ]);
+});

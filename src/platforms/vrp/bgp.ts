@@ -101,6 +101,18 @@ export class VrpBgp {
             if (neighbor) found.push(...VrpBgp.neighborGaps(device, `routing.bgp.neighbors.${name}`, neighbor));
         }
 
+        // A CE6855 refused `peer <address> graceful-restart`: `graceful-restart` in the BGP view is for every session.
+        const graceful = Object.entries(bgp?.neighbors ?? {}).map(([name, neighbor]) => ({
+            name,
+            on: !!neighbor && !!VrpBgp.settingsOf(device, neighbor).graceful_restart,
+        }));
+        const first = graceful.find(({ on }) => on)?.name;
+        const without = graceful.filter(({ on }) => !on).map(({ name }) => name);
+        if (first && without.length)
+            found.push(
+                `routing.bgp.neighbors.${first}.graceful_restart, but not on ${without.join(", ")}: the platform turns it on for every session at once. Set it on every neighbor or on none`
+            );
+
         for (const [name, rules] of Object.entries(device.routing?.policies ?? {})) {
             (rules ?? []).forEach((rule, index) => {
                 const where = `routing.policies.${name}[${index}]`;
@@ -233,6 +245,8 @@ export class VrpBgp {
         const bgp = device.routing!.bgp!;
         const routerId = device.routing?.router_id;
         const lines = [`bgp ${bgp.asn}`, ...(routerId ? [` router-id ${routerId}`] : [])];
+        // One setting for every session: `unsupported()` refuses it on only some.
+        if (neighbors.some((neighbor) => VrpBgp.settingsOf(device, neighbor).graceful_restart)) lines.push(" graceful-restart");
         const families: Record<Family, string[]> = { ipv4: [], ipv6: [] };
         const evpn: string[] = [];
 
@@ -320,7 +334,7 @@ export class VrpBgp {
         const found: string[] = [];
         const notBuilt = "not built yet";
 
-        for (const key of ["role", "bfd", "graceful_restart", "vrf"] as const)
+        for (const key of ["role", "bfd", "vrf"] as const)
             if (settings[key] !== undefined && settings[key] !== false) found.push(`${where}.${key}, ${notBuilt}`);
         if (settings.routing_table && settings.routing_table !== "main") found.push(`${where}.routing_table, ${notBuilt}`);
 
