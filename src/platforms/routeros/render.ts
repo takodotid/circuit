@@ -22,6 +22,7 @@ import { RouterOsRouting } from "./routing";
 import { RouterOsSchedulers } from "./schedulers";
 import { RouterOsSyntax } from "./syntax";
 import { RouterOsVlanTags } from "./vlan-tags";
+import { RouterOsVlanTranslation } from "./vlan-translation";
 
 /** A property value as a command takes it. `undefined` and `false` leave the property out. */
 export type Value = string | number | undefined | false;
@@ -227,6 +228,7 @@ export class RouterOsRender {
         this.eoip();
         this.lags();
         RouterOsVlanTags.render(this, this.device);
+        RouterOsVlanTranslation.vlanInterfaces(this, this.device);
         this.tunnels();
         RouterOsEvpn.vxlans(this, this.device);
         this.wireguard();
@@ -498,7 +500,7 @@ export class RouterOsRender {
         }
     }
 
-    /** A switched port or LAG joins the bridge. Its untagged VLAN is its port VLAN ID. A port in a secondary VLAN (RFC 5517) is in its primary VLAN, and an isolated one is kept from the others by its split horizon. A QinQ port takes every frame as untagged, and tags it. */
+    /** A switched port or LAG joins the bridge. Its untagged VLAN is its port VLAN ID. A port in a secondary VLAN (RFC 5517) is in its primary VLAN, and an isolated one is kept from the others by its split horizon. A QinQ port takes every frame as untagged, and tags it. A VLAN a port translates joins through a port of its own. */
     private bridgePorts(): void {
         for (const [port, settings] of this.switched()) {
             const isTrunk = Boolean(settings.trunk_vlans);
@@ -518,8 +520,8 @@ export class RouterOsRender {
                 edge: stp?.edge ? "yes" : undefined,
                 "frame-types": frameTypes,
                 horizon: this.horizon(port, secondary?.type === "isolated"),
-                // The bridge NAT sees only what the CPU switches, not what a switch chip offloads (TRAPS.md).
-                hw: settings.bound_to ? "no" : undefined,
+                // The bridge NAT, and a VLAN interface on the port, see only what the CPU switches, not what a switch chip offloads (TRAPS.md).
+                hw: settings.bound_to || settings.vlan_translation ? "no" : undefined,
                 interface: this.name(port),
                 "path-cost": stp?.cost,
                 priority: RouterOsSyntax.hex(stp?.priority),
@@ -530,6 +532,7 @@ export class RouterOsRender {
                 "trusted-ra": RouterOsSyntax.yesWhen(settings.ra_trusted),
             });
         }
+        RouterOsVlanTranslation.bridgePorts(this, this.device);
     }
 
     /** The split horizon of a bridge port: an isolated port's, a pseudowire's, or none. */
@@ -538,12 +541,15 @@ export class RouterOsRender {
         return this.device.interfaces?.pseudowire?.[port] ? RouterOsPseudowire.HORIZON : undefined;
     }
 
-    /** A VLAN is tagged on every trunk carrying it, and on the bridge itself when the router has an interface in it. */
+    /** A VLAN is tagged on every trunk carrying it, but one that carries it translated, and on the bridge itself when the router has an interface in it. */
     private bridgeVlans(): void {
         for (const [vlanName, vlan] of RouterOsSyntax.entries(this.device.switching?.vlans)) {
             const routedHere = this.declaredVlanInterfaces().some(([, iface]) => iface.vlan === vlanName);
             const trunks = this.switched()
-                .filter(([, settings]) => settings.trunk_vlans?.includes(vlanName))
+                .filter(
+                    ([, settings]) =>
+                        settings.trunk_vlans?.includes(vlanName) && !settings.vlan_translation?.some(({ to }) => to === vlanName)
+                )
                 .map(([port]) => this.name(port));
             const tagged = [...(routedHere ? [RouterOsVlanTags.BRIDGE] : []), ...trunks];
             if (!tagged.length) continue;

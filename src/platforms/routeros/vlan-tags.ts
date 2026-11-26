@@ -110,16 +110,13 @@ export class RouterOsVlanTags {
         return [...outer];
     }
 
-    /** What the router can't build: QinQ beside snooping, VLAN translation, and a TPID for some switched ports only. What is untested on an 802.1ad bridge. An inner VLAN interface with a MAC, or without a free name for its outer one. */
+    /** What the router can't build: QinQ beside snooping, and a TPID for some switched ports only. What is untested on an 802.1ad bridge. An inner VLAN interface with a MAC, or without a free name for its outer one. */
     static unsupported(device: Device): string[] {
         const found: string[] = [];
 
         for (const field of ["dhcp_snooping", "ra_guard"] as const)
             for (const { where, settings } of device.switching?.[field] ? Derive.switchedHolders(device) : [])
                 if (settings.qinq_vlan) found.push(`${where}.qinq_vlan beside switching.${field}, which the platform runs on every VLAN`);
-        // A switch rule changes a VLAN ID as a frame comes in only, and exactly between two ports only.
-        for (const { where, settings } of Derive.switchedHolders(device))
-            if (settings.vlan_translation) found.push(`${where}.vlan_translation, RouterOS changes a VLAN ID only as a frame comes in`);
         const holders = Derive.switchedHolders(device).filter(
             ({ settings }) =>
                 !("in_lag" in settings && settings.in_lag) && (settings.access_vlan || settings.trunk_vlans || settings.qinq_vlan)
@@ -140,7 +137,7 @@ export class RouterOsVlanTags {
             for (const { where, settings } of holders) {
                 // An 802.1ad bridge sends its BPDUs to another address than the one `stp: false` drops (MikroTik's manual, Bridging and Switching).
                 if (settings.stp === false) found.push(`${where}.stp false, ${RouterOsVlanTags.UNTESTED}`);
-                for (const field of ["ethertypes", "ingress_acl", "bound_to"] as const)
+                for (const field of ["ethertypes", "ingress_acl", "bound_to", "vlan_translation"] as const)
                     if ((settings as Partial<Record<typeof field, unknown>>)[field] !== undefined)
                         found.push(`${where}.${field}, ${RouterOsVlanTags.UNTESTED}`);
             }

@@ -30,6 +30,7 @@ import { RouterOsEvpn } from "./evpn";
 import { RouterOsIpsec } from "./ipsec";
 import { RouterOsRemoteAccess } from "./remote-access";
 import { RouterOsRsvpTe } from "./rsvp-te";
+import { RouterOsVlanTranslation } from "./vlan-translation";
 import { RouterOsExport } from "./export";
 import { RouterOsPlan } from "./plan";
 import { Catalog } from "../../core/catalog";
@@ -299,6 +300,7 @@ export class RouterOs extends Platform {
         found.push(...RouterOsFirewall.natGaps(device));
         found.push(...RouterOsVlanTags.unsupported(device));
         found.push(...RouterOsBridgeFilters.unsupported(device));
+        found.push(...RouterOsVlanTranslation.unsupported(device));
         for (const [name, vlan] of RouterOsSyntax.entries(device.switching?.vlans))
             if (vlan.private_vlan?.type === "community")
                 found.push(
