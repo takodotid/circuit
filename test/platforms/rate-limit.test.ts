@@ -302,7 +302,7 @@ test("VRP polices a port through a CAR profile, only with --experimental", () =>
     const text = Platforms.get("vrp").render(vrp);
     expect(text).toContain("qos car rate-limit-10g-3 cir 200000 cbs 250000");
     expect(text).toContain(
-        "interface 10GE1/0/3\n port default vlan 10\n qos car inbound rate-limit-10g-3\n qos lr cir 1500000 outbound\n#"
+        "interface 10GE1/0/3\n port default vlan 10\n qos car inbound rate-limit-10g-3\n qos lr cir 1500000 kbps outbound\n#"
     );
 });
 

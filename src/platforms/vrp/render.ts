@@ -230,8 +230,14 @@ export class VrpRender {
     private static rateLimitLines(name: string, rateLimit: RateLimit | undefined): string[] {
         const lines: string[] = [];
         if (rateLimit?.input) lines.push(`qos car inbound ${VrpRender.carName(name)}`);
-        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.rate(rateLimit.output)} outbound`);
+        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.outputRate(rateLimit.output)} outbound`);
         return lines;
+    }
+
+    /** The switch prints a rate limit on what leaves with its unit: `cir 95000 kbps`. How it prints one with a burst is not proven yet, so that is written as the switch takes it. */
+    private static outputRate(limit: Limit): string {
+        const rate = VrpRender.rate(limit);
+        return Derive.limit(limit).burst === undefined ? `${rate} kbps` : rate;
     }
 
     /** The CAR profile of a port or a LAG, by its name in the config: `rate-limit-10g-1`. */
