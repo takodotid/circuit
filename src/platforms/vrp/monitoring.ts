@@ -183,9 +183,12 @@ export class VrpMonitoring {
         });
 
         if (monitoring.transceivers !== undefined) found.push("monitoring.transceivers");
+        // A CE6855 loads a CA into an SSL policy only from a file: "The file to be loaded does not exist in flash:/security/".
         (monitoring.syslog ?? []).forEach((collector, index) => {
             if (collector.transport_security)
-                found.push(`monitoring.syslog[${index}].transport_security, which the platform does not build`);
+                found.push(
+                    `monitoring.syslog[${index}].transport_security, the switch loads a CA only from a file on its flash, which Circuit does not copy there`
+                );
         });
         for (const key of ["active_timeout", "idle_timeout"] as const)
             if (monitoring.flow_export?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, which the platform does not build`);

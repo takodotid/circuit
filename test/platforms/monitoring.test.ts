@@ -318,3 +318,12 @@ test("VRP refuses a community's receiver, which the switch takes away only by th
         "monitoring.snmp.traps[0].community, the switch takes a receiver away only by its community, which it keeps as a cipher Circuit can't read back: write user"
     );
 });
+
+test("VRP refuses syslog over TLS, whose CA the switch loads from a file", () => {
+    const device = monitored("platforms--example-switch", [], {
+        syslog: [{ address: "192.0.2.20", level: "info", transport_security: { ca_certificate: "noc-ca" } }],
+    });
+    expect(Platforms.get("vrp").unsupported(device)).toContain(
+        "monitoring.syslog[0].transport_security, the switch loads a CA only from a file on its flash, which Circuit does not copy there"
+    );
+});
