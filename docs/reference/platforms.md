@@ -79,7 +79,7 @@ A note in a cell means "works, with this limit".
 | IPsec liveness, NAT-T           | ❌                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | ✅ no NAT keepalive interval with NAT-T always  |
 | IPsec carrying IPv6             | ❌                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | ✅ one IPv6 address, without a peer             |
 | IPsec with certificates         | ❌                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | ✅                                              |
-| IPsec, the peer's identity      | ❌                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | 🧪 its subject only                             |
+| IPsec, the peer's identity      | ❌                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | its subject only                                |
 | IPsec, the tunnel in a VRF      | ❌                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | ✅ the tunnel's interface                       |
 | WireGuard                       | ✅                                                                                         | ❌                                 | ❌                                  | ❌                                                                                            | ❌                                              |
 | PPPoE client                    | ✅ with a delegated IPv6 prefix and a prefix or length hint, SLAAC, and in a VRF           | ❌                                 | ❌                                  | ❌                                                                                            | 🧪 SLAAC, in a VRF; no MTU, no delegated prefix |
@@ -95,7 +95,7 @@ A note in a cell means "works, with this limit".
 
 FortiOS refuses `rate_limit.per_prefix`. Its per-IP shaper counts every packet of a session, both ways, against the address that started the session, so a session started from outside would count against the far end, not the customer.
 
-A FortiOS tunnel's `remote_identity` stays experimental: in a test between two VDOMs of one FortiGate, the tunnel took a certificate of its CA with another subject. A tunnel with `ca_certificate` alone took a certificate of a CA the VDOM doesn't hold. The other VDOM of the same FortiGate held each of those certificates, which may be why. A test against a peer on another device is still to do.
+A FortiOS tunnel matches `remote_identity` against each part of the subject of the peer's certificate, whole: `CN=branch-1` doesn't take `CN=branch-10`.
 
 A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and the routes through it in the VRF, while IKE and ESP leave from `local_address` in the table that holds it. RouterOS runs IKE in the main table only, so a policy-based tunnel there takes no VRF.
 
@@ -272,7 +272,7 @@ Trust for each port, whether a port keeps the DSCP or PCP a packet arrives with,
 | Flow timeouts                     | ✅                              | 🧪 NetFlow 9                    | ❌                | ❌ sFlow only          | 🧪                                |
 | ICMP probes                       | ✅                              | ✅                              | ❌                | 🧪                     | ✅ not in a VRF                   |
 | Web, API, certificates            | ✅                              | ❌ no web interface or PKI      | ❌                | web, API               | ✅                                |
-| Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | 🧪                                |
+| Revoked certificates (CRL)        | ✅ on each CA, once on one      | ❌ no certificates              | ❌                | ❌ no certificates     | ✅                                |
 | Management in a VRF               | ✅ not FTP                      | ❌ by interface, not VRF        | ❌                | 🧪 the REST API only   | ✅                                |
 | SNMP in a VRF                     | ✅                              | 🧪                              | ❌                | ❌ another community   | 🧪 no traps                       |
 | NTP, DNS, syslog, RADIUS in a VRF | ✅                              | ✅                              | ❌                | syslog; 🧪 NTP, RADIUS | ❌ needs 7.6.1                    |
@@ -283,7 +283,7 @@ On FortiOS a management service, and SNMP, answer on the interfaces of their VRF
 The list of certificates a CA revoked, its `crl_url`, comes over HTTP:
 
 - **RouterOS.** It checks certificates against the lists for the whole router, so each CA of the device takes a `crl_url` once one does. It refuses a certificate that points to the list of its CA while it holds no list of that CA.
-- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is, from Fortinet's 6.2 reference. No FortiGate has fetched one yet: no HTTP server was in reach of the test VDOMs.
+- **FortiOS.** An entry of `vpn certificate crl`, named as the CA is. The FortiGate fetches the list as soon as the plan adds the entry. Fortinet documents a new fetch once the list expires, at the next update it gives. In multi-VDOM mode the list comes from root, as the certificates are root's, by root's routes, not the management VDOM's.
 
 OCSP (RFC 6960) is built on no platform. RouterOS has none, and no FortiGate in CI could try FortiOS's.
 
