@@ -401,7 +401,10 @@ export class Junos extends Platform {
         if (flow && flow.protocol !== "sflow") found.push(`monitoring.flow_export.protocol ${flow.protocol}, the platform exports sFlow`);
         if (flow?.protocol === "sflow" && flow.sampling === undefined) found.push("monitoring.flow_export.sampling, the platform samples");
         for (const key of ["active_timeout", "idle_timeout"] as const)
-            if (flow?.[key] !== undefined) found.push(`monitoring.flow_export.${key}, the platform exports sFlow, which has no flows`);
+            if (flow?.[key] !== undefined)
+                found.push(
+                    `monitoring.flow_export.${key}, a QFX5100 exports sFlow only, which has no flows: Juniper lists IPFIX for no QFX5100`
+                );
 
         for (const name of flow?.interfaces ?? []) {
             if (names.members(name).some((port) => port.startsWith("em")))
