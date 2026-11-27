@@ -41,6 +41,7 @@ import { VrpNetStream } from "./netstream";
 import { VrpOspf } from "./ospf";
 import { VrpProbes } from "./probes";
 import { VrpQos } from "./qos";
+import { VrpRemovals } from "./removals";
 import { VrpRender } from "./render";
 import { VrpRoutedPorts } from "./routed-ports";
 import { VrpRouterAdvertisement } from "./router-advertisement";
@@ -489,19 +490,14 @@ export class Vrp extends Platform {
             ...(removedBatch ? [removedBatch] : []),
         ];
 
-        // An ACL still bound to a service cannot be removed, so ACLs go after every binding has moved.
-        const lastRemovals = top?.remove.filter((line) => /^acl (number \d+|(ipv6 )?name \S+ advance)$/.test(line)) ?? [];
-        // A DHCPv6 pool goes once its VLAN interface lets go of it.
-        const pools = top?.remove.filter((line) => line.startsWith("dhcpv6 pool ")) ?? [];
-        // A LAG goes once its members have left it: before, the switch refuses with "the trunk has member interfaces".
-        const lags = top?.remove.filter((line) => /^interface Eth-Trunk\d+$/.test(line)) ?? [];
         const unused = VrpBgp.order(groups, desired, Vrp.DIALECT);
         const isis = VrpIsis.removed(top);
         const mpls = VrpMpls.removed(top);
 
+        // A LAG that goes leaves its MUX VLAN first, which `leaveMux` finds among the top level's removals.
         const leaving = VrpSwitching.leaveMux(groups, current);
-        const later = [...firstRemovals, ...lastRemovals, ...pools, ...lags];
-        if (top) top.remove = top.remove.filter((line) => !later.includes(line));
+        const late = VrpRemovals.taken(top, (line) => Vrp.undo(line));
+        if (top) top.remove = top.remove.filter((line) => !firstRemovals.includes(line));
         const through = VrpRoutes.throughInterfaces(top);
         const hosts = VrpSwitching.hostLines(top);
 
@@ -523,12 +519,11 @@ export class Vrp extends Platform {
         VrpRoutes.place(planned, hosts, (line) => Vrp.undo(line), "Hosts of bound ports");
 
         planned.push(
-            ...Vrp.removal("LAGs no longer used", lags),
-            ...Vrp.removal("ACLs no longer used", lastRemovals),
-            ...Vrp.removal("DHCPv6 pools no longer used", pools),
+            ...late.afterInterfaces,
             ...Vrp.removal("DiffServ domains no longer used", domains),
             ...Vrp.removal("IS-IS no longer used", isis),
             ...Vrp.removal("MPLS no longer used", mpls),
+            ...late.afterMpls,
             ...Vrp.removal("Route policies and lists no longer used", unused),
             ...Vrp.removal("ICMP probes no longer used", probes),
             ...reserved.last
