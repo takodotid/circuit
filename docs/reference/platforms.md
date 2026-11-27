@@ -100,6 +100,8 @@ A FortiOS tunnel matches `remote_identity` against each part of the subject of t
 
 A route-based tunnel in a VRF on FortiOS has its interface, its addresses, and the routes through it in the VRF, while IKE and ESP leave from `local_address` in the table that holds it. RouterOS runs IKE in the main table only, so a policy-based tunnel there takes no VRF.
 
+RouterOS refuses a route-based tunnel. 7.24 has no XFRM interface. On 7.25.2, the newest stable release, a policy bound to an XFRM interface after an export of `/ip ipsec` took every packet, the router's management too, and Circuit's read exports the router before each plan. A second XFRM interface's policy did the same with no export. Write a policy-based tunnel in `firewall.ipsec`.
+
 ### Routing
 
 | Feature                      | RouterOS                    | VRP                         | Raisecom ROS                      | Junos                 | FortiOS          |
