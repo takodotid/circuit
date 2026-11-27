@@ -326,6 +326,20 @@ test("VRP writes a burst in bytes as the switch prints it, and sends a CAR profi
     ]);
 });
 
+test("VRP removes a port's CAR profile only once the port lets go of it", () => {
+    const render = (port: object) => Platforms.get("vrp").render(device("vrp", "CE6855-48S6Q-HI", { ethernet: { "10g-48": port } }));
+    const steps = Platforms.get("vrp").plan(render({ description: "Spare" }), render({ rate_limit: { input: "200M" } }), options).steps;
+    const titles = steps.map((step) => step.title);
+
+    // A CE6855 refused it before: "The QoS CAR template cannot be deleted, because it has been used".
+    expect(titles.indexOf("CAR profiles no longer used")).toBeGreaterThan(titles.indexOf("interface 10GE1/0/48"));
+    expect(steps.find((step) => step.title === "interface 10GE1/0/48")!.send).toContain("undo qos car inbound");
+    expect(steps.find((step) => step.title === "CAR profiles no longer used")!.send).toEqual(["undo qos car rate-limit-10g-48"]);
+    expect(steps.filter((step) => step.title !== "CAR profiles no longer used").flatMap((step) => step.send)).not.toContain(
+        "undo qos car rate-limit-10g-48"
+    );
+});
+
 test("Raisecom ROS limits a port and a LAG in kbit/s, with the switch's own burst unless one is written, as a RAX721 with ROS 6.5.2 printed them", () => {
     const raisecom = device("raisecom-ros", "RAX721-C-6C48", {
         ethernet: { "10g-1": { access_vlan: "hosts", rate_limit: { input: "200M", output: { cir: "200M", bc: 250_000 } } } },
