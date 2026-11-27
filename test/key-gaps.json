@@ -200,7 +200,7 @@
         },
         "raisecom-ros": {
             "silent": [],
-            "untried": ["routing.static_routes[].blackhole"]
+            "untried": []
         },
         "junos": {
             "silent": [],

@@ -166,7 +166,7 @@ ${["redistribute", "redistribute6"].flatMap((list) => redistributed.map((source)
     ]);
 });
 
-test("FortiOS refuses passive, and another link type on a loopback; Raisecom ROS refuses IS-IS", () => {
+test("FortiOS refuses passive, and another link type on a loopback; Raisecom ROS refuses an interface the switch lacks", () => {
     const fortios = withIsis("platforms--example-firewall", core({ passive: true, network: "point-to-point" }, "10g-2"));
     expect(Platforms.get("fortios").unsupported(fortios)).toEqual(
         expect.arrayContaining([
@@ -176,7 +176,9 @@ test("FortiOS refuses passive, and another link type on a loopback; Raisecom ROS
     );
 
     const isis = core({}, "management");
-    expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain("routing.isis");
+    expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain(
+        "routing.isis.interfaces.loopback, IS-IS runs on routed ports, loopbacks, and VLAN interfaces here"
+    );
 });
 
 test("a NET ends in 00 after a system ID of three groups, a metric is wide, and IS-IS stays out of VRFs", () => {
@@ -586,7 +588,7 @@ set protocols isis topologies ipv6-unicast
 });
 
 // A CHR on RouterOS 7.24.6 takes no topology, and its LSPs carried IPv6 beside IPv4 in one topology (TRAPS.md).
-test("RouterOS and FortiOS refuse multi-topology, Raisecom ROS refuses IS-IS, and IS-IS needs IPv6 for it", () => {
+test("RouterOS, FortiOS, and Raisecom ROS refuse multi-topology, and IS-IS needs IPv6 for it", () => {
     const isis: Isis = { ...core({}, "uplink"), address_families: ["ipv4", "ipv6"], multi_topology: true };
     expect(Platforms.get("routeros").unsupported(withIsis("platforms--example-router", isis))).toContain(
         "routing.isis.multi_topology, RouterOS 7.24 routes IPv6 in IPv4's topology only"
@@ -595,7 +597,9 @@ test("RouterOS and FortiOS refuse multi-topology, Raisecom ROS refuses IS-IS, an
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
         "routing.isis.multi_topology, FortiOS routes IPv6 in IPv4's topology only"
     );
-    expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain("routing.isis");
+    expect(Platforms.get("raisecom-ros").unsupported(withIsis("platforms--example-core-switch", isis))).toContain(
+        "routing.isis.multi_topology, ROS 6.5.2 has none"
+    );
 
     const ipv4Only = withIsis("platforms--example-router", { ...core({}, "uplink"), multi_topology: true });
     const findings = Checks.run([ipv4Only], undefined).filter((finding) => finding.message.startsWith("routing.isis"));

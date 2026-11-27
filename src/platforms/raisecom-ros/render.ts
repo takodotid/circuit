@@ -5,6 +5,8 @@ import type { Device, Ethertype, Limit, Port, Prefix, RateLimit, Severity, SnmpU
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { RaisecomRosAcls } from "./acls";
+import { RaisecomRosBgp } from "./bgp";
+import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRouting } from "./routing";
 import { RaisecomRosServices } from "./services";
@@ -196,7 +198,7 @@ export class RaisecomRosRender {
             lines.push("!");
         }
 
-        lines.push(...RaisecomRosOspf.process(device));
+        lines.push(...RaisecomRosOspf.process(device), ...RaisecomRosIsis.process(device), ...RaisecomRosBgp.lines(device));
 
         // Storm control acts only once detection is on.
         if (Derive.ports(device).some(([, port]) => port.storm_control)) lines.push("storm-control detection enable");

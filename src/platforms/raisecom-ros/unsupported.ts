@@ -2,6 +2,8 @@ import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { Device, Port, RateLimit, Switched } from "../../model";
 import { RaisecomRosAcls } from "./acls";
+import { RaisecomRosBgp } from "./bgp";
+import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosRouting } from "./routing";
@@ -233,15 +235,18 @@ export class RaisecomRosUnsupported {
         const found: string[] = [];
         const routing = device.routing;
 
-        for (const field of ["bgp", "isis", "rpki"] as const) {
-            if (routing?.[field]) found.push(`routing.${field}`);
-        }
+        if (routing?.rpki) found.push("routing.rpki");
         if (routing?.mpls) found.push("routing.mpls, not built yet");
         for (const where of Derive.l3vpn(device)) found.push(`${where}, L3VPN, not built yet`);
         for (const where of Derive.vpls(device)) found.push(`${where}, a VPLS by BGP, not built yet`);
+        found.push(
+            ...RaisecomRosBgp.unsupported(device),
+            ...RaisecomRosIsis.unsupported(device, (name) => RaisecomRosUnsupported.routesHere(device, name))
+        );
 
         const ospf = routing?.ospf;
-        if (routing?.router_id && !ospf) found.push("routing.router_id without routing.ospf, only OSPF uses it here");
+        if (routing?.router_id && !ospf && !routing.bgp)
+            found.push("routing.router_id without routing.ospf or routing.bgp, only they use it here");
         if (ospf?.address_families?.includes("ipv6")) found.push("routing.ospf.address_families ipv6, OSPF runs for IPv4 here");
         // See TRAPS.md: the switch restarted minutes after a plan removed an OSPF process in a VRF.
         if (ospf?.vrf)
@@ -281,9 +286,11 @@ export class RaisecomRosUnsupported {
         for (const route of routing?.static_routes ?? []) {
             const where = `routing.static_routes ${route.prefix}`;
 
-            if (!route.next_hop || Address.family(route.prefix) === "ipv6") {
-                found.push(`${where}, only an IPv4 next_hop`);
+            if ((!route.next_hop && !route.blackhole) || Address.family(route.prefix) === "ipv6") {
+                found.push(`${where}, only an IPv4 next_hop or blackhole`);
             }
+            if (route.blackhole && (route.next_hop || route.interface || route.bfd))
+                found.push(`${where} blackhole, beside next_hop, interface, or bfd`);
 
             if (route.next_hop && route.interface && !RaisecomRosUnsupported.routesThrough(device, route.interface))
                 found.push(`${where} interface ${route.interface}, a route here names a routed port or a VLAN interface`);
@@ -300,7 +307,7 @@ export class RaisecomRosUnsupported {
     }
 
     /** Whether an interface routes: a routed port, a loopback, or a VLAN interface. */
-    private static routesHere(device: Device, name: string): boolean {
+    static routesHere(device: Device, name: string): boolean {
         const port = device.interfaces?.ethernet?.[name];
         return port
             ? RaisecomRosRouting.routes(port)
@@ -341,15 +348,12 @@ export class RaisecomRosUnsupported {
 
     private static services(device: Device): string[] {
         const found: string[] = [];
-        const routing = device.routing;
 
         // Address sets alone build nothing: `management.allow` may name one, and the project has put its addresses there.
         const { address_sets: _addressSets, ...firewall } = device.firewall ?? {};
 
         const refusedGroups: [string, unknown][] = [
             ["firewall", Object.keys(firewall).length ? firewall : undefined],
-            ["routing.policies", routing?.policies],
-            ["routing.prefix_sets", routing?.prefix_sets],
             ["system.hardware_offload", device.system?.hardware_offload],
         ];
 

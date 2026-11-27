@@ -3,6 +3,7 @@
 import { Address } from "../../core/address";
 import { Catalog } from "../../core/catalog";
 import type { Device, Port, Routed } from "../../model";
+import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosOspf } from "./ospf";
 
 export class RaisecomRosRouting {
@@ -37,7 +38,11 @@ export class RaisecomRosRouting {
 
     /** An interface's layer 3 lines: its VRF and addresses, the routing protocols that run on it, and its uRPF check (RFC 3704). */
     static layer3(device: Device, name: string, settings: Pick<Routed, "addresses" | "vrf"> & { urpf?: Routed["urpf"] }): string[] {
-        const lines = [...RaisecomRosRouting.addressLines(settings), ...RaisecomRosOspf.interfaceLines(device, name)];
+        const lines = [
+            ...RaisecomRosRouting.addressLines(settings),
+            ...RaisecomRosOspf.interfaceLines(device, name),
+            ...RaisecomRosIsis.interfaceLines(device, name),
+        ];
         if (settings.urpf?.ipv4) lines.push(`ip urpf ${settings.urpf.ipv4}`);
         return lines;
     }
@@ -86,18 +91,22 @@ export class RaisecomRosRouting {
         return sessions;
     }
 
-    /** IPv4 routes to a next hop, with the interface that reaches it when written, and with the BFD session that watches it. */
+    /** IPv4 routes to a next hop, with the interface that reaches it when written, and with the BFD session that watches it. A blackhole route goes to `null 0`. */
     static staticRoutes(device: Device): string[] {
         const sessions = RaisecomRosRouting.bfdSessions(device);
         const lines: string[] = [];
 
         for (const route of device.routing?.static_routes ?? []) {
             const { addr, len } = Address.split(route.prefix);
-            if (Address.family(addr) !== "ipv4" || !route.next_hop) continue;
+            if (Address.family(addr) !== "ipv4") continue;
+
+            const destination = `ip route ${route.vrf ? `vrf ${route.vrf} ` : ""}${addr} ${Address.netmask(len)}`;
+            if (route.blackhole) lines.push(`${destination} null 0`);
+            if (!route.next_hop) continue;
 
             const iface = route.interface ? RaisecomRosRouting.routeInterface(device, route.interface) : undefined;
             const session = route.bfd ? sessions.get(route.next_hop) : undefined;
-            let line = `ip route ${route.vrf ? `vrf ${route.vrf} ` : ""}${addr} ${Address.netmask(len)} ${route.next_hop}`;
+            let line = `${destination} ${route.next_hop}`;
             if (iface) line += ` ${iface}`;
             if (session) line += ` track bfd ${session.id}`;
             lines.push(line);

@@ -399,6 +399,10 @@ describe("samples", () => {
             "src/config/services.ts": ["64:ff9b::/96"],
             "src/platforms/fortios/plan.ts": ["64:ff9b::/96"],
             "test/platforms/nat64.test.ts": ["64:ff9b::/96", "64:ff9b::"],
+            // The upper half of the IPv4 space, on which Raisecom ROS writes a range of lengths over every route.
+            "src/platforms/raisecom-ros/policies.ts": ["128.0.0.0/1"],
+            "src/platforms/raisecom-ros/TRAPS.md": ["128.0.0.0/1"],
+            "test/platforms/raisecom-ros-bgp.test.ts": ["128.0.0.0/1"],
             // Global addresses from IANA's special-purpose registries, which Address.isGlobal must find global.
             "test/core/address.test.ts": ["192.31.196.1", "192.0.0.9", "2620:4f:8000::1", "2001:1::1", "64:ff9b::c000:201"],
         };
