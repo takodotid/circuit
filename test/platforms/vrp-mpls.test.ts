@@ -155,6 +155,24 @@ test("VRP takes MPLS off the VLAN interfaces, then the switch's sessions, LDP, M
     ]);
 });
 
+test("VRP removes the loopback that holds the LSR ID only once MPLS has let go of it", () => {
+    const without = routed(undefined);
+    const withoutLoopback: Device = {
+        ...without,
+        interfaces: { ...without.interfaces, loopback: undefined },
+        routing: { ...without.routing, ospf: { areas: { "0.0.0.0": { interfaces: { core: { cost: 10 } } } } } },
+    };
+    const steps = vrp.plan(vrp.render(withoutLoopback), printed(vrp.render(routed(LDP))), options).steps;
+    const titles = steps.map((step) => step.title);
+
+    // A CE6855 refused the loopback before: "Cannot delete this interface because the primary IP address of this interface is used as MPLS LSR ID".
+    expect(titles.indexOf("Loopbacks no longer used")).toBe(titles.indexOf("MPLS no longer used") + 1);
+    expect(steps.find((step) => step.title === "Loopbacks no longer used")!.send).toEqual(["undo interface LoopBack0"]);
+    expect(steps.filter((step) => step.title !== "Loopbacks no longer used").flatMap((step) => step.send)).not.toContain(
+        "undo interface LoopBack0"
+    );
+});
+
 test("a policy with no rule that decides an IPv4 label gives none", () => {
     const device = routed({ ldp: { ...LDP.ldp, export_policy: "ipv6" } });
     const withPolicy = {
