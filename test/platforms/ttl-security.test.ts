@@ -123,7 +123,7 @@ test("Junos refuses GTSM on an iBGP session, as the switch fails ttl 255 there i
     );
 });
 
-test("FortiOS refuses GTSM, and Raisecom ROS refuses BGP itself", () => {
+test("FortiOS and Raisecom ROS refuse GTSM", () => {
     // On a FG-3700D with FortiOS 6.2.2, a neighbor's `set ttl-security-hops` was `command parse error`.
     const fortios = withNeighbor("platforms--example-firewall", "arelion", { address: "203.0.113.9", remote_as: 1299, ttl_security: true });
     expect(Platforms.get("fortios").unsupported(fortios)).toContain(
@@ -135,5 +135,7 @@ test("FortiOS refuses GTSM, and Raisecom ROS refuses BGP itself", () => {
         neighbors: { transit: { address: "203.0.113.1", remote_as: 6939, ttl_security: true } },
     };
     const coreSwitch = Fixtures.device("platforms--example-core-switch");
-    expect(Platforms.get("raisecom-ros").unsupported({ ...coreSwitch, routing: { ...coreSwitch.routing, bgp } })).toContain("routing.bgp");
+    expect(Platforms.get("raisecom-ros").unsupported({ ...coreSwitch, routing: { ...coreSwitch.routing, bgp } })).toContain(
+        "routing.bgp.neighbors.transit.ttl_security, ROS 6.5.2 has none"
+    );
 });

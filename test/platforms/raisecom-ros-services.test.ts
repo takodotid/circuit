@@ -201,7 +201,7 @@ test("what the switch has none of, or was not tried, is refused with why", () =>
             "services.dhcp_relay.guests.servers 2001:db8::67, the switch relays to IPv4 servers here",
             "services.dhcpv6_server.guests, an interface here holds IPv4 addresses alone",
             "management.http, ROS 6.5.2 has no web interface",
-            "management.api_tls, the switch's API is NETCONF over SSH, which Circuit does not manage yet",
+            "management.api_tls, the switch's API is NETCONF over SSH, on port 830 whatever is set: ROS 6.5.2 has no line that changes it",
             "system.certificates, ROS 6.5.2 has no certificate store",
         ])
     );

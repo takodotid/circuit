@@ -114,7 +114,7 @@ test("RouterOS refuses two segments with one route target, EVPN routes beside ot
     ]);
 });
 
-test("FortiOS refuses EVPN, saying why, and Raisecom ROS refuses VXLAN and BGP", () => {
+test("FortiOS refuses EVPN, saying why, and Raisecom ROS refuses VXLAN and a BGP without its AS", () => {
     const reasons: Record<string, string> = {
         fortios: "EVPN: FortiOS 6.2 has none. EVPN over VXLAN needs 7.4",
     };
@@ -134,7 +134,7 @@ test("FortiOS refuses EVPN, saying why, and Raisecom ROS refuses VXLAN and BGP",
         const reason = reasons[platform];
         if (!reason) {
             expect(refused).toContain("interfaces.vxlan.vxlan-school");
-            expect(refused).toContain("routing.bgp");
+            expect(refused).toContain("routing.bgp.asn, absent: write it here or in circuit.ts");
             continue;
         }
         for (const where of ["interfaces.vxlan.vxlan-school", "routing.bgp.neighbor_groups.vteps.address_families l2vpn-evpn"])

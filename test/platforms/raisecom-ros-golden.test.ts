@@ -25,7 +25,7 @@ const V1_PREFIXES: [RegExp, string][] = [
     [/^stp\./, "switching.stp."],
     [/^management\.snmp/, "monitoring.snmp"],
     [/^management\.native$/, "management.native_protocol"],
-    [/^routing\.static (\S+), only an IPv4 next hop/, "routing.static_routes $1, only an IPv4 next_hop"],
+    [/^routing\.static (\S+), only an IPv4 next hop/, "routing.static_routes $1, only an IPv4 next_hop or blackhole"],
     [/^routing\.static (\S+) table,/, "routing.static_routes $1 routing_table,"],
     [/^routing\.rules, routing rules are/, "routing.policy_routing, policy routing is"],
     [/^vdoms,/, "system.vdoms,"],
@@ -120,5 +120,5 @@ test("fields a Raisecom switch can't take are refused, not skipped", () => {
 
     const found = platform.unsupported(device);
     expect(found).toContain(`interfaces.ethernet.${port}.ipv6_ra, ROS 6.5.2 has no setting that turns router advertisements on or off`);
-    expect(found).toContain("routing.router_id without routing.ospf, only OSPF uses it here");
+    expect(found).toContain("routing.router_id without routing.ospf or routing.bgp, only they use it here");
 });
