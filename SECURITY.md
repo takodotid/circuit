@@ -58,14 +58,14 @@ Never unpublish a version, because projects pin it. If someone changed a binary 
 
 The release workflow signs each release's `SHA256SUMS` with Circuit's Ed25519 release key, the repository secret `RELEASE_SIGNING_KEY`, in two formats:
 
-| File                | Format               | Checked by                                                                                      |
-| ------------------- | -------------------- | ----------------------------------------------------------------------------------------------- |
-| `SHA256SUMS.sig`    | Ed25519, base64      | Circuit, when it updates itself, on `circuit update`, and when it downloads a project's version |
-| `SHA256SUMS.sshsig` | `ssh-keygen -Y sign` | The install commands (`curl ... \| sh`, `irm ... \| iex`)                                       |
+| File                | Format               | Checked by                                                                                                       |
+| ------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `SHA256SUMS.sig`    | Ed25519, base64      | Circuit, when it updates itself, on `circuit update`, and when it downloads a project's version                  |
+| `SHA256SUMS.sshsig` | `ssh-keygen -Y sign` | The install commands (`curl ... \| sh`, `irm ... \| iex`), and Tako's Homebrew tap before it updates its formula |
 
 Circuit and the installers install a binary only when a key they carry signed `SHA256SUMS` and the binary matches it. The installers use `ssh-keygen -Y verify`, because PowerShell 5.1 and macOS's `openssl` have no Ed25519. Without `ssh-keygen`, they install nothing.
 
-To change the key, add the new public key beside the old one in `src/cli/signing.ts` and in both installers, and release. Then switch the secret to the new private key.
+To change the key, add the new public key beside the old one in `src/cli/signing.ts`, in both installers, and in the tap's `scripts/circuit-release.allowed_signers` (takodotid/homebrew-tap), and release. Then switch the secret to the new private key.
 
 ## How secrets are encrypted
 

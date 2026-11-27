@@ -29,7 +29,7 @@ On macOS and Linux, [Homebrew](https://brew.sh) installs Circuit from Tako's tap
 brew install takodotid/tap/circuit
 ```
 
-Homebrew then owns the `circuit` it installed. Update it with `brew upgrade takodotid/tap/circuit`, and remove it with `brew uninstall takodotid/tap/circuit`. Circuit doesn't update or remove itself there, and tells you the Homebrew command instead. Start a project with `circuit new`, as below.
+Homebrew then owns the `circuit` it installed. Update it with `brew upgrade takodotid/tap/circuit`, and remove it with `brew uninstall takodotid/tap/circuit`. Circuit doesn't update or remove itself there, and tells you the Homebrew command instead. The tap takes each stable release within an hour of it. Start a project with `circuit new`, as below.
 
 ## Start a project
 
