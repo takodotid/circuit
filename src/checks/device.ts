@@ -68,7 +68,8 @@ export class DeviceChecks {
             ...DeviceChecks.limits(device),
             ...OspfChecks.warnings(device),
             ...DeviceChecks.raWarnings(device),
-            ...ServicesChecks.warnings(device)
+            ...ServicesChecks.warnings(device),
+            ...QosChecks.warnings(device)
         );
 
         return findings;

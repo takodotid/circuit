@@ -491,6 +491,7 @@ export class RouterOs extends Platform {
                 "marking",
                 "marking-class",
                 "queues",
+                "qos-trust",
                 "ospf-ranges",
                 "ospf-priority",
                 "ospf-unicast-links",

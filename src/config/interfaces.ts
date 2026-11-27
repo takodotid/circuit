@@ -1,4 +1,4 @@
-import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, Rate, Secret } from "./common";
+import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, QosTrust, Rate, Secret } from "./common";
 import type { RouteDistinguisher, VrfRouteTargets } from "./routing";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
@@ -252,6 +252,10 @@ export type Port<
         rate_limit?: RateLimit;
         /** How this port sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */
         scheduler?: Scheduler;
+        /**
+         * Which marks of a packet that arrives on this port pick its class in `qos.classes`: its DSCP, its PCP, or both, the DSCP first. Write `["dscp"]` on a link to your own core, whose marks you trust. Nothing is trusted when absent or empty: the packet takes `default_class`, unless a marking rule gives it a class. Trust only picks the class: the packet leaves with the DSCP and PCP it came with, unless a marking rule writes them.
+         */
+        qos_trust?: readonly QosTrust[];
     };
 
 /** Limits the traffic through an interface to a rate, each way. Traffic above the rate waits in a queue or is dropped, as the platform does. */
@@ -318,6 +322,10 @@ export type VlanInterface<Vlan extends string, Vrf extends string, Scheduler ext
     rate_limit?: RateLimit;
     /** How this VLAN interface sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */
     scheduler?: Scheduler;
+    /**
+     * Which marks of a packet that arrives on this VLAN interface pick its class in `qos.classes`: its DSCP, its PCP, or both, the DSCP first. Write `["dscp"]` on a link to your own core, whose marks you trust. Nothing is trusted when absent or empty: the packet takes `default_class`, unless a marking rule gives it a class. Trust only picks the class: the packet leaves with the DSCP and PCP it came with, unless a marking rule writes them.
+     */
+    qos_trust?: readonly QosTrust[];
 };
 
 /** An interface that is always up and is not on any link. Use it for addresses that must not depend on a link. No packet arrives on it, so it has no `urpf`. */
@@ -350,6 +358,10 @@ export type Lag<Vlan extends string, Vrf extends string, Scheduler extends strin
         rate_limit?: RateLimit;
         /** How this LAG sends what leaves it, by class: one of `qos.schedulers`. One queue, first in first out, when absent. */
         scheduler?: Scheduler;
+        /**
+         * Which marks of a packet that arrives on this LAG pick its class in `qos.classes`: its DSCP, its PCP, or both, the DSCP first. Write `["dscp"]` on a link to your own core, whose marks you trust. Nothing is trusted when absent or empty: the packet takes `default_class`, unless a marking rule gives it a class. Trust only picks the class: the packet leaves with the DSCP and PCP it came with, unless a marking rule writes them.
+         */
+        qos_trust?: readonly QosTrust[];
     };
 
 /** A GRE tunnel. */

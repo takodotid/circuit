@@ -1,7 +1,7 @@
 // Classes, schedulers, and marking on FortiOS (decision 226), as a FG-3700D on FortiOS 6.2.2 took them in a test VDOM.
 
 import { expect, test } from "bun:test";
-import type { Device } from "../../src/model";
+import type { Device, QosTrust } from "../../src/model";
 import { FortiOs } from "../../src/platforms/fortios";
 
 const platform = new FortiOs();
@@ -17,7 +17,7 @@ const firewall: Device = {
     management: { allow: ["192.0.2.0/24"], ssh: {} },
     interfaces: {
         ethernet: {
-            "10g-1": { description: "Upstream", addresses: ["203.0.113.2/30"], scheduler: "wan" },
+            "10g-1": { description: "Upstream", addresses: ["203.0.113.2/30"], scheduler: "wan", qos_trust: ["dscp"] },
             "10g-2": { description: "Tenants", addresses: ["198.51.100.1/24"] },
         },
     },
@@ -74,7 +74,7 @@ test("classes are traffic classes from 2, and each DSCP a class lists is a shapi
         [
             "    edit 6",
             '        set name "voice-ef"',
-            '        set srcintf "any"',
+            '        set srcintf "port5"',
             '        set dstintf "any"',
             '        set srcaddr "all"',
             '        set dstaddr "all"',
@@ -89,6 +89,30 @@ test("classes are traffic classes from 2, and each DSCP a class lists is a shapi
     expect(policies).toContain('        set name "video-af41"');
     // The default class takes what no policy sorts.
     expect(policies).not.toContain("best-cs0");
+});
+
+test("a class's DSCP sorts only sessions from the interfaces that trust the DSCP, and FortiOS refuses trust in the PCP", () => {
+    const ethernet = firewall.interfaces!.ethernet!;
+    const trusting = (upstream: readonly QosTrust[], tenants: readonly QosTrust[]): Device => ({
+        ...firewall,
+        interfaces: {
+            ethernet: {
+                "10g-1": { ...ethernet["10g-1"], qos_trust: upstream },
+                "10g-2": { ...ethernet["10g-2"], qos_trust: tenants },
+            },
+        },
+    });
+    const both = section(platform.render(trusting(["dscp"], ["dscp"])), "firewall shaping-policy");
+    expect(both).toContain('        set name "voice-ef"\n        set srcintf "port5" "port6"');
+
+    // Trusted nowhere, a class's DSCP sorts nothing: only the marking rules give a session a class.
+    const none = section(platform.render(trusting([], [])), "firewall shaping-policy");
+    expect(none).not.toContain("voice-ef");
+    expect(none).toContain('set name "marking-3"');
+
+    expect(platform.unsupported(trusting(["dscp", "pcp"], []))).toEqual([
+        "interfaces.ethernet.10g-1.qos_trust pcp, FortiOS 6.2's shaping policies match no PCP: trust the DSCP alone",
+    ]);
 });
 
 test("a marking rule comes first, sets the DSCP, and gives the class of the DSCP it sets or the class it names", () => {
@@ -153,7 +177,7 @@ test("a scheduler is a shaping profile that queues, in whole percents of the int
     );
     expect(rendered).toMatch(/edit "port5"\n(?:.*\n)*? {8}set outbandwidth 100000\n {8}set egress-shaping-profile "wan"/);
     expect(platform.unsupported(firewall)).toEqual([]);
-    expect(platform.experimental(firewall)).toEqual([]);
+    expect(platform.experimental(firewall)).toEqual(["interfaces.ethernet.10g-1.qos_trust"]);
 });
 
 test("FortiOS refuses what its shaping policies and profiles can't hold", () => {

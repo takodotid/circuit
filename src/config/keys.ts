@@ -325,6 +325,7 @@ export const DEVICE = {
                 shaping: { algorithm: 0, mbps: 0 },
                 rate_limit: RATE_LIMIT,
                 scheduler: 0,
+                qos_trust: 0,
             },
         },
         lag: {
@@ -337,9 +338,12 @@ export const DEVICE = {
                 mac: 0,
                 rate_limit: RATE_LIMIT,
                 scheduler: 0,
+                qos_trust: 0,
             },
         },
-        vlan_interface: { "*": { ...BASE, vlan: 0, inner_vlan_id: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT, scheduler: 0 } },
+        vlan_interface: {
+            "*": { ...BASE, vlan: 0, inner_vlan_id: 0, mac: 0, proxy_arp: 0, rate_limit: RATE_LIMIT, scheduler: 0, qos_trust: 0 },
+        },
         bridge: { "*": { ...UNCHECKED, member_interfaces: 0 } },
         loopback: { "*": UNCHECKED },
         gre: { "*": { ...BASE, local_address: 0, remote_address: 0 } },

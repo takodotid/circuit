@@ -100,6 +100,7 @@ export class FortiOsUnsupported {
                 "marking",
                 "marking-class",
                 "queues",
+                "qos-trust",
                 "ospf-ranges",
                 "ospf-range-cost",
                 "ospf-priority",

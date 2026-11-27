@@ -1,4 +1,4 @@
-// Classes and schedulers on VRP. A DiffServ domain of Circuit's own puts each class's DSCPs or PCPs into one of a port's 8 queues, and every port trusts it. A port's scheduler sends its strict queue first (PQ) and the others by weight (DRR). A CE6855 on V200R005C00SPC800 took them on a spare port (TRAPS.md).
+// Classes and schedulers on VRP. A DiffServ domain of Circuit's own puts each class's DSCPs or PCPs into one of a port's 8 queues, and each port that trusts them takes it. The others take a domain that puts every PCP into the default class's queue. A port's scheduler sends its strict queue first (PQ) and the others by weight (DRR). A CE6855 on V200R005C00SPC800 took them on a spare port (TRAPS.md).
 
 import { Derive } from "../../core/derive";
 import type { Device, MarkingRule, Port, Rate } from "../../model";
@@ -12,8 +12,11 @@ export class VrpQos {
     /** A port's queues by their service class, queue 0 first. */
     private static readonly SERVICE_CLASSES = ["be", "af1", "af2", "af3", "af4", "ef", "cs6", "cs7"] as const;
 
-    /** The domain every port trusts. */
+    /** The domain of each port that trusts what the classes sort by. */
     private static readonly DOMAIN = "circuit";
+
+    /** The domain of each other port: it trusts the PCP, as a port does unless told otherwise, and puts every PCP in queue 0, the default class's. */
+    private static readonly UNTRUSTED = "circuit-untrusted";
 
     private static readonly DSCPS = 64;
 
@@ -52,7 +55,7 @@ export class VrpQos {
         return new Map(fallback ? [[fallback, 0], ...others.map((name, at) => [name, at + 1] as [string, number])] : []);
     }
 
-    /** What a port trusts: the DSCP when a class other than the default lists one, else the PCP. Nothing without classes. */
+    /** What the classes sort by: the DSCP when a class other than the default lists one, else the PCP. Nothing without classes. */
     static trust(device: Device): Trust | undefined {
         const qos = device.qos;
         if (!qos?.default_class) return undefined;
@@ -88,15 +91,30 @@ export class VrpQos {
                 lines.push(` ip-dscp-inbound ${dscp} phb ${classes[queue]} ${VrpQos.COLOR[dscp] ?? "green"}`);
         }
 
-        return [`diffserv domain ${VrpQos.DOMAIN}`, ...lines, "#"];
+        const untrusted = Derive.ports(device).some(([, port]) => !port.in_lag && !VrpQos.trusts(device, port));
+        const untrustedLines = Array.from({ length: VrpQos.PCPS - 1 }, (_, at) => ` 8021p-inbound ${at + 1} phb ${classes[0]} green`);
+        return [
+            `diffserv domain ${VrpQos.DOMAIN}`,
+            ...lines,
+            "#",
+            ...(untrusted ? [`diffserv domain ${VrpQos.UNTRUSTED}`, ...untrustedLines, "#"] : []),
+        ];
     }
 
-    /** A port's trust, then its scheduler. Every port trusts the domain, and keeps the PCP a packet arrives with. */
+    /** Whether a port trusts what the classes sort by. */
+    private static trusts(device: Device, port: Port): boolean {
+        const trust = VrpQos.trust(device);
+        return trust !== undefined && (port.qos_trust ?? []).includes(trust);
+    }
+
+    /** A port's trust, then its scheduler. A port that trusts what the classes sort by takes Circuit's domain, the others the untrusted one, and each keeps the PCP a packet arrives with. */
     static portLines(device: Device, port: Port): string[] {
         const trust = VrpQos.trust(device);
         if (!trust) return [];
 
-        const lines = [...(trust === "dscp" ? ["trust dscp"] : []), `trust upstream ${VrpQos.DOMAIN}`, "qos phb marking 8021p disable"];
+        const trusted = VrpQos.trusts(device, port);
+        const domain = trusted ? VrpQos.DOMAIN : VrpQos.UNTRUSTED;
+        const lines = [...(trusted && trust === "dscp" ? ["trust dscp"] : []), `trust upstream ${domain}`, "qos phb marking 8021p disable"];
         const scheduler = port.scheduler ? device.qos?.schedulers?.[port.scheduler] : undefined;
         if (!scheduler) return lines;
 
@@ -114,18 +132,18 @@ export class VrpQos {
         return lines;
     }
 
-    /** The service class a marking rule's packets take: the class it gives them, else the class of the DSCP it writes when ports trust the DSCP. Undefined when the queue stays as the port sorted it. */
+    /** The service class a marking rule's packets take: the class it gives them, else the class that lists the DSCP it writes. Else, by DSCP, the default class. Undefined when the queue stays as the port sorted it. */
     static markedClass(device: Device, rule: MarkingRule): string | undefined {
         const queues = VrpQos.queues(device);
         const set = rule.then.class;
         if (set !== undefined) return VrpQos.SERVICE_CLASSES[queues.get(set)!];
 
         const dscp = rule.then.dscp;
-        if (dscp === undefined || VrpQos.trust(device) !== "dscp") return undefined;
-        const holder = Object.entries(device.qos?.classes ?? {}).find(
-            ([name, settings]) => name !== device.qos?.default_class && settings?.dscp?.includes(dscp)
-        );
-        return VrpQos.SERVICE_CLASSES[holder ? queues.get(holder[0])! : 0];
+        const trust = VrpQos.trust(device);
+        if (dscp === undefined || !trust) return undefined;
+        const holder = Object.entries(device.qos?.classes ?? {}).find(([, settings]) => settings?.dscp?.includes(dscp));
+        if (holder) return VrpQos.SERVICE_CLASSES[queues.get(holder[0])!];
+        return trust === "dscp" ? VrpQos.SERVICE_CLASSES[0] : undefined;
     }
 
     /** What the classes and schedulers can't do here. */
@@ -162,6 +180,11 @@ export class VrpQos {
                 found.push(`${where}.rate, the platform takes a rate in whole kbit/s`);
         }
 
+        for (const { where, kind } of Derive.trusting(device))
+            if (kind === "vlan_interface")
+                found.push(
+                    `${where}.qos_trust on a VLAN interface: the switch sorts a packet on the port it arrives on. Write it on the VLAN's ports`
+                );
         for (const { where, kind } of Derive.scheduled(device))
             if (kind !== "ethernet")
                 found.push(
@@ -183,6 +206,7 @@ export class VrpQos {
         (device.qos?.marking ?? []).forEach((rule, index) => {
             if (rule.then.class !== undefined) found.push(`qos.marking[${index}].then.class`);
         });
+        for (const { where } of Derive.trusting(device)) found.push(`${where}.qos_trust`);
         return found;
     }
 

@@ -83,7 +83,7 @@ export type MarkingRule<I extends string, AS extends string, IS extends string, 
     then: Marking<C>;
 };
 
-/** A class of traffic: the packets that leave with one of its DSCPs, or that arrive with one of its PCPs. It lists one or both. */
+/** A class of traffic, by its DSCPs, its PCPs, or both: the packets that arrive with one of them where their port trusts it. A marking rule that writes one of its DSCPs puts a packet in it too. */
 export type QosClass =
     | {
           /** The DSCPs of its packets, such as `["af41", "af42", "af43"]` for video conferencing (RFC 4594). A DSCP is in one class at most. */
@@ -161,13 +161,20 @@ export type Scheduler<C extends string> = {
  */
 export type Qos<I extends string, AS extends string, IS extends string, C extends string = string, S extends string = string> = {
     /**
-     * Marks the packets the device routes, so the devices after it can tell their classes apart (RFC 2475). Rules in order: the first rule that matches marks the packet, and the rules after it are skipped. A packet that no rule matches keeps its DSCP. Packets the device sends or receives itself are not marked, nor packets it switches within a VLAN.
+     * Marks the packets the device routes, so the devices after it can tell their classes apart (RFC 2475). Rules in order: the first rule that matches marks the packet, and the rules after it are skipped. A packet that no rule matches keeps its DSCP. A rule gives a packet its class whatever its port trusts: the rule's `class`, else the class that lists the DSCP it writes. Packets the device sends or receives itself are not marked, nor packets it switches within a VLAN.
      *
      * FortiOS marks sessions, not packets: the rule that matches the first packet of a session marks every packet of it that goes the same way. The replies keep their DSCP.
      */
     marking?: Ordered<MarkingRule<I, AS, IS, NoInfer<C>>>;
     /**
-     * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates) or PCPs, such as `voice: { dscp: ["ef"], pcp: [5] }`. A packet takes the class a marking rule gives it, else the class that lists the DSCP it leaves with, after `marking`. Else it takes the class that lists the PCP it arrives with. `default_class` takes every other packet, so what it lists only shows what it holds. To sort packets by their address or port, mark their DSCP first in `marking`.
+     * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates) or PCPs, such as `voice: { dscp: ["ef"], pcp: [5] }`. A packet takes the first of these:
+     *
+     * 1. the class a marking rule gives it
+     * 2. where its port trusts the DSCP, the class that lists the DSCP it leaves with
+     * 3. where its port trusts the PCP, the class that lists the PCP it arrives with
+     * 4. `default_class`, so what it lists only shows what it holds
+     *
+     * A port trusts what its `qos_trust` lists, and nothing without it. To sort packets by their address or port, give them a class in `marking`.
      *
      * FortiOS sorts sessions, not packets: the first packet of a session picks the class of every packet of it, both ways. The firewall's own traffic takes `default_class`.
      */

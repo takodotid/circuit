@@ -44,7 +44,7 @@ function device(platform: string, model: string, port: string, more: object = {}
     return written as Device;
 }
 
-const queues = (found: string[]) => found.filter((field) => /qos\.|scheduler/.test(field));
+const queues = (found: string[]) => found.filter((field) => /qos[._]|scheduler/.test(field));
 
 /** The lines of `menu` in a render. */
 function menu(text: string, name: string): string[] {
@@ -65,7 +65,10 @@ test("RouterOS marks each class as it leaves the port, and queues it under the s
 
     const mark = (dscp: string, queue: string) =>
         `add action=mark-packet chain=postrouting ${dscp}new-packet-mark=ether2-uplink-${queue} out-interface=ether2 passthrough=no`;
+    // No port trusts the DSCP, so each routed packet is marked as trusting nothing, and takes the default class.
     const marks = [
+        "add action=mark-packet chain=forward new-packet-mark=qos-trust-none packet-mark=no-mark",
+        mark("", "best-effort").replace("passthrough", "packet-mark=qos-trust-none passthrough"),
         mark("dscp=48 ", "network"),
         mark("dscp=56 ", "network"),
         mark("dscp=46 ", "voice"),
@@ -111,9 +114,11 @@ test("RouterOS marks a class by the PCP a packet arrives with after every DSCP, 
     const text = adapter.render(sample);
     expect(adapter.plan(text, text, options).steps).toEqual([]);
 
-    const mark = (match: string, queue: string) =>
-        `add action=mark-packet chain=postrouting ${match}new-packet-mark=ether2-uplink-${queue} out-interface=ether2 passthrough=no`;
+    const mark = (match: string, queue: string, trust = "") =>
+        `add action=mark-packet chain=postrouting ${match}new-packet-mark=ether2-uplink-${queue} out-interface=ether2 ${trust}passthrough=no`;
     const marks = [
+        "add action=mark-packet chain=forward new-packet-mark=qos-trust-none packet-mark=no-mark",
+        mark("", "best-effort", "packet-mark=qos-trust-none "),
         mark("dscp=48 ", "network"),
         mark("dscp=56 ", "network"),
         mark("dscp=46 ", "voice"),
@@ -126,6 +131,63 @@ test("RouterOS marks a class by the PCP a packet arrives with after every DSCP, 
     ];
     expect(menu(text, "/ip firewall mangle")).toEqual(marks);
     expect(menu(text, "/ipv6 firewall mangle")).toEqual(marks);
+});
+
+test("RouterOS marks in the forward chain what each in-interface trusts, and sorts by DSCP or PCP only what arrived where it is trusted", () => {
+    const sample = device("routeros", "CHR", "virtual-2", {
+        interfaces: {
+            ethernet: {
+                "virtual-2": { addresses: ["198.51.100.1/30"], scheduler: "uplink" },
+                "virtual-3": { addresses: ["192.0.2.1/30"], qos_trust: ["dscp"] },
+                "virtual-4": { addresses: ["192.0.2.5/30"], qos_trust: ["pcp"] },
+                "virtual-5": { addresses: ["192.0.2.9/30"], qos_trust: ["pcp", "dscp"] },
+                "virtual-6": { addresses: ["192.0.2.13/30"], qos_trust: [] },
+            },
+        },
+        qos: {
+            marking: [
+                { if: { in_interface: "virtual-6", protocol: "udp", dst_port: 5060 }, then: { dscp: "ef" } },
+                { if: { in_interface: "virtual-6", protocol: "udp" }, then: { dscp: "cs3" } },
+                { if: { in_interface: "virtual-6" }, then: { pcp: 5 } },
+            ],
+            classes: { voice: { dscp: ["ef"], pcp: [5] }, "best-effort": { dscp: ["cs0"] } },
+            default_class: "best-effort",
+            schedulers: {
+                uplink: {
+                    rate: "400k",
+                    queues: [
+                        { class: "voice", priority: "strict", max: "100k" },
+                        { class: "best-effort", share: 100 },
+                    ],
+                },
+            },
+        },
+    });
+    const adapter = Platforms.get("routeros");
+
+    expect(queues(adapter.unsupported(sample))).toEqual([]);
+    const text = adapter.render(sample);
+    expect(adapter.plan(text, text, options).steps).toEqual([]);
+
+    const mark = (match: string, queue: string, trust = "") =>
+        `add action=mark-packet chain=postrouting ${match}new-packet-mark=ether2-uplink-${queue} out-interface=ether2 ${trust}passthrough=no`;
+    const mangle = menu(text, "/ip firewall mangle");
+    // A rule that writes a DSCP a class lists gives its class. One that writes another DSCP, or only a PCP, leaves what the port trusts.
+    expect(mangle).toEqual([
+        "add action=mark-packet chain=forward in-interface=ether3 new-packet-mark=qos-trust-dscp",
+        "add action=mark-packet chain=forward in-interface=ether4 new-packet-mark=qos-trust-pcp",
+        "add action=mark-packet chain=forward in-interface=ether5 new-packet-mark=qos-trust-dscp-pcp",
+        "add action=mark-packet chain=forward new-packet-mark=qos-trust-none packet-mark=no-mark",
+        "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-voice out-interface=ether2 packet-mark=voice passthrough=no",
+        "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-best-effort out-interface=ether2 packet-mark=qos-trust-none passthrough=no",
+        mark("dscp=46 ", "voice", 'packet-mark="!qos-trust-pcp" '),
+        mark("ingress-priority=5 ", "voice", 'packet-mark="!qos-trust-dscp" '),
+        mark("", "best-effort"),
+        "add action=mark-packet chain=forward dst-port=5060 in-interface=ether6 new-packet-mark=voice protocol=udp",
+        "add action=change-dscp chain=forward dst-port=5060 in-interface=ether6 new-dscp=46 passthrough=no protocol=udp",
+        "add action=change-dscp chain=forward in-interface=ether6 new-dscp=24 passthrough=no protocol=udp",
+        "add action=set-priority chain=forward in-interface=ether6 new-priority=5 passthrough=no",
+    ]);
 });
 
 test("RouterOS schedules a LAG and a VLAN interface by their own names", () => {
@@ -234,12 +296,13 @@ test("RouterOS gives a packet a marking rule's class: a mark of the class's name
     expect(adapter.plan(text, text, options).steps).toEqual([]);
 
     const mangle = menu(text, "/ip firewall mangle");
-    expect(mangle.slice(0, 3)).toEqual([
+    expect(mangle.slice(1, 4)).toEqual([
         "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-voice out-interface=ether2 packet-mark=voice passthrough=no",
         "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-bulk out-interface=ether2 packet-mark=bulk passthrough=no",
-        "add action=mark-packet chain=postrouting dscp=48 new-packet-mark=ether2-uplink-network out-interface=ether2 passthrough=no",
+        "add action=mark-packet chain=postrouting new-packet-mark=ether2-uplink-best-effort out-interface=ether2 packet-mark=qos-trust-none passthrough=no",
     ]);
     expect(mangle.filter((line) => line.includes("chain=forward"))).toEqual([
+        "add action=mark-packet chain=forward new-packet-mark=qos-trust-none packet-mark=no-mark",
         "add action=mark-packet chain=forward dst-port=5060 new-packet-mark=voice passthrough=no protocol=udp",
         "add action=mark-packet chain=forward dst-address=203.0.113.0/24 new-packet-mark=bulk",
         "add action=change-dscp chain=forward dst-address=203.0.113.0/24 new-dscp=8 passthrough=no",
@@ -254,7 +317,7 @@ test("RouterOS refuses a scheduler it can't build, or whose packets would skip t
         system: { users: {}, hardware_offload: true },
         switching: { vlans: { customers: { id: 20 } } },
         interfaces: {
-            ethernet: { "25g-1": { trunk_vlans: ["customers"], scheduler: "uplink" } },
+            ethernet: { "25g-1": { trunk_vlans: ["customers"], scheduler: "uplink", qos_trust: ["dscp"] } },
             vlan_interface: {
                 customers: { vlan: "customers", addresses: ["192.0.2.1/26"], hardware_offload: false, scheduler: "uplink" },
                 office: { vlan: "customers", addresses: ["192.0.2.65/26"], scheduler: "uplink" },
@@ -271,6 +334,7 @@ test("RouterOS refuses a scheduler it can't build, or whose packets would skip t
     expect(queues(Platforms.get("routeros").unsupported(sample))).toEqual([
         "qos.schedulers.uplink without rate: RouterOS holds packets in the queues only when more comes than a rate. Write rate, a little below the speed of each interface that takes it",
         "qos.schedulers.uplink.queues[0] strict without max: RouterOS sends a queue first only up to a rate it keeps for it. Write max, the most the class may send",
+        "interfaces.ethernet.25g-1.qos_trust on a switched port or LAG, whose routed packets arrive through a VLAN interface: write it there",
         "interfaces.ethernet.25g-1.scheduler on a switched port or LAG, whose routed packets leave through a VLAN interface: write it there",
         "interfaces.ethernet.25g-1.scheduler beside a fast_path rule, whose flows skip the mangle table and the queues: take fast_path off",
         "interfaces.ethernet.25g-1.scheduler while system.hardware_offload is on, whose routed traffic skips the queues: schedule a VLAN interface with hardware_offload: false",
@@ -343,6 +407,8 @@ test("validate says what is wrong in classes and schedulers", () => {
         "qos.schedulers.small.queues has no queue for voice, video, best-effort, empty, none: write one for each class, so none is left out",
         "qos.schedulers.small: the strict queues' max add up to the rate, 1M, or more, which leaves the weighted queues nothing. Lower a max, or raise the rate",
         "interfaces.ethernet.virtual-2.scheduler beside shaping, which also shapes what leaves: write the scheduler's rate, and leave shaping out",
+        'qos.classes: no port or interface trusts the DSCP, so a packet that arrives takes network, voice, video, best-effort, bulk only through a marking rule. Write qos_trust: ["dscp"] on each port whose DSCP you trust',
+        'qos.classes: no port or interface trusts the PCP, so a packet that arrives takes voice, video only through a marking rule. Write qos_trust: ["pcp"] on each port whose PCP you trust',
     ]);
 });
 
@@ -379,6 +445,7 @@ test("validate says what is wrong in a queue's depth and RED", () => {
         "qos.schedulers.uplink.queues[3].red.min_threshold_percent 80 is not below max_threshold_percent, 20: lower it, or raise the other",
         "qos.schedulers.uplink.queues[4].red.min_threshold_percent -1 is not a whole percent from 0 to 100",
         "qos.schedulers.uplink.queues[4].red.max_threshold_percent 100.5 is not a whole percent from 0 to 100",
+        'qos.classes: no port or interface trusts the DSCP, so a packet that arrives takes network, voice, video, bulk only through a marking rule. Write qos_trust: ["dscp"] on each port whose DSCP you trust',
     ]);
 });
 

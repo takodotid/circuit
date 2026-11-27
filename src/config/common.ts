@@ -58,6 +58,9 @@ export type Limit =
           bc: number;
       };
 
+/** What a port trusts in a packet that arrives on it: its DSCP (RFC 2474), or the PCP of its VLAN tag (IEEE 802.1Q). */
+export type QosTrust = "dscp" | "pcp";
+
 /** A log severity, from most to least severe. A threshold also takes every more severe level. */
 export type Severity = "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";
 

@@ -2,6 +2,7 @@ import { Address } from "../../core/address";
 import type { AclRule, DeterministicPoolNatRule, Device, Ethertype, Family, FilterMatch, Finding, NatRule, Ports } from "../../model";
 import { Derive } from "../../core/derive";
 import type { RouterOsRender } from "./render";
+import { RouterOsSchedulers } from "./schedulers";
 import { RouterOsSyntax } from "./syntax";
 
 /** One switch rule: the port it is on, the ACL rule it comes from, and the one source and destination port or range it takes. */
@@ -400,7 +401,7 @@ export class RouterOsFirewall {
     }
 
     /**
-     * Marking rewrites what the device routes, in the mangle table's forward chain, after the TCP MSS clamps. Each rule ends with `passthrough=no`, so the first that matches marks the packet. A PCP is the packet's priority, which its VLAN tag carries (TRAPS.md). A class is a packet mark of its name, which each scheduler moves into its queue. The DSCP changes last, or the next action would no longer match `dscp`.
+     * Marking rewrites what the device routes, in the mangle table's forward chain, after the TCP MSS clamps. Each rule ends with `passthrough=no`, so the first that matches marks the packet. A PCP is the packet's priority, which its VLAN tag carries (TRAPS.md). A class is a packet mark of its name (`RouterOsSchedulers.markedClass`). The DSCP changes last, or the next action would no longer match `dscp`.
      */
     private marking(family: Family): void {
         const menu = family === "ipv4" ? "/ip firewall mangle" : "/ipv6 firewall mangle";
@@ -410,7 +411,8 @@ export class RouterOsFirewall {
 
             const dscp = RouterOsFirewall.one(rule.if?.dscp);
             const match = { ...this.matchProperties(rule.if, family), dscp: dscp && Derive.DSCP[dscp] };
-            const { dscp: newDscp, pcp, class: queue } = rule.then;
+            const { dscp: newDscp, pcp } = rule.then;
+            const queue = RouterOsSchedulers.markedClass(this.device, rule);
             const actions = [
                 ...(pcp === undefined ? [] : [{ action: "set-priority", "new-priority": pcp }]),
                 ...(queue === undefined ? [] : [{ action: "mark-packet", "new-packet-mark": queue }]),
