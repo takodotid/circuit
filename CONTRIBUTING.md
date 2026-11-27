@@ -38,7 +38,7 @@ A backport is a stable version older than npm's `latest` of the same major versi
 
 - The workflow signs with the repository secret `RELEASE_SIGNING_KEY`, and stops without it. [Signed releases](SECURITY.md#signed-releases) says how to change the key.
 - npm takes the package through npm Trusted Publishing, without a token.
-- The formula in [Tako's Homebrew tap](https://github.com/takodotid/homebrew-tap) is written by `scripts/homebrew.ts`, and pushed with the secret `HOMEBREW_TAP_TOKEN` of the `release` environment: a fine-grained token that may write the contents of `takodotid/homebrew-tap` only.
+- [Tako's Homebrew tap](https://github.com/takodotid/homebrew-tap) follows stable releases by itself: its own workflow checks for a new release each hour, verifies its signed `SHA256SUMS`, and updates the formula. Circuit's workflow holds no token for the tap.
 - Each step skips what is already done, so you can run a failed workflow again.
 - Circuit updates itself only within its major version, so a new major version reaches nobody by itself.
 - Before a release candidate goes stable, run `circuit diff` with it against a real network's devices.
