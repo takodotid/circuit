@@ -2,6 +2,7 @@
 
 import { RaisecomRosBgp } from "./bgp";
 import { RaisecomRosIsis } from "./isis";
+import { RaisecomRosQos } from "./qos";
 
 export class RaisecomRosUndo {
     /** Lines whose opposite is not `no` and the line. */
@@ -25,7 +26,7 @@ export class RaisecomRosUndo {
 
     /** Lines whose removal takes only their keyword, not their value. */
     private static readonly BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum|switchport private-vlan host-association|switchport private-vlan mapping|tpid|gateway|lease expired)\b/;
+        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum|switchport private-vlan host-association|switchport private-vlan mapping|tpid|gateway|lease expired|mls qos trust|mls qos dscp-to-local-priority)\b/;
 
     static of(line: string, path: readonly string[] = []): string {
         for (const [pattern, opposite] of RaisecomRosUndo.OPPOSITES) if (pattern.test(line)) return opposite;
@@ -34,7 +35,7 @@ export class RaisecomRosUndo {
             return "no spanning-tree instance 0 priority";
         if (/^rule \d+/.test(line)) return `no ${line.split(" ").slice(0, 2).join(" ")}`;
 
-        const routing = RaisecomRosBgp.undo(line, path) ?? RaisecomRosIsis.undo(line);
+        const routing = RaisecomRosBgp.undo(line, path) ?? RaisecomRosIsis.undo(line) ?? RaisecomRosQos.undo(line);
         if (routing) return routing;
 
         // A VRRP group goes with its address, and its other settings return to their defaults by keyword. Preemption is on unless turned off.

@@ -66,6 +66,6 @@ test("each platform refuses two rates, with why", () => {
         "interfaces.ethernet.10g-1.rate_limit.input, two rates: a CE6855's CAR passes what exceeds with a service class and a color, not a DSCP. Write one rate",
     ]);
     expect(refusals("raisecom-ros", "RAX721-C-6C48", "10g-1", { access_vlan: "hosts", rate_limit: { input: TWO_RATES } })).toEqual([
-        "interfaces.ethernet.10g-1.rate_limit.input, two rates, which the platform does not build yet",
+        "interfaces.ethernet.10g-1.rate_limit.input, two rates: the switch polices them, but writes no DSCP on what exceeds, as a policer sets only a local priority. Write one rate",
     ]);
 });

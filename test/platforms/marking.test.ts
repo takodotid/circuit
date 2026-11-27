@@ -87,12 +87,11 @@ test("RouterOS refuses marking that packets would skip", () => {
     ]);
 });
 
-test("every other platform refuses marking, which it does not build", () => {
+test("Raisecom ROS refuses marking, as its traffic policy marks what a port switches too", () => {
     const rules = { qos: { marking: [{ then: { dscp: "cs0" } }] } };
-    for (const [platform, model] of [["raisecom-ros", "RAX721-C-6C48"]] as const)
-        expect(marking(Platforms.get(platform).unsupported(device(platform, model, rules)))).toEqual([
-            "qos.marking, which the platform does not build",
-        ]);
+    expect(marking(Platforms.get("raisecom-ros").unsupported(device("raisecom-ros", "RAX721-C-6C48", rules)))).toEqual([
+        "qos.marking, not built: the switch marks with a traffic policy on the port a packet arrives on, which marks what it switches within a VLAN as well as what it routes",
+    ]);
 });
 
 test("validate says what is wrong in a marking rule", () => {
