@@ -1,10 +1,10 @@
 import { Derive } from "../../core/derive";
-import type { Device, Finding, Lag, Port } from "../../model";
+import type { Device, Finding, Lag, Port, QosTrust } from "../../model";
 import type { JunosNames } from "./names";
 import { JunosStatements } from "./statements";
 
-/** A port or a LAG where packets arrive, as class-of-service names it, and whether its frames arrive without a VLAN tag. */
-type Arrival = { physical: string; routed: boolean; untagged: boolean };
+/** A port or a LAG where packets arrive, as class-of-service names it, whether its frames arrive without a VLAN tag, and what it trusts. */
+type Arrival = { physical: string; routed: boolean; untagged: boolean; trust: readonly QosTrust[] };
 
 /**
  * Classes and schedulers on a QFX5100: a forwarding class for each class, and classifiers on every port and LAG where packets arrive. Each scheduler is a scheduler map on each port and LAG that takes it. The switch classifies a packet as it arrives, so a class lists every DSCP or PCP it holds, the default class the rest.
@@ -26,6 +26,9 @@ export class JunosQos {
     /** The DSCP classifier and the IEEE 802.1p one. Each type has its own names. */
     static readonly CLASSIFIER = "circuit";
 
+    /** The classifiers of a port that trusts neither, each with every code point in the default class. Without a classifier of its own, a QFX5100 port takes a default one, which trusts the DSCP or the PCP (Juniper's QFX default classifiers). */
+    static readonly UNTRUSTED = "circuit-untrusted";
+
     /** Classes have no drop precedence, so every packet takes the lowest loss priority, which a forwarding class needs beside it. */
     static readonly LOSS_PRIORITY = "low";
 
@@ -40,9 +43,13 @@ export class JunosQos {
         return Object.entries(device.qos?.classes ?? {}).some(([name, settings]) => name !== fallback && settings?.pcp?.length);
     }
 
-    /** The class of a DSCP: the class that lists it, else the default class. */
-    static classOfDscp(device: Device, value: number): string {
-        return JunosQos.owner(device, "dscp", value);
+    /** The class a marking rule gives by the DSCP it writes: the class that lists it. Else, by DSCP, the default class. By PCP, the class the port gave stays. */
+    static classOfWritten(device: Device, value: number): string | undefined {
+        const listing = Object.entries(device.qos?.classes ?? {}).find(([, settings]) =>
+            (settings?.dscp ?? []).some((dscp) => Derive.DSCP[dscp] === value)
+        );
+        if (listing) return listing[0];
+        return JunosQos.byPcp(device) ? undefined : device.qos?.default_class;
     }
 
     static render(out: JunosStatements, device: Device, names: JunosNames): void {
@@ -65,10 +72,25 @@ export class JunosQos {
         }
 
         // A classifier sits on a switched port's unit 0, and on a routed port itself (Juniper's CoS support by platform). With both, IP takes the DSCP one.
-        for (const { physical, routed, untagged } of JunosQos.arrivals(device, names)) {
+        const arrivals = JunosQos.arrivals(device, names);
+        let untrusting = false;
+        for (const { physical, routed, untagged, trust } of arrivals) {
             const at = routed ? `class-of-service interfaces ${physical}` : `class-of-service interfaces ${physical} unit 0`;
+            if (!trust.includes(byPcp ? "pcp" : "dscp")) {
+                out.set(at, "classifiers dscp", JunosQos.UNTRUSTED);
+                out.set(at, "classifiers ieee-802.1", JunosQos.UNTRUSTED);
+                untrusting = true;
+                continue;
+            }
             if (!byPcp || untagged) out.set(at, "classifiers dscp", JunosQos.CLASSIFIER);
             out.set(at, "classifiers ieee-802.1", JunosQos.CLASSIFIER);
+        }
+
+        if (untrusting) {
+            for (let value = 0; value < JunosQos.DSCPS; value++)
+                JunosQos.code(out, "dscp", fallback, value.toString(2).padStart(JunosQos.DSCP_BITS, "0"), JunosQos.UNTRUSTED);
+            for (let value = 0; value < JunosQos.PCPS; value++)
+                JunosQos.code(out, "ieee-802.1", fallback, value.toString(2).padStart(JunosQos.PCP_BITS, "0"), JunosQos.UNTRUSTED);
         }
 
         JunosQos.schedulers(out, device, names);
@@ -96,9 +118,15 @@ export class JunosQos {
     }
 
     /** One code point of a classifier. */
-    private static code(out: JunosStatements, type: "dscp" | "ieee-802.1", name: string, bits: string): void {
+    private static code(
+        out: JunosStatements,
+        type: "dscp" | "ieee-802.1",
+        name: string,
+        bits: string,
+        classifier = JunosQos.CLASSIFIER
+    ): void {
         out.set(
-            `class-of-service classifiers ${type} ${JunosQos.CLASSIFIER} forwarding-class ${name} loss-priority ${JunosQos.LOSS_PRIORITY} code-points`,
+            `class-of-service classifiers ${type} ${classifier} forwarding-class ${name} loss-priority ${JunosQos.LOSS_PRIORITY} code-points`,
             bits
         );
     }
@@ -126,7 +154,8 @@ export class JunosQos {
         return holders.flatMap(([name, settings]) => {
             const switched = !!(settings.access_vlan || settings.trunk_vlans || settings.qinq_vlan);
             if (!switched && !settings.addresses?.length) return [];
-            return [{ physical: names.physical(name), routed: !switched, untagged: !switched || !!settings.access_vlan }];
+            const untagged = !switched || !!settings.access_vlan;
+            return [{ physical: names.physical(name), routed: !switched, untagged, trust: settings.qos_trust ?? [] }];
         });
     }
 
@@ -173,6 +202,13 @@ export class JunosQos {
             });
         }
 
+        // Juniper's QFX page on applying classifiers: an IRB interface takes none, its VLAN's ports do.
+        for (const { where, kind } of Derive.trusting(device))
+            if (kind === "vlan_interface")
+                found.push(
+                    `${where}.qos_trust on a VLAN interface: a QFX5100 sorts a packet on the port it arrives on, and an IRB interface takes no classifier. Write it on the VLAN's ports`
+                );
+
         for (const { where, kind, scheduler } of Derive.scheduled(device)) {
             if (kind === "vlan_interface")
                 found.push(
@@ -203,6 +239,10 @@ export class JunosQos {
     static experimental(device: Device): string[] {
         const qos = device.qos;
         const fields = (["classes", "default_class", "schedulers"] as const).filter((field) => qos?.[field] !== undefined);
-        return [...fields.map((field) => `qos.${field}`), ...Derive.scheduled(device).map(({ where }) => `${where}.scheduler`)];
+        return [
+            ...fields.map((field) => `qos.${field}`),
+            ...Derive.scheduled(device).map(({ where }) => `${where}.scheduler`),
+            ...Derive.trusting(device).map(({ where }) => `${where}.qos_trust`),
+        ];
     }
 }

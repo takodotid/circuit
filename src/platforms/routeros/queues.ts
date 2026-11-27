@@ -18,7 +18,11 @@ export class RouterOsQueues {
     static render(render: RouterOsRender, device: Device): void {
         for (const { name, rateLimit } of Derive.rateLimited(device)) {
             const target = render.name(name);
-            const limits = [rateLimit.input, rateLimit.output].map((limit) => (limit ? Derive.limit(limit) : undefined));
+            // Two rates are refused in `unsupported()`.
+            const limits = [rateLimit.input, rateLimit.output].map((limit) => {
+                const one = Derive.oneRate(limit);
+                return one && Derive.limit(one);
+            });
             const whole = limits.some(Boolean);
             const bursts = limits.some((limit) => limit?.burst !== undefined);
             const queue = rateLimit.per_prefix && RouterOsQueues.perPrefix(render, target, rateLimit.per_prefix);
@@ -79,7 +83,12 @@ export class RouterOsQueues {
 
             for (const direction of ["input", "output"] as const) {
                 const limit = rateLimit[direction];
-                const { rate, burst } = limit ? Derive.limit(limit) : {};
+                if (limit && Derive.isTwoRate(limit))
+                    found.push(
+                        `${where}.rate_limit.${direction}, two rates: RouterOS has no policer with two rates (RFC 2698). A queue shapes, and the firewall's limit matcher polices one rate (TRAPS.md). Write one rate`
+                    );
+                const one = Derive.oneRate(limit);
+                const { rate, burst } = one ? Derive.limit(one) : {};
                 if (rate === undefined || burst === undefined) continue;
 
                 const { BUCKET_STEPS, MAX_BUCKET } = RouterOsQueues;

@@ -30,6 +30,16 @@ export class KeyPaths {
         "interfaces.ipsec.*.remote_identity.address": "on no platform yet: FortiOS matches a certificate's subject alone",
         "interfaces.lag.*.vlan_translation": "Junos only, where only `commit check` ran on a QFX5100",
         "services.dns64": "FortiOS only, where no host asked its DNS server on the FG-3700D",
+        ...Object.fromEntries(
+            ["ethernet", "vlan_interface"].flatMap((kind) =>
+                ["input", "output"].flatMap((direction) =>
+                    ["pir", "be", "exceed"].map((key) => [
+                        `interfaces.${kind}.*.rate_limit.${direction}.${key}`,
+                        "on no platform yet: RouterOS has no policer with two rates, and a QFX5100, a FortiGate, and a CE6855 can't write the DSCP of what exceeds",
+                    ])
+                )
+            )
+        ),
     };
 
     /** Whether `path` is a key of `EXPERIMENTAL_EVERYWHERE`, or inside one. */

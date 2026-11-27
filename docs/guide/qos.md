@@ -1,39 +1,49 @@
 ---
-description: Sort the packets an interface sends into classes by their DSCP, and send each class from its own queue, strict queues first and the others by share, each queue as deep as you set it. Give each customer a rate of its own.
+description: Sort the packets an interface sends into classes by the DSCP or PCP their port trusts, and send each class from its own queue, strict queues first and the others by share, each queue as deep as you set it. Give each customer a rate of its own.
 ---
 
 # Quality of service
 
-A device tells traffic apart by the DSCP each packet carries (RFC 2474). [Marking](/guide/rules#marking) sets the DSCP. Classes sort packets by it, and a scheduler sends each class from its own queue, so calls go out first and backups wait.
+A device tells traffic apart by the DSCP each packet carries (RFC 2474). [Marking](/guide/rules#marking) sets the DSCP. Classes sort packets by it where their port trusts it, and a scheduler sends each class from its own queue, so calls go out first and backups wait.
 
 ## Classes
 
-`qos.classes` sorts packets into classes by the DSCP they leave with, RFC 2475's behavior aggregates. A DSCP is in one class at most. `default_class` takes every packet that no other class takes, and it is needed with `classes`. RFC 4594 says which DSCP each kind of traffic takes, such as `ef` for calls and `cs6` for routing protocols.
+`qos.classes` sorts packets into classes by their DSCP, RFC 2475's behavior aggregates, where their port trusts it. A DSCP is in one class at most. `default_class` takes every packet that no other class takes, and it is needed with `classes`. RFC 4594 says which DSCP each kind of traffic takes, such as `ef` for calls and `cs6` for routing protocols.
 
 The routers of one network sort traffic alike, so the campus example writes its classes once, beside the network, and each router takes them:
 
 <<< @/../examples/campus/circuit.ts#classes
 
-A packet's class is decided after `qos.marking`, so a packet that a marking rule marks lands in its new class. To sort packets by their address or port, mark their DSCP first, or give them a class in the marking rule:
+A packet's class is decided after `qos.marking`, so a packet that a marking rule marks lands in its new class, whatever its port trusts. To sort packets by their address or port, mark their DSCP, or give them a class in the marking rule:
 
 <<< @/../examples/campus/sites/library/library-01.ts#class
 
 A packet a marking rule gives a `class` takes that class's queue on this device, whatever its DSCP. It leaves with its DSCP unchanged, unless the rule also sets `dscp`, so the next device sorts it by its DSCP.
 
-A class can also list PCPs: the priority in the VLAN tag a packet arrives with (IEEE 802.1Q). Use it for devices that set a PCP and no DSCP, such as a switch that tags the calls of older phones, as the campus's voice class above does. A packet's class is the first of these:
+A class can also list PCPs: the priority in the VLAN tag a packet arrives with (IEEE 802.1Q). Use it for devices that set a PCP and no DSCP, such as a switch that tags the calls of older phones. The library's router adds PCP 5 to the campus's voice class:
 
-1. the class a marking rule gives it
-2. the class that lists the DSCP it leaves with
-3. the class that lists the PCP it arrives with
+<<< @/../examples/campus/sites/library/library-01.ts#pcp
+
+A packet's class is the first of these:
+
+1. the class a marking rule gives it: its `class`, or the class that lists the DSCP it writes
+2. where its port trusts the DSCP, the class that lists the DSCP it leaves with
+3. where its port trusts the PCP, the class that lists the PCP it arrives with
 4. `default_class`
 
-So a DSCP that a class lists goes before the PCP, as in a switch that trusts both. What `default_class` lists only shows what it holds. A packet that arrives without a tag has PCP 0, as IEEE 802.1Q gives it its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class.
+So a DSCP that a class lists goes before the PCP, where a port trusts both. What `default_class` lists only shows what it holds. A packet that arrives without a tag has PCP 0, as IEEE 802.1Q gives it its port's default priority. A marking rule's `pcp` changes the PCP a packet leaves with, not its class.
 
 FortiOS sorts sessions, not packets. The first packet of a session picks the class of every packet of it, both ways, and a marking rule marks the packets that go the way of that first packet. So a reply takes the class of its request, whatever DSCP it carries. The firewall's own traffic takes `default_class`.
 
-## What a port keeps
+## What a port trusts
 
-A device keeps the DSCP of a packet it routes, unless a marking rule changes it. To overwrite what a port lets in, such as a customer that marks everything EF, write a [marking](/guide/rules#marking) rule with `in_interface` that sets the DSCP you trust. A VLAN tag ends at the router, so a routed packet leaves with the PCP a marking rule sets. Trust settings for each port, as a switch chip has them, are not built: [Platforms](/reference/platforms#firewall-and-services) says why.
+A port, a LAG, or a VLAN interface trusts nothing unless its `qos_trust` says so. A packet that arrives on it then takes `default_class` unless a marking rule gives it a class: its DSCP and PCP pick no class there. So a customer that marks everything EF doesn't jump the queue. `qos_trust` lists what it trusts: `["dscp"]`, `["pcp"]`, or both, the DSCP first. The library's router trusts the DSCP its own network's routers set, and the PCP the library switch sets, but no DSCP a laptop sets:
+
+<<< @/../examples/campus/sites/library/library-01.ts#trust
+
+Trust only picks the class. A packet leaves with the DSCP and PCP it arrived with, trusted or not, as RFC 2474 forwards a packet whose DSCP it doesn't act on without changing it. To overwrite what a port lets in, write a [marking](/guide/rules#marking) rule with `in_interface` that sets the DSCP you want. A VLAN tag ends at the router, so a routed packet leaves with the PCP a marking rule sets.
+
+`validate` warns when the classes list DSCPs or PCPs that no port trusts: then only marking rules give those classes. Packets the device sends itself arrive on no port, so trust doesn't change their class. Where each platform trusts, and how, is on [Platforms](/reference/platforms#firewall-and-services).
 
 ## Schedulers
 
@@ -66,4 +76,17 @@ RFC 7567 asks every device to manage its queues, and no longer asks for RED by d
 
 Beside the interface's own `input` and `output`, the customers share those rates, each up to its own. A customer's IPv4 and IPv6 traffic each get the rates. Hosts that make their IPv6 addresses in one /64 need `ipv6: 128`, and then each address a host makes gets the rates. [Platforms](/reference/platforms#interfaces) says where it works.
 
-A rate limit has one rate each way. Policing with a second rate, RFC 2698's two-rate three-color marker, is not built: [Platforms](/reference/platforms#firewall-and-services) says why.
+## Two rates
+
+A rate limit's `input` or `output` can police with two rates, RFC 2698's two-rate three-color marker, with OpenConfig's names. What comes within `cir` passes unchanged. What comes above it, but within `pir`, passes with the DSCP of `exceed`, so the devices after it drop it first. What comes above `pir` is dropped. Each rate has its burst, in bytes: `bc` for `cir` and `be` for `pir`. It doesn't look at the DSCP a packet arrives with: RFC 2698 calls that color-blind.
+
+```ts
+// edge-01.ts, in interfaces.ethernet
+"10g-1": {
+    description: "Transit customer",
+    addresses: ["198.51.100.1/30"],
+    rate_limit: { input: { cir: "100M", bc: 1_250_000, pir: "200M", be: 2_500_000, exceed: { dscp: "af12" } } },
+},
+```
+
+No platform builds it yet: [Platforms](/reference/platforms#firewall-and-services) says why for each.

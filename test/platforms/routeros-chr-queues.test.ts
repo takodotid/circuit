@@ -1,4 +1,4 @@
-// Three CHRs, which the devices workflow boots. edge-01 routes from cpe-01 to host-01, marks a DSCP by the address each packet goes to, and schedules what leaves toward host-01. cpe-01 sends to every address at once, over the rate, and edge-01's queue counters show what each class got and holds. An unlicensed CHR sends at most 1 Mbit/s from each interface. Skipped without the CHRs.
+// Three CHRs, which the devices workflow boots. edge-01 routes from cpe-01, whose DSCP it trusts, to host-01. It marks a DSCP by the address each packet goes to, and schedules what leaves toward host-01. cpe-01 sends to every address at once, over the rate, and edge-01's queue counters show what each class got and holds. An unlicensed CHR sends 1 Mbit/s at most from each interface.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -164,7 +164,7 @@ function writeEdge(link: Link, scheduled: boolean, extra: Extra = {}): void {
     interfaces: {
         ethernet: {
             "virtual-1": { description: "Management", addresses: ["10.0.0.1/24"] },
-            "virtual-2": { description: "cpe-01", addresses: ["192.0.2.1/30", "2001:db8:2::1/64"] },
+            "virtual-2": { description: "cpe-01", addresses: ["192.0.2.1/30", "2001:db8:2::1/64"], qos_trust: ["dscp"] },
             "virtual-3": ${port},
         },
         ${other}

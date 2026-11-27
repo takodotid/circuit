@@ -1,4 +1,4 @@
-// Three RouterOS CHRs, which the devices workflow boots. edge-01 routes from cpe-01, over a VLAN, to host-01, and sorts what leaves toward host-01 into classes by DSCP and by the PCP each packet arrives with. cpe-01 tags its own pings with a PCP, and edge-01's queue counters show which class each took. Skipped without the CHRs.
+// Three RouterOS CHRs, which the devices workflow boots. edge-01 routes from cpe-01, over a VLAN, to host-01, and sorts what leaves toward host-01 into classes by DSCP and by the PCP each packet arrives with. Its VLAN interface trusts both. cpe-01 tags its own pings with a PCP, and edge-01's queue counters show which class each took. Skipped without the CHRs.
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
@@ -96,7 +96,7 @@ function writeEdge(classes: string): void {
             "virtual-2": { description: "cpe-01", trunk_vlans: ["cpe"] },
             "virtual-3": { description: "host-01", addresses: ["198.51.100.1/30", "2001:db8:3::1/64"], scheduler: "uplink" },
         },
-        vlan_interface: { cpe: { vlan: "cpe", addresses: ["192.0.2.1/30", "2001:db8:2::1/64"] } },
+        vlan_interface: { cpe: { vlan: "cpe", addresses: ["192.0.2.1/30", "2001:db8:2::1/64"], qos_trust: ["dscp", "pcp"] } },
     },
     switching: { vlans: { cpe: { id: 20 } } },
     qos: {

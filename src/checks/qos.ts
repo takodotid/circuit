@@ -1,6 +1,6 @@
 import { closest } from "../config/keys";
 import { Derive } from "../core/derive";
-import type { Device, Port, Queue, Scheduler } from "../model";
+import type { Device, Finding, Port, Queue, Scheduler } from "../model";
 import { RateLimitChecks } from "./rate-limit";
 
 type Report = (message: string) => void;
@@ -39,6 +39,55 @@ export class QosChecks {
         for (const [name, scheduler] of Object.entries(device.qos?.schedulers ?? {}))
             if (scheduler) QosChecks.scheduler(device, name, scheduler, report);
         QosChecks.scheduled(device, report);
+        QosChecks.trust(device, report);
+        for (const { where, limit } of Derive.twoRates(device))
+            if (limit.exceed && typeof limit.exceed === "object") QosChecks.dscp(`${where}.exceed.dscp`, limit.exceed.dscp, report);
+    }
+
+    /** What a port trusts is a DSCP or a PCP, each once, on the LAG rather than its members. */
+    private static trust(device: Device, report: Report): void {
+        const kinds = ["ethernet", "lag", "vlan_interface"] as const;
+        for (const kind of kinds)
+            for (const [name, settings] of Object.entries<{ qos_trust?: unknown } | undefined>(device.interfaces?.[kind] ?? {})) {
+                const trust = settings?.qos_trust;
+                if (trust === undefined) continue;
+                const where = `interfaces.${kind}.${name}.qos_trust`;
+                if (!Array.isArray(trust)) {
+                    report(`${where} ${JSON.stringify(trust)} is no list: write ["dscp"], ["pcp"], or ["dscp", "pcp"]`);
+                    continue;
+                }
+
+                for (const value of trust as unknown[])
+                    if (value !== "dscp" && value !== "pcp") report(`${where}: ${JSON.stringify(value)} is neither "dscp" nor "pcp"`);
+                if (new Set(trust).size < trust.length) report(`${where} lists a mark twice: write each once`);
+                const lag = kind === "ethernet" ? device.interfaces?.ethernet?.[name]?.in_lag : undefined;
+                if (lag && trust.length) report(`${where} is on a member of ${lag}: write it on the LAG`);
+            }
+    }
+
+    /**
+     * The DSCPs or PCPs that classes list, which no port or interface trusts. A packet that arrives then takes those classes only through a marking rule. It is a warning: a network may sort by marking alone.
+     */
+    static warnings(device: Device): Finding[] {
+        const qos = device.qos;
+        if (!qos?.classes) return [];
+
+        const trusted = new Set(Derive.trusting(device).flatMap(({ trust }) => trust));
+        const found: Finding[] = [];
+        for (const field of ["dscp", "pcp"] as const) {
+            const listing = Object.entries(qos.classes).flatMap(([name, settings]) =>
+                name !== qos.default_class && settings?.[field]?.length ? [name] : []
+            );
+            if (!listing.length || trusted.has(field)) continue;
+
+            const mark = field.toUpperCase();
+            found.push({
+                level: "warning",
+                device: device.name,
+                message: `qos.classes: no port or interface trusts the ${mark}, so a packet that arrives takes ${listing.join(", ")} only through a marking rule. Write qos_trust: ["${field}"] on each port whose ${mark} you trust`,
+            });
+        }
+        return found;
     }
 
     /** Each DSCP is in one class at most, and the default class takes the rest. A scheduler's queues hold classes. */

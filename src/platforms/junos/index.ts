@@ -445,6 +445,7 @@ export class Junos extends Platform {
                 // Proxy ARP is refused below, with its reason.
                 "proxy-arp",
                 "queues",
+                "qos-trust",
                 "marking",
                 "marking-class",
                 ...JunosOspf.BUILT,

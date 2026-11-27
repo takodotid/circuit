@@ -19,7 +19,7 @@ const QUEUES = [
     { class: "best-effort", share: 40 },
 ];
 
-/** A switch with a trunk, an access port, a routed port, and a VLAN interface, and these groups. */
+/** A switch with a trunk, an access port, a routed port, each trusting the DSCP and the PCP, and a VLAN interface, and these groups. */
 function device(more: object = {}, qos: object = {}): Device {
     const written = {
         name: "tor-01",
@@ -36,9 +36,9 @@ function device(more: object = {}, qos: object = {}): Device {
         switching: { vlans: { hosts: { id: 10 } } },
         interfaces: {
             ethernet: {
-                "10g-1": { trunk_vlans: ["hosts"], scheduler: "uplink" },
-                "10g-2": { access_vlan: "hosts" },
-                "10g-3": { addresses: ["203.0.113.1/24", "2001:db8:3::1/64"] },
+                "10g-1": { trunk_vlans: ["hosts"], scheduler: "uplink", qos_trust: ["dscp", "pcp"] },
+                "10g-2": { access_vlan: "hosts", qos_trust: ["dscp", "pcp"] },
+                "10g-3": { addresses: ["203.0.113.1/24", "2001:db8:3::1/64"], qos_trust: ["dscp", "pcp"] },
             },
             vlan_interface: { hosts: { vlan: "hosts", addresses: ["198.51.100.1/24", "2001:db8:10::1/64"] } },
         },
@@ -95,6 +95,59 @@ test("Junos sorts by the PCP a packet arrives with, and a port without tags by P
     expect(lines).not.toContain("set class-of-service interfaces xe-0/0/0 unit 0 classifiers dscp circuit");
     expect(lines).toContain("set class-of-service interfaces xe-0/0/1 unit 0 classifiers dscp circuit");
     expect(lines).toContain("set class-of-service interfaces xe-0/0/2 classifiers dscp circuit");
+});
+
+test("a Junos port that doesn't trust what the classes sort by takes classifiers that put every code point in the default class", () => {
+    const ports = (dscp: readonly string[], pcp: readonly string[]) => ({
+        interfaces: {
+            ethernet: {
+                "10g-1": { trunk_vlans: ["hosts"], qos_trust: dscp },
+                "10g-2": { access_vlan: "hosts", qos_trust: pcp },
+                "10g-3": { addresses: ["203.0.113.1/24"] },
+            },
+        },
+    });
+    const byDscp = qosLines(platform.render(device(ports(["dscp"], ["pcp"]), { schedulers: undefined })));
+    expect(byDscp.filter((line) => line.includes("classifiers dscp circuit-untrusted forwarding-class best-effort"))).toHaveLength(64);
+    expect(byDscp.filter((line) => line.includes("classifiers ieee-802.1 circuit-untrusted forwarding-class best-effort"))).toHaveLength(8);
+    expect(byDscp.filter((line) => line.startsWith("set class-of-service interfaces"))).toEqual([
+        "set class-of-service interfaces xe-0/0/0 unit 0 classifiers dscp circuit",
+        "set class-of-service interfaces xe-0/0/0 unit 0 classifiers ieee-802.1 circuit",
+        "set class-of-service interfaces xe-0/0/1 unit 0 classifiers dscp circuit-untrusted",
+        "set class-of-service interfaces xe-0/0/1 unit 0 classifiers ieee-802.1 circuit-untrusted",
+        "set class-of-service interfaces xe-0/0/2 classifiers dscp circuit-untrusted",
+        "set class-of-service interfaces xe-0/0/2 classifiers ieee-802.1 circuit-untrusted",
+    ]);
+
+    const byPcp = qosLines(
+        platform.render(
+            device(ports(["dscp"], ["pcp"]), { schedulers: undefined, classes: { voice: { pcp: [5] }, "best-effort": { dscp: ["cs0"] } } })
+        )
+    );
+    expect(byPcp.filter((line) => line.startsWith("set class-of-service interfaces"))).toEqual([
+        "set class-of-service interfaces xe-0/0/0 unit 0 classifiers dscp circuit-untrusted",
+        "set class-of-service interfaces xe-0/0/0 unit 0 classifiers ieee-802.1 circuit-untrusted",
+        "set class-of-service interfaces xe-0/0/1 unit 0 classifiers dscp circuit",
+        "set class-of-service interfaces xe-0/0/1 unit 0 classifiers ieee-802.1 circuit",
+        "set class-of-service interfaces xe-0/0/2 classifiers dscp circuit-untrusted",
+        "set class-of-service interfaces xe-0/0/2 classifiers ieee-802.1 circuit-untrusted",
+    ]);
+
+    // Every port trusts the DSCP: no classifier puts all in the default class.
+    expect(qosLines(platform.render(device())).some((line) => line.includes("circuit-untrusted"))).toBe(false);
+});
+
+test("Junos refuses trust on a VLAN interface, and names trust experimental", () => {
+    const sample = device({
+        interfaces: {
+            ethernet: { "10g-1": { trunk_vlans: ["hosts"], qos_trust: ["dscp"] } },
+            vlan_interface: { hosts: { vlan: "hosts", addresses: ["198.51.100.1/24"], qos_trust: ["dscp"] } },
+        },
+    });
+    expect(platform.unsupported(sample).filter((field) => field.includes("qos_trust"))).toEqual([
+        "interfaces.vlan_interface.hosts.qos_trust on a VLAN interface: a QFX5100 sorts a packet on the port it arrives on, and an IRB interface takes no classifier. Write it on the VLAN's ports",
+    ]);
+    expect(platform.experimental?.(sample)).toContain("interfaces.ethernet.10g-1.qos_trust");
 });
 
 test("Junos refuses what a QFX5100 can't do with classes and schedulers", () => {

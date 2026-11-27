@@ -27,12 +27,14 @@ import type {
     Port,
     PortRange,
     Prefix,
+    QosTrust,
     Rate,
     RateLimit,
     Routed,
     RouteMatch,
     RouteRule,
     RouterAdvertisement,
+    TwoRateLimit,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -52,6 +54,9 @@ export type RateLimited = { where: string; name: string; kind: "ethernet" | "lag
 
 /** A port, a LAG, or a VLAN interface with a scheduler, by its name in `qos.schedulers`, with its path. */
 export type Scheduled = { where: string; name: string; kind: "ethernet" | "lag" | "vlan_interface"; scheduler: string };
+
+/** A port, a LAG, or a VLAN interface that trusts what a packet arrives with, with its path. */
+export type Trusting = { where: string; name: string; kind: "ethernet" | "lag" | "vlan_interface"; trust: readonly QosTrust[] };
 
 /** One interface of a device, with the group it is in. */
 export type NamedInterface = { name: string; kind: InterfaceKind; settings: Interface };
@@ -105,6 +110,7 @@ export type BuiltFeature =
     | "marking"
     | "marking-class"
     | "queues"
+    | "qos-trust"
     | "ospf-ranges"
     | "ospf-priority"
     | "ospf-unicast-links"
@@ -258,6 +264,36 @@ export class Derive {
             Object.entries<{ scheduler?: string } | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
                 settings?.scheduler ? [{ where: `interfaces.${kind}.${name}`, name, kind, scheduler: settings.scheduler }] : []
             )
+        );
+    }
+
+    /** Each port, LAG, and VLAN interface whose `qos_trust` lists something. */
+    static trusting(device: Device): Trusting[] {
+        const kinds = ["ethernet", "lag", "vlan_interface"] as const;
+        return kinds.flatMap((kind) =>
+            Object.entries<{ qos_trust?: readonly QosTrust[] } | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
+                settings?.qos_trust?.length ? [{ where: `interfaces.${kind}.${name}`, name, kind, trust: settings.qos_trust }] : []
+            )
+        );
+    }
+
+    /** Whether a rate limit's direction has two rates (RFC 2698). */
+    static isTwoRate(limit: Limit | TwoRateLimit): limit is TwoRateLimit {
+        return typeof limit === "object" && limit.pir !== undefined;
+    }
+
+    /** A rate limit's direction with one rate. Undefined for two rates, which a platform that builds none refuses in `unsupported()`. */
+    static oneRate(limit: Limit | TwoRateLimit | undefined): Limit | undefined {
+        return limit === undefined || Derive.isTwoRate(limit) ? undefined : limit;
+    }
+
+    /** Each direction of a rate limit with two rates, with its path, such as `interfaces.ethernet.10g-1.rate_limit.input`. */
+    static twoRates(device: Device): { where: string; limit: TwoRateLimit }[] {
+        return Derive.rateLimited(device).flatMap(({ where, rateLimit }) =>
+            (["input", "output"] as const).flatMap((direction) => {
+                const limit = rateLimit[direction];
+                return limit && Derive.isTwoRate(limit) ? [{ where: `${where}.rate_limit.${direction}`, limit }] : [];
+            })
         );
     }
 
@@ -740,6 +776,7 @@ export class Derive {
                 if (device.qos?.[field] !== undefined) found.push(`qos.${field}, ${notBuilt}`);
             for (const { where } of Derive.scheduled(device)) found.push(`${where}.scheduler, ${notBuilt}`);
         }
+        if (!has("qos-trust")) for (const { where } of Derive.trusting(device)) found.push(`${where}.qos_trust, ${notBuilt}`);
         if (has("marking") && !has("marking-class"))
             (device.qos?.marking ?? []).forEach((rule, index) => {
                 if (rule.then.class !== undefined) found.push(`qos.marking[${index}].then.class, not built yet`);

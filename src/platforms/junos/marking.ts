@@ -72,9 +72,9 @@ export class JunosMarking {
         const { dscp, class: named } = rule.then;
         if (dscp !== undefined) out.set(term, "then", field, Derive.DSCP[dscp]);
 
-        // The switch classified the packet as it arrived, so a new DSCP takes its class here. By PCP, the class stays.
-        const sorted = device.qos?.default_class && !JunosQos.byPcp(device);
-        const className = named ?? (dscp !== undefined && sorted ? JunosQos.classOfDscp(device, Derive.DSCP[dscp]) : undefined);
+        // The switch classified the packet as it arrived, so a new DSCP takes its class here.
+        const written = dscp !== undefined && device.qos?.default_class ? JunosQos.classOfWritten(device, Derive.DSCP[dscp]) : undefined;
+        const className = named ?? written;
         if (className) {
             out.set(term, "then forwarding-class", className);
             out.set(term, "then loss-priority", JunosQos.LOSS_PRIORITY);

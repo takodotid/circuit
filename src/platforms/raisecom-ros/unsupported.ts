@@ -211,7 +211,9 @@ export class RaisecomRosUnsupported {
         const found: string[] = [];
 
         for (const direction of ["input", "output"] as const) {
-            const limit = rateLimit?.[direction];
+            if (rateLimit?.[direction] && !Derive.oneRate(rateLimit[direction]))
+                found.push(`${where}.rate_limit.${direction}, two rates, which the platform does not build yet`);
+            const limit = Derive.oneRate(rateLimit?.[direction]);
             if (!limit) continue;
 
             const { rate, burst } = Derive.limit(limit);

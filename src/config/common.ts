@@ -43,6 +43,35 @@ export type MacAddress = `${string}:${string}:${string}:${string}:${string}:${st
 /** An address family. */
 export type Family = "ipv4" | "ipv6";
 
+/**
+ * A DSCP (RFC 2474), by its name in the IANA DSCP registry. The class selectors are `cs0` to `cs7` (RFC 2474), and assured forwarding `af11` to `af43` (RFC 2597). Expedited forwarding is `ef` (RFC 3246), with `voice-admit` (RFC 5865). Lower effort is `le` (RFC 8622), and non-queue-building `nqb` (RFC 9956). `cs0` is best effort, the DSCP of unmarked traffic. RFC 4594 gives each service class its DSCP, such as `ef` for telephony, `af41` for video conferencing, and `cs6` for routing protocols.
+ */
+export type Dscp =
+    | "cs0"
+    | "cs1"
+    | "cs2"
+    | "cs3"
+    | "cs4"
+    | "cs5"
+    | "cs6"
+    | "cs7"
+    | "af11"
+    | "af12"
+    | "af13"
+    | "af21"
+    | "af22"
+    | "af23"
+    | "af31"
+    | "af32"
+    | "af33"
+    | "af41"
+    | "af42"
+    | "af43"
+    | "ef"
+    | "voice-admit"
+    | "le"
+    | "nqb";
+
 /** Bits per second, for example `2G`, `500M`, or `64k`. */
 export type Rate = `${number}${"k" | "M" | "G"}`;
 
@@ -56,7 +85,32 @@ export type Limit =
           cir: Rate;
           /** The committed burst, in bytes: how much may pass at once above the rate. */
           bc: number;
+          pir?: never;
+          be?: never;
+          exceed?: never;
       };
+
+/**
+ * A rate limit with two rates, RFC 2698's two-rate three-color marker, color-blind: what comes within `cir` passes unchanged, and what comes above it but within `pir` passes with `exceed.dscp`. What comes above `pir` is dropped. Each rate has its burst, as RFC 2698 needs. The names are OpenConfig's, such as `{ cir: "100M", bc: 1_250_000, pir: "200M", be: 2_500_000, exceed: { dscp: "af12" } }`.
+ */
+export type TwoRateLimit = {
+    /** The committed information rate. What comes within it passes unchanged. */
+    cir: Rate;
+    /** The committed burst, in bytes: how much may pass at once above `cir` and still pass unchanged. */
+    bc: number;
+    /** The peak information rate, at least `cir`. What comes above it is dropped. */
+    pir: Rate;
+    /** The peak burst, in bytes: how much may pass at once above `pir` and still pass. */
+    be: number;
+    /** What passes between `cir` and `pir`. */
+    exceed: {
+        /** The DSCP it leaves with, such as `af12`, the drop precedence above `af11`'s (RFC 2597). */
+        dscp: Dscp;
+    };
+};
+
+/** What a port trusts in a packet that arrives on it: its DSCP (RFC 2474), or the PCP of its VLAN tag (IEEE 802.1Q). */
+export type QosTrust = "dscp" | "pcp";
 
 /** A log severity, from most to least severe. A threshold also takes every more severe level. */
 export type Severity = "emergency" | "alert" | "critical" | "error" | "warning" | "notice" | "info" | "debug";

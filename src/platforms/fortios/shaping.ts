@@ -28,8 +28,10 @@ export class FortiOsShaping {
 
         for (const { name, rateLimit } of Derive.rateLimited(device)) {
             const iface = FortiOsNames.of(device, name);
-            const input = rateLimit.input && FortiOsShaping.shaper(shapers, `rate-limit-${iface}-in`, rateLimit.input);
-            const output = rateLimit.output && FortiOsShaping.shaper(shapers, `rate-limit-${iface}-out`, rateLimit.output);
+            // Two rates are refused in `gaps()`.
+            const [inLimit, outLimit] = [Derive.oneRate(rateLimit.input), Derive.oneRate(rateLimit.output)];
+            const input = inLimit && FortiOsShaping.shaper(shapers, `rate-limit-${iface}-in`, inLimit);
+            const output = outLimit && FortiOsShaping.shaper(shapers, `rate-limit-${iface}-out`, outLimit);
 
             for (const family of ["ipv4", "ipv6"] as const) {
                 const from = FortiOsShaping.policy(policies.entry(++id), `rate-limit-${iface}-from`, family, input, output);
@@ -55,7 +57,11 @@ export class FortiOsShaping {
                 );
 
             for (const direction of ["input", "output"] as const) {
-                const limit = rateLimit[direction];
+                if (rateLimit[direction] && !Derive.oneRate(rateLimit[direction]))
+                    found.push(
+                        `${where}.rate_limit.${direction}, two rates: a FortiGate's shaper marks what passes by the rate it measures, with no burst, not by RFC 2698's two buckets. Write one rate`
+                    );
+                const limit = Derive.oneRate(rateLimit[direction]);
                 if (!limit) continue;
                 const { rate, burst } = Derive.limit(limit);
                 if (burst !== undefined)
