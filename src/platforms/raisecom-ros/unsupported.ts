@@ -5,6 +5,7 @@ import { RaisecomRosAcls } from "./acls";
 import { RaisecomRosBgp } from "./bgp";
 import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosOspf } from "./ospf";
+import { RaisecomRosQos } from "./qos";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosRouting } from "./routing";
 import { RaisecomRosServices } from "./services";
@@ -210,9 +211,8 @@ export class RaisecomRosUnsupported {
     private static rateLimit(where: string, rateLimit: RateLimit | undefined, speedKbps?: number): string[] {
         const found: string[] = [];
 
+        // Two rates are refused in `RaisecomRosQos`, with why.
         for (const direction of ["input", "output"] as const) {
-            if (rateLimit?.[direction] && !Derive.oneRate(rateLimit[direction]))
-                found.push(`${where}.rate_limit.${direction}, two rates, which the platform does not build yet`);
             const limit = Derive.oneRate(rateLimit?.[direction]);
             if (!limit) continue;
 
@@ -432,7 +432,9 @@ export class RaisecomRosUnsupported {
         found.push(...Derive.untested(device, ["mac-limit", "ethertype-filter", "static-route-bfd", "port-binding"]));
         // A range's cost and virtual links are refused in `routing()`, with why.
         const ospf = ["ospf-ranges", "ospf-range-cost", "ospf-priority", "ospf-unicast-links", "ospf-virtual-links"] as const;
-        found.push(...Derive.unbuilt(device, ["rate-limit", "urpf", ...ospf]));
+        // Marking and schedulers are refused in `RaisecomRosQos`, with why.
+        const qos = ["queues", "qos-trust", "marking", "marking-class"] as const;
+        found.push(...Derive.unbuilt(device, ["rate-limit", "urpf", ...ospf, ...qos]), ...RaisecomRosQos.unsupported(device));
         // Trap receivers are built, in `RaisecomRosServices`.
         found.push(...Derive.unbuiltMonitoring(device).filter((message) => !message.startsWith("monitoring.snmp.traps")));
         // `show sla` lists operations of Ethernet (Y.1731), MPLS, and TWAMP alone.

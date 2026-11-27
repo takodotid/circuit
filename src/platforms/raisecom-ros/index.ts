@@ -29,6 +29,7 @@ import { RaisecomRosBgpSessions } from "./bgp-sessions";
 import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosLldp } from "./lldp";
 import { RaisecomRosOspf } from "./ospf";
+import { RaisecomRosQos } from "./qos";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosServices } from "./services";
 import { RaisecomRosSwitching } from "./switching";
@@ -71,7 +72,7 @@ export class RaisecomRos extends Platform {
     ];
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |access-list |router (?:ospf|isis|bgp) |route-map |bfd \d+ bind |ip vrf (?!forwarding )|ip dhcp server pool )/,
+        block: /^(interface |access-list |router (?:ospf|isis|bgp) |route-map |bfd \d+ bind |ip vrf (?!forwarding )|ip dhcp server pool |mls qos mapping )/,
         indented: false,
         terminator: "!",
         ignore: (line) => line.startsWith("!") || RaisecomRos.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
@@ -106,6 +107,7 @@ export class RaisecomRos extends Platform {
                 ?.replace(/ \S+ secondary$/, " secondary") ??
             RaisecomRosBgp.head(line) ??
             RaisecomRosIsis.head(line) ??
+            RaisecomRosQos.head(line) ??
             LineDiff.head(line),
     };
 
@@ -155,9 +157,9 @@ export class RaisecomRos extends Platform {
     /** How much of the device's answer an error shows. */
     private static readonly ANSWER_CHARS = 300;
 
-    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Conflict with previous rule of current ACL.`, `Acl name has existed.`, `Please delete the static bind of the pool`, `Insertion failed - prefix-list entry exists.`, `The neighbor already exists in AS 64496` */
+    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Conflict with previous rule of current ACL.`, `Acl name has existed.`, `Please delete the static bind of the pool`, `Insertion failed - prefix-list entry exists.`, `The neighbor already exists in AS 64496`, `This interface does not support this command.`, `Map is being used.` */
     private static readonly REFUSED =
-        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error|Conflict)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|has existed|Please delete|failed|already exists in AS/im;
+        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error|Conflict)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|has existed|Please delete|failed|already exists in AS|does not support|being used/im;
 
     /** Lines that ask for `y` and do nothing without it. */
     private static readonly CONFIRM = /^(portswitch|no portswitch|switchport trunk allowed vlan|switchport mode)/;
@@ -235,6 +237,7 @@ export class RaisecomRos extends Platform {
             ...RaisecomRosBgp.experimental(device),
             ...RaisecomRosSwitching.experimental(device),
             ...RaisecomRosServices.experimental(device),
+            ...RaisecomRosQos.experimental(device),
         ];
     }
 
@@ -379,6 +382,8 @@ export class RaisecomRos extends Platform {
         // A routing process goes once its interfaces and sessions let go of it, then a route-map or a list once nothing uses it.
         const top = groups.find((group) => !group.path.length);
         const lateRouting = [...RaisecomRosIsis.removed(top), ...RaisecomRosBgp.order(groups, desired)];
+        // A DSCP map goes once no port uses it.
+        const qosMaps = RaisecomRosQos.removed(top);
 
         // A VLAN is created in a list and removed one at a time, with `no vlan <id>`.
         LineDiff.vlanListChange(
@@ -448,6 +453,10 @@ export class RaisecomRos extends Platform {
         const releaseAndBind = (group: Group) => {
             const pool = RaisecomRosServices.POOL.exec(group.path[0] ?? "")?.[1];
             if (pool) return { before: RaisecomRosServices.binds(existing, pool).map((line) => RaisecomRosUndo.of(line)), after: [] };
+
+            // A DSCP map a port uses can't change, as an access-list can't.
+            const map = RaisecomRosQos.binding(group.path[0] ?? "");
+            if (map) return RaisecomRosQos.around(map, RaisecomRos.filteredPorts(current, map), RaisecomRos.filteredPorts(desired, map));
 
             const acl = /^access-list (\d+)/.exec(group.path[0] ?? "")?.[1];
             if (!acl) return { before: [], after: [] };
@@ -530,6 +539,11 @@ export class RaisecomRos extends Platform {
                 show: lateRouting.map((line) => `- ${line}`),
                 send: lateRouting.map((line) => RaisecomRosUndo.of(line)),
             });
+        }
+
+        if (qosMaps.length) {
+            const send = qosMaps.map((line) => RaisecomRosUndo.of(line));
+            planned.push({ title: "QoS maps no longer used", show: qosMaps.map((line) => `- ${line}`), send });
         }
 
         if (aclRemovals.length) {
@@ -737,10 +751,10 @@ export class RaisecomRos extends Platform {
         return ports;
     }
 
-    /** The ports, by their `interface` line, that filter what they take in with an access-list. */
-    private static filteredPorts(config: string, filter: string): string[] {
+    /** The ports, by their `interface` line, that hold a line, such as the access-list they filter what they take in with. */
+    private static filteredPorts(config: string, line: string): string[] {
         return LineDiff.entries(config, RaisecomRos.DIALECT)
-            .filter((entry) => entry.line === filter && entry.path[0]?.startsWith("interface "))
+            .filter((entry) => entry.line === line && entry.path[0]?.startsWith("interface "))
             .map((entry) => entry.path[0]!);
     }
 

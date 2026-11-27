@@ -344,14 +344,13 @@ test("RouterOS refuses a scheduler it can't build, or whose packets would skip t
     ]);
 });
 
-test("every other platform refuses classes and schedulers, which it does not build", () => {
-    for (const [platform, model, port] of [["raisecom-ros", "RAX721-C-6C48", "1g-1"]] as const)
-        expect(queues(Platforms.get(platform).unsupported(device(platform, model, port)))).toEqual([
-            "qos.classes, which the platform does not build",
-            "qos.default_class, which the platform does not build",
-            "qos.schedulers, which the platform does not build",
-            `interfaces.ethernet.${port}.scheduler, which the platform does not build`,
-        ]);
+test("Raisecom ROS builds classes and refuses schedulers, as it has no queue scheduler to set", () => {
+    const noScheduler =
+        "ROS 6.5.2 has no queue scheduler to set: a port's flow-queue profile shapes each queue alone, and `mls qos queue` is refused";
+    expect(queues(Platforms.get("raisecom-ros").unsupported(device("raisecom-ros", "RAX721-C-6C48", "10g-1")))).toEqual([
+        `qos.schedulers.uplink, ${noScheduler}`,
+        `interfaces.ethernet.10g-1.scheduler, ${noScheduler}`,
+    ]);
 });
 
 test("validate says what is wrong in classes and schedulers", () => {

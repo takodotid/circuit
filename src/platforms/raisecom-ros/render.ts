@@ -8,6 +8,7 @@ import { RaisecomRosAcls } from "./acls";
 import { RaisecomRosBgp } from "./bgp";
 import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosOspf } from "./ospf";
+import { RaisecomRosQos } from "./qos";
 import { RaisecomRosRouting } from "./routing";
 import { RaisecomRosServices } from "./services";
 import { RaisecomRosSwitching } from "./switching";
@@ -117,7 +118,7 @@ export class RaisecomRosRender {
         lines.push(...RaisecomRosSwitching.privateVlans(device, vlanId, RaisecomRosRender.vlanList));
         if (ids.length) lines.push("!");
 
-        lines.push(...RaisecomRosRouting.vrfs(device));
+        lines.push(...RaisecomRosQos.lines(device), ...RaisecomRosRouting.vrfs(device));
         const lagNumbers = Derive.lagIds(device);
 
         for (const [name, lag] of Object.entries(device.interfaces?.lag ?? {})) {
@@ -321,7 +322,7 @@ export class RaisecomRosRender {
         const lines = settings.description ? [`description ${settings.description}`] : [];
         lines.push(...RaisecomRosRouting.layer3(device, name, settings));
         if (settings.lldp === false || lldpOff) lines.push("lldp disable");
-        return lines;
+        return [...lines, ...RaisecomRosQos.portLines(device, settings, true)];
     }
 
     /** A port the config does not declare is shut down. A LAG member holds its membership, description, and LLDP; the LAG holds the rest. */
@@ -368,7 +369,9 @@ export class RaisecomRosRender {
         }
 
         if (settings.dhcp_trusted) lines.push("ip dhcp snooping trust");
-        lines.push(...RaisecomRosAcls.portLines(device, settings.ingress_acl));
+        // A port that switches no VLAN is a routed port, the switch's default.
+        const routed = !RaisecomRosRender.switches(settings);
+        lines.push(...RaisecomRosQos.portLines(device, settings, routed), ...RaisecomRosAcls.portLines(device, settings.ingress_acl));
 
         return lines;
     }
@@ -395,7 +398,7 @@ export class RaisecomRosRender {
             return `rate-limit ${direction} cir ${kbps}${kilobytes === own ? "" : ` cbs ${kilobytes}`}`;
         };
 
-        // Two rates are refused in `RaisecomRosUnsupported`.
+        // Two rates are refused in `RaisecomRosQos`.
         const input = Derive.oneRate(rateLimit?.input);
         const output = Derive.oneRate(rateLimit?.output);
         return [...(input ? [line("ingress", input)] : []), ...(output ? [line("egress", output)] : [])];
