@@ -375,10 +375,12 @@ export class RaisecomRosUnsupported {
 
         for (const field of ["http", "https"] as const)
             if (management[field]) found.push(`management.${field}, ROS 6.5.2 has no web interface`);
-        // NETCONF answers over SSH on port 830, which is neither of these.
+        // NETCONF answers over SSH on port 830 whatever is set, and ROS 6.5.2 has no line that turns it off (TRAPS.md).
         for (const field of ["api", "api_tls"] as const)
             if (management[field])
-                found.push(`management.${field}, the switch's API is NETCONF over SSH, which Circuit does not manage yet`);
+                found.push(
+                    `management.${field}, the switch's API is NETCONF over SSH, on port 830 whatever is set: ROS 6.5.2 has no line that changes it`
+                );
         for (const field of ["ftp", "native_protocol", "console"] as const) {
             if (management[field]) found.push(`management.${field}`);
         }
