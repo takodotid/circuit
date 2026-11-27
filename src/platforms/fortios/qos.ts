@@ -45,7 +45,7 @@ export class FortiOsQos {
     }
 
     /**
-     * The device sorts a session by its first packet, and the first shaping policy that matches gives it a class and a DSCP. So the marking rules come first, each with the class of the DSCP it sets, then a policy for each DSCP a class lists. A session no policy matches takes `default_class`, each profile's `default-class-id`.
+     * The device sorts a session by its first packet, and the first shaping policy that matches gives it a class and a DSCP. So the marking rules come first, each with the class of the DSCP it sets. Then comes a policy for each DSCP a class lists, from the interfaces that trust the DSCP. A session no policy matches takes `default_class`, each profile's `default-class-id`.
      */
     static render(root: FortiOsNode, device: Device): void {
         const qos = device.qos;
@@ -65,13 +65,15 @@ export class FortiOsQos {
             }
         });
 
+        const trusting = Derive.trusting(device).filter(({ trust }) => trust.includes("dscp"));
+        const srcintf = trusting.map(({ name }) => FortiOsTree.quote(FortiOsNames.of(device, name))).join(" ");
         for (const [name, settings] of Object.entries(qos.classes ?? {})) {
-            if (name === qos.default_class) continue;
+            if (name === qos.default_class || !srcintf) continue;
 
             for (const dscp of settings?.dscp ?? [])
                 for (const family of ["ipv4", "ipv6"] as const) {
                     const entry = FortiOsQos.policy(policies.entry(++id), `${name}-${dscp}`, family);
-                    entry.set("srcintf", FortiOsTree.quote("any")).set("dstintf", FortiOsTree.quote("any"));
+                    entry.set("srcintf", srcintf).set("dstintf", FortiOsTree.quote("any"));
                     entry.set(family === "ipv6" ? "srcaddr6" : "srcaddr", FortiOsTree.quote("all"));
                     entry.set(family === "ipv6" ? "dstaddr6" : "dstaddr", FortiOsTree.quote("all"));
                     entry.set("service", FortiOsTree.quote(objects.service(undefined, family)));
@@ -149,6 +151,11 @@ export class FortiOsQos {
         const management = new Set(device.system?.vdoms?.management?.interfaces ?? []);
         for (const { where, name } of scheduled)
             if (management.has(name)) found.push(`${where}.scheduler on an interface of the management VDOM, which is not built yet`);
+        for (const { where, name, trust } of Derive.trusting(device)) {
+            if (management.has(name)) found.push(`${where}.qos_trust on an interface of the management VDOM, which is not built yet`);
+            if (trust.includes("pcp"))
+                found.push(`${where}.qos_trust pcp, FortiOS 6.2's shaping policies match no PCP: trust the DSCP alone`);
+        }
 
         const used = new Set(scheduled.map(({ scheduler }) => scheduler));
         for (const [name, scheduler] of Object.entries(qos?.schedulers ?? {}))

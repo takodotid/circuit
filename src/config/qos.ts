@@ -1,34 +1,5 @@
-import type { Named, OneOrMore, Ordered, Rate } from "./common";
+import type { Dscp, Named, OneOrMore, Ordered, Rate } from "./common";
 import type { FilterMatch } from "./firewall";
-
-/**
- * A DSCP (RFC 2474), by its name in the IANA DSCP registry. The class selectors are `cs0` to `cs7` (RFC 2474), and assured forwarding `af11` to `af43` (RFC 2597). Expedited forwarding is `ef` (RFC 3246), with `voice-admit` (RFC 5865). Lower effort is `le` (RFC 8622), and non-queue-building `nqb` (RFC 9956). `cs0` is best effort, the DSCP of unmarked traffic. RFC 4594 gives each service class its DSCP, such as `ef` for telephony, `af41` for video conferencing, and `cs6` for routing protocols.
- */
-export type Dscp =
-    | "cs0"
-    | "cs1"
-    | "cs2"
-    | "cs3"
-    | "cs4"
-    | "cs5"
-    | "cs6"
-    | "cs7"
-    | "af11"
-    | "af12"
-    | "af13"
-    | "af21"
-    | "af22"
-    | "af23"
-    | "af31"
-    | "af32"
-    | "af33"
-    | "af41"
-    | "af42"
-    | "af43"
-    | "ef"
-    | "voice-admit"
-    | "le"
-    | "nqb";
 
 /** An IEEE 802.1Q priority, the PCP a VLAN tag carries, 0 to 7. 0 is best effort, 1 is background, below it, and 2 to 7 are above it: 5 for voice, 6 and 7 for network control. */
 export type Pcp = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
@@ -83,7 +54,7 @@ export type MarkingRule<I extends string, AS extends string, IS extends string, 
     then: Marking<C>;
 };
 
-/** A class of traffic: the packets that leave with one of its DSCPs, or that arrive with one of its PCPs. It lists one or both. */
+/** A class of traffic, by its DSCPs, its PCPs, or both: the packets that arrive with one of them where their port trusts it. A marking rule that writes one of its DSCPs puts a packet in it too. */
 export type QosClass =
     | {
           /** The DSCPs of its packets, such as `["af41", "af42", "af43"]` for video conferencing (RFC 4594). A DSCP is in one class at most. */
@@ -161,13 +132,20 @@ export type Scheduler<C extends string> = {
  */
 export type Qos<I extends string, AS extends string, IS extends string, C extends string = string, S extends string = string> = {
     /**
-     * Marks the packets the device routes, so the devices after it can tell their classes apart (RFC 2475). Rules in order: the first rule that matches marks the packet, and the rules after it are skipped. A packet that no rule matches keeps its DSCP. Packets the device sends or receives itself are not marked, nor packets it switches within a VLAN.
+     * Marks the packets the device routes, so the devices after it can tell their classes apart (RFC 2475). Rules in order: the first rule that matches marks the packet, and the rules after it are skipped. A packet that no rule matches keeps its DSCP. A rule gives a packet its class whatever its port trusts: the rule's `class`, else the class that lists the DSCP it writes. Packets the device sends or receives itself are not marked, nor packets it switches within a VLAN.
      *
      * FortiOS marks sessions, not packets: the rule that matches the first packet of a session marks every packet of it that goes the same way. The replies keep their DSCP.
      */
     marking?: Ordered<MarkingRule<I, AS, IS, NoInfer<C>>>;
     /**
-     * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates) or PCPs, such as `voice: { dscp: ["ef"], pcp: [5] }`. A packet takes the class a marking rule gives it, else the class that lists the DSCP it leaves with, after `marking`. Else it takes the class that lists the PCP it arrives with. `default_class` takes every other packet, so what it lists only shows what it holds. To sort packets by their address or port, mark their DSCP first in `marking`.
+     * Classes of traffic by name, each by its DSCPs (RFC 2475's behavior aggregates) or PCPs, such as `voice: { dscp: ["ef"], pcp: [5] }`. A packet takes the first of these:
+     *
+     * 1. the class a marking rule gives it
+     * 2. where its port trusts the DSCP, the class that lists the DSCP it leaves with
+     * 3. where its port trusts the PCP, the class that lists the PCP it arrives with
+     * 4. `default_class`, so what it lists only shows what it holds
+     *
+     * A port trusts what its `qos_trust` lists, and nothing without it. To sort packets by their address or port, give them a class in `marking`.
      *
      * FortiOS sorts sessions, not packets: the first packet of a session picks the class of every packet of it, both ways. The firewall's own traffic takes `default_class`.
      */

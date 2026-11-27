@@ -335,6 +335,7 @@ export class Vrp extends Platform {
                 "marking",
                 "marking-class",
                 "queues",
+                "qos-trust",
                 "ospf-ranges",
                 "ospf-range-cost",
                 "ospf-priority",
@@ -350,7 +351,7 @@ export class Vrp extends Platform {
         for (const { where, kind, rateLimit } of Derive.rateLimited(device)) {
             if (kind === "vlan_interface") found.push(`${where}.rate_limit, on a VLAN interface, which is not built yet`);
             for (const direction of ["input", "output"] as const) {
-                const limit = rateLimit[direction];
+                const limit = Derive.oneRate(rateLimit[direction]);
                 const bits = limit && Derive.bitsPerSecond(Derive.limit(limit).rate);
                 if (bits && !Number.isInteger(bits / VrpRender.BITS_PER_KBIT))
                     found.push(`${where}.rate_limit.${direction}, the platform takes a rate in whole kbit/s`);

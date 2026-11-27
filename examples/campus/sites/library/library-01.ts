@@ -18,8 +18,20 @@ export default campus.device({
     interfaces: {
         ethernet: {
             "2.5g-1": { description: "Management", addresses: ["10.0.0.2/24"] },
-            "10g-1": { description: "Backbone VLAN, on the campus switches", addresses: ["10.255.1.2/24", "2001:db8:10:ff01::2/64"] },
-            "1g-1": { description: "field-01 ether2", addresses: ["10.1.3.1/30"], link: { device: "field-01", port: "1g-1" } },
+            // #region trust
+            // The campus's own routers mark what they send, so the router trusts their DSCP. What the Wi-Fi and the archive send takes the default class, unless a marking rule gives it another: a laptop can't mark its downloads EF to go first.
+            "10g-1": {
+                description: "Backbone VLAN, on the campus switches",
+                addresses: ["10.255.1.2/24", "2001:db8:10:ff01::2/64"],
+                qos_trust: ["dscp"],
+            },
+            "1g-1": {
+                description: "field-01 ether2",
+                addresses: ["10.1.3.1/30"],
+                link: { device: "field-01", port: "1g-1" },
+                qos_trust: ["dscp"],
+            },
+            // #endregion trust
             "1g-2": { description: "Library switch", trunk_vlans: ["reading-rooms", "archive", "guests"] },
         },
         vlan_interface: {
@@ -28,6 +40,8 @@ export default campus.device({
                 addresses: ["10.1.1.1/24", "2001:db8:10:101::1/64"],
                 ipv6_ra: true,
                 scheduler: "wifi",
+                // The switch sets the PCP, so the router trusts it from the reading rooms. A laptop sets its own DSCP, so the router doesn't trust that.
+                qos_trust: ["pcp"],
             },
             archive: { vlan: "archive", addresses: ["10.1.200.1/24"] },
             // #region per-prefix
@@ -85,7 +99,10 @@ export default campus.device({
         // The laptops' software updates come from the mirror in the data center, unmarked. Here they wait in the bulk queue, behind the readers' own traffic, and leave with the DSCP they came with.
         marking: [{ description: "Software updates", if: { src: ["10.2.0.30/32", "2001:db8:10:200::30/128"] }, then: { class: "bulk" } }],
         // #endregion class
-        classes,
+        // #region pcp
+        // The library's older desk phones can't mark their calls, so the library switch tags them with PCP 5, voice in IEEE 802.1Q. Here voice takes that PCP too.
+        classes: { ...classes, voice: { dscp: ["ef"], pcp: [5] } },
+        // #endregion pcp
         default_class: "best-effort",
         schedulers: {
             wifi: {

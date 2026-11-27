@@ -8,6 +8,7 @@ import { SerialConsole } from "../../transport/console";
 import type { ConsoleDialect } from "../../transport/console";
 import { Ssh } from "../../transport/ssh";
 import { Catalog } from "../../core/catalog";
+import { Derive } from "../../core/derive";
 import { Platform } from "../platform";
 import type { ApplyOptions, BgpSession, HealthCheck, HealthOptions, OsSupport, Plan, ReadOptions, ReadSession, Tool } from "../platform";
 import { BgpHealth } from "../bgp-health";
@@ -124,6 +125,8 @@ export class FortiOs extends Platform {
         // Option 82 on a relay was applied, read back, changed, and removed on a FortiGate, but no request was relayed to see what it adds.
         for (const [name, relay] of Object.entries(device.services?.dhcp_relay ?? {}))
             if (relay.relay_agent_information) found.push(`services.dhcp_relay.${name}.relay_agent_information`);
+        // A shaping policy took several trusted interfaces as its srcintf in a test VDOM, but no session was seen to take a class by them.
+        for (const { where } of Derive.trusting(device)) found.push(`${where}.qos_trust`);
         // SNMP answers on the interfaces of its VRF, as SSH did in a VRF of a test VDOM, but no SNMP manager was in reach of the test.
         if (device.monitoring?.snmp?.vrf) found.push("monitoring.snmp.vrf");
         // Applied, read back, changed, and removed, but no route was seen to leak: IS-IS takes neither a link between VDOMs nor a GRE tunnel, so no neighbor sent one.

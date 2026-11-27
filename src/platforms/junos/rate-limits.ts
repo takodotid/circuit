@@ -14,7 +14,13 @@ export class JunosRateLimits {
 
         for (const { where, kind, name, rateLimit } of Derive.rateLimited(device)) {
             const settings = kind === "lag" ? device.interfaces?.lag?.[name] : device.interfaces?.ethernet?.[name];
-            const input = rateLimit.input && Derive.limit(rateLimit.input);
+            const one = Derive.oneRate(rateLimit.input);
+            const input = one && Derive.limit(one);
+            // Juniper's QFX pages on tricolor marking and on rewrite rules.
+            if (rateLimit.input && !one)
+                found.push(
+                    `${where}.rate_limit.input, two rates: a QFX5100's two-rate policer gives what passes above cir a loss priority, and only a rewrite rule writes a DSCP by it, which rewrites every packet of each class. Write one rate`
+                );
 
             if (input) {
                 if (kind === "vlan_interface") found.push(`${where}.rate_limit.input, on a VLAN interface, which is not built yet`);

@@ -1,7 +1,7 @@
 // Classes and schedulers on VRP, tried on a CE6855 on V200R005C00SPC800 with `commit trial` on spare port 10GE1/0/48. The marking policy was on that port, in place of the whole switch. The next plan differed only by that and the owner's ports. A change and the removal went into a candidate. `PRINTED` is what the switch printed.
 
 import { expect, test } from "bun:test";
-import type { Device } from "../../src/model";
+import type { Device, QosTrust } from "../../src/model";
 
 type Qos = NonNullable<Device["qos"]>;
 import { Vrp } from "../../src/platforms/vrp/index";
@@ -48,13 +48,13 @@ const byPcp: Qos = {
     classes: { "best-effort": { pcp: [0] }, network: { pcp: [6, 7] }, voice: { pcp: [5] }, video: { pcp: [4] }, bulk: { pcp: [1] } },
 };
 
-/** The single-site switch with one port, the spare one, and these classes. */
-function queued(qos: Qos | undefined): Device {
+/** The single-site switch with one port, the spare one, which trusts what it is told, and these classes. */
+function queued(qos: Qos | undefined, trust: readonly QosTrust[] = ["dscp", "pcp"]): Device {
     return {
         ...base,
         interfaces: {
             ...base.interfaces,
-            ethernet: { "10g-48": { access_vlan: "home", scheduler: qos ? "uplink" : undefined } },
+            ethernet: { "10g-48": { access_vlan: "home", scheduler: qos ? "uplink" : undefined, qos_trust: trust } },
         },
         qos,
     };
@@ -120,6 +120,7 @@ test("VRP sorts classes by PCP in a domain of its own, queues them on the port, 
         "qos.marking[1].then.class",
         "qos.marking[2].then.class",
         "qos.marking[3].then.class",
+        "interfaces.ethernet.10g-48.qos_trust",
     ]);
 });
 
@@ -195,6 +196,44 @@ test("VRP sends every weight again after a new list of weighted queues, and remo
         "undo trust upstream",
         "undo trust",
         "quit",
+    ]);
+});
+
+test("a VRP port that doesn't trust what the classes sort by takes a domain that puts every PCP in the default class's queue", () => {
+    for (const [qos, trust] of [
+        [byDscp, ["pcp"]],
+        [byPcp, ["dscp"]],
+        [byPcp, []],
+    ] as const) {
+        const desired = vrp.render(queued(qos, trust));
+        const untrusted = Array.from({ length: 7 }, (_, at) => ` 8021p-inbound ${at + 1} phb be green`);
+        expect(desired).toContain(["diffserv domain circuit-untrusted", ...untrusted, "#"].join("\n"));
+        expect(desired).toContain(
+            "interface 10GE1/0/48\n port default vlan 20\n trust upstream circuit-untrusted\n qos phb marking 8021p disable\n"
+        );
+        expect(desired).not.toContain("trust dscp");
+    }
+
+    // A port that trusts takes Circuit's domain, and no port needs the other.
+    expect(vrp.render(queued(byDscp, ["dscp"]))).not.toContain("circuit-untrusted");
+
+    const removal = vrp.plan(vrp.render(queued(undefined)), vrp.render(queued(byDscp, [])), options).steps;
+    expect(removal.at(-1)?.send).toEqual(["undo diffserv domain circuit-untrusted", "undo diffserv domain circuit"]);
+});
+
+test("VRP refuses trust on a VLAN interface, which the switch sorts on its ports", () => {
+    const sample: Device = {
+        ...queued(byDscp),
+        interfaces: {
+            ...queued(byDscp).interfaces,
+            vlan_interface: {
+                ...base.interfaces?.vlan_interface,
+                home: { vlan: "home", addresses: ["198.51.100.1/24"], qos_trust: ["dscp"] },
+            },
+        },
+    };
+    expect(vrp.unsupported(sample).filter((gap) => gap.includes("qos_trust"))).toEqual([
+        "interfaces.vlan_interface.home.qos_trust on a VLAN interface: the switch sorts a packet on the port it arrives on. Write it on the VLAN's ports",
     ]);
 });
 

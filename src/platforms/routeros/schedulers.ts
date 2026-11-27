@@ -1,5 +1,5 @@
 import { Derive } from "../../core/derive";
-import type { Device, Queue, Rate, Red, Switched } from "../../model";
+import type { Device, MarkingRule, Queue, Rate, Red, Switched } from "../../model";
 import { RouterOsQueues } from "./queues";
 import type { RouterOsRender, Value } from "./render";
 
@@ -23,19 +23,36 @@ export class RouterOsSchedulers {
     private static readonly RED_BURST_PARTS = 3;
 
     /**
-     * Each class's packets are marked as they leave the interface: by a marking rule's class, by DSCP, then by the PCP they arrived with (TRAPS.md). The first mark ends the chain. HTB serves every queue's `limit-at` first, then lends what is left by priority (MikroTik's manual, HTB). So a strict queue keeps its `max` at priority 1, and a weighted queue its share of what the strict queues' `max` leave.
+     * What a routed packet's in-interface trusts, as a packet mark it takes in the forward chain before the marking rules. A marking rule's class replaces it. A packet the router sends itself takes none, and is sorted by its DSCP and PCP.
+     */
+    private static readonly TRUST = {
+        none: "qos-trust-none",
+        dscp: "qos-trust-dscp",
+        pcp: "qos-trust-pcp",
+        all: "qos-trust-dscp-pcp",
+    } as const;
+
+    /**
+     * Each class's packets are marked as they leave the interface: by a marking rule's class, then by DSCP and by PCP where trusted (TRAPS.md). The first mark ends the chain. HTB serves every queue's `limit-at` first, then lends what is left by priority (MikroTik's manual, HTB). So a strict queue keeps its `max` at priority 1, and a weighted queue its share of what the strict queues' `max` leave.
      */
     static render(render: RouterOsRender, device: Device): void {
         const qos = device.qos;
         const fallback = qos?.default_class;
-        if (!fallback) return;
+        if (!fallback || !RouterOsSchedulers.schedules(device)) return;
 
         // The default class takes the rest, so its own DSCPs and PCPs need no rule.
         const others = Object.entries(qos.classes ?? {}).filter(([each]) => each !== fallback);
         const listed = others.flatMap(([each, settings]) => (settings?.dscp ?? []).map((dscp) => ({ each, dscp: Derive.DSCP[dscp] })));
         const tagged = others.flatMap(([each, settings]) => (settings?.pcp ?? []).map((pcp) => ({ each, pcp })));
         // Each class a marking rule sets, once.
-        const marked = [...new Set((qos.marking ?? []).flatMap(({ then }) => (then.class === undefined ? [] : [then.class])))];
+        const marked = [...new Set((qos.marking ?? []).flatMap((rule) => RouterOsSchedulers.markedClass(device, rule) ?? []))];
+
+        // Trust matters only where a DSCP or a PCP picks a class.
+        const trusts = listed.length + tagged.length > 0;
+        const { TRUST } = RouterOsSchedulers;
+        const used = new Set(trusts ? RouterOsSchedulers.trust(render, device) : []);
+        const notPcpOnly = used.has(TRUST.pcp) ? `!${TRUST.pcp}` : undefined;
+        const notDscpOnly = used.has(TRUST.dscp) ? `!${TRUST.dscp}` : undefined;
 
         for (const { name, scheduler: schedulerName } of Derive.scheduled(device)) {
             const scheduler = qos.schedulers?.[schedulerName];
@@ -43,16 +60,52 @@ export class RouterOsSchedulers {
 
             const iface = render.name(name);
             const root = `${iface}-${schedulerName}`;
+            const mark = (queue: string, match: Parameters<typeof RouterOsSchedulers.mark>[2] = {}) =>
+                RouterOsSchedulers.mark(iface, `${root}-${queue}`, match);
             for (const menu of RouterOsSchedulers.MANGLE) {
-                for (const each of marked)
-                    render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${each}`, { "packet-mark": each }));
-                for (const { each, dscp } of listed) render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${each}`, { dscp }));
+                for (const each of marked) render.add(menu, "add", mark(each, { "packet-mark": each }));
+                if (trusts) render.add(menu, "add", mark(fallback, { "packet-mark": TRUST.none }));
+                for (const { each, dscp } of listed) render.add(menu, "add", mark(each, { dscp, "packet-mark": notPcpOnly }));
                 for (const { each, pcp } of tagged)
-                    render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${each}`, { "ingress-priority": pcp }));
-                render.add(menu, "add", RouterOsSchedulers.mark(iface, `${root}-${fallback}`));
+                    render.add(menu, "add", mark(each, { "ingress-priority": pcp, "packet-mark": notDscpOnly }));
+                render.add(menu, "add", mark(fallback));
             }
             RouterOsSchedulers.queues(render, root, scheduler.rate, scheduler.queues);
         }
+    }
+
+    /** Whether an interface takes a scheduler that the platform builds, one with a rate, so classes sort packets. */
+    private static schedules(device: Device): boolean {
+        return Derive.scheduled(device).some(({ scheduler }) => device.qos?.schedulers?.[scheduler]?.rate);
+    }
+
+    /**
+     * The class a marking rule gives a packet here, as a packet mark of its name: its `class`, else the class that lists the DSCP it writes. A rule that writes a DSCP no class lists leaves the mark of what its in-interface trusts. Without a scheduler, no class is marked.
+     */
+    static markedClass(device: Device, rule: MarkingRule): string | undefined {
+        if (rule.then.class !== undefined) return rule.then.class;
+        const dscp = rule.then.dscp;
+        if (dscp === undefined || !device.qos?.default_class || !RouterOsSchedulers.schedules(device)) return undefined;
+        return Object.entries(device.qos.classes ?? {}).find(([, settings]) => settings?.dscp?.includes(dscp))?.[0];
+    }
+
+    /**
+     * Marks each routed packet in the forward chain with what its in-interface trusts, and every other routed packet with trusting nothing. It returns the marks it wrote. The marking rules come after these in the forward chain (`RouterOsFirewall`), as this renders first.
+     */
+    private static trust(render: RouterOsRender, device: Device): string[] {
+        const { TRUST } = RouterOsSchedulers;
+        const trusting = Derive.trusting(device).map(({ name, trust }) => {
+            const dscp = trust.includes("dscp");
+            const pcp = trust.includes("pcp");
+            return { iface: render.name(name), mark: dscp && pcp ? TRUST.all : dscp ? TRUST.dscp : TRUST.pcp };
+        });
+
+        for (const menu of RouterOsSchedulers.MANGLE) {
+            for (const { iface, mark } of trusting)
+                render.add(menu, "add", { action: "mark-packet", chain: "forward", "in-interface": iface, "new-packet-mark": mark });
+            render.add(menu, "add", { action: "mark-packet", chain: "forward", "new-packet-mark": TRUST.none, "packet-mark": "no-mark" });
+        }
+        return [...trusting.map(({ mark }) => mark), TRUST.none];
     }
 
     /** A mangle rule that marks what leaves `iface` for `queue`, by its DSCP, its ingress priority, or its mark when given, its properties in the order the device exports them. */
@@ -149,6 +202,15 @@ export class RouterOsSchedulers {
                         `qos.schedulers.${name}.queues[${index}].red: of ${depth} packets, both thresholds come to ${max} whole packets, and RouterOS needs the lower one below the other. Set them further apart, or deepen the queue`
                     );
             });
+        }
+
+        // A routed packet's in-interface is the VLAN interface it arrives through, not the bridge port.
+        for (const { where, kind, name } of Derive.trusting(device)) {
+            const switched = kind === "vlan_interface" ? undefined : (device.interfaces?.[kind]?.[name] as Switched | undefined);
+            if (switched?.access_vlan || switched?.trunk_vlans || switched?.qinq_vlan)
+                found.push(
+                    `${where}.qos_trust on a switched port or LAG, whose routed packets arrive through a VLAN interface: write it there`
+                );
         }
 
         const fastPath = Object.values(device.firewall?.filter ?? {}).some((chain) => chain?.rules?.some((rule) => rule.fast_path));

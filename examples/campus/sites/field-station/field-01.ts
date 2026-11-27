@@ -26,9 +26,15 @@ export default campus.device({
 
     interfaces: {
         ethernet: {
-            "1g-1": { description: "library-01 ether2", addresses: ["10.1.3.2/30"], link: { device: "library-01", port: "1g-1" } },
+            // The library's router and the farm's are the campus's own, so the router trusts the DSCP they set on what it sends over the radio.
+            "1g-1": {
+                description: "library-01 ether2",
+                addresses: ["10.1.3.2/30"],
+                link: { device: "library-01", port: "1g-1" },
+                qos_trust: ["dscp"],
+            },
             "1g-2": { description: "Radio to the observatory and the boathouse", addresses: ["10.1.4.1/28"], scheduler: "radio" },
-            "1g-3": { description: "Carrier's line to the farm", addresses: ["10.1.5.1/29"] },
+            "1g-3": { description: "Carrier's line to the farm", addresses: ["10.1.5.1/29"], qos_trust: ["dscp"] },
         },
         loopback: { loopback: { addresses: ["10.255.0.3/32"] } },
     },
