@@ -11,12 +11,28 @@ import { Derive } from "../../core/derive";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
 import { Platform } from "../platform";
-import type { ApplyOptions, OsSupport, Plan, ReadOptions, ReadSession, Step } from "../platform";
+import type {
+    ApplyOptions,
+    BgpSession,
+    HealthCheck,
+    HealthOptions,
+    OsSupport,
+    Plan,
+    ReadOptions,
+    ReadSession,
+    Step,
+    Tool,
+} from "../platform";
+import { BgpHealth } from "../bgp-health";
+import { RaisecomRosBgp } from "./bgp";
+import { RaisecomRosBgpSessions } from "./bgp-sessions";
+import { RaisecomRosIsis } from "./isis";
 import { RaisecomRosLldp } from "./lldp";
 import { RaisecomRosOspf } from "./ospf";
 import { RaisecomRosRender } from "./render";
 import { RaisecomRosServices } from "./services";
 import { RaisecomRosSwitching } from "./switching";
+import { RaisecomRosUndo } from "./undo";
 import { RaisecomRosUnsupported } from "./unsupported";
 
 /** `fresh` tests access in a fresh login: a new SSH session, or logging out and in again on the console. */
@@ -49,41 +65,25 @@ export class RaisecomRos extends Platform {
         // A port's speed or duplex set back to auto prints as the default it is, and `no duplex` is refused.
         "speed auto",
         "duplex auto",
+        // BGP prints an address family block for IPv6 and its VPN families whatever is set.
+        "address-family",
+        "policy vpn-target",
     ];
-
-    /** Lines whose opposite is not `no` and the line. */
-    private static readonly OPPOSITES: [RegExp, string][] = [
-        [/^mode manual$/, "mode lacp"],
-        [/^ip ospf passive-interface enable$/, "ip ospf passive-interface disable"],
-        [/^lldp disable$/, "lldp enable"],
-        [/^spanning-tree disable$/, "spanning-tree enable"],
-        [/^switchport mode (trunk|private-vlan (host|promiscuous))$/, "switchport mode access"],
-        [/^telnet-server disable$/, "telnet-server enable"],
-        [/^shutdown$/, "no shutdown"],
-        // `no` is refused for these, and `auto` is the default edge setting.
-        [/^spanning-tree rootguard enable$/, "spanning-tree rootguard disable"],
-        [/^spanning-tree bpduguard enable$/, "spanning-tree bpduguard disable"],
-        [/^spanning-tree edged-port force-(true|false)$/, "spanning-tree edged-port auto"],
-        // The device refuses `no storm-control mode`, and kbps is its default and prints nothing.
-        [/^storm-control mode pps$/, "storm-control mode kbps"],
-    ];
-
-    /** Lines whose removal takes only their keyword, not their value. */
-    private static readonly UNDO_BY_KEYWORD =
-        /^(description|switchport access vlan|switchport trunk native vlan|switchport trunk allowed vlan|storm-control broadcast|storm-control dlf|rate-limit ingress|rate-limit egress|port-channel|ip vrf forwarding|ip urpf|ip ospf cost|ip ospf network|ip ospf hello-interval|ip ospf dead-interval|ip ospf priority|switchport port-security maximum|switchport private-vlan host-association|switchport private-vlan mapping|tpid|gateway|lease expired)\b/;
 
     private static readonly DIALECT: Dialect = {
-        block: /^(interface |access-list |router ospf |bfd \d+ bind |ip vrf (?!forwarding )|ip dhcp server pool )/,
+        block: /^(interface |access-list |router (?:ospf|isis|bgp) |route-map |bfd \d+ bind |ip vrf (?!forwarding )|ip dhcp server pool )/,
         indented: false,
         terminator: "!",
         ignore: (line) => line.startsWith("!") || RaisecomRos.DEVICE_FACTS.some((fact) => line.startsWith(fact)),
-        undo: RaisecomRos.undo,
+        undo: RaisecomRosUndo.of,
         leave: "exit",
         // SNMP takes the new access-list before it lets go of the old one, so it is never left without one.
         first: /^snmp-server access-list /,
         // A password prints as a cipher and renders as a marker, and both are a secret.
         canon: (line) =>
             line
+                // A routing protocol's key prints in clear, and the read hides it. Before the password below, which would take `md5` for the key.
+                .replace(new RegExp(RaisecomRos.CLEAR_KEY.source), "$1 <secret>")
                 .replace(/password (cipher )?(\S+)/, "password <secret>")
                 .replace(/community <secret:\w+>/, "community <redacted>")
                 // An SNMPv3 user prints its localized keys and renders its passphrases, and both are secrets.
@@ -91,12 +91,11 @@ export class RaisecomRos extends Platform {
                     /^snmp-server user (\S+) (?:authentication|authkey) (\S+) \S+ (?:privacy|privkey)\s+(\S+) \S+$/,
                     "snmp-server user $1 $2 $3 <secret>"
                 )
-                // A route is sent tracking `bfd N` and prints as tracking `bfd-session N`.
+                // A route is sent tracking `bfd N` and prints as tracking `bfd-session N`, and one to null prints it in capitals.
                 .replace(/ track bfd-session (\d+)$/, " track bfd $1")
+                .replace(/^(ip route .*) NULL 0$/, "$1 null 0")
                 // An access group prints a notify view the render leaves to its default.
                 .replace(/^(snmp-server access \S+ read \S+) notify internet (usm \S+)$/, "$1 $2")
-                // A routing protocol's key prints in clear, and the read hides it.
-                .replace(new RegExp(RaisecomRos.CLEAR_KEY.source), "$1 <secret>")
                 // A trap receiver's community prints in clear, and the read hides it.
                 .replace(new RegExp(RaisecomRos.TRAP_COMMUNITY.source), "$1 <secret>"),
         order: RaisecomRos.order,
@@ -104,7 +103,10 @@ export class RaisecomRos extends Platform {
         head: (line) =>
             /^(address|gateway|lease expired|dns-server \S+ secondary|dns-server) /
                 .exec(line)?.[1]
-                ?.replace(/ \S+ secondary$/, " secondary") ?? LineDiff.head(line),
+                ?.replace(/ \S+ secondary$/, " secondary") ??
+            RaisecomRosBgp.head(line) ??
+            RaisecomRosIsis.head(line) ??
+            LineDiff.head(line),
     };
 
     /** A trap receiver's community, which the switch prints in clear: `snmp-server host 192.0.2.1 version 2c <community>`. */
@@ -113,11 +115,20 @@ export class RaisecomRos extends Platform {
     /** Lines set at the `#` prompt, as configuration mode refuses them: `hostname`, a user, and the privileged password. */
     private static readonly PRIVILEGED = /^(hostname|user name|enable password) /;
 
-    /** Blocks after the top level. A LAG exists before a port joins it, and an OSPF process comes after its interfaces. A BFD session binds to a VLAN interface, so it comes last. Only one session binds to a peer, so an old one goes first, with the routes at the top level. A route takes a session that does not exist yet. */
-    private static readonly BLOCK_ORDER = [/^interface port-channel/, /^interface /, /^router ospf/, /^bfd /];
+    /** Blocks after the top level. A route-map exists before a session or IS-IS names it. A LAG exists before a port joins it, and a routing process comes after its interfaces. A BFD session binds to a VLAN interface, so it comes last. Only one session binds to a peer, so an old one goes first, with the routes at the top level. A route takes a session that does not exist yet. */
+    private static readonly BLOCK_ORDER = [
+        /^route-map /,
+        /^interface port-channel/,
+        /^interface /,
+        /^router ospf/,
+        /^router isis/,
+        /^router bgp/,
+        /^bfd /,
+    ];
 
-    /** A routing protocol's key, which the switch prints in clear: OSPF's `ip ospf authentication-key md5 7 0 <key>`. */
-    private static readonly CLEAR_KEY = /^(\s*ip ospf authentication-key (?:md5 \d+|simple) 0) \S+$/gm;
+    /** A routing protocol's key, which the switch prints in clear: OSPF's `ip ospf authentication-key md5 7 0 <key>`, a BGP session's password, and IS-IS's keys. */
+    private static readonly CLEAR_KEY =
+        /^(\s*(?:ip ospf authentication-key (?:md5 \d+|simple) 0|neighbor \S+ password|(?:area-password|domain-password|isis password) (?:md5|clear))) \S+$/gm;
 
     /** The firmware offers only an `ssh-rsa` host key, so that one is allowed for this platform alone. Key exchange, cipher, and MAC still negotiate modern ones. */
     private static readonly HOST_KEYS = ["ssh-rsa"];
@@ -144,9 +155,9 @@ export class RaisecomRos extends Platform {
     /** How much of the device's answer an error shows. */
     private static readonly ANSWER_CHARS = 300;
 
-    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Conflict with previous rule of current ACL.`, `Acl name has existed.`, `Please delete the static bind of the pool` */
+    /** How the switch says no. Some answers carry no error word: `IP address overlaps with configured interface.`, `Malformed community-list value.`, `Parameter is error.`, `Route target is illegality.`, `Conflict with previous rule of current ACL.`, `Acl name has existed.`, `Please delete the static bind of the pool`, `Insertion failed - prefix-list entry exists.`, `The neighbor already exists in AS 64496` */
     private static readonly REFUSED =
-        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error|Conflict)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|has existed|Please delete/im;
+        /^(%|Error|Incomplete|Unrecognized|Exceed|Malformed|Parameter is error|Conflict)|can not|cannot |can't |is in use|Wrong parameter|invalid|unsuccessful|overlaps|illegal|has existed|Please delete|failed|already exists in AS/im;
 
     /** Lines that ask for `y` and do nothing without it. */
     private static readonly CONFIRM = /^(portswitch|no portswitch|switchport trunk allowed vlan|switchport mode)/;
@@ -196,6 +207,9 @@ export class RaisecomRos extends Platform {
 
     override readonly console = RaisecomRos.CONSOLE;
 
+    /** A RAX721 printed its sessions, but none came up: each neighbor was a documentation address routed to null. */
+    override readonly experimentalTools: readonly Tool[] = ["bgp", "health"];
+
     override unsupported(device: Device): string[] {
         return RaisecomRosUnsupported.of(device);
     }
@@ -218,6 +232,7 @@ export class RaisecomRos extends Platform {
         return [
             ...found,
             ...RaisecomRosOspf.experimental(device),
+            ...RaisecomRosBgp.experimental(device),
             ...RaisecomRosSwitching.experimental(device),
             ...RaisecomRosServices.experimental(device),
         ];
@@ -361,6 +376,10 @@ export class RaisecomRos extends Platform {
             for (const entry of gone) if (!top.remove.includes(entry.line)) top.remove.push(entry.line);
         }
 
+        // A routing process goes once its interfaces and sessions let go of it, then a route-map or a list once nothing uses it.
+        const top = groups.find((group) => !group.path.length);
+        const lateRouting = [...RaisecomRosIsis.removed(top), ...RaisecomRosBgp.order(groups, desired)];
+
         // A VLAN is created in a list and removed one at a time, with `no vlan <id>`.
         LineDiff.vlanListChange(
             groups,
@@ -428,7 +447,7 @@ export class RaisecomRos extends Platform {
         // Editing an access-list means releasing every service holding it first, and binding the wanted ones after.
         const releaseAndBind = (group: Group) => {
             const pool = RaisecomRosServices.POOL.exec(group.path[0] ?? "")?.[1];
-            if (pool) return { before: RaisecomRosServices.binds(existing, pool).map((line) => RaisecomRos.undo(line)), after: [] };
+            if (pool) return { before: RaisecomRosServices.binds(existing, pool).map((line) => RaisecomRosUndo.of(line)), after: [] };
 
             const acl = /^access-list (\d+)/.exec(group.path[0] ?? "")?.[1];
             if (!acl) return { before: [], after: [] };
@@ -505,11 +524,19 @@ export class RaisecomRos extends Platform {
             planned.push({ title: "DHCP reservations", show: reservations.map((line) => `+ ${line}`), send: reservations });
         if (snooping.length) planned.push({ title: "DHCP snooping and relay", show: snooping.map((line) => `+ ${line}`), send: snooping });
 
+        if (lateRouting.length) {
+            planned.push({
+                title: "routing processes, route-maps, and lists no longer used",
+                show: lateRouting.map((line) => `- ${line}`),
+                send: lateRouting.map((line) => RaisecomRosUndo.of(line)),
+            });
+        }
+
         if (aclRemovals.length) {
             planned.push({
                 title: "access-lists no longer used",
                 show: aclRemovals.map((line) => `- ${line}`),
-                send: aclRemovals.map((line) => RaisecomRos.undo(line)),
+                send: aclRemovals.map((line) => RaisecomRosUndo.of(line)),
             });
         }
 
@@ -517,7 +544,7 @@ export class RaisecomRos extends Platform {
             planned.push({
                 title: "VLANs no longer used",
                 show: vlanRemovals.map((line) => `- ${line}`),
-                send: vlanRemovals.map((line) => RaisecomRos.undo(line)),
+                send: vlanRemovals.map((line) => RaisecomRosUndo.of(line)),
             });
         }
 
@@ -525,7 +552,7 @@ export class RaisecomRos extends Platform {
             const removeLags: Step = {
                 title: "LAGs and VRFs no longer used",
                 show: lagRemovals.map((line) => `- ${line}`),
-                send: lagRemovals.map((line) => RaisecomRos.undo(line)),
+                send: lagRemovals.map((line) => RaisecomRosUndo.of(line)),
             };
             planned.push(removeLags);
         }
@@ -578,6 +605,15 @@ export class RaisecomRos extends Platform {
         console.log("  applied, logged in again, written");
     }
 
+    override bgpSessions(device: Device, session: ReadSession): Promise<BgpSession[]> {
+        return RaisecomRosBgpSessions.read(device, session);
+    }
+
+    /** Each BGP session established before the apply must be established again. */
+    override health(device: Device, _plan: Plan, options: HealthOptions = {}): Promise<HealthCheck> {
+        return BgpHealth.check(this, device, options);
+    }
+
     override readOnly(command: string): boolean {
         return RaisecomRos.READS.test(command);
     }
@@ -593,68 +629,6 @@ export class RaisecomRos extends Platform {
     /** The top level, and any block not in the order, comes first. */
     private static order(path: string[]): number {
         return RaisecomRos.BLOCK_ORDER.findIndex((pattern) => pattern.test(path[0] ?? "")) + 1;
-    }
-
-    private static undo(line: string, path: readonly string[] = []): string {
-        for (const [pattern, opposite] of RaisecomRos.OPPOSITES) if (pattern.test(line)) return opposite;
-        // A port's spanning tree priority goes back to its default by keyword.
-        if (path[0]?.startsWith("interface ") && line.startsWith("spanning-tree instance 0 priority "))
-            return "no spanning-tree instance 0 priority";
-        if (/^rule \d+/.test(line)) return `no ${line.split(" ").slice(0, 2).join(" ")}`;
-
-        // A VRRP group goes with its address, and its other settings return to their defaults by keyword. Preemption is on unless turned off.
-        const vrrp = /^(no )?vrrp (\d+) (ip \S+|priority|timers advertise-interval|preempt)/.exec(line);
-        if (vrrp) return vrrp[1] ? `vrrp ${vrrp[2]} preempt` : `no vrrp ${vrrp[2]} ${vrrp[3]}`;
-
-        // A route goes by its VRF, prefix, next hop, and interface, whatever it tracks: without its interface, `no ip route` answers `Set successfully.` and keeps it. A BFD session goes by its number.
-        const route = /^(ip route (?:vrf \S+ )?\S+ \S+ \S+(?: (?!track )\S+ \S+)?)/.exec(line);
-        if (route) return `no ${route[1]}`;
-
-        // A list goes by its number, whatever its name. A private VLAN's secondaries and a translation go by the VLAN they start with.
-        const list = /^(access-list \d+) name /.exec(line);
-        if (list) return `no ${list[1]}`;
-
-        const byFirstVlan = /^(private-vlan association \d+|switchport vlan-mapping both outer \d+) /.exec(line);
-        if (byFirstVlan) return `no ${byFirstVlan[1]}`;
-
-        const bfdSession = /^bfd (\d+) bind /.exec(line);
-        if (bfdSession) return `no bfd ${bfdSession[1]}`;
-
-        // An address goes by itself, without its mask: `no ip address` alone is incomplete on a routed port.
-        const address = /^ip address (\S+) /.exec(line);
-        if (address) return `no ip address ${address[1]}`;
-
-        // An OSPF key goes by its ID, as the read hides the key itself. Not tried on a switch: OSPF's keys are experimental.
-        const ospfKey = /^(ip ospf authentication-key (?:md5 \d+|simple)) /.exec(line);
-        if (ospfKey) return `no ${ospfKey[1]}`;
-
-        const ospfProcess = /^router ospf (\d+)/.exec(line);
-        if (ospfProcess) return `no router ospf ${ospfProcess[1]}`;
-
-        // An SNMPv3 user, its group, and its access are each removed by their name alone.
-        const snmpUser = /^snmp-server user (\S+)/.exec(line);
-        if (snmpUser) return `no snmp-server user ${snmpUser[1]}`;
-
-        const snmpGroup = /^snmp-server group \S+ user (\S+) usm$/.exec(line);
-        if (snmpGroup) return `no snmp-server group user ${snmpGroup[1]} usm`;
-
-        const snmpAccess = /^snmp-server access (\S+) .* usm (\S+)$/.exec(line);
-        if (snmpAccess) return `no snmp-server access ${snmpAccess[1]} usm ${snmpAccess[2]}`;
-
-        // A log host and a trap receiver go by their address, whatever their level and port. A reservation goes without its pool, and a pool's secondary DNS server by its kind.
-        const byAddress = /^(logging host|snmp-server host) (\S+)/.exec(line);
-        if (byAddress) return `no ${byAddress[1]} ${byAddress[2]}`;
-
-        const reservation = /^(ip dhcp static-bind \S+ \S+) /.exec(line);
-        if (reservation) return `no ${reservation[1]}`;
-
-        if (/^dns-server \S+ secondary$/.test(line)) return "no dns-server secondary";
-        if (line.startsWith("dns-server ")) return "no dns-server";
-
-        const keyword = RaisecomRos.UNDO_BY_KEYWORD.exec(line);
-        if (keyword) return `no ${keyword[1]}`;
-
-        return `no ${line}`;
     }
 
     /** A session that does not answer as ROS is refused, so nothing meant for it can reach another shell. */

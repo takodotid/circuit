@@ -88,11 +88,11 @@ test("waiting reads again until enough sessions are up, and gives up at the limi
     expect(Date.now() - started).toBeLessThan(2000);
 });
 
-test("RouterOS, VRP, Junos, and FortiOS read BGP sessions, and only RouterOS has them tested and reads the BGP log", () => {
+test("every platform reads BGP sessions, and only RouterOS has them tested and reads the BGP log", () => {
     const names = (platforms: readonly Platform[]) => platforms.map((candidate) => candidate.name);
     const reading = Platforms.all().filter((candidate) => candidate.bgpSessions);
 
-    expect(names(reading)).toEqual(["routeros", "vrp", "junos", "fortios"]);
+    expect(names(reading)).toEqual(["routeros", "vrp", "raisecom-ros", "junos", "fortios"]);
     expect(names(reading.filter((candidate) => !candidate.experimentalTools.includes("bgp")))).toEqual(["routeros"]);
     expect(names(reading.filter((candidate) => candidate.bgpLog))).toEqual(["routeros"]);
 });
