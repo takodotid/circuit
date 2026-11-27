@@ -1,4 +1,18 @@
-import type { HostAddress, IP, IPv4, IPv6, InterfaceAddress, Limit, MacAddress, Named, Prefix, QosTrust, Rate, Secret } from "./common";
+import type {
+    HostAddress,
+    IP,
+    IPv4,
+    IPv6,
+    InterfaceAddress,
+    Limit,
+    MacAddress,
+    Named,
+    Prefix,
+    QosTrust,
+    Rate,
+    Secret,
+    TwoRateLimit,
+} from "./common";
 import type { RouteDistinguisher, VrfRouteTargets } from "./routing";
 
 /** A storm-control threshold: packets per second, or percent of the link's speed. */
@@ -260,10 +274,10 @@ export type Port<
 
 /** Limits the traffic through an interface to a rate, each way. Traffic above the rate waits in a queue or is dropped, as the platform does. */
 export type RateLimit = {
-    /** The traffic that arrives on the interface. */
-    input?: Limit;
-    /** The traffic that leaves through the interface. */
-    output?: Limit;
+    /** The traffic that arrives on the interface: one rate, or two with `pir`. */
+    input?: Limit | TwoRateLimit;
+    /** The traffic that leaves through the interface: one rate, or two with `pir`. */
+    output?: Limit | TwoRateLimit;
     /** Limits each prefix on the interface's side on its own as well, such as each customer on a VLAN interface. Only the interface as a whole when absent. */
     per_prefix?: PerPrefix;
 };

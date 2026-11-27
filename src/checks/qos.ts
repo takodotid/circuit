@@ -40,6 +40,8 @@ export class QosChecks {
             if (scheduler) QosChecks.scheduler(device, name, scheduler, report);
         QosChecks.scheduled(device, report);
         QosChecks.trust(device, report);
+        for (const { where, limit } of Derive.twoRates(device))
+            if (limit.exceed && typeof limit.exceed === "object") QosChecks.dscp(`${where}.exceed.dscp`, limit.exceed.dscp, report);
     }
 
     /** What a port trusts is a DSCP or a PCP, each once, on the LAG rather than its members. */

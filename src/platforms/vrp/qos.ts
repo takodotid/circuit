@@ -190,6 +190,11 @@ export class VrpQos {
                 found.push(
                     `${where}.scheduler, on a ${kind === "lag" ? "LAG, not built yet" : "VLAN interface: the switch queues on its ports"}`
                 );
+        // A CAR profile takes no action for a color, and a behavior's car refuses remark-dscp for yellow (TRAPS.md).
+        for (const { where } of Derive.twoRates(device))
+            found.push(
+                `${where}, two rates: a CE6855's CAR passes what exceeds with a service class and a color, not a DSCP. Write one rate`
+            );
         for (const { where, rateLimit } of Derive.rateLimited(device))
             if (rateLimit.per_prefix)
                 found.push(

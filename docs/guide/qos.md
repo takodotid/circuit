@@ -76,4 +76,17 @@ RFC 7567 asks every device to manage its queues, and no longer asks for RED by d
 
 Beside the interface's own `input` and `output`, the customers share those rates, each up to its own. A customer's IPv4 and IPv6 traffic each get the rates. Hosts that make their IPv6 addresses in one /64 need `ipv6: 128`, and then each address a host makes gets the rates. [Platforms](/reference/platforms#interfaces) says where it works.
 
-A rate limit has one rate each way. Policing with a second rate, RFC 2698's two-rate three-color marker, is not built: [Platforms](/reference/platforms#firewall-and-services) says why.
+## Two rates
+
+A rate limit's `input` or `output` can police with two rates, RFC 2698's two-rate three-color marker, with OpenConfig's names. What comes within `cir` passes unchanged. What comes above it, but within `pir`, passes with the DSCP of `exceed`, so the devices after it drop it first. What comes above `pir` is dropped. Each rate has its burst, in bytes: `bc` for `cir` and `be` for `pir`. It doesn't look at the DSCP a packet arrives with: RFC 2698 calls that color-blind.
+
+```ts
+// edge-01.ts, in interfaces.ethernet
+"10g-1": {
+    description: "Transit customer",
+    addresses: ["198.51.100.1/30"],
+    rate_limit: { input: { cir: "100M", bc: 1_250_000, pir: "200M", be: 2_500_000, exceed: { dscp: "af12" } } },
+},
+```
+
+No platform builds it yet: [Platforms](/reference/platforms#firewall-and-services) says why for each.

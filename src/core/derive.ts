@@ -34,6 +34,7 @@ import type {
     RouteMatch,
     RouteRule,
     RouterAdvertisement,
+    TwoRateLimit,
 } from "../model";
 
 /** A BGP neighbor's `max_prefixes` in its long form. Without `restart_after` or `warn_only`, the session stays closed. */
@@ -273,6 +274,26 @@ export class Derive {
             Object.entries<{ qos_trust?: readonly QosTrust[] } | undefined>(device.interfaces?.[kind] ?? {}).flatMap(([name, settings]) =>
                 settings?.qos_trust?.length ? [{ where: `interfaces.${kind}.${name}`, name, kind, trust: settings.qos_trust }] : []
             )
+        );
+    }
+
+    /** Whether a rate limit's direction has two rates (RFC 2698). */
+    static isTwoRate(limit: Limit | TwoRateLimit): limit is TwoRateLimit {
+        return typeof limit === "object" && limit.pir !== undefined;
+    }
+
+    /** A rate limit's direction with one rate. Undefined for two rates, which a platform that builds none refuses in `unsupported()`. */
+    static oneRate(limit: Limit | TwoRateLimit | undefined): Limit | undefined {
+        return limit === undefined || Derive.isTwoRate(limit) ? undefined : limit;
+    }
+
+    /** Each direction of a rate limit with two rates, with its path, such as `interfaces.ethernet.10g-1.rate_limit.input`. */
+    static twoRates(device: Device): { where: string; limit: TwoRateLimit }[] {
+        return Derive.rateLimited(device).flatMap(({ where, rateLimit }) =>
+            (["input", "output"] as const).flatMap((direction) => {
+                const limit = rateLimit[direction];
+                return limit && Derive.isTwoRate(limit) ? [{ where: `${where}.rate_limit.${direction}`, limit }] : [];
+            })
         );
     }
 

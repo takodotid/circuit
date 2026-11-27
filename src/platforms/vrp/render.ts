@@ -221,16 +221,22 @@ export class VrpRender {
 
     /** What arrives on a port or a LAG is policed by a CAR profile of its own, named after it. Rates are in kbit/s and bursts in bytes. */
     private carProfiles(): void {
-        const limited = Derive.rateLimited(this.device).filter(({ kind, rateLimit }) => kind !== "vlan_interface" && rateLimit.input);
-        for (const { name, rateLimit } of limited) this.line(`qos car ${VrpRender.carName(name)} ${VrpRender.rate(rateLimit.input!)}`);
-        if (limited.length) this.separator();
+        let written = false;
+        for (const { name, kind, rateLimit } of Derive.rateLimited(this.device)) {
+            const input = Derive.oneRate(rateLimit.input);
+            if (kind === "vlan_interface" || !input) continue;
+            this.line(`qos car ${VrpRender.carName(name)} ${VrpRender.rate(input)}`);
+            written = true;
+        }
+        if (written) this.separator();
     }
 
     /** A port's or a LAG's rate limit, in the order the switch prints them: a rate limit on what leaves, and its CAR profile on what arrives. */
     private static rateLimitLines(name: string, rateLimit: RateLimit | undefined): string[] {
         const lines: string[] = [];
-        if (rateLimit?.output) lines.push(`qos lr ${VrpRender.rate(rateLimit.output)} outbound`);
-        if (rateLimit?.input) lines.push(`qos car inbound ${VrpRender.carName(name)}`);
+        const output = Derive.oneRate(rateLimit?.output);
+        if (output) lines.push(`qos lr ${VrpRender.rate(output)} outbound`);
+        if (Derive.oneRate(rateLimit?.input)) lines.push(`qos car inbound ${VrpRender.carName(name)}`);
         return lines;
     }
 

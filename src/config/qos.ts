@@ -1,34 +1,5 @@
-import type { Named, OneOrMore, Ordered, Rate } from "./common";
+import type { Dscp, Named, OneOrMore, Ordered, Rate } from "./common";
 import type { FilterMatch } from "./firewall";
-
-/**
- * A DSCP (RFC 2474), by its name in the IANA DSCP registry. The class selectors are `cs0` to `cs7` (RFC 2474), and assured forwarding `af11` to `af43` (RFC 2597). Expedited forwarding is `ef` (RFC 3246), with `voice-admit` (RFC 5865). Lower effort is `le` (RFC 8622), and non-queue-building `nqb` (RFC 9956). `cs0` is best effort, the DSCP of unmarked traffic. RFC 4594 gives each service class its DSCP, such as `ef` for telephony, `af41` for video conferencing, and `cs6` for routing protocols.
- */
-export type Dscp =
-    | "cs0"
-    | "cs1"
-    | "cs2"
-    | "cs3"
-    | "cs4"
-    | "cs5"
-    | "cs6"
-    | "cs7"
-    | "af11"
-    | "af12"
-    | "af13"
-    | "af21"
-    | "af22"
-    | "af23"
-    | "af31"
-    | "af32"
-    | "af33"
-    | "af41"
-    | "af42"
-    | "af43"
-    | "ef"
-    | "voice-admit"
-    | "le"
-    | "nqb";
 
 /** An IEEE 802.1Q priority, the PCP a VLAN tag carries, 0 to 7. 0 is best effort, 1 is background, below it, and 2 to 7 are above it: 5 for voice, 6 and 7 for network control. */
 export type Pcp = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;

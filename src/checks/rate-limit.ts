@@ -1,10 +1,10 @@
 import { Address } from "../core/address";
 import { Derive } from "../core/derive";
-import type { Device, Limit, PerPrefix } from "../model";
+import type { Device, Limit, PerPrefix, TwoRateLimit } from "../model";
 
 type Report = (message: string) => void;
 
-/** Rate limits as RFC 2697 has them: a rate above 0, and a burst of whole bytes. */
+/** Rate limits as RFC 2697 has them: a rate above 0, and a burst of whole bytes. Or two rates, as RFC 2698 has them. */
 export class RateLimitChecks {
     /** A rate: a number, then `k`, `M`, or `G`. */
     private static readonly RATE = /^(\d+(\.\d+)?)[kMG]$/;
@@ -60,7 +60,29 @@ export class RateLimitChecks {
         }
     }
 
-    private static limit(where: string, limit: Limit, report: Report): void {
+    /** Two rates as RFC 2698 has them: each with a burst of whole bytes, the peak at least the committed rate. `QosChecks` checks the DSCP. */
+    private static twoRate(where: string, limit: TwoRateLimit, report: Report): void {
+        const cir = RateLimitChecks.rate(`${where}.cir`, limit.cir, report) ? limit.cir : undefined;
+        const pir = RateLimitChecks.rate(`${where}.pir`, limit.pir, report) ? limit.pir : undefined;
+        if (cir && pir && Derive.bitsPerSecond(pir) < Derive.bitsPerSecond(cir))
+            report(`${where}.pir ${pir} is below cir, ${cir}: the peak rate is at least the committed one (RFC 2698)`);
+
+        for (const key of ["bc", "be"] as const) {
+            const burst: unknown = limit[key];
+            if (!(typeof burst === "number" && Number.isInteger(burst) && burst > 0))
+                report(
+                    `${where}.${key} ${JSON.stringify(burst)} is not a whole number of bytes above 0: RFC 2698 needs a burst for each rate`
+                );
+        }
+        if (!limit.exceed || typeof limit.exceed !== "object")
+            report(`${where} has no exceed: write { dscp: "af12" }, the DSCP of what passes between cir and pir`);
+    }
+
+    private static limit(where: string, limit: Limit | TwoRateLimit, report: Report): void {
+        if (Derive.isTwoRate(limit)) return RateLimitChecks.twoRate(where, limit, report);
+        if (typeof limit === "object" && (limit.be !== undefined || limit.exceed !== undefined))
+            return report(`${where} has be or exceed without pir: write pir, the peak rate, or leave them out`);
+
         const { rate, burst } = Derive.limit(limit);
         RateLimitChecks.rate(where, rate, report);
         if (burst !== undefined && !(Number.isInteger(burst) && burst > 0))

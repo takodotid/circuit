@@ -200,11 +200,12 @@ export class JunosRender {
         for (const { name, kind, rateLimit } of Derive.rateLimited(this.device)) {
             if (kind === "vlan_interface") continue;
             const physical = this.names.physical(name);
+            const input = Derive.oneRate(rateLimit.input);
 
-            if (rateLimit.input) {
+            if (input) {
                 const limiter = JunosRender.rateLimitName(physical);
                 const term = `firewall family ethernet-switching filter ${limiter} term limit`;
-                this.policer(limiter, rateLimit.input);
+                this.policer(limiter, input);
                 this.out.set(term, "then policer", limiter);
                 this.out.set(term, "then accept");
                 this.out.set(`interfaces ${physical} unit 0 family ethernet-switching filter input`, limiter);

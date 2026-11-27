@@ -183,7 +183,7 @@ On Junos, policy routing is Juniper's filter-based forwarding, experimental: a Q
 | Classes and schedulers             | ✅ not with fast path                    | 🧪 ports, one strict queue    | ❌                         | 🧪 ports and LAGs, no rate, one strict queue | ✅ by session, not offloaded                    |
 | Classes by PCP                     | ✅ routed, as it arrives                 | 🧪 not beside classes by DSCP | ❌                         | 🧪 not beside classes by DSCP                | ❌                                              |
 | Queue depth and RED                | ✅ RED counts bytes                      | ❌ no depth in packets        | ❌                         | ❌ a part of the port's buffer               | ✅ depth only, 5 to 10000 packets               |
-| Policing with two rates (RFC 2698) | ❌ none on the device                    | ❌                            | ❌                         | ❌                                           | ❌                                              |
+| Policing with two rates (RFC 2698) | ❌ none on the device                    | ❌ no DSCP for what exceeds   | ❌                         | ❌ no DSCP for what exceeds                  | ❌ a shaper, with no burst                      |
 | Trust for each port                | ✅ routed ports, LAGs, VLAN interfaces   | 🧪 ports                      | ❌                         | 🧪 ports and LAGs                            | 🧪 the DSCP, by session                         |
 | DHCP server                        | ✅                                       | 🧪                            | 🧪 VLAN interfaces         | ✅                                           | ✅                                              |
 | DHCPv6 server                      | ✅ pool is a prefix                      | ✅ no delegated prefixes      | ❌ IPv4 interfaces only    | ✅ not DNS servers alone                     | ✅ needs `pool`; 🧪 delegated prefixes          |
@@ -254,7 +254,13 @@ FortiOS sorts sessions, not packets. Each DSCP a class lists is a shaping policy
 
 A queue with `depth_packets` takes a queue type of its own on RouterOS: a FIFO of that many packets, or RED. RouterOS's RED counts bytes, not packets, so Circuit counts a packet as 1500 bytes: a queue of full-size packets holds `depth_packets`, and one of smaller packets holds more of them. The thresholds of RED are rounded down to whole packets, and RouterOS refuses two that come to the same number. RouterOS has no setting for how often RED drops between its thresholds. VRP refuses `depth_packets`, and so `red`, which needs it: V200R005 sets no depth for a queue. A QFX5100 gives a queue a part of its port's buffer, in percent of the bytes, and its RED counts in percent of that, so Junos refuses both. On FortiOS a queue's depth is its shaping entry's `limit`, 5 to 10000 packets, and 1000 without `depth_packets`. FortiOS's RED drops up to a set share of the packets at the upper threshold, `red-probability`, which Circuit has no key for, so FortiOS refuses `red`.
 
-Policing with two rates, RFC 2698's two-rate three-color marker, is built on no platform. RouterOS has none: a queue's `limit-at` and `max-limit` shape with HTB, holding what comes above them, and the firewall's `limit` matcher polices one rate. The other platforms don't build it yet.
+Policing with two rates, RFC 2698's two-rate three-color marker, is built on no platform:
+
+- **RouterOS.** It has none: a queue's `limit-at` and `max-limit` shape with HTB, holding what comes above them, and the firewall's `limit` matcher polices one rate.
+- **Junos.** A QFX5100's two-rate policer gives what passes above `cir` a loss priority, medium-high, and only a rewrite rule on the port a packet leaves through writes a DSCP by it. Juniper's QFX pages have such a rule write the DSCP of every class the port sends, so it would rewrite what passes within `cir` too.
+- **FortiOS.** A traffic shaper marks what passes above its `exceed-bandwidth` with `exceed-dscp`, by the rate it measures, with no burst: not RFC 2698's two buckets of tokens.
+- **VRP.** A CE6855 takes two rates and their bursts in a CAR profile, with no action for a color. A traffic behavior's `car` takes `yellow pass service-class <class> color yellow`, but refuses `remark-dscp` there, so nothing writes a DSCP on what exceeds alone.
+- **Raisecom ROS.** Not built yet.
 
 A port, a LAG, or a VLAN interface trusts what its `qos_trust` lists, and nothing without it. Trust picks the class alone: a packet leaves with the DSCP and PCP it arrived with on every platform, unless a marking rule writes them.
 

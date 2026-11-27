@@ -395,10 +395,10 @@ export class RaisecomRosRender {
             return `rate-limit ${direction} cir ${kbps}${kilobytes === own ? "" : ` cbs ${kilobytes}`}`;
         };
 
-        return [
-            ...(rateLimit?.input ? [line("ingress", rateLimit.input)] : []),
-            ...(rateLimit?.output ? [line("egress", rateLimit.output)] : []),
-        ];
+        // Two rates are refused in `RaisecomRosUnsupported`.
+        const input = Derive.oneRate(rateLimit?.input);
+        const output = Derive.oneRate(rateLimit?.output);
+        return [...(input ? [line("ingress", input)] : []), ...(output ? [line("egress", output)] : [])];
     }
 
     /** The MAC access-list of the port at `index` in the catalog, for its `ethertypes`. MAC access-lists are 3000 and up. */

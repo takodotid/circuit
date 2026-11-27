@@ -25,6 +25,7 @@ export type {
     IpsecIntegrity,
     Limit,
     QosTrust,
+    TwoRateLimit,
     Link,
     MacAddress,
     PortRange,
