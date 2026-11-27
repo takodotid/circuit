@@ -745,3 +745,20 @@ test("an IPsec tunnel's remote identity is one of the four, written as RFC 7296 
         "interfaces.ipsec.key.remote_identity needs certificate and ca_certificate: the peer's certificate carries its identity",
     ]);
 });
+
+test("the VLANs a device keeps for itself are a range of VLAN IDs that holds no VLAN of the device's", () => {
+    const vrpSwitch = Fixtures.device("single-site--switch");
+    const device = (min: number, max: number): Device => ({
+        ...vrpSwitch,
+        switching: { ...vrpSwitch.switching, reserved_vlans: { min, max } },
+    });
+
+    expect(messages(device(4000, 4063)).filter((message) => message.includes("reserved_vlans"))).toEqual([]);
+    expect(messages(device(15, 25))).toContain(
+        "switching.vlans.home id 20 is in switching.reserved_vlans (15 to 25), which the device keeps for itself: give the VLAN an ID outside the range, or move the range"
+    );
+    expect(messages(device(4063, 4000))).toContain("switching.reserved_vlans.min 4063 is above max 4000: write the lower VLAN ID as min");
+    expect(messages(device(0, 4095))).toEqual(
+        expect.arrayContaining(["switching.reserved_vlans.min 0 is outside 1-4094", "switching.reserved_vlans.max 4095 is outside 1-4094"])
+    );
+});

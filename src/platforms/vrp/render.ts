@@ -1,7 +1,7 @@
 import { Address } from "../../core/address";
 import { Secrets } from "../../core/secrets";
 import { Utils } from "../../core/utils";
-import type { Device, Gre, Lag, Limit, Loopback, OspfArea, OspfInterface, Port, RateLimit, VlanInterface, Vrrp } from "../../model";
+import type { Device, Gre, Lag, Limit, Loopback, OspfArea, OspfInterface, Port, RateLimit, VlanInterface } from "../../model";
 import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { VrpAaa } from "./aaa";
@@ -20,8 +20,10 @@ import { VrpOspf } from "./ospf";
 import { VrpPolicies } from "./policies";
 import { VrpProbes } from "./probes";
 import { VrpQos } from "./qos";
+import { VrpRoutedPorts } from "./routed-ports";
 import { VrpRouterAdvertisement } from "./router-advertisement";
 import { VrpSwitching } from "./switching";
+import { VrpVrrp } from "./vrrp";
 
 /** The configuration in the form the device prints it: a block is a header, its indented lines, then `#`. */
 export class VrpRender {
@@ -145,7 +147,7 @@ export class VrpRender {
         }
 
         for (const [name, iface] of Object.entries(this.vlanInterfaces)) {
-            if (iface) this.block(`interface ${this.nameOf(name)}`, this.vlanInterface(name, iface));
+            if (iface) this.block(`interface ${this.nameOf(name)}`, this.layer3(name, iface));
         }
 
         for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {})) {
@@ -325,6 +327,12 @@ export class VrpRender {
             this.separator();
         }
 
+        const reserved = VrpRoutedPorts.lines(device);
+        if (reserved.length) {
+            this.lines.push(...reserved);
+            this.separator();
+        }
+
         const ids = Object.values(this.vlans).flatMap((vlan) => (vlan ? [vlan.id] : []));
         if (ids.length) {
             this.line(`vlan batch ${VrpRender.vlanBatch(ids)}`);
@@ -479,16 +487,8 @@ export class VrpRender {
         return lines;
     }
 
-    private static vrrpLines(group: Vrrp): string[] {
-        const lines = [`vrrp vrid ${group.id} virtual-ip ${group.address}`];
-        if (group.priority !== undefined) lines.push(`vrrp vrid ${group.id} priority ${group.priority}`);
-        // The platform preempts by default, and the config only does when asked.
-        if (!group.preempt) lines.push(`vrrp vrid ${group.id} preempt disable`);
-        if (group.interval !== undefined && group.interval !== 1) lines.push(`vrrp vrid ${group.id} timer advertise ${group.interval}`);
-        return lines;
-    }
-
-    private vlanInterface(name: string, iface: VlanInterface): string[] {
+    /** What a VLAN interface or a routed port routes with: its addresses, then the services and the routing on it. */
+    private layer3(name: string, iface: VlanInterface | Port): string[] {
         const device = this.device;
         const lines = this.addressing(name, iface);
 
@@ -496,7 +496,7 @@ export class VrpRender {
         if (iface.urpf?.ipv4 === "loose") lines.push("ip urpf enable");
         lines.push(...VrpRouterAdvertisement.lines(iface));
 
-        for (const group of iface.vrrp ?? []) lines.push(...VrpRender.vrrpLines(group));
+        for (const group of iface.vrrp ?? []) lines.push(...VrpVrrp.lines(group));
 
         const relays = Object.values(device.services?.dhcp_relay ?? {}).filter((relay) => relay.interface === name);
         if (relays.length) {
@@ -521,7 +521,7 @@ export class VrpRender {
     }
 
     /** An interface's description, VRF, and addresses. Binding to a VRF clears the addresses, so it comes first. */
-    private addressing(name: string, iface: VlanInterface | Loopback | Gre): string[] {
+    private addressing(name: string, iface: VlanInterface | Port | Loopback | Gre): string[] {
         const lines: string[] = [];
         if (iface.description) lines.push(`description ${iface.description}`);
         if (iface.vrf) lines.push(`ip binding vpn-instance ${iface.vrf}`);
@@ -575,9 +575,11 @@ export class VrpRender {
             return settings.description ? [membership, `description ${settings.description}`] : [membership];
         }
 
-        const lines: string[] = [];
-        if (settings.description) lines.push(`description ${settings.description}`);
-        lines.push(...this.switching(settings));
+        // A routed port leaves layer 2 before anything else, as the switch prints it.
+        const routed = VrpRoutedPorts.routes(settings);
+        const lines = routed ? ["undo portswitch", ...this.layer3(port, settings)] : [];
+        if (!routed && settings.description) lines.push(`description ${settings.description}`);
+        if (!routed) lines.push(...this.switching(settings));
         lines.push(...VrpRender.rateLimitLines(port, settings.rate_limit));
         lines.push(...VrpQos.portLines(this.device, settings));
         if (settings.lldp === false) lines.push("lldp disable");

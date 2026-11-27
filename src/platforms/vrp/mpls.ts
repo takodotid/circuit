@@ -4,6 +4,7 @@ import { Address } from "../../core/address";
 import type { Device, RouteMatch } from "../../model";
 import type { Group } from "../line-diff";
 import { VrpPolicies } from "./policies";
+import { VrpRoutedPorts } from "./routed-ports";
 
 /** An entry of a prefix list: its address, its length, and the lengths of the routes inside it that it matches. */
 type Range = { address: string; length: number; from: number; to: number };
@@ -112,8 +113,8 @@ export class VrpMpls {
                 );
 
         for (const name of ldp.interfaces)
-            if (!device.interfaces?.vlan_interface?.[name])
-                found.push(`routing.mpls.ldp.interfaces ${name}, not a VLAN interface: the switch routes on VLAN interfaces only. Use one`);
+            if (!device.interfaces?.vlan_interface?.[name] && !VrpRoutedPorts.port(device, name))
+                found.push(`routing.mpls.ldp.interfaces ${name}, neither a VLAN interface nor a routed port: the switch runs LDP on those`);
 
         const ipv6 =
             "V200R005 has no LDP for IPv6: `ipv6-family` is not a command in its `mpls ldp` view, and a VLAN interface refuses `mpls ldp ipv6`";

@@ -366,6 +366,9 @@ export class Junos extends Platform {
         const stp = device.switching?.stp;
         if (stp?.priority !== undefined && stp.priority % Junos.STP_PRIORITY_STEP !== 0)
             found.push("switching.stp.priority, in steps of 4096");
+        // Juniper's guides have no statement that reserves VLANs, and a routed port takes none.
+        if (device.switching?.reserved_vlans)
+            found.push("switching.reserved_vlans, which Junos has no setting for: it routes a port without reserved VLANs");
 
         const routing = device.routing;
         found.push(...JunosBgp.unsupported(device));

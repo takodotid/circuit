@@ -258,7 +258,7 @@ test("VRP refuses DNS servers and search domains, which V200R005 doesn't announc
             `${where}.dns_servers, V200R005 announces no DNS servers (RDNSS)`,
             `${where}.dns_search_list, V200R005 announces no search domains (DNSSL)`,
             `${where}.prefixes[0], the platform announces a prefix with both lifetimes: write valid_lifetime and preferred_lifetime`,
-            "interfaces.loopback.lo.ipv6_ra, on a VLAN interface only",
+            "interfaces.loopback.lo.ipv6_ra, on a VLAN interface or a routed port only",
         ])
     );
 });

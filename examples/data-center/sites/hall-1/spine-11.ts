@@ -15,25 +15,27 @@ export default dc.device({
     },
     management: { allow: ["10.0.0.0/24"], ssh: {} },
 
-    // A switch routes between VLAN interfaces, so each link is a VLAN of its own.
+    // Each link to another switch is a routed port. Management is a VLAN, as the hall's other devices are on it too.
     interfaces: {
         ethernet: {
-            "40g-1": { description: "leaf-11 40GE1/0/1", access_vlan: "row-1-link", link: { device: "leaf-11", port: "40g-1" } },
-            "40g-2": { description: "spine-21 40GE1/0/2, in hall 2", access_vlan: "spine-21" },
+            "40g-1": {
+                description: "leaf-11 40GE1/0/1",
+                addresses: ["10.1.0.1/30", "2001:db8:1::1/64"],
+                link: { device: "leaf-11", port: "40g-1" },
+            },
+            "40g-2": { description: "spine-21 40GE1/0/2, in hall 2", addresses: ["10.255.0.1/30", "2001:db8:ff::1/64"] },
             "10g-48": { description: "Management", access_vlan: "mgmt" },
         },
         vlan_interface: {
             mgmt: { vlan: "mgmt", addresses: ["10.0.0.11/24"] },
-            "leaf-11": { vlan: "row-1-link", addresses: ["10.1.0.1/30", "2001:db8:1::1/64"] },
-            "spine-21": { vlan: "spine-21", addresses: ["10.255.0.1/30", "2001:db8:ff::1/64"] },
         },
     },
     switching: {
         vlans: {
             mgmt: { id: 10, description: "Management" },
-            "row-1-link": { id: 101, description: "The link between spine-11 and leaf-11" },
-            "spine-21": { id: 201, description: "The link to spine-21, in hall 2" },
         },
+        // The switch routes a port on a VLAN of its own, one of these for each routed port. No VLAN above may be in the range.
+        reserved_vlans: { min: 4000, max: 4063 },
     },
 
     routing: {
@@ -53,8 +55,8 @@ export default dc.device({
             },
             // Broadcast links: VRP signs the one hello of a point-to-point link with one key, and each level here has its own.
             interfaces: {
-                "leaf-11": { metric: 10, bfd: true },
-                "spine-21": { metric: 100, bfd: true },
+                "40g-1": { metric: 10, bfd: true },
+                "40g-2": { metric: 100, bfd: true },
             },
             // A leaf takes the nearest spine to hall 2, not the default route to any spine.
             level2_to_level1: { import_policy: "hall-2" },

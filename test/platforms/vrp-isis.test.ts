@@ -204,7 +204,7 @@ test("VRP refuses an algorithm it lacks, a key for each level on a point-to-poin
     expect(vrp.unsupported(routed(refused))).toEqual([
         "routing.isis.authentication.algorithm hmac-sha-1, the platform signs IS-IS with hmac-md5 or hmac-sha-256",
         "routing.isis.interfaces.mgmt.network point-to-point with a key for each level: the platform signs the one hello it sends there for both levels with one key. Write routing.isis.authentication",
-        "routing.isis.interfaces.10g-2, not a VLAN interface: the platform routes on VLAN interfaces",
+        "routing.isis.interfaces.10g-2, neither a VLAN interface nor a routed port: the platform runs IS-IS on those",
     ]);
 });
 

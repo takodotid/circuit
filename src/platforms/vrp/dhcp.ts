@@ -1,9 +1,10 @@
 // DHCP servers: a global address pool for each, named after it. On V200R005 a VLAN interface takes neither `dhcp select` nor `dhcp server`, so no line ties a pool to its interface. The switch picks the pool whose network holds the interface's address, or the address of the relay a request came through. No client has asked one for an address yet, so a DHCP server is experimental.
 
 import { Address } from "../../core/address";
-import type { Device, DhcpServer, VlanInterface } from "../../model";
+import type { Device, DhcpServer, Port, VlanInterface } from "../../model";
 import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
+import { VrpRoutedPorts } from "./routed-ports";
 
 export class VrpDhcp {
     /** The lease the switch gives when the pool sets none, one day. It is not printed. */
@@ -78,7 +79,7 @@ export class VrpDhcp {
 
             if (!/^[A-Za-z0-9_.-]+$/.test(name) || name.length > VrpDhcp.NAME_LENGTH)
                 found.push(`${where}, a pool name of letters, digits, '-', '_' and '.', ${VrpDhcp.NAME_LENGTH} characters at most`);
-            if (!iface) found.push(`${where}.interface, the switch serves DHCP on VLAN interfaces`);
+            if (!iface) found.push(`${where}.interface, the switch serves DHCP on VLAN interfaces and routed ports`);
             // A relay's requests carry its address, by which the switch picks the pool, as it picks a local client's by the interface's.
             else if (server.relay !== undefined && !Address.contains(server.network, server.relay))
                 found.push(`${where}.relay, outside ${server.network}: the switch picks a pool by the relay's address`);
@@ -149,11 +150,12 @@ export class VrpDhcp {
             .map(([first, last]) => [Address.fromNumber(first, "ipv4"), Address.fromNumber(last, "ipv4")]);
     }
 
-    private static vlanInterface(device: Device, server: DhcpServer): VlanInterface | undefined {
-        return device.interfaces?.vlan_interface?.[server.interface];
+    /** The VLAN interface or routed port the server serves on. */
+    private static vlanInterface(device: Device, server: DhcpServer): VlanInterface | Port | undefined {
+        return device.interfaces?.vlan_interface?.[server.interface] ?? VrpRoutedPorts.port(device, server.interface);
     }
 
-    private static holdsNetwork(iface: VlanInterface, network: string): boolean {
+    private static holdsNetwork(iface: VlanInterface | Port, network: string): boolean {
         return (iface.addresses ?? []).some((entry) => {
             const address = typeof entry === "string" ? entry : entry.address;
             return Address.family(address) === "ipv4" && Address.prefixOf(address) === Address.prefixOf(network);

@@ -17,23 +17,27 @@ export default dc.device({
 
     interfaces: {
         ethernet: {
-            "40g-1": { description: "spine-11 40GE1/0/1", access_vlan: "row-1-link", link: { device: "spine-11", port: "40g-1" } },
+            "40g-1": {
+                description: "spine-11 40GE1/0/1",
+                addresses: ["10.1.0.2/30", "2001:db8:1::2/64"],
+                link: { device: "spine-11", port: "40g-1" },
+            },
             "10g-1": { description: "Rack 1, server 1", access_vlan: "servers" },
             "10g-2": { description: "Rack 1, server 2", access_vlan: "servers" },
             "10g-48": { description: "Management", access_vlan: "mgmt" },
         },
         vlan_interface: {
             mgmt: { vlan: "mgmt", addresses: ["10.0.0.21/24"] },
-            "spine-11": { vlan: "row-1-link", addresses: ["10.1.0.2/30", "2001:db8:1::2/64"] },
             servers: { vlan: "servers", addresses: ["10.1.1.1/24", "2001:db8:1:1::1/64"] },
         },
     },
     switching: {
         vlans: {
             mgmt: { id: 10, description: "Management" },
-            "row-1-link": { id: 101, description: "The link between spine-11 and leaf-11" },
             servers: { id: 111, description: "Row 1's servers" },
         },
+        // The switch routes its uplink to the spine on a VLAN of its own, from this range.
+        reserved_vlans: { min: 4000, max: 4063 },
     },
 
     routing: {
@@ -46,7 +50,7 @@ export default dc.device({
             // The device runs level 1 only, so its one key is hall 1's.
             authentication: { algorithm: "hmac-sha-256", key_id: 1, key: secret("ISIS_HALL_1_KEY") },
             interfaces: {
-                "spine-11": { metric: 10, bfd: true },
+                "40g-1": { metric: 10, bfd: true },
                 servers: { passive: true },
             },
         },

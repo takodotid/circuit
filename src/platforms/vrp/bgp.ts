@@ -1,6 +1,7 @@
 // BGP on VRP: one `bgp <asn>` view with each session, and a view for each address family that holds what the sessions exchange. The commands are from Huawei's CloudEngine command reference; a CE6855 on V200R005C00SPC800 showed which of them it has and how it prints them.
 
 import { Address } from "../../core/address";
+import { Catalog } from "../../core/catalog";
 import { Derive } from "../../core/derive";
 import { Secrets } from "../../core/secrets";
 import type { Device, Family, Interface, Neighbor, NeighborSettings, RouteRule } from "../../model";
@@ -8,6 +9,7 @@ import { LineDiff } from "../line-diff";
 import type { Dialect, Group } from "../line-diff";
 import { VrpNames } from "./names";
 import { VrpPolicies } from "./policies";
+import { VrpRoutedPorts } from "./routed-ports";
 
 export class VrpBgp {
     /** The view of each address family. */
@@ -59,8 +61,8 @@ export class VrpBgp {
         return { ...group, ...neighbor };
     }
 
-    /** The VLAN interface or loopback that holds `address`, as the switch calls it. */
-    static interfaceOf(device: Device, address: string): string | undefined {
+    /** The VLAN interface, loopback, or routed port that holds `address`, as the switch calls it. A VTEP passes `ports: false`, as no routed port was tried as one. */
+    static interfaceOf(device: Device, address: string, ports = true): string | undefined {
         const holds = (entries: NonNullable<Interface["addresses"]> = []) =>
             entries.some(
                 (entry) => Address.canonical(Address.host(typeof entry === "string" ? entry : entry.address)) === Address.canonical(address)
@@ -74,7 +76,8 @@ export class VrpBgp {
         for (const [name, loopback] of Object.entries(device.interfaces?.loopback ?? {}))
             if (holds(loopback?.addresses)) return VrpNames.loopback(device, name);
 
-        return undefined;
+        const port = Derive.ports(device).find(([, settings]) => ports && VrpRoutedPorts.routes(settings) && holds(settings.addresses));
+        return port && Catalog.spell(device.platform, device.model, port[0]);
     }
 
     /** A session from an IPv6 address of its own: `connect-interface` with an IPv6 address is in the command reference, but no switch has shown how it prints it. */
@@ -399,7 +402,7 @@ export class VrpBgp {
 
         const local = settings.local_address && Address.host(settings.local_address);
         if (local && !VrpBgp.interfaceOf(device, local))
-            found.push(`${where}.local_address ${local}, no VLAN interface or loopback of the device holds it`);
+            found.push(`${where}.local_address ${local}, no VLAN interface, loopback, or routed port of the device holds it`);
 
         return found;
     }

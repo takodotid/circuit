@@ -206,7 +206,7 @@ test("what a pool can't hold is refused", () => {
 
     expect(vrp.unsupported(device)).toEqual([
         "services.dhcp_server.on a port, a pool name of letters, digits, '-', '_' and '.', 64 characters at most",
-        "services.dhcp_server.on a port.interface, the switch serves DHCP on VLAN interfaces",
+        "services.dhcp_server.on a port.interface, the switch serves DHCP on VLAN interfaces and routed ports",
         "services.dhcp_server.elsewhere.interface, which has no address in 203.0.113.0/24: the switch picks a pool by that address",
         "services.dhcp_server.many-resolvers.dns, 8 servers at most",
         "services.dhcp_server.ipv6.dns, IPv6, which DHCP gives no client",

@@ -49,7 +49,7 @@ export class VrpSwitching {
         const { innerVlans } = Derive.stackedTags(device);
         // A CE6855 refused `qinq termination` in a VLAN interface's view, and a sub-interface on a port that is not routed (TRAPS.md).
         for (const where of innerVlans)
-            found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port`);
+            found.push(`${where}, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface of a routed port is not built yet`);
         found.push(...VrpSwitching.privateVlanGaps(device));
 
         // `stp bpdu-protection` guards every edge port at once.

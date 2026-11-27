@@ -907,9 +907,10 @@ export class Derive {
             if (port.hardware_offload !== undefined) found.push(`interfaces.ethernet.${name}.hardware_offload`);
         }
 
+        // A switch's routed port or interface takes an address with its length alone.
+        for (const { where, settings } of Derive.holders(device))
+            if (settings.addresses?.some((entry) => typeof entry !== "string")) found.push(`${where}.addresses, an address with a peer`);
         for (const { name, kind, settings } of Derive.interfaces(device)) {
-            if (settings.addresses?.some((entry) => typeof entry !== "string"))
-                found.push(`interfaces.${kind}.${name}.addresses with a peer`);
             if (settings.hardware_offload !== undefined) found.push(`interfaces.${kind}.${name}.hardware_offload`);
         }
 

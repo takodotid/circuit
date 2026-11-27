@@ -1,8 +1,9 @@
-// IS-IS on VRP: one process, `isis 1`, and the VLAN interfaces that run it. The commands are from Huawei's CloudEngine command reference. A CE6855 on V200R005C00SPC800 committed the process, VLAN interfaces that run it, its keys, and BFD, and showed how it prints them (TRAPS.md).
+// IS-IS on VRP: one process, `isis 1`, and the VLAN interfaces and routed ports that run it. The commands are from Huawei's CloudEngine command reference. A CE6855 on V200R005C00SPC800 committed the process, VLAN interfaces that run it, its keys, and BFD, and showed how it prints them (TRAPS.md).
 
 import { Secrets } from "../../core/secrets";
 import type { Device, Isis, IsisAuthentication } from "../../model";
 import type { Group } from "../line-diff";
+import { VrpRoutedPorts } from "./routed-ports";
 
 /** A level the device runs. */
 type Level = 1 | 2;
@@ -152,7 +153,7 @@ export class VrpIsis {
         return gone;
     }
 
-    /** What IS-IS can't do here. VRP routes on VLAN interfaces only, signs with HMAC-MD5 or HMAC-SHA-256, and sends one hello for both levels on a point-to-point link. */
+    /** What IS-IS can't do here. VRP runs it on VLAN interfaces and routed ports, signs with HMAC-MD5 or HMAC-SHA-256, and sends one hello for both levels on a point-to-point link. */
     static unsupported(device: Device): string[] {
         const isis = device.routing?.isis;
         if (!isis) return [];
@@ -170,8 +171,8 @@ export class VrpIsis {
         const signed = new Set(Object.values(VrpIsis.keys(isis)).map((key) => VrpIsis.signed(key)));
         for (const [name, settings] of Object.entries(isis.interfaces)) {
             const where = `routing.isis.interfaces.${name}`;
-            if (!device.interfaces?.vlan_interface?.[name])
-                found.push(`${where}, not a VLAN interface: the platform routes on VLAN interfaces`);
+            if (!device.interfaces?.vlan_interface?.[name] && !VrpRoutedPorts.port(device, name))
+                found.push(`${where}, neither a VLAN interface nor a routed port: the platform runs IS-IS on those`);
             if (settings?.network === "point-to-point" && signed.size > 1)
                 found.push(
                     `${where}.network point-to-point with a key for each level: the platform signs the one hello it sends there for both levels with one key. Write routing.isis.authentication`

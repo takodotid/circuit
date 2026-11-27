@@ -5,6 +5,7 @@ import { Derive } from "../../core/derive";
 import type { Device, Dhcpv6Server } from "../../model";
 import type { Group } from "../line-diff";
 import { VrpPolicies } from "./policies";
+import { VrpRoutedPorts } from "./routed-ports";
 
 export class VrpDhcpv6 {
     /** A pool name the switch takes: it refused one with a `-` (`Wrong parameter`). */
@@ -74,8 +75,8 @@ export class VrpDhcpv6 {
                 found.push(
                     `${where}, a pool name of letters, digits, and '_', ${VrpDhcpv6.NAME_LENGTH} characters at most: the switch refuses a '-'`
                 );
-            if (!device.interfaces?.vlan_interface?.[server.interface])
-                found.push(`${where}.interface, the switch serves DHCPv6 on VLAN interfaces`);
+            if (!device.interfaces?.vlan_interface?.[server.interface] && !VrpRoutedPorts.port(device, server.interface))
+                found.push(`${where}.interface, the switch serves DHCPv6 on VLAN interfaces and routed ports`);
             if (server.pool && Derive.dhcpv6Network(device, server)) {
                 const { prefix, excluded } = VrpDhcpv6.addresses(server.pool);
                 const left = excluded.reduce((sum, [first, last]) => sum + Address.toNumber(last)! - Address.toNumber(first)! + 1n, 0n);
