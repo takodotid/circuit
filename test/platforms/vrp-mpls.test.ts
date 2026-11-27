@@ -178,7 +178,7 @@ test("VRP refuses LDP for IPv6, a policy for the labels LDP takes, a policy for 
     });
 
     expect(vrp.unsupported(refused)).toEqual([
-        "routing.mpls.ldp.interfaces 10g-2, not a VLAN interface: the switch routes on VLAN interfaces only. Use one",
+        "routing.mpls.ldp.interfaces 10g-2, neither a VLAN interface nor a routed port: the switch runs LDP on those",
         "routing.mpls.ldp.address_families ipv6, V200R005 has no LDP for IPv6: `ipv6-family` is not a command in its `mpls ldp` view, and a VLAN interface refuses `mpls ldp ipv6`",
         "routing.mpls.ldp.ipv6_transport_address, V200R005 has no LDP for IPv6: `ipv6-family` is not a command in its `mpls ldp` view, and a VLAN interface refuses `mpls ldp ipv6`",
         "routing.mpls.ldp.import_policy, V200R005 has no policy for the labels LDP takes: `inbound peer` is not a command in its `mpls ldp` view",

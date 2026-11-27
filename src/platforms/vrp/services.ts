@@ -3,6 +3,7 @@
 import { Address } from "../../core/address";
 import { Derive } from "../../core/derive";
 import type { Device } from "../../model";
+import { VrpRoutedPorts } from "./routed-ports";
 
 export class VrpServices {
     /** A CE6855 on V200R005 refused `pki realm`, and its SSL policy loads a certificate only from a file: "The file to be loaded does not exist in flash:/security/". */
@@ -20,8 +21,8 @@ export class VrpServices {
             found.push("services.ipsec_remote_access, IPsec: a CloudEngine switch does not encrypt the traffic it forwards");
 
         for (const [name, relay] of Object.entries(services.dhcp_relay ?? {})) {
-            if (!device.interfaces?.vlan_interface?.[relay.interface])
-                found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces`);
+            if (!device.interfaces?.vlan_interface?.[relay.interface] && !VrpRoutedPorts.port(device, relay.interface))
+                found.push(`services.dhcp_relay.${name}.interface, relays run on VLAN interfaces and routed ports`);
             if (relay.servers.some((server) => Address.family(server) === "ipv6")) found.push(`services.dhcp_relay.${name}.servers, IPv6`);
             // A CE6855 on V200R005 refused `dhcp option82 insert enable` and `dhcp relay information enable` on a relay's VLAN interface.
             if (relay.relay_agent_information)

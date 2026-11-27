@@ -51,6 +51,14 @@ export type Vlan<Untrusted extends boolean = true, V extends string = string> = 
     vpls?: Vpls;
 };
 
+/** VLAN IDs from `min` to `max`, both included. */
+export type VlanRange = {
+    /** The first VLAN ID, 1 to 4094. */
+    min: number;
+    /** The last VLAN ID, 1 to 4094, not below `min`. */
+    max: number;
+};
+
 /**
  * Which packets an ACL rule applies to. All must be true.
  *
@@ -99,6 +107,10 @@ export type Stp = {
 export type Switching<V extends string, A extends string, I extends string, Untrusted extends boolean = true> = {
     /** VLANs, keyed by name. Ports, LAGs, and VLAN interfaces use these names. */
     vlans?: Named<V, Vlan<Untrusted, NoInfer<V>>>;
+    /**
+     * VLAN IDs the device keeps for its own use, such as `{ min: 4000, max: 4063 }`. No VLAN of `switching.vlans` may be in the range. VRP routes a port only on a VLAN of this range, one VLAN for each routed port, so a routed port there needs it. A platform with no such setting refuses it.
+     */
+    reserved_vlans?: VlanRange;
     /** Spanning tree on every switched port. A port may override it. */
     stp?: Stp;
     /** DHCP snooping: a switched port drops DHCP servers' messages, such as offers, unless it has `dhcp_trusted`. So no host hands out IPv4 addresses. DHCPv6 is not covered. */

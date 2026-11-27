@@ -1,7 +1,7 @@
-// IPv6 router advertisements on a VRP VLAN interface (RFC 4861). A CE6855 on V200R005C00SPC800 committed them on a VLAN interface with no ports (TRAPS.md).
+// IPv6 router advertisements on a VRP VLAN interface or routed port (RFC 4861). A CE6855 on V200R005C00SPC800 committed them on a VLAN interface with no ports, and on a spare routed port (TRAPS.md).
 
 import { Derive } from "../../core/derive";
-import type { Device, VlanInterface } from "../../model";
+import type { Device, Port, VlanInterface } from "../../model";
 import { VrpPolicies } from "./policies";
 
 export class VrpRouterAdvertisement {
@@ -14,7 +14,7 @@ export class VrpRouterAdvertisement {
     /**
      * The interface's advertisements, as the switch prints them. It announces each IPv6 network of the interface unless told `prefix default no-advertise`, so listed prefixes come with that line. `Max-interval` prints with a capital. The least interval is the switch's own, a third of the most.
      */
-    static lines(settings: VlanInterface): string[] {
+    static lines(settings: VlanInterface | Port): string[] {
         const ra = Derive.routerAdvertisement(settings);
         if (!ra) return [];
 
@@ -36,17 +36,17 @@ export class VrpRouterAdvertisement {
         return lines;
     }
 
-    /** What the switch can't announce: RAs anywhere but on a VLAN interface, DNS servers and search domains, and a prefix without both lifetimes. */
+    /** What the switch can't announce: RAs anywhere but on a VLAN interface or a routed port, DNS servers and search domains, and a prefix without both lifetimes. */
     static unsupported(device: Device): string[] {
         const found: string[] = [];
 
-        for (const { name, kind, settings } of Derive.interfaces(device)) {
+        for (const { where: holder, kind, settings } of Derive.holders(device)) {
             const ra = Derive.routerAdvertisement(settings);
             if (!ra) continue;
 
-            const where = `interfaces.${kind}.${name}.ipv6_ra`;
-            if (kind !== "vlan_interface") {
-                found.push(`${where}, on a VLAN interface only`);
+            const where = `${holder}.ipv6_ra`;
+            if (kind !== "vlan_interface" && kind !== "ethernet") {
+                found.push(`${where}, on a VLAN interface or a routed port only`);
                 continue;
             }
 

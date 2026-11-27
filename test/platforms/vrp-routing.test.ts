@@ -149,7 +149,7 @@ test("a GRE tunnel is Tunnel0 and on, and sends its protocol and its ends before
     expect(vrp.unsupported(inVrf)).toContain("interfaces.gre.ctest-gre.vrf, a GRE tunnel in a VRF, not tested");
 });
 
-test("a routed port, a bridge, and a VLAN interface on an inner VLAN are refused with what the switch said", () => {
+test("a routed port without reserved VLANs, a bridge, and a VLAN interface on an inner VLAN are refused with what the switch said", () => {
     const device = routed(
         {},
         {
@@ -162,8 +162,8 @@ test("a routed port, a bridge, and a VLAN interface on an inner VLAN are refused
     expect(vrp.unsupported(device)).toEqual(
         expect.arrayContaining([
             "interfaces.bridge.both, a bridge: a CloudEngine bridge domain binds one VLAN, and no VLAN that has a VLAN interface",
-            "interfaces.ethernet.10g-48.addresses, a routed port: the switch routes a port only on a VLAN it reserves for it, which Circuit has no key for. Use a VLAN interface",
-            "interfaces.vlan_interface.inner.inner_vlan_id, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface needs a routed port",
+            "interfaces.ethernet.10g-48.addresses, a routed port: the switch routes a port only on a VLAN it reserves for routed ports. Write switching.reserved_vlans, such as { min: 4000, max: 4063 }, a range no VLAN of the switch is in",
+            "interfaces.vlan_interface.inner.inner_vlan_id, a VLAN interface on V200R005 ends no inner VLAN, and a sub-interface of a routed port is not built yet",
         ])
     );
 });
@@ -381,5 +381,29 @@ test("OSPF on a tunnel or a loopback is point-to-point, which the switch does no
     expect(vrp.unsupported(device("point-to-point"))).toEqual([]);
     expect(vrp.unsupported(device("broadcast"))).toEqual([
         "routing.ospf.areas.0.0.0.0.interfaces.ctest-gre.network broadcast, the switch runs OSPF on a tunnel or a loopback as point-to-point only",
+    ]);
+});
+
+test("an old IPv6 address is undone before the new one, and a VRRP group takes its new address before the old one goes", () => {
+    const withAddresses = (ipv6: "2001:db8:3981::1/64" | "2001:db8:3982::1/64", vrrp: "192.0.2.6" | "192.0.2.5") =>
+        routed(
+            {},
+            {
+                vlan_interface: {
+                    ...base.interfaces!.vlan_interface,
+                    "ctest-a": { vlan: "ctest-a", addresses: ["192.0.2.1/28", ipv6], vrrp: [{ id: 1, address: vrrp, priority: 120 }] },
+                },
+            }
+        );
+    const before = vrp.render(withAddresses("2001:db8:3981::1/64", "192.0.2.6"));
+
+    // A CE6855 kept both, and a group whose last address went forgot its `preempt disable`.
+    expect(sent(vrp.render(withAddresses("2001:db8:3982::1/64", "192.0.2.5")), before)).toEqual([
+        "interface Vlanif3981",
+        "vrrp vrid 1 virtual-ip 192.0.2.5",
+        "undo vrrp vrid 1 virtual-ip 192.0.2.6",
+        "undo ipv6 address 2001:DB8:3981::1/64",
+        "ipv6 address 2001:DB8:3982::1/64",
+        "quit",
     ]);
 });

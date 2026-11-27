@@ -232,6 +232,7 @@ export class DeviceChecks {
             ids.set(vlan.id, name);
         }
 
+        DeviceChecks.reservedVlans(device, ids, report);
         DeviceChecks.privateVlans(device, report);
 
         const qinq = new Set(Derive.switchedHolders(device).flatMap(({ settings }) => (settings.qinq_vlan ? [settings.qinq_vlan] : [])));
@@ -239,6 +240,24 @@ export class DeviceChecks {
             if (settings && qinq.has(settings.vlan) && settings.inner_vlan_id === undefined)
                 report(
                     `interfaces.vlan_interface.${iface} is on ${settings.vlan}, which carries customers' frames as a QinQ VLAN: route on another VLAN, or end one VLAN inside it with inner_vlan_id`
+                );
+    }
+
+    /** The VLANs a device keeps for itself are whole VLAN IDs, `min` not above `max`, and none of them is a VLAN of the device's. */
+    private static reservedVlans(device: Device, ids: ReadonlyMap<number, string>, report: Report): void {
+        const range = device.switching?.reserved_vlans;
+        if (!range) return;
+
+        const where = "switching.reserved_vlans";
+        for (const field of ["min", "max"] as const)
+            if (!Number.isInteger(range[field]) || range[field] < 1 || range[field] > DeviceChecks.MAX_VLAN_ID)
+                report(`${where}.${field} ${range[field]} is outside 1-${DeviceChecks.MAX_VLAN_ID}`);
+        if (range.min > range.max) report(`${where}.min ${range.min} is above max ${range.max}: write the lower VLAN ID as min`);
+
+        for (const [id, name] of ids)
+            if (id >= range.min && id <= range.max)
+                report(
+                    `switching.vlans.${name} id ${id} is in ${where} (${range.min} to ${range.max}), which the device keeps for itself: give the VLAN an ID outside the range, or move the range`
                 );
     }
 

@@ -338,6 +338,9 @@ export class RaisecomRosUnsupported {
 
         if (switching?.stp?.mode && switching.stp.mode !== "mstp") found.push("switching.stp.mode other than mstp");
         if (switching?.ra_guard) found.push(`switching.ra_guard, ${RaisecomRosUnsupported.RA_GUARD}`);
+        // A RAX721 on ROS 6.5.2 routed a port without reserved VLANs (decision 254).
+        if (switching?.reserved_vlans)
+            found.push("switching.reserved_vlans, which Raisecom ROS has no setting for: it routes a port without reserved VLANs");
         for (const { where, settings } of Derive.switchedHolders(device)) {
             if (settings.ra_trusted) found.push(`${where}.ra_trusted, ${RaisecomRosUnsupported.RA_GUARD}`);
             if (settings.bound_to) found.push(`${where}.bound_to, ${RaisecomRosUnsupported.SOURCE_GUARD}`);

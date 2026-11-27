@@ -282,6 +282,9 @@ export class RouterOs extends Platform {
             found.push(
                 "switching.arp_inspection, which RouterOS 7.24 doesn't have: its bridge and ports take no arp-inspection. MikroTik adds it in 7.25, not tested yet"
             );
+        // MikroTik's manual has no setting that reserves VLANs, and a routed port takes none.
+        if (device.switching?.reserved_vlans)
+            found.push("switching.reserved_vlans, which RouterOS has no setting for: it routes a port without reserved VLANs");
         found.push(...RouterOsPseudowire.unsupported(device));
         for (const [name] of RouterOsSyntax.entries(device.interfaces?.ipsec))
             found.push(
